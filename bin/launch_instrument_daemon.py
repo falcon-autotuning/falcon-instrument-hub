@@ -10,16 +10,17 @@ import json
 from typing import TYPE_CHECKING, Any
 
 import nats
-from instrument_server.instrument_daemons.sync_sender import SyncSender
 
-from instrument_server import get_driver
 from instrument_server.constants import RUNTIME_COMMANDS
+from instrument_server.instrument_daemons.sync_sender import SyncSender
+from instrument_server.registry_controls import find_daemon
 
 if TYPE_CHECKING:
+    from nats.aio.msg import Msg
+
     from instrument_server.instrument_daemons.base_instrument_daemon import (
         BaseInstrumentDaemon,
     )
-    from nats.aio.client import Msg
 
 # Load all driver plugins
 for entry_point in importlib.metadata.entry_points(group="driver.plugins"):
@@ -54,21 +55,7 @@ def get_driver_config_from_args() -> dict[str, Any]:
     }
 
 
-def build_daemon_name(config: dict[str, Any]) -> str:
-    """Returns the daemon name from the config.
-
-    Args:
-        config: The configuration dictionary.
-
-    Returns:
-        The name of the daemon.
-    """
-    raw_driver = config["instrument_driver"]
-    assert raw_driver is not None, "instrument cannot be None"
-    return raw_driver
-
-
-def build_daemon(daemon_name: str) -> type["BaseInstrumentDaemon"]:
+def build_daemon(config: dict[str, Any]) -> type["BaseInstrumentDaemon"]:
     """Builds the daemon class from its name.
 
     Args:
@@ -77,7 +64,9 @@ def build_daemon(daemon_name: str) -> type["BaseInstrumentDaemon"]:
     Returns:
         The daemon class.
     """
-    selected_driver = get_driver(name=daemon_name)
+    daemon_name = config["instrument_driver"]
+    assert daemon_name is not None, "instrument cannot be None"
+    selected_driver = find_daemon(daemon_name=daemon_name)
     assert selected_driver is not None, f"daemon {daemon_name} not found"
     return selected_driver
 
@@ -108,6 +97,7 @@ async def main(
         daemon_name: The name of the daemon.
         loop: The event loop to use for synchronous operations.
     """
+    daemon_name = daemon_class.__name__
 
     async def send_command(
         channel: str,
@@ -207,7 +197,7 @@ async def main(
     nc = await nats.connect(url)
 
     # Create a SyncSender for the daemon
-    sync_sender = SyncSender(send_command)
+    sync_sender = SyncSender(send_command, loop=loop)
     running_daemon = daemon_class(
         sync_sender=sync_sender,
     )
@@ -262,8 +252,7 @@ async def main(
 
 if __name__ == "__main__":
     config = get_driver_config_from_args()
-    daemon_name = build_daemon_name(config)
-    daemon_class = build_daemon(daemon_name)
+    daemon_class = build_daemon(config)
 
     # Create the event loop that will be shared with SyncSender
     loop = asyncio.new_event_loop()

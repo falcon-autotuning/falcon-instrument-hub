@@ -38,8 +38,12 @@ class SyncSender:
             channel: The channel to send the message to.
             message: The message to send.
         """
-        future = asyncio.run_coroutine_threadsafe(
-            self._async_send_func(channel, message), self._loop
-        )
+
+        # Create a proper coroutine wrapper to ensure we pass a coroutine to run_coroutine_threadsafe
+        async def _coroutine_wrapper():
+            return await self._async_send_func(channel, message)
+
+        # Pass the genuine coroutine object to run_coroutine_threadsafe
+        future = asyncio.run_coroutine_threadsafe(_coroutine_wrapper(), self._loop)
         # Block until the message is sent
         future.result()

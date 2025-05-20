@@ -4,11 +4,13 @@ import json
 from typing import TYPE_CHECKING
 
 from ..constants import RUNTIME_COMMANDS
+from ..registry_controls import add_daemon
 from .base_property import BaseProperty
 from .indexed_properties import IndexedProperties
 from .sync_sender import SyncSender
 
 if TYPE_CHECKING:
+    from .sync_sender import SyncSender
     from .typing import Bounds, GetCommand, Index, PropertyName, SetCommand
 
 
@@ -21,7 +23,13 @@ class BaseInstrumentDaemon:
     _properties: dict["PropertyName", "IndexedProperties"]
     _sync_sender: "SyncSender"
 
-    def __init__(self, sync_sender: SyncSender):
+    def __init_subclass__(cls):
+        add_daemon(
+            daemon_name=cls.__name__,
+            daemon_class=cls,
+        )
+
+    def __init__(self, sync_sender: "SyncSender"):
         """When instancing this subclass, make sure to specify the program_property method for each property of the daemon.
 
         Args:
@@ -33,6 +41,18 @@ class BaseInstrumentDaemon:
     def sync_sender(self) -> "SyncSender":
         """The synchronous message sender for the daemon."""
         return self._sync_sender
+
+    def send(self, channel, message: dict[str, str | int | float | bool]) -> None:
+        """Send a message to the daemon.
+
+        Args:
+            channel: The channel to send the message to.
+            message: The message to send.
+        """
+        self._sync_sender._sync_send(
+            channel + f".{self.__class__.__name__}",
+            json.dumps(message),
+        )
 
     @property
     def properties(self) -> dict["PropertyName", "IndexedProperties"]:
@@ -101,12 +121,10 @@ class BaseInstrumentDaemon:
 
         """
         value = self._properties[property_name][index].get_cmd()
-        message = json.dumps(
-            {
-                RUNTIME_COMMANDS.RETURN_GET.VALUE: value,
-            }
-        )
-        self.sync_sender.send(
+        message = {
+            RUNTIME_COMMANDS.RETURN_GET.VALUE: value,
+        }
+        self.send(
             RUNTIME_COMMANDS.RETURN_GET.COMM_CHANNEL,
             message,
         )
