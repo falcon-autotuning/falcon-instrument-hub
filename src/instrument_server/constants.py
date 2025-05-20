@@ -69,8 +69,24 @@ class RUNTIME_COMMANDS:
     """All of the various runtime commands that an instrument needs to support."""
 
     LOG = LOG()
-    RECEIVE_PING = RECEIVE_PING()
     SET = SET()
     GET = GET()
     RETURN_GET = RETURN_GET()
     RETURN_DATA = RETURN_DATA()
+
+
+class SUPPORTED_PROPERTIES:
+    """All of the various properties that an instrument daemon could need to support."""
+
+    # voltage source instruments
+    VOLTAGE_STATE = "voltage_state"
+    SLOPE = "slope"
+    WAVEFORM = "waveform"
+    TRIGGER = "trigger"
+    LEADER = "leader"
+    FOLLOWER = "follower"
+
+    # signal recovery instruments
+    TRIGGER_READY = "trigger_ready"
+    NUMBER_OF_BINS = "number_of_bins"
+    SAMPLE_RATE = "sample_rate"
