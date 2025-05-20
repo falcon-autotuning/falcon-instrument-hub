@@ -29,6 +29,8 @@ dependencies = [
   "setuptools-scm==8.1.0",
   "nats.py==2.10.0",
 ]
+[project.entry-points."driver.plugins"]
+base_autotuner = "instrument_server.instrument_daemons.base_instrument_daemon:main"
 
 [project.readme]
 file = "README.rst"
