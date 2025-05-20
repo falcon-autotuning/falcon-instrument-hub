@@ -7,9 +7,6 @@ import json
 import nats
 from typing import TYPE_CHECKING
 from instrument_server.constants import RUNTIME_COMMANDS
-from instrument_server.instrument_demons.base_instrument_demon import (
-    BaseInstrumentDemon,
-)
 from instrument_server import get_driver
 
 import importlib
@@ -18,7 +15,11 @@ import importlib.metadata
 from instrument_server.instrument_demons.message_config import MessageConfig
 
 if TYPE_CHECKING:
-    from falcon.typing import Any
+    from typing import Any
+
+    from instrument_server.instrument_demons.base_instrument_demon import (
+        BaseInstrumentDemon,
+    )
 
 
 for entry_point in importlib.metadata.entry_points(group="driver.plugins"):
@@ -80,14 +81,14 @@ def build_demon_name(
     return raw_driver
 
 
-def build_demon(demon_name: str) -> type[BaseInstrumentDemon]:
+def build_demon(demon_name: str) -> type["BaseInstrumentDemon"]:
     selected_driver = get_driver(name=demon_name)
     assert selected_driver is not None, f"Demon {demon_name} not found"
     return selected_driver
 
 
 async def main(
-    running_demon: BaseInstrumentDemon,
+    running_demon: "BaseInstrumentDemon",
     message_config: MessageConfig,
     demon_name: str,
 ) -> None:
@@ -99,7 +100,7 @@ async def main(
         demon_name: The name of the demon.
     """
 
-    async def message_handler(msg: nats.msg):
+    async def message_handler(msg: nats.Msg):
         subject = msg.subject
         data = msg.data.decode()
         print(f"Received a message on {subject}: {data}")

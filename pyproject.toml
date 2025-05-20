@@ -1,0 +1,126 @@
+[build-system]
+requires = [
+  "setuptools >= 65.5.0",
+  "setuptools_scm",
+  # "versioningit >= 2.2.1",
+]
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = "instrument_server"
+maintainers = [
+  { name = "FAlCon Core Developers", email = "falcon-support@falcon.com" },
+]
+description = "Python-based instrument server for loading instruments into FAlCon."
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+license = { text = "MIT" }
+requires-python = ">=3.13"
+version = "0.0.0"
+dependencies = [
+  "numpy>=2.0.0",
+  "pytest==8.2.1",
+  "setuptools-scm==8.1.0",
+  "nats.py==2.10.0",
+]
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.scripts]
+launch-daemon = "falcon.bin.launch_instrument_daemon:main"
+# [project.urls]
+# Homepage = "https://github.com/microsoft/Qcodes"
+# Documentation = "https://microsoft.github.io/Qcodes/"
+# Source = "https://github.com/microsoft/qcodes"
+# Tracker = "https://github.com/microsoft/Qcodes/issues"
+# Changelog = "https://microsoft.github.io/Qcodes/changes/index.html"
+
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+[tool.coverage.run]
+omit = ["src/falcon/__init__.py", "*/__init__.py"]
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+# we ignore warnings
+# triggered by third party packages
+# and error on all other warnings
+filterwarnings = [
+  'error',
+  'ignore:Deprecated call to `pkg_resources\.declare_namespace:DeprecationWarning',                                               # google, sphinxcontrib
+  'ignore:pkg_resources is deprecated as an API:DeprecationWarning',                                                              # pyvisa-sim
+  'ignore:open_binary is deprecated:DeprecationWarning',                                                                          # pyvisa-sim
+  'ignore:datetime.datetime.utcfromtimestamp\(\) is deprecated and scheduled for removal in a future version:DeprecationWarning', # tqdm dateutil
+  'ignore:Jupyter is migrating its paths to use standard platformdirs:DeprecationWarning',                                        # jupyter
+  'ignore:Parsing dates involving a day of month without a year specified is ambiguious:DeprecationWarning',                      # ipykernel 3.13+
+  'ignore:unclosed database in:ResourceWarning',                                                                                  # internal should be fixed
+]
+
+# known-first-party = ["falcon"]
+
+# TID253 these imports are fine at module level
+# in tests and examples
+"docs/*" = ["TID253"]
+"tests/*" = ["TID253"]
+
+# [tool.versioningit]
+# default-version = "0.0"
+#
+# [tool.versioningit.format]
+# distance = "{next_version}.dev{distance}+{branch}.{vcs}{rev}"
+# dirty = "{next_version}.dev{distance}+{branch}.{vcs}{rev}.dirty"
+# distance-dirty = "{next_version}.dev{distance}+{branch}.{vcs}{rev}.dirty"
+#
+# [tool.versioningit.vcs]
+# method = "git"
+# match = ["v*"]
+#
+# [tool.versioningit.onbuild]
+# source-file = "src/falcon/_version.py"
+# build-file = "falcon/_version.py"
+
+[tool.setuptools.packages.find]
+# All the following settings are optional:
+where = ["src"]                  # ["."] by default
+include = ["instrument_server*"] # ["*"] by default
+exclude = []                     # empty by default
+namespaces = false               # true by default
+
+[tool.pytest.ini_options]
+# addopts="-n 5 --dist worksteal"
+
+
+[tool.ruff]
+line-length = 88
+
+
+# Pyrefly header
+[tool.pyrefly]
+
+#### configuring what to type check and where to import from
+project_includes = ["src"]
+project_excludes = ["**/.[!/.]*", "**/tests"]
+search_path = ["src"]
+site_package_path = ["venv/lib/python3.13/site-packages"]
+
+#### configuring your python environment
+python_platform = "linux"
+python_version = "3.13"
+python_interpreter = "venv/bin/python3"
+
+ignore_errors_in_generated_code = true
+use_untyped_imports = true
+ignore_missing_source = true
+
+[tool.pyrefly.errors]
+bad-assignment = false
+invalid-argument = false
