@@ -1,33 +1,37 @@
 #!/usr/bin/env python3
 """A script that can launch any instrument for the instrument server."""
 
-import argparse  # noqa: I001
+import argparse
 import asyncio
-import json
-import nats
-from typing import TYPE_CHECKING
-from instrument_server.constants import RUNTIME_COMMANDS
-from instrument_server import get_driver
-
+import datetime
 import importlib
 import importlib.metadata
+import json
+from typing import TYPE_CHECKING, Any
 
-from instrument_server.instrument_demons.message_config import MessageConfig
+import nats
+from instrument_server.instrument_daemons.sync_sender import SyncSender
+
+from instrument_server import get_driver
+from instrument_server.constants import RUNTIME_COMMANDS
 
 if TYPE_CHECKING:
-    from typing import Any
-
-    from instrument_server.instrument_demons.base_instrument_demon import (
-        BaseInstrumentDemon,
+    from instrument_server.instrument_daemons.base_instrument_daemon import (
+        BaseInstrumentDaemon,
     )
+    from nats.aio.client import Msg
 
-
+# Load all driver plugins
 for entry_point in importlib.metadata.entry_points(group="driver.plugins"):
     importlib.import_module(entry_point.value)
 
 
-def get_driver_config_from_args():
-    """Unpacks arguments from the command line and returns a dictionary of the arguments."""
+def get_driver_config_from_args() -> dict[str, Any]:
+    """Unpacks arguments from the command line and returns a dictionary of the arguments.
+
+    Returns:
+        A dictionary containing the configuration parameters.
+    """
     parser = argparse.ArgumentParser(
         description="Launch a BaseInstrument.",
     )
@@ -37,138 +41,244 @@ def get_driver_config_from_args():
         help="Type of the control unit",
     )
     parser.add_argument(
-        "message_config",
+        "url",
         type=str,
-        help="Path to JSON file for message configuration",
+        help="URL for NATS server connection",
     )
 
     args = parser.parse_args()
 
-    # Load JSON files for globals, instance variables, and message config
-    try:
-        message_config_data = json.loads(args.message_config)
-    except (FileNotFoundError, json.JSONDecodeError) as e:
-        msg = f"Error loading JSON file: {e}"
-        raise RuntimeError(msg)
-
     return {
         "instrument_driver": args.instrument_driver,
-        "message_config": message_config_data,
+        "url": args.url,
     }
 
 
-def build_message_config(config: dict[str, "Any"]) -> MessageConfig:
-    """Returns the message config from the config."""
-    message_config_raw = config["message_config"]
-    assert message_config_raw is not None, "message_config cannot be None"
-    assert isinstance(message_config_raw, dict), "message_config must be a dict"
-    url = message_config_raw["url"]
-    assert isinstance(url, str), "url must be a string"
-    ping_timeout = message_config_raw.get("ping_timeout", 1.0)
-    assert isinstance(ping_timeout, (int, float)), "ping_timeout must be a number"
-    return MessageConfig(
-        url=url,
-        timeout_ping=ping_timeout,
-    )
+def build_daemon_name(config: dict[str, Any]) -> str:
+    """Returns the daemon name from the config.
 
+    Args:
+        config: The configuration dictionary.
 
-def build_demon_name(
-    config: dict[str, "Any"],
-) -> str:
-    """Returns the demon name from the config."""
+    Returns:
+        The name of the daemon.
+    """
     raw_driver = config["instrument_driver"]
     assert raw_driver is not None, "instrument cannot be None"
     return raw_driver
 
 
-def build_demon(demon_name: str) -> type["BaseInstrumentDemon"]:
-    selected_driver = get_driver(name=demon_name)
-    assert selected_driver is not None, f"Demon {demon_name} not found"
+def build_daemon(daemon_name: str) -> type["BaseInstrumentDaemon"]:
+    """Builds the daemon class from its name.
+
+    Args:
+        daemon_name: The name of the daemon.
+
+    Returns:
+        The daemon class.
+    """
+    selected_driver = get_driver(name=daemon_name)
+    assert selected_driver is not None, f"daemon {daemon_name} not found"
     return selected_driver
 
 
+def specific_channel(channel: str, daemon_name: str) -> str:
+    """Builds a specific channel for the daemon.
+
+    Args:
+        channel: The base channel.
+        daemon_name: The name of the daemon.
+
+    Returns:
+        The specific channel for the daemon.
+    """
+    return f"{channel}.{daemon_name}"
+
+
 async def main(
-    running_demon: "BaseInstrumentDemon",
-    message_config: MessageConfig,
-    demon_name: str,
+    url: str,
+    daemon_class: type["BaseInstrumentDaemon"],
+    loop: asyncio.AbstractEventLoop,
 ) -> None:
     """The main function to process server requests.
 
     Args:
-        running_demon: The demon running with the instrument.
-        message_config: The message configuration for the demon.
-        demon_name: The name of the demon.
+        running_daemon: The daemon running with the instrument.
+        url: The URL of the NATS server.
+        daemon_name: The name of the daemon.
+        loop: The event loop to use for synchronous operations.
     """
-
-    async def message_handler(msg: nats.Msg):
-        subject = msg.subject
-        data = msg.data.decode()
-        print(f"Received a message on {subject}: {data}")
-        # Do something corresponding to the message
-        # For example:
-        if subject == "channel1":
-            print("Handling channel1")
-        elif subject == "channel2":
-            print("Handling channel2")
-        elif subject == "channel3":
-            print("Handling channel3")
 
     async def send_command(
         channel: str,
-        command_str: str,
-    ):
-        """Send a command string to a specific channel."""
-        await nc.publish(channel, command_str.encode())
+        message: str,
+    ) -> None:
+        """Send a command string to a specific channel.
 
-    async def log(message):
+        Args:
+            channel: The channel to send the command to.
+            message: The message to send.
+        """
+        await nc.publish(channel, message.encode())
+
+    async def log(
+        message: str,
+        daemon_name: str,
+    ) -> None:
+        """Log a message to the NATS server.
+
+        Args:
+            nc: The NATS client.
+            message: The message to log.
+            daemon_name: The name of the daemon.
+        """
+        message = json.dumps({RUNTIME_COMMANDS.LOG.MESSAGE: message})
         await send_command(
-            RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{demon_name}",
-            message,
+            channel=specific_channel(
+                channel=RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
+                daemon_name="instrument_server",
+            ),
+            message=message,
         )
 
-    async def return_get(message):
-        await send_command(
-            RUNTIME_COMMANDS.RETURN_GET.COMM_CHANNEL + f".{demon_name}",
-            message,
-        )
+    async def handle_set(
+        msg: "Msg",
+    ) -> None:
+        """Handle a SET command.
 
-    async def return_data(message):
-        await send_command(
-            RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL + f".{demon_name}",
-            message,
-        )
+        Args:
+            msg: The NATS message.
+        """
+        try:
+            data = json.loads(msg.data.decode())
+            property_name = data.get(RUNTIME_COMMANDS.SET.PROPERTY)
+            index = data.get(RUNTIME_COMMANDS.SET.INDEX)
+            value = data.get(RUNTIME_COMMANDS.SET.VALUE)
 
-    nc = await nats.connect(
-        message_config.url,
+            if not all([property_name, index, value is not None]):
+                await log(
+                    message="Invalid SET command",
+                    daemon_name=daemon_name,
+                )
+                return
+
+            running_daemon.set_property(
+                property_name=property_name,
+                index=index,
+                value=value,
+            )
+            await log(
+                message="SET command executed",
+                daemon_name=daemon_name,
+            )
+        except Exception as e:
+            await log(
+                message=f"Error in SET command: {e!s}",
+                daemon_name=daemon_name,
+            )
+
+    async def handle_get(
+        msg: "Msg",
+    ) -> None:
+        """Handle a GET command.
+
+        Args:
+            msg: The NATS message.
+        """
+        try:
+            data = json.loads(msg.data.decode())
+            property_name = data.get("property_name")
+            index = data.get("index")
+
+            if not all([property_name, index]):
+                await log(
+                    message="Invalid GET command",
+                    daemon_name=daemon_name,
+                )
+                return
+
+            running_daemon.get_property(property_name, index)
+        except Exception as e:
+            await log(
+                message=f"Error in GET command: {e!s}",
+                daemon_name=daemon_name,
+            )
+
+    nc = await nats.connect(url)
+
+    # Create a SyncSender for the daemon
+    sync_sender = SyncSender(send_command)
+    running_daemon = daemon_class(
+        sync_sender=sync_sender,
     )
 
-    # Subscribe to all channels
-    channels = [
-        RUNTIME_COMMANDS.RECEIVE_PING.COMM_CHANNEL,
-        RUNTIME_COMMANDS.SET.COMM_CHANNEL,
-        RUNTIME_COMMANDS.GET.COMM_CHANNEL,
-    ]
-    for channel in channels:
-        await nc.subscribe(channel, cb=message_handler)
+    # Send initialization confirmation
+    init_config = running_daemon.to_json_config()
+    init_message = json.dumps(
+        {
+            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
+            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
+                datetime.datetime.now()
+            ),
+            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(init_config),
+        }
+    )
+    await send_command(
+        channel=specific_channel(
+            channel=RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL,
+            daemon_name=daemon_name,
+        ),
+        message=init_message,
+    )
 
-    await log(f"Waiting for messages on channels: {channels}")
+    # Subscribe to command channels
+    await nc.subscribe(
+        specific_channel(
+            channel=RUNTIME_COMMANDS.SET.COMM_CHANNEL, daemon_name=daemon_name
+        ),
+        cb=handle_set,
+    )
+    await nc.subscribe(
+        specific_channel(
+            channel=RUNTIME_COMMANDS.GET.COMM_CHANNEL, daemon_name=daemon_name
+        ),
+        cb=handle_get,
+    )
+
+    # Create a future that will keep the main task running indefinitely
+    # This will keep the connection open until an external signal interrupts
+    forever = asyncio.Future()
+
     try:
-        while True:
-            await asyncio.sleep(message_config.timeout_ping)
+        # Wait forever or until the program is interrupted
+        await forever
+    except asyncio.CancelledError:
+        # Handle graceful shutdown if the future is cancelled
+        print(f"Daemon {daemon_name} shutting down...")
     finally:
+        # Properly drain the connection when exiting
         await nc.drain()
 
 
 if __name__ == "__main__":
     config = get_driver_config_from_args()
-    demon_name = build_demon_name(config)
-    demon = build_demon(demon_name)
-    running_demon = demon()
-    message_config = build_message_config(config)
-    asyncio.run(
-        main(
-            running_demon=running_demon,
-            message_config=message_config,
-            demon_name=demon_name,
+    daemon_name = build_daemon_name(config)
+    daemon_class = build_daemon(daemon_name)
+
+    # Create the event loop that will be shared with SyncSender
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    url = config["url"]
+
+    try:
+        # Run the main function in the loop
+        loop.run_until_complete(
+            main(
+                daemon_class=daemon_class,
+                url=url,
+                loop=loop,  # Pass the loop to main
+            )
         )
-    )
+    finally:
+        # Ensure the loop is closed when we're done
+        loop.close()
