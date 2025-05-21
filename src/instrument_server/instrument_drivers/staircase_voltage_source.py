@@ -30,6 +30,7 @@ class StaircaseVoltageSource(BaseInstrumentDriver):
     _set_slope: "SetIndexedCommand[float]"
     _get_slope: "GetIndexedCommand[float]"
     _set_staircase: "SetIndexedCommand[Staircase]"
+    _set_leader: "SetIndexedCommand[bool]"
     _voltage_bounds: tuple[float, float]
     _slope_bounds: tuple[float, float]
     _staircase_bounds: tuple["Staircase", "Staircase"]
@@ -55,6 +56,12 @@ class StaircaseVoltageSource(BaseInstrumentDriver):
             property_name=SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_SCALING,
             index=self._global_index,
             get_cmd=lambda: True,
+        )
+        self.program_property(
+            property_name=SUPPORTED_PROPERTIES.LEADER,
+            index=self._global_index,
+            get_cmd=self._make_get_leader(),
+            set_cmd=self._make_set_leader(),
         )
         self.program_property(
             property_name=SUPPORTED_PROPERTIES.NUMBER_SIMULTANEOUS_WAVEFORMS,
@@ -88,6 +95,23 @@ class StaircaseVoltageSource(BaseInstrumentDriver):
             )
             for index in self._indexes
         ]
+
+    def _make_get_leader(self) -> "GetCommand[bool]":
+        """Wraps the cache system since this is a derived quantity.
+
+        Returns:
+            A lambda function that returns the leader of the source.
+        """
+        return lambda: self._property_cache[SUPPORTED_PROPERTIES.LEADER][
+            self._global_index
+        ]  # type: ignore[no-untyped-call]
+
+    def _make_set_leader(self) -> "SetCommand[bool]":
+        """Sets the leadership.
+
+        Returns:
+            A lambda function that sets the leader of the source."""
+        return lambda leader: self._set_leader(self._global_index, leader)
 
     def _make_get_staircase(self, idx: "Index") -> "GetCommand[Staircase]":
         """Wraps the cache system since this is a derived quantity.

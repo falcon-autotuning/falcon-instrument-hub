@@ -229,8 +229,7 @@ class SUPPORTED_PROPERTIES:
     WAVEFORM = "waveform"
 
     # buffered instrument global controls
-    LEADER = "leader"
-    FOLLOWER = "follower"
+    LEADER = "leader"  # boolean, if not true then this is a follower
 
     # buffered instrument constants
     SUPPORTS_ARBITRARY_SCALING = "arbitrary_scaling"
