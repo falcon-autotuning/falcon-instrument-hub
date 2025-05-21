@@ -4,16 +4,16 @@ from . import _driver_registry
 
 
 def add_driver(
-    daemon_name: str,
-    daemon_class: type,
+    driver: str,
+    driver_class: type,
 ) -> None:
-    """Adds a daemon to the registry.
+    """Adds a driver to the registry.
 
     Args:
-        daemon_name: The name of the daemon.
-        daemon_class: The class of the daemon.
+        driver_name: The name of the driver.
+        driver_class: The class of the driver.
     """
-    _driver_registry[daemon_name] = daemon_class
+    _driver_registry[driver] = driver_class
 
 
 def find_driver(

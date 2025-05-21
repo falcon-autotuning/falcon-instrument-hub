@@ -34,8 +34,8 @@ class BaseInstrumentDriver:
 
     def __init_subclass__(cls):
         add_driver(
-            daemon_name=cls.__name__,
-            daemon_class=cls,
+            driver=cls.__name__,
+            driver_class=cls,
         )
 
     def __init__(self, sync_sender: "SyncSender"):
