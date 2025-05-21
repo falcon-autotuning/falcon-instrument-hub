@@ -22,6 +22,7 @@ class StaircaseVoltageSource(DCVoltageSource):
     _num_sim_waveforms: int
     _set_staircase: "SetIndexedCommand[Staircase]"
     _set_leader: "SetIndexedCommand[bool]"
+    _set_follower: "SetIndexedCommand[bool]"
     _staircase_bounds: tuple["Staircase", "Staircase"]
 
     def __init__(self, *args, **kwargs) -> None:
@@ -42,6 +43,12 @@ class StaircaseVoltageSource(DCVoltageSource):
             index=self._global_index,
             get_cmd=self._make_get_leader(),
             set_cmd=self._make_set_leader(),
+        )
+        self.program_property(
+            property_name=SUPPORTED_PROPERTIES.FOLLOWER,
+            index=self._global_index,
+            get_cmd=self._make_get_follower(),
+            set_cmd=self._make_set_follower(),
         )
         self.program_property(
             property_name=SUPPORTED_PROPERTIES.NUMBER_SIMULTANEOUS_WAVEFORMS,
@@ -77,6 +84,24 @@ class StaircaseVoltageSource(DCVoltageSource):
             A lambda function that sets the leader of the source.
         """
         return lambda leader: self._set_leader(self._global_index, leader)
+
+    def _make_get_follower(self) -> "GetCommand[bool]":
+        """Wraps the cache system since this is a derived quantity.
+
+        Returns:
+            A lambda function that returns the follower of the source.
+        """
+        return lambda: self._property_cache[SUPPORTED_PROPERTIES.FOLLOWER][
+            self._global_index
+        ]  # type: ignore[no-untyped-call]
+
+    def _make_set_follower(self) -> "SetCommand[bool]":
+        """Sets the follower.
+
+        Returns:
+            A lambda function that sets the follower of the source.
+        """
+        return lambda follower: self._set_follower(self._global_index, follower)
 
     def _make_get_staircase(self, idx: "Index") -> "GetCommand[Staircase]":
         """Wraps the cache system since this is a derived quantity.
