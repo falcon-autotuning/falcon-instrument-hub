@@ -17,7 +17,7 @@ class RESPONSE(BASE_COMMAND):
         return "timestamp"
 
 
-class LOG(BASE_COMMAND):
+class LOG(RESPONSE):
     """Contains the substrings for a log command."""
 
     @property
@@ -179,6 +179,23 @@ class TRIGGER(BASE_COMMAND):
         return "trigger_port"
 
 
+class STATUS(RESPONSE):
+    """The substrings necessary to provide the status of the instrument daemon."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "STATUS"
+
+    @property
+    def STATUS(self) -> str:
+        """This is the status of the instrument daemon.
+
+        This is boolean.
+        """
+        return "status"
+
+
 class DAEMON_RUNTIME_COMMANDS:
     """All of the various runtime commands that an instrument needs to support."""
 
@@ -190,12 +207,13 @@ class DAEMON_RUNTIME_COMMANDS:
     RETURN_DATA = RETURN_DATA()
     PERFORM_ARBITRARY_METHOD = PERFORM_ARBITRARY_METHOD()
     TRIGGER = TRIGGER()  # used to trigger buffered instruments
+    STATUS = STATUS()
 
 
 class SUPPORTED_PROPERTIES:
     """All of the various properties that an instrument daemon could need to support."""
 
-    # voltage source instruments independant control
+    # voltage source instruments
     VOLTAGE_STATE = "voltage_state"
     SLOPE = "slope"
 
@@ -205,11 +223,6 @@ class SUPPORTED_PROPERTIES:
     TIMEOUT = "timeout"
 
     # buffered instruments
-    TRIGGER_READY = (
-        "trigger_ready"  # used to check if the trigger is ready to be flipped
-    )
-
-    # buffered instruments independant control
     # combo parameter: step_width, num_steps, repeats, v_stop
     STAIRCASE = "staircase"
     # TODO: continue generalizing properties. such as AC control, other DC control, etc.

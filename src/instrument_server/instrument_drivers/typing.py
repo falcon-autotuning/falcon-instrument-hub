@@ -1,7 +1,9 @@
 """This is typing for the instrument daemon modules."""
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, TypeVar
+
+from ..messaging_daemon.sync_sender import SyncSender
 
 if TYPE_CHECKING:
     from typing import TypeAlias
@@ -18,3 +20,7 @@ GetIndexedCommand: "TypeAlias" = Callable[[Index], T]
 PropertyName: "TypeAlias" = str
 Bounds: "TypeAlias" = tuple[T, T]
 Staircase = tuple[int, int, int, float]
+
+__all__ = [
+    "SyncSender",
+]

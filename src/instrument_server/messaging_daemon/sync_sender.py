@@ -1,14 +1,12 @@
 """A synchrnous sending handler attachment."""
 
-import asyncio
-import json
-import time
 from typing import TYPE_CHECKING
 
-from ..constants import DAEMON_RUNTIME_COMMANDS
+from .constants import DAEMON_RUNTIME_COMMANDS
+from .dependancies import asyncio, json, time
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from .typing import Awaitable, Callable, PropertyValue
 
 
 class SyncSender:
@@ -71,7 +69,7 @@ class SyncSender:
 
     def return_get(
         self,
-        value: str | int | float,
+        value: "PropertyValue",
         daemon_name: str,
     ) -> None:
         """Return a value to the NATS server.
