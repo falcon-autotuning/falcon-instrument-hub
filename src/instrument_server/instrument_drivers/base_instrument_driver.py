@@ -8,7 +8,6 @@ from .dependancies import add_driver, threading
 from .indexed_properties import IndexedProperties
 
 if TYPE_CHECKING:
-    from .typing import SyncSender
     from .typing import (
         Bounds,
         GetCommand,
@@ -16,6 +15,7 @@ if TYPE_CHECKING:
         PropertyName,
         PropertyValue,
         SetCommand,
+        SyncSender,
     )
 
 

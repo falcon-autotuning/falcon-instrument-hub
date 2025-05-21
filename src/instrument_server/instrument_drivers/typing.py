@@ -1,6 +1,6 @@
 """This is typing for the instrument daemon modules."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
 from ..messaging_daemon.sync_sender import SyncSender

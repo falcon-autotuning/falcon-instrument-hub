@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
-from .constants import SUPPORTED_PROPERTIES
 from .base_instrument_driver import BaseInstrumentDriver
+from .constants import SUPPORTED_PROPERTIES
 from .dependancies import np
 
 if TYPE_CHECKING:
