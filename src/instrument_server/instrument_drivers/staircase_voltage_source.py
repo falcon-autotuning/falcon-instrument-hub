@@ -28,16 +28,19 @@ class StaircaseVoltageSource(DCVoltageSource):
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the staircase buffered voltage source daemon."""
         super().__init__(*args, **kwargs)
-        self.program_property(
-            property_name=SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_OFFSET,
-            index=self._global_index,
-            get_cmd=lambda: True,
-        )
-        self.program_property(
-            property_name=SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_SCALING,
-            index=self._global_index,
-            get_cmd=lambda: True,
-        )
+        flags: list[str] = [
+            SUPPORTED_PROPERTIES.SUPPORTS_BUFFERED_MEASUREMENTS,
+            SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_OFFSET,
+            SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_SCALING,
+        ]
+        [
+            self.program_property(
+                property_name=flag,
+                index=self._global_index,
+                get_cmd=lambda: True,
+            )
+            for flag in flags
+        ]
         self.program_property(
             property_name=SUPPORTED_PROPERTIES.LEADER,
             index=self._global_index,

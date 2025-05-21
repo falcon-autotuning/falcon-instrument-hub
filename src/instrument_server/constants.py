@@ -219,7 +219,7 @@ class SUPPORTED_PROPERTIES:
 
     # signal recovery instruments
     CURRENT_STATE = "current_state"
-    NUMBER_OF_BINS = "number_of_bins"
+    NUMBER_OF_SAMPLES = "number_of_samples"
     SAMPLE_RATE = "sample_rate"
     TIMEOUT = "timeout"
 
@@ -229,13 +229,15 @@ class SUPPORTED_PROPERTIES:
     # TODO: continue generalizing properties. such as AC control, other DC control, etc.
 
     # buffered instrument global controls
-    LEADER = "leader"  # boolean, if not true then this is a follower
+    LEADER = "leader"  # boolean
+    FOLLOWER = "follower"  # boolean
 
     # buffered instrument constants
     SUPPORTS_ARBITRARY_SCALING = "arbitrary_scaling"
     SUPPORTS_ARBITRARY_OFFSET = "arbitrary_offset"
     NUMBER_SIMULTANEOUS_WAVEFORMS = "num_sim_waveforms"
     MAXIMUM_WAVEFORM_EXTENT = "maximum_wavefrom_extent"
+    SUPPORTS_BUFFERED_MEASUREMENTS = "buffered_measurements"
 
 
 class INTERPRETER_RUNTIME_COMMANDS:

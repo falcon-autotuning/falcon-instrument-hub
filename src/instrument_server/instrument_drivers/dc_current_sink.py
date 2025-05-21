@@ -23,8 +23,8 @@ class DCCurrentSink(BaseInstrumentDriver):
     _indexes: list["Index"]
     _global_index = -1
     _get_current: "GetIndexedCommand[float]"
-    _set_number_of_bins: "SetIndexedCommand[int]"
-    _get_number_of_bins: "GetIndexedCommand[int]"
+    _set_number_of_samples: "SetIndexedCommand[int]"
+    _get_number_of_samples: "GetIndexedCommand[int]"
     _set_sample_rate: "SetIndexedCommand[float]"
     _get_sample_rate: "GetIndexedCommand[float]"
     _set_timeout: "SetIndexedCommand[float]"
@@ -56,11 +56,11 @@ class DCCurrentSink(BaseInstrumentDriver):
                     set_cmd=self._make_set_timeout(idx=index),
                 ),
                 self.program_property(
-                    property_name=SUPPORTED_PROPERTIES.NUMBER_OF_BINS,
+                    property_name=SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES,
                     index=index,
                     bounds=self._number_of_bins_bounds,
-                    get_cmd=self._make_get_number_of_bins(idx=index),
-                    set_cmd=self._make_set_number_of_bins(idx=index),
+                    get_cmd=self._make_get_number_of_samples(idx=index),
+                    set_cmd=self._make_set_number_of_samples(idx=index),
                 ),
                 self.program_property(
                     property_name=SUPPORTED_PROPERTIES.SAMPLE_RATE,
@@ -95,27 +95,27 @@ class DCCurrentSink(BaseInstrumentDriver):
         """
         return lambda timeout: self._set_timeout(idx, timeout)
 
-    def _make_get_number_of_bins(self, idx: "Index") -> "GetCommand[int]":
-        """Makes a wrapper for the get number of bins command.
+    def _make_get_number_of_samples(self, idx: "Index") -> "GetCommand[int]":
+        """Makes a wrapper for the get number of samples command.
 
         Args:
             idx: The index of the current sink.
 
         Returns:
-            A GetIndexedCommand that gets the number of bins for the given index.
+            A GetIndexedCommand that gets the number of samples for the given index.
         """
-        return lambda: self._get_number_of_bins(idx)
+        return lambda: self._get_number_of_samples(idx)
 
-    def _make_set_number_of_bins(self, idx: "Index") -> "SetCommand[int]":
-        """Makes a wrapper for the set number of bins command.
+    def _make_set_number_of_samples(self, idx: "Index") -> "SetCommand[int]":
+        """Makes a wrapper for the set number of samples command.
 
         Args:
             idx: The index of the current sink.
 
         Returns:
-            A SetIndexedCommand that sets the number of bins for the given index.
+            A SetIndexedCommand that sets the number of samples for the given index.
         """
-        return lambda number_of_bins: self._set_number_of_bins(idx, number_of_bins)
+        return lambda number_of_bins: self._set_number_of_samples(idx, number_of_bins)
 
     def _make_get_sample_rate(self, idx: "Index") -> "GetCommand[float]":
         """Makes a wrapper for the get sample rate command.
