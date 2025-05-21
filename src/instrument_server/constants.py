@@ -218,6 +218,7 @@ class SUPPORTED_PROPERTIES:
     SLOPE = "slope"
 
     # signal recovery instruments
+    CURRENT_STATE = "current_state"
     NUMBER_OF_BINS = "number_of_bins"
     SAMPLE_RATE = "sample_rate"
     TIMEOUT = "timeout"

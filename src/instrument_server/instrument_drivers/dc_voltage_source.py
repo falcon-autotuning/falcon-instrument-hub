@@ -31,7 +31,7 @@ class DCVoltageSource(BaseInstrumentDriver):
     _slope_bounds: tuple[float, float]
 
     def __init__(self, *args, **kwargs) -> None:
-        """Initialize the staircase buffered voltage source daemon."""
+        """Initialize the DC voltage source driver."""
         super().__init__(*args, **kwargs)
         self._indexes = [
             count
