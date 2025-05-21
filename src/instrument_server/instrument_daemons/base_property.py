@@ -10,13 +10,14 @@ class BaseProperty:
     """A base property is something that can be set for each subunit of a daemon."""
 
     _set_cmd: "SetCommand | None" = None
-    _get_cmd: "GetCommand"
+    _get_cmd: "GetCommand | None" = None
     _settable: bool = False
+    _gettable: bool = False
     _bounds: tuple[int | float, int | float]
 
     def __init__(
         self,
-        get_cmd: "GetCommand",
+        get_cmd: "GetCommand | None" = None,
         set_cmd: "SetCommand | None" = None,
         bounds: tuple[int | float, int | float] | None = None,
     ):
@@ -31,12 +32,17 @@ class BaseProperty:
         self._get_cmd = get_cmd
         self._set_cmd = set_cmd
         self._settable = set_cmd is not None
+        self._gettable = get_cmd is not None
         self._bounds = bounds if bounds is not None else self._bounds
 
     @property
     def get_cmd(self) -> "GetCommand":
         """Gets the property from the instrument inside."""
-        return self._get_cmd
+        if self._gettable:
+            assert self._get_cmd is not None
+            return self._get_cmd
+        msg = "This property is not gettable."
+        raise AttributeError(msg)
 
     @property
     def set_cmd(

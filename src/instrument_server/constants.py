@@ -122,7 +122,7 @@ class RETURN_GET(RESPONSE):
         return "value"
 
 
-class PERFORM_ARBITRARY_METHOD(BASE_COMMAND):
+class PERFORM_ARBITRARY_METHOD(RESPONSE):
     """Contains the substrings necessary to enact an arbitrary submethod for a given instrument daemon from the CLI."""
 
     @property
@@ -161,7 +161,7 @@ class CONFIRM_INITIALIZATION(RESPONSE):
         return "init"
 
 
-class RUNTIME_COMMANDS:
+class DAEMON_RUNTIME_COMMANDS:
     """All of the various runtime commands that an instrument needs to support."""
 
     LOG = LOG()
@@ -176,15 +176,43 @@ class RUNTIME_COMMANDS:
 class SUPPORTED_PROPERTIES:
     """All of the various properties that an instrument daemon could need to support."""
 
-    # voltage source instruments
+    # voltage source instruments independant control
     VOLTAGE_STATE = "voltage_state"
     SLOPE = "slope"
+
+    # signal recovery instruments
+    NUMBER_OF_BINS = "number_of_bins"
+    SAMPLE_RATE = "sample_rate"
+
+    # buffered instruments
+    TRIGGER = "trigger"  # used to trigger the buffered measurement
+    TRIGGER_READY = (
+        "trigger_ready"  # used to check if the trigger is ready to be flipped
+    )
+
+    # buffered instruments independant control,
+    STAIRCASE_STEP_WIDTH = "step_width"
+    STAIRCASE_STEPS = "num_steps"
+    STAIRCASE_REPEAT = "repeats"
+    # TODO: continue generalizing properties. such as AC control, other DC control, etc.
     WAVEFORM = "waveform"
-    TRIGGER = "trigger"
+
+    # buffered instrument global controls
     LEADER = "leader"
     FOLLOWER = "follower"
 
-    # signal recovery instruments
-    TRIGGER_READY = "trigger_ready"
-    NUMBER_OF_BINS = "number_of_bins"
-    SAMPLE_RATE = "sample_rate"
+    # buffered instrument constants
+    SUPPORTS_ARBITRARY_SCALING = "arbitrary_scaling"
+    SUPPORTS_ARBITRARY_OFFSET = "arbitrary_offset"
+    NUMBER_SIMULTANEOUS_WAVEFORMS = "num_sim_waveforms"
+    MAXIMUM_WAVEFORM_EXTENT = "maximum_wavefrom_extent"
+
+
+class COMPILER_RUNTIME_COMMANDS:
+    """All of the various runtime commands that a compiler may use."""
+
+    LOG = LOG()
+    REQUEST_DAEMON_CONFIGURATIONS = REQUEST_DAEMON_CONFIGURATIONS()
+    UPDATE_DAEMON_PROPERTY = UPDATE_DAEMON_PROPERTY()
+    PROCESS_REQUEST = PROCESS_REQUEST()
+

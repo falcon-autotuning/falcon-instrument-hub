@@ -8,6 +8,8 @@ if TYPE_CHECKING:
 
 SetCommand: "TypeAlias" = Callable[[int | float | str], None]
 GetCommand: "TypeAlias" = Callable[[], int | float | str]
-Index: "TypeAlias" = str
+Index: "TypeAlias" = float
+SetIndexedCommand: "TypeAlias" = Callable[[Index, int | float | str], None]
+GetIndexedCommand: "TypeAlias" = Callable[[Index], int | float | str]
 PropertyName: "TypeAlias" = str
 Bounds: "TypeAlias" = tuple[int | float, int | float]

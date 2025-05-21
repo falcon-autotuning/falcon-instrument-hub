@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: instrument_server
+Version: 0.0.0
+Summary: Python-based instrument server for loading instruments into FAlCon.
+Maintainer-email: FAlCon Core Developers <falcon-support@falcon.com>
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.13
+Description-Content-Type: text/x-rst
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: pytest==8.2.1
+Requires-Dist: setuptools-scm==8.1.0
+Requires-Dist: nats.py==2.10.0

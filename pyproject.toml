@@ -30,7 +30,7 @@ dependencies = [
   "nats.py==2.10.0",
 ]
 [project.entry-points."driver.plugins"]
-base_autotuner = "instrument_server.instrument_daemons.base_instrument_daemon:main"
+base_autotuner = "instrument_server.instrument_daemons.base_instrument_daemon"
 
 [project.readme]
 file = "README.rst"
