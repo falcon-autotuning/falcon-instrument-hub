@@ -1,6 +1,11 @@
 """A measurement interpreter for the instrument server."""
 
-import nats
+from typing import TYPE_CHECKING
+
+from .dependancies import nats
+
+if TYPE_CHECKING:
+    from .typing import Client
 
 
 class MeasurementInterpreter:
@@ -13,7 +18,7 @@ class MeasurementInterpreter:
     """
 
     _url: str
-    _nc: nats.aio.client.Client
+    _nc: "Client"
 
     def __init__(self, url: str):
         """Initializes the MeasurementInterpreter with the given URL."""
