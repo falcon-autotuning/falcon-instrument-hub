@@ -1,5 +1,6 @@
 """This is the base instrument demon that holds and communicates the needs for all instruments."""
 
+import threading
 from typing import TYPE_CHECKING
 
 from ..constants import SUPPORTED_PROPERTIES
@@ -21,6 +22,7 @@ class BaseInstrumentDaemon:
 
     _properties: dict["PropertyName", "IndexedProperties"]
     _sync_sender: "SyncSender"
+    _property_lock: threading.Lock
 
     def __init_subclass__(cls):
         add_daemon(
@@ -34,6 +36,7 @@ class BaseInstrumentDaemon:
         Args:
             SyncSender: a synchronous message sender for the daemon.
         """
+        self._property_lock = threading.Lock()
         self._sync_sender = sync_sender
 
     @property
@@ -107,11 +110,12 @@ class BaseInstrumentDaemon:
             keywords: The keyword arguments to pass to the method.
 
         """
-        self._sync_sender.perform_arbitrary_method(
-            daemon_name=instrument_name,
-            method=method_name,
-            keyword_args=keywords,
-        )
+        with self._property_lock:
+            self._sync_sender.perform_arbitrary_method(
+                daemon_name=instrument_name,
+                method=method_name,
+                keyword_args=keywords,
+            )
 
     def set_property(
         self,
@@ -127,10 +131,11 @@ class BaseInstrumentDaemon:
             value: The value to set the property to.
 
         """
-        assert self._properties[property_name][index]._settable, (
-            "This property is not settable."
-        )
-        self._properties[property_name][index].set_cmd(value)
+        with self._property_lock:
+            assert self._properties[property_name][index]._settable, (
+                "This property is not settable."
+            )
+            self._properties[property_name][index].set_cmd(value)
 
     def get_property(
         self,
@@ -144,7 +149,8 @@ class BaseInstrumentDaemon:
             index: The index of the property.
 
         """
-        value = self._properties[property_name][index].get_cmd()
+        with self._property_lock:
+            value = self._properties[property_name][index].get_cmd()
         self.return_get(value)
 
     def to_json_config(

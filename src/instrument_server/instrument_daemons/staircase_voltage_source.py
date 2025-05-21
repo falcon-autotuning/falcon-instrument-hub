@@ -177,6 +177,9 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
         Args:
             idx: The index of the voltage source.
             step_width: The step width of the staircase.
+
+        Returns:
+            a lambda function that sets the step width of the staircase.
         """
         return lambda step_width: self._step_widths.__setitem__(idx, step_width)
 
@@ -186,6 +189,9 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
         Args:
             idx: The index of the voltage source.
             num_steps: The number of steps of the staircase.
+
+        Returns:
+            a lambda function that sets the number of steps of the staircase.
         """
         return lambda num_steps: self._num_steps.__setitem__(idx, num_steps)
 
@@ -195,5 +201,8 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
         Args:
             idx: The index of the voltage source.
             repeat: The number of repeats of the staircase.
+
+        Returns:
+            a lambda function that sets the number of repeats of the staircase.
         """
         return lambda repeat: self._repeats.__setitem__(idx, repeat)

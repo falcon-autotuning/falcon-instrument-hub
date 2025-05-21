@@ -170,7 +170,12 @@ async def main(
                     daemon_name=daemon_name,
                 )
                 return
-            method(**kwargs)
+
+            def locked_method_call():
+                with running_daemon._property_lock:
+                    method(**kwargs)
+
+            await loop.run_in_executor(None, locked_method_call)
 
             await log(
                 message="PERFORM_ARBITRARY_METHOD command executed",
@@ -202,11 +207,13 @@ async def main(
                     daemon_name=daemon_name,
                 )
                 return
-
-            running_daemon.set_property(
-                property_name=property_name,
-                index=index,
-                value=value,
+            # Locks the threads to make sure the calls are synchronous
+            await loop.run_in_executor(
+                None,
+                running_daemon.set_property,
+                property_name,
+                index,
+                value,
             )
             await log(
                 message="SET command executed",
@@ -237,8 +244,13 @@ async def main(
                     daemon_name=daemon_name,
                 )
                 return
-
-            running_daemon.get_property(property_name, index)
+            # Locks the threads to make sure the calls are synchronous
+            await loop.run_in_executor(
+                None,
+                running_daemon.get_property,
+                property_name,
+                index,
+            )
         except Exception as e:
             await log(
                 message=f"Error in GET command: {e!s}",
