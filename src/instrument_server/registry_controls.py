@@ -1,9 +1,9 @@
 """Controls for the daemon registry."""
 
-from . import _daemon_registry
+from . import _driver_registry
 
 
-def add_daemon(
+def add_driver(
     daemon_name: str,
     daemon_class: type,
 ) -> None:
@@ -13,18 +13,18 @@ def add_daemon(
         daemon_name: The name of the daemon.
         daemon_class: The class of the daemon.
     """
-    _daemon_registry[daemon_name] = daemon_class
+    _driver_registry[daemon_name] = daemon_class
 
 
-def find_daemon(
-    daemon_name: str,
+def find_driver(
+    driver_name: str,
 ) -> type:
-    """Finds a daemon in the registry.
+    """Finds a driver in the registry.
 
     Args:
-        daemon_name: The name of the daemon.
+        driver_name: The name of the driver.
 
     Returns:
-        The class of the daemon.
+        The class of the driver.
     """
-    return _daemon_registry[daemon_name]
+    return _driver_registry[driver_name]

@@ -1,16 +1,14 @@
 """This is the base instrument demon that holds and communicates the needs for all instruments."""
 
-import threading
 from typing import TYPE_CHECKING
 
-from ..constants import SUPPORTED_PROPERTIES
-from ..registry_controls import add_daemon
 from .base_property import BaseProperty
+from .constants import SUPPORTED_PROPERTIES
+from .dependancies import add_driver, threading
 from .indexed_properties import IndexedProperties
-from .sync_sender import SyncSender
 
 if TYPE_CHECKING:
-    from .sync_sender import SyncSender
+    from .typing import SyncSender
     from .typing import (
         Bounds,
         GetCommand,
@@ -21,10 +19,10 @@ if TYPE_CHECKING:
     )
 
 
-class BaseInstrumentDaemon:
+class BaseInstrumentDriver:
     """Handles the communication for an instrument.
 
-    This daemon assumes that all instruments are setup with modular repeated components. The user supplies many indexes for the many repeated parts, each with their own custom properties.
+    This driver assumes that all instruments are setup with modular repeated components. The user supplies many indexes for the many repeated parts, each with their own custom properties.
 
     Whenever these properties are set, the daemon will store a local copy in the cache to prevent the need to reissue the command to get the value from the instrument.
     """
@@ -35,7 +33,7 @@ class BaseInstrumentDaemon:
     _property_cache: dict["PropertyName", dict["Index", "PropertyValue"]]
 
     def __init_subclass__(cls):
-        add_daemon(
+        add_driver(
             daemon_name=cls.__name__,
             daemon_class=cls,
         )
@@ -92,7 +90,7 @@ class BaseInstrumentDaemon:
 
     def return_get(
         self,
-        value: int | float | str,
+        value: "PropertyValue",
     ) -> None:
         """Return the found value to the server.
 
