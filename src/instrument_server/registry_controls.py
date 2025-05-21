@@ -1,6 +1,6 @@
 """Controls for the daemon registry."""
 
-from ..instrument_server import _daemon_registry
+from . import _daemon_registry
 
 
 def add_daemon(

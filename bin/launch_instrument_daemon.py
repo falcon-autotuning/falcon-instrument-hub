@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 import nats
 
-from instrument_server.constants import RUNTIME_COMMANDS
+from instrument_server.constants import DAEMON_RUNTIME_COMMANDS
 from instrument_server.instrument_daemons.sync_sender import SyncSender
 from instrument_server.registry_controls import find_daemon
 
@@ -122,14 +122,65 @@ async def main(
             message: The message to log.
             daemon_name: The name of the daemon.
         """
-        message = json.dumps({RUNTIME_COMMANDS.LOG.MESSAGE: message})
+        message = json.dumps({DAEMON_RUNTIME_COMMANDS.LOG.MESSAGE: message})
         await send_command(
             channel=specific_channel(
-                channel=RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
+                channel=DAEMON_RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
                 daemon_name="instrument_server",
             ),
             message=message,
         )
+
+    async def handle_arbitration(
+        msg: "Msg",
+    ) -> None:
+        """Handle a PERFORM_ARBITRARY_METHOD command.
+
+        Args:
+            msg: The NATS message.
+        """
+        try:
+            data = json.loads(msg.data.decode())
+            method_name = data.get(
+                DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.METHOD
+            )
+            keywords = data.get(
+                DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.KEYWORD_ARGS
+            )
+            kwargs: dict[str, Any] = json.loads(keywords)
+
+            if not all([method_name, keywords is not None]):
+                await log(
+                    message="Invalid PERFORM_ARBITRARY_METHOD command",
+                    daemon_name=daemon_name,
+                )
+                return
+
+            if not hasattr(running_daemon, method_name):
+                await log(
+                    message=f"Method {method_name} not found in {daemon_name}",
+                    daemon_name=daemon_name,
+                )
+                return
+
+            method = getattr(running_daemon, method_name)
+            if not callable(method):
+                await log(
+                    message=f"Method {method_name} is not callable in {daemon_name}",
+                    daemon_name=daemon_name,
+                )
+                return
+            method(**kwargs)
+
+            await log(
+                message="PERFORM_ARBITRARY_METHOD command executed",
+                daemon_name=daemon_name,
+            )
+        except Exception as e:
+            await log(
+                message=f"Error in PERFORM_ARBITRARY_METHOD command: {e!s}",
+                daemon_name=daemon_name,
+            )
 
     async def handle_set(
         msg: "Msg",
@@ -141,9 +192,9 @@ async def main(
         """
         try:
             data = json.loads(msg.data.decode())
-            property_name = data.get(RUNTIME_COMMANDS.SET.PROPERTY)
-            index = data.get(RUNTIME_COMMANDS.SET.INDEX)
-            value = data.get(RUNTIME_COMMANDS.SET.VALUE)
+            property_name = data.get(DAEMON_RUNTIME_COMMANDS.SET.PROPERTY)
+            index = data.get(DAEMON_RUNTIME_COMMANDS.SET.INDEX)
+            value = data.get(DAEMON_RUNTIME_COMMANDS.SET.VALUE)
 
             if not all([property_name, index, value is not None]):
                 await log(
@@ -206,16 +257,18 @@ async def main(
     init_config = running_daemon.to_json_config()
     init_message = json.dumps(
         {
-            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
-            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
+            DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
+            DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
                 datetime.datetime.now()
             ),
-            RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(init_config),
+            DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(
+                init_config
+            ),
         }
     )
     await send_command(
         channel=specific_channel(
-            channel=RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL,
+            channel=DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL,
             daemon_name=daemon_name,
         ),
         message=init_message,
@@ -224,15 +277,24 @@ async def main(
     # Subscribe to command channels
     await nc.subscribe(
         specific_channel(
-            channel=RUNTIME_COMMANDS.SET.COMM_CHANNEL, daemon_name=daemon_name
+            channel=DAEMON_RUNTIME_COMMANDS.SET.COMM_CHANNEL,
+            daemon_name=daemon_name,
         ),
         cb=handle_set,
     )
     await nc.subscribe(
         specific_channel(
-            channel=RUNTIME_COMMANDS.GET.COMM_CHANNEL, daemon_name=daemon_name
+            channel=DAEMON_RUNTIME_COMMANDS.GET.COMM_CHANNEL,
+            daemon_name=daemon_name,
         ),
         cb=handle_get,
+    )
+    await nc.subscribe(
+        specific_channel(
+            channel=DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.COMM_CHANNEL,
+            daemon_name=daemon_name,
+        ),
+        cb=handle_arbitration,
     )
 
     # Create a future that will keep the main task running indefinitely

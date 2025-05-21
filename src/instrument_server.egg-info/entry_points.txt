@@ -1,0 +1,5 @@
+[console_scripts]
+launch-daemon = falcon.bin.launch_instrument_daemon:main
+
+[driver.plugins]
+base_autotuner = instrument_server.instrument_daemons.base_instrument_daemon

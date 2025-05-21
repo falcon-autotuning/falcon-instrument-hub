@@ -1,9 +1,8 @@
 """This is the base instrument demon that holds and communicates the needs for all instruments."""
 
-import json
 from typing import TYPE_CHECKING
 
-from ..constants import RUNTIME_COMMANDS
+from ..constants import SUPPORTED_PROPERTIES
 from ..registry_controls import add_daemon
 from .base_property import BaseProperty
 from .indexed_properties import IndexedProperties
@@ -38,23 +37,6 @@ class BaseInstrumentDaemon:
         self._sync_sender = sync_sender
 
     @property
-    def sync_sender(self) -> "SyncSender":
-        """The synchronous message sender for the daemon."""
-        return self._sync_sender
-
-    def send(self, channel, message: dict[str, str | int | float | bool]) -> None:
-        """Send a message to the daemon.
-
-        Args:
-            channel: The channel to send the message to.
-            message: The message to send.
-        """
-        self._sync_sender._sync_send(
-            channel + f".{self.__class__.__name__}",
-            json.dumps(message),
-        )
-
-    @property
     def properties(self) -> dict["PropertyName", "IndexedProperties"]:
         """The collection of properties for the daemon."""
         return self._properties
@@ -63,7 +45,7 @@ class BaseInstrumentDaemon:
         self,
         property_name: "PropertyName",
         index: "Index",
-        get_cmd: "GetCommand",
+        get_cmd: "GetCommand | None" = None,
         bounds: "Bounds | None" = None,
         set_cmd: "SetCommand | None" = None,
     ) -> None:
@@ -76,6 +58,11 @@ class BaseInstrumentDaemon:
             set_cmd: The command to set the property.
             bounds: Optional bounds of the property. This is a tuple of (min, max).
         """
+        assert property_name in [
+            value
+            for name, value in vars(SUPPORTED_PROPERTIES).items()
+            if not name.startswith("__") and not callable(value)
+        ], f"Property {property_name} is not supported by this daemon."
         if not hasattr(self, "_properties"):
             self._properties = {}
 
@@ -88,6 +75,43 @@ class BaseInstrumentDaemon:
             bounds=bounds,
         )
         self._properties[property_name][index] = prop
+
+    def return_get(
+        self,
+        value: int | float | str,
+    ) -> None:
+        """Return the found value to the server.
+
+        Args:
+            value: The value to return.
+
+        """
+        self._sync_sender.return_get(
+            value=value,
+            daemon_name=self.__class__.__name__,
+        )
+
+    def request_arbitrary_command(
+        self,
+        instrument_name: str,
+        method_name: str,
+        keywords: dict[str, str | int | float | None],
+    ) -> None:
+        """Any instrument can request an arbitrary command to be performed.
+
+        This can be used by a LEADER to make sure FOLLOWERs are in sync.
+
+        Args:
+            instrument_name: The name of the instrument.
+            method_name: The name of the method to perform.
+            keywords: The keyword arguments to pass to the method.
+
+        """
+        self._sync_sender.perform_arbitrary_method(
+            daemon_name=instrument_name,
+            method=method_name,
+            keyword_args=keywords,
+        )
 
     def set_property(
         self,
@@ -121,25 +145,16 @@ class BaseInstrumentDaemon:
 
         """
         value = self._properties[property_name][index].get_cmd()
-        message = {
-            RUNTIME_COMMANDS.RETURN_GET.VALUE: value,
-        }
-        self.send(
-            RUNTIME_COMMANDS.RETURN_GET.COMM_CHANNEL,
-            message,
-        )
+        self.return_get(value)
 
     def to_json_config(
         self,
-    ) -> dict[str, dict[str, dict[str, dict[str, "bool | Bounds"]]]]:
+    ) -> dict["PropertyName", dict["Index", dict[str, "bool | Bounds"]]]:
         """Convert the properties to a JSON serializable format.
 
         Returns:
             A dictionary of the properties.
         """
         return {
-            "properties": {
-                prop_name: prop._to_json()
-                for prop_name, prop in self._properties.items()
-            }
+            prop_name: prop._to_json() for prop_name, prop in self._properties.items()
         }
