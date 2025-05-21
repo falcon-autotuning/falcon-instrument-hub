@@ -38,11 +38,11 @@ class BaseProperty:
     @property
     def get_cmd(self) -> "GetCommand":
         """Gets the property from the instrument inside."""
-        if self._gettable:
-            assert self._get_cmd is not None
-            return self._get_cmd
-        msg = "This property is not gettable."
-        raise AttributeError(msg)
+        if not self._gettable:
+            msg = "This property is not gettable."
+            raise AttributeError(msg)
+        assert self._get_cmd is not None
+        return self._get_cmd
 
     @property
     def set_cmd(

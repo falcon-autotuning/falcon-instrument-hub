@@ -10,7 +10,14 @@ from .base_instrument_daemon import BaseInstrumentDaemon
 if TYPE_CHECKING:
     from instrument_server.instrument_daemons.typing import GetCommand
 
-    from .typing import GetIndexedCommand, Index, SetCommand, SetIndexedCommand
+    from .typing import (
+        GetIndexedCommand,
+        Index,
+        PropertyName,
+        SetCommand,
+        SetIndexedCommand,
+        Staircase,
+    )
 
 
 class StaircaseVoltageSource(BaseInstrumentDaemon):
@@ -19,26 +26,19 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
     This class implements a staircase buffered voltage source.
     """
 
-    _compiled: bool
+    _can_compile: bool
 
     _num_sim_waveforms: int
     _sub_source_count: int
     _indexes: list["Index"]
     _global_index = -1
-    _set_trigger: "SetCommand"
     _set_voltage: "SetIndexedCommand"
     _get_voltage: "GetIndexedCommand"
     _set_slope: "SetIndexedCommand"
     _get_slope: "GetIndexedCommand"
     _voltage_bounds: tuple[float, float]
     _slope_bounds: tuple[float, float]
-    _step_width_bounds: tuple[float, float]
-    _repeat_bounds: tuple[int, int]
-    _num_steps_bounds: tuple[int, int]
-
-    _step_widths: dict["Index", float]
-    _num_steps: dict["Index", int]
-    _repeats: dict["Index", int]
+    _staircase_bounds: tuple["Staircase", "Staircase"]
 
     def __init__(self, *args, **kwargs) -> None:
         """Initialize the staircase buffered voltage source daemon."""
@@ -52,12 +52,6 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
             )
         ]
 
-        self.program_property(
-            property_name=SUPPORTED_PROPERTIES.TRIGGER,
-            index=self._global_index,
-            get_cmd=lambda: "None",
-            set_cmd=self._set_trigger,
-        )
         self.program_property(
             property_name=SUPPORTED_PROPERTIES.SUPPORTS_ARBITRARY_OFFSET,
             index=self._global_index,
@@ -76,53 +70,31 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
         self.program_property(
             property_name=SUPPORTED_PROPERTIES.TRIGGER_READY,
             index=self._global_index,
-            get_cmd=lambda: self._compiled,
+            get_cmd=lambda: self._can_compile,
         )
 
         [
-            self.program_property(
-                property_name=SUPPORTED_PROPERTIES.STAIRCASE_STEPS,
-                index=index,
-                bounds=self._num_steps_bounds,
-                set_cmd=self._make_set_num_steps(idx=index),
-            )
-            for index in self._indexes
-        ]
-        [
-            self.program_property(
-                property_name=SUPPORTED_PROPERTIES.STAIRCASE_REPEAT,
-                index=index,
-                bounds=self._repeat_bounds,
-                set_cmd=self._make_set_repeat(idx=index),
-            )
-            for index in self._indexes
-        ]
-        [
-            self.program_property(
-                property_name=SUPPORTED_PROPERTIES.STAIRCASE_STEP_WIDTH,
-                index=index,
-                bounds=self._step_width_bounds,
-                set_cmd=self._make_set_step_width(idx=index),
-            )
-            for index in self._indexes
-        ]
-        [
-            self.program_property(
-                property_name=SUPPORTED_PROPERTIES.VOLTAGE_STATE,
-                index=index,
-                bounds=self._voltage_bounds,
-                get_cmd=self._make_get_voltage(idx=index),
-                set_cmd=self._make_set_voltage(idx=index),
-            )
-            for index in self._indexes
-        ]
-        [
-            self.program_property(
-                property_name=SUPPORTED_PROPERTIES.SLOPE,
-                index=index,
-                bounds=self._slope_bounds,
-                get_cmd=self._make_get_slope(idx=index),
-                set_cmd=self._make_set_slope(idx=index),
+            (
+                self.program_property(
+                    property_name=SUPPORTED_PROPERTIES.STAIRCASE,
+                    index=index,
+                    bounds=self._staircase_bounds,
+                    set_cmd=self._make_staircase(idx=index),
+                ),
+                self.program_property(
+                    property_name=SUPPORTED_PROPERTIES.VOLTAGE_STATE,
+                    index=index,
+                    bounds=self._voltage_bounds,
+                    get_cmd=self._make_get_voltage(idx=index),
+                    set_cmd=self._make_set_voltage(idx=index),
+                ),
+                self.program_property(
+                    property_name=SUPPORTED_PROPERTIES.SLOPE,
+                    index=index,
+                    bounds=self._slope_bounds,
+                    get_cmd=self._make_get_slope(idx=index),
+                    set_cmd=self._make_set_slope(idx=index),
+                ),
             )
             for index in self._indexes
         ]
@@ -171,38 +143,43 @@ class StaircaseVoltageSource(BaseInstrumentDaemon):
         """
         return lambda slope: self._set_slope(idx, slope)
 
-    def _make_set_step_width(self, idx: "Index") -> "SetCommand[float]":
-        """Set the step width of the staircase.
+    def set_property(
+        self,
+        property_name: "PropertyName",
+        index: "Index",
+        value: int | float | str,
+    ) -> None:
+        staircase_property = property_name in {
+            SUPPORTED_PROPERTIES.STAIRCASE_REPEAT,
+            SUPPORTED_PROPERTIES.STAIRCASE_STEPS,
+            SUPPORTED_PROPERTIES.STAIRCASE_STEP_WIDTH,
+            SUPPORTED_PROPERTIES.STAIRCASE_STOP,
+        }
+        if staircase_property:
+            self._can_compile = False
+        super().set_property(property_name, index, value)
+        if staircase_property and (
+            index in self._repeats
+            and index in self._num_steps
+            and index in self._step_widths
+        ):
+            self.compile()
+            self._can_compile = True
 
-        Args:
-            idx: The index of the voltage source.
-            step_width: The step width of the staircase.
+    def compile(self) -> None:
+        """Compile the various staircase waveforms for the device.
 
-        Returns:
-            a lambda function that sets the step width of the staircase.
+        Raises:
+            RuntimeError: If the user wants to compile more waveforms than supported.
+
         """
-        return lambda step_width: self._step_widths.__setitem__(idx, step_width)
-
-    def _make_set_num_steps(self, idx: "Index") -> "SetCommand[int]":
-        """Set the number of steps of the staircase.
-
-        Args:
-            idx: The index of the voltage source.
-            num_steps: The number of steps of the staircase.
-
-        Returns:
-            a lambda function that sets the number of steps of the staircase.
-        """
-        return lambda num_steps: self._num_steps.__setitem__(idx, num_steps)
-
-    def _make_set_repeat(self, idx: "Index") -> "SetCommand[int]":
-        """Set the number of repeats of the staircase.
-
-        Args:
-            idx: The index of the voltage source.
-            repeat: The number of repeats of the staircase.
-
-        Returns:
-            a lambda function that sets the number of repeats of the staircase.
-        """
-        return lambda repeat: self._repeats.__setitem__(idx, repeat)
+        unique_fingerprints = set(
+            zip(
+                self._repeats.values(),
+                self._num_steps.values(),
+                self._step_widths.values(),
+            )
+        )
+        if len(unique_fingerprints) > self._num_sim_waveforms:
+            msg = f"Cannot compile {len(unique_fingerprints)} waveforms, only {self._num_sim_waveforms} supported."
+            raise RuntimeError(msg)

@@ -11,18 +11,28 @@ from .sync_sender import SyncSender
 
 if TYPE_CHECKING:
     from .sync_sender import SyncSender
-    from .typing import Bounds, GetCommand, Index, PropertyName, SetCommand
+    from .typing import (
+        Bounds,
+        GetCommand,
+        Index,
+        PropertyName,
+        PropertyValue,
+        SetCommand,
+    )
 
 
 class BaseInstrumentDaemon:
     """Handles the communication for an instrument.
 
     This daemon assumes that all instruments are setup with modular repeated components. The user supplies many indexes for the many repeated parts, each with their own custom properties.
+
+    Whenever these properties are set, the daemon will store a local copy in the cache to prevent the need to reissue the command to get the value from the instrument.
     """
 
     _properties: dict["PropertyName", "IndexedProperties"]
     _sync_sender: "SyncSender"
     _property_lock: threading.Lock
+    _property_cache: dict["PropertyName", dict["Index", "PropertyValue"]]
 
     def __init_subclass__(cls):
         add_daemon(
@@ -71,6 +81,7 @@ class BaseInstrumentDaemon:
 
         if property_name not in self._properties:
             self._properties[property_name] = IndexedProperties()
+            self._property_cache[property_name] = {}
 
         prop = BaseProperty(
             get_cmd=get_cmd,
@@ -131,10 +142,11 @@ class BaseInstrumentDaemon:
             value: The value to set the property to.
 
         """
+        assert self._properties[property_name][index]._settable, (
+            "This property is not settable."
+        )
+        self._property_cache[property_name][index] = value
         with self._property_lock:
-            assert self._properties[property_name][index]._settable, (
-                "This property is not settable."
-            )
             self._properties[property_name][index].set_cmd(value)
 
     def get_property(
@@ -149,8 +161,11 @@ class BaseInstrumentDaemon:
             index: The index of the property.
 
         """
-        with self._property_lock:
-            value = self._properties[property_name][index].get_cmd()
+        if index not in self._property_cache[property_name]:
+            with self._property_lock:
+                value = self._properties[property_name][index].get_cmd()
+        else:
+            value = self._property_cache[property_name][index]
         self.return_get(value)
 
     def to_json_config(
@@ -164,3 +179,8 @@ class BaseInstrumentDaemon:
         return {
             prop_name: prop._to_json() for prop_name, prop in self._properties.items()
         }
+
+    def process_trigger(self):
+        """Triggers the instrument into motion to perform the selected action."""
+        msg = "Need to implement the trigger method for this daemon."
+        raise NotImplementedError(msg)
