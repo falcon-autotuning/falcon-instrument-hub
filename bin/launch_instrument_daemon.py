@@ -187,6 +187,30 @@ async def main(
                 daemon_name=daemon_name,
             )
 
+    async def handle_trigger(
+        msg: "Msg",
+    ) -> None:
+        """Handle a TRIGGER command.
+
+        Args:
+            msg: The NATS message.
+        """
+        try:
+            # Locks the threads to make sure the calls are synchronous
+            await loop.run_in_executor(
+                None,
+                running_daemon.process_trigger,
+            )
+            await log(
+                message="TRIGGER command executed",
+                daemon_name=daemon_name,
+            )
+        except Exception as e:
+            await log(
+                message=f"Error in TRIGGER command: {e!s}",
+                daemon_name=daemon_name,
+            )
+
     async def handle_set(
         msg: "Msg",
     ) -> None:
@@ -293,6 +317,13 @@ async def main(
             daemon_name=daemon_name,
         ),
         cb=handle_set,
+    )
+    await nc.subscribe(
+        specific_channel(
+            channel=DAEMON_RUNTIME_COMMANDS.TRIGGER.COMM_CHANNEL,
+            daemon_name=daemon_name,
+        ),
+        cb=handle_trigger,
     )
     await nc.subscribe(
         specific_channel(

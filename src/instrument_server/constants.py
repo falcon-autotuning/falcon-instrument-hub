@@ -161,6 +161,24 @@ class CONFIRM_INITIALIZATION(RESPONSE):
         return "init"
 
 
+class TRIGGER(BASE_COMMAND):
+    """The substrings necessary to trigger a buffered instrument."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "TRIGGER"
+
+    @property
+    def TRIGGER_PORT(self) -> str:
+        """This is the port to send/recieve a trigger pulse on.
+
+        Collectors receive the trigger pulse on this port.
+        Senders send the trigger pulse on this port.
+        """
+        return "trigger_port"
+
+
 class DAEMON_RUNTIME_COMMANDS:
     """All of the various runtime commands that an instrument needs to support."""
 
@@ -171,6 +189,7 @@ class DAEMON_RUNTIME_COMMANDS:
     CONFIRM_INITIALIZATION = CONFIRM_INITIALIZATION()
     RETURN_DATA = RETURN_DATA()
     PERFORM_ARBITRARY_METHOD = PERFORM_ARBITRARY_METHOD()
+    TRIGGER = TRIGGER()  # used to trigger buffered instruments
 
 
 class SUPPORTED_PROPERTIES:
@@ -183,17 +202,16 @@ class SUPPORTED_PROPERTIES:
     # signal recovery instruments
     NUMBER_OF_BINS = "number_of_bins"
     SAMPLE_RATE = "sample_rate"
+    TIMEOUT = "timeout"
 
     # buffered instruments
-    TRIGGER = "trigger"  # used to trigger the buffered measurement
     TRIGGER_READY = (
         "trigger_ready"  # used to check if the trigger is ready to be flipped
     )
 
-    # buffered instruments independant control,
-    STAIRCASE_STEP_WIDTH = "step_width"
-    STAIRCASE_STEPS = "num_steps"
-    STAIRCASE_REPEAT = "repeats"
+    # buffered instruments independant control
+    # combo parameter: step_width, num_steps, repeats, v_stop
+    STAIRCASE = "staircase"
     # TODO: continue generalizing properties. such as AC control, other DC control, etc.
     WAVEFORM = "waveform"
 
