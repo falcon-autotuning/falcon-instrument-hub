@@ -7,13 +7,13 @@ from .dependancies import asyncio, json, nats, time
 from .sync_sender import SyncSender
 
 if TYPE_CHECKING:
-    from .typing import BaseInstrumentDriver, Msg
+    from .typing import BaseInstrumentDriver, Msg, Client
 
 
 class InstrumentDaemon:
     """A daemon that runs in the background and maintains and manages an instrument."""
 
-    _nc: nats.aio.client.Client
+    _nc: Client
     _loop: asyncio.AbstractEventLoop
     _url: str
     _instrument_name: str
