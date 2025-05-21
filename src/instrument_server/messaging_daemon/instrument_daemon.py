@@ -147,7 +147,7 @@ class InstrumentDaemon:
             message=init_message,
         )
 
-    async def publish_status(self, refresh: int = 1) -> None:
+    async def publish_status(self, refresh: float = 0.5) -> None:
         """Publishes the status of the daemon every refresh."""
         while True:
             pending = len([t for t in asyncio.all_tasks() if not t.done()])

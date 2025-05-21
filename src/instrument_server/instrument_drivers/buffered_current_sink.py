@@ -1,7 +1,7 @@
 """A buffered current sink instrument driver."""
 
-from .dc_current_sink import DCCurrentSink
 from .constants import SUPPORTED_PROPERTIES
+from .dc_current_sink import DCCurrentSink
 
 
 class BufferedCurrentSink(DCCurrentSink):

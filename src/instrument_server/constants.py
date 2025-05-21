@@ -196,6 +196,151 @@ class STATUS(RESPONSE):
         return "status"
 
 
+class REQUEST_DAEMON_CONFIGURATIONS(RESPONSE):
+    """The substrings necessary to request the daemon configurations."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        return "REQUEST_DAEMON_CONFIGURATIONS"
+
+    @property
+    def configurations(self) -> str:
+        """This is the configurations of the daemon.
+
+        This is a json payload containing the configuration of the daemons
+        """
+        # TODO: discuss format of this
+        return "configurations"
+
+
+class UPDATE_DAEMON_PROPERTY(RESPONSE):
+    """The substrings necessary to update the daemon property."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "UPDATE_DAEMON_PROPERTY"
+
+    @property
+    def PROPERTY(self) -> str:
+        """This is the property that is to be updated."""
+        return "property"
+
+    @property
+    def NAME(self) -> str:
+        """This is the name of the property that is to be updated."""
+        return "name"
+
+    @property
+    def VALUE(self) -> str:
+        """This is the value of the property that is to be updated."""
+        return "value"
+
+
+class PROCESS_REQUEST(BASE_COMMAND):
+    """The substrings necessary to process a request."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "PROCESS_REQUEST"
+
+    @property
+    def REQUEST(self) -> str:
+        """This is the request to issue the command.
+
+        This message is a Jsonable string.
+        """
+        return "request"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process that is to be processed."""
+        return "process_id"
+
+
+class MEASUREMENT_READY(RESPONSE):
+    """The substrings necessary to indicate that a measurement is ready."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "MEASUREMENT_READY"
+
+    @property
+    def SETTERS(self) -> str:
+        """This is the setters that are ready to be measured.
+
+        this is json containing a dictionary of properties indexed by names for each connection that needs to be set
+        if not buffered, each connection is the key to another nest of dictionaries detailing each datapoint
+        """
+        return "setters"
+
+    @property
+    def GETTERS(self) -> str:
+        """This is the getters that are ready to be measured.
+
+        this is json containing a dictionary of properties indexed by names for each connection that needs to be got
+        """
+        return "getters"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process that is to be processed."""
+        return "process_id"
+
+
+class PROCESS_DATA(BASE_COMMAND):
+    """The substrings necessary to process data."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "PROCESS_DATA"
+
+    @property
+    def DATA(self) -> str:
+        """This is the data to issue the command.
+
+        If buffered measurement this is one long array.
+        If not buffered, this is a list of lists of data points.
+        """
+        return "data"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process that is to be processed."""
+        return "process_id"
+
+
+class UPLOAD_DATA(RESPONSE):
+    """The substrings necessary to probe runtime to load the data into the database and handoff to FAlCon."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "UPLOAD_DATA"
+
+    @property
+    def MEASUREMENT_NAME(self) -> str:
+        """This is the name of the measurement to upload."""
+        return "measurement_name"
+
+    @property
+    def DATA(self) -> str:
+        """This is the data to issue the command.
+        This is Jsonable in database format.
+        """
+        return "data"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """This is the process id of the measurement."""
+        return "process_id"
+
+    # TODO: discuss format of this
+
+
 class DAEMON_RUNTIME_COMMANDS:
     """All of the various runtime commands that an instrument needs to support."""
 
@@ -208,6 +353,18 @@ class DAEMON_RUNTIME_COMMANDS:
     PERFORM_ARBITRARY_METHOD = PERFORM_ARBITRARY_METHOD()
     TRIGGER = TRIGGER()  # used to trigger buffered instruments
     STATUS = STATUS()
+
+
+class INTERPRETER_RUNTIME_COMMANDS:
+    """All of the various runtime commands that a compiler may use."""
+
+    LOG = LOG()
+    REQUEST_DAEMON_CONFIGURATIONS = REQUEST_DAEMON_CONFIGURATIONS()
+    UPDATE_DAEMON_PROPERTY = UPDATE_DAEMON_PROPERTY()
+    PROCESS_REQUEST = PROCESS_REQUEST()
+    MEASUREMENT_READY = MEASUREMENT_READY()
+    PROCESS_DATA = PROCESS_DATA()
+    UPLOAD_DATA = UPLOAD_DATA()
 
 
 class SUPPORTED_PROPERTIES:
@@ -238,15 +395,3 @@ class SUPPORTED_PROPERTIES:
     NUMBER_SIMULTANEOUS_WAVEFORMS = "num_sim_waveforms"
     MAXIMUM_WAVEFORM_EXTENT = "maximum_wavefrom_extent"
     SUPPORTS_BUFFERED_MEASUREMENTS = "buffered_measurements"
-
-
-class INTERPRETER_RUNTIME_COMMANDS:
-    """All of the various runtime commands that a compiler may use."""
-
-    LOG = LOG()
-    REQUEST_DAEMON_CONFIGURATIONS = REQUEST_DAEMON_CONFIGURATIONS()
-    UPDATE_DAEMON_PROPERTY = UPDATE_DAEMON_PROPERTY()
-    PROCESS_REQUEST = PROCESS_REQUEST()
-    MEASUREMENT_READY = MEASUREMENT_READY()
-    PROCESS_DATA = PROCESS_DATA()
-    UPLOAD_DATA = UPLOAD_DATA()
