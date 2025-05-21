@@ -226,7 +226,6 @@ class SUPPORTED_PROPERTIES:
     # combo parameter: step_width, num_steps, repeats, v_stop
     STAIRCASE = "staircase"
     # TODO: continue generalizing properties. such as AC control, other DC control, etc.
-    WAVEFORM = "waveform"
 
     # buffered instrument global controls
     LEADER = "leader"  # boolean, if not true then this is a follower
