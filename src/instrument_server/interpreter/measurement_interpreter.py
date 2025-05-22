@@ -2,10 +2,13 @@
 
 from typing import TYPE_CHECKING
 
-from .dependancies import nats
-
 if TYPE_CHECKING:
-    from .typing import Client
+    from .typing import (
+        ID,
+        DriverConfig,
+        InterpreterSyncSender,
+        MeasurementRequest,
+    )
 
 
 class MeasurementInterpreter:
@@ -17,13 +20,24 @@ class MeasurementInterpreter:
     storage.
     """
 
-    _url: str
-    _nc: "Client"
+    _sync_sender: "InterpreterSyncSender"
 
-    def __init__(self, url: str):
-        """Initializes the MeasurementInterpreter with the given URL."""
-        self._url = url
+    def __init__(
+        self,
+        sync_sender: "InterpreterSyncSender",
+    ) -> None:
+        """Initializes the MeasurementInterpreter."""
+        self._sync_sender = sync_sender
 
-    async def start(self):
-        """Starts the measurement interpreter."""
-        self._nc = await nats.connect(self._url)
+    def process_request(
+        self,
+        request: "MeasurementRequest",
+        configuration: dict[str, "DriverConfig"],
+        id: "ID",
+    ) -> None:
+        """Processes the measurement request.
+
+        Args:
+            request: The measurement request to process.
+            id: The ID of the request.
+        """

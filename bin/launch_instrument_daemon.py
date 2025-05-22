@@ -7,7 +7,7 @@ import importlib
 import importlib.metadata
 from typing import TYPE_CHECKING, Any
 
-from instrument_server.messaging_daemon.instrument_daemon import InstrumentDaemon
+from instrument_server.daemons.instrument_daemon import InstrumentDaemon
 from instrument_server.registry_controls import find_driver
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     try:
         # Run the main function in the loop
         loop.run_until_complete(
-            daemon.main(),
+            daemon.start(),
         )
     finally:
         # Ensure the loop is closed when we're done
