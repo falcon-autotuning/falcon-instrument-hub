@@ -2,8 +2,9 @@
 """A script that launches the measurement interpreter for the instrument server."""
 
 import argparse
+import asyncio
 
-from instrument_server.interpreter.measurement_interpreter import MeasurementInterpreter
+from instrument_server.daemons.interpreter_daemon import InterpreterDaemon
 
 
 def get_driver_config_from_args() -> dict[str, str]:
@@ -30,5 +31,14 @@ def get_driver_config_from_args() -> dict[str, str]:
 if __name__ == "__main__":
     config = get_driver_config_from_args()
     url = config["url"]
-    interpreter = MeasurementInterpreter(url=url)
-    interpreter.start()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    interpreter = InterpreterDaemon(url=url, loop=loop)
+    try:
+        # Run the main function in the loop
+        loop.run_until_complete(
+            interpreter.start(),
+        )
+    finally:
+        # Ensure the loop is closed when we're done
+        loop.close()

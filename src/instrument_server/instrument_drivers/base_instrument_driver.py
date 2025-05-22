@@ -11,11 +11,12 @@ if TYPE_CHECKING:
     from .typing import (
         Bounds,
         GetCommand,
+        DriverConfig,
         Index,
+        InstrumentSyncSender,
         PropertyName,
         PropertyValue,
         SetCommand,
-        SyncSender,
     )
 
 
@@ -28,7 +29,7 @@ class BaseInstrumentDriver:
     """
 
     _properties: dict["PropertyName", "IndexedProperties"]
-    _sync_sender: "SyncSender"
+    _sync_sender: "InstrumentSyncSender"
     _property_lock: threading.Lock
     _property_cache: dict["PropertyName", dict["Index", "PropertyValue"]]
 
@@ -38,7 +39,7 @@ class BaseInstrumentDriver:
             driver_class=cls,
         )
 
-    def __init__(self, sync_sender: "SyncSender"):
+    def __init__(self, sync_sender: "InstrumentSyncSender"):
         """When instancing this subclass, make sure to specify the program_property method for each property of the daemon.
 
         Args:
@@ -168,7 +169,7 @@ class BaseInstrumentDriver:
 
     def to_json_config(
         self,
-    ) -> dict["PropertyName", dict["Index", dict[str, "bool | Bounds"]]]:
+    ) -> DriverConfig:
         """Convert the properties to a JSON serializable format.
 
         Returns:

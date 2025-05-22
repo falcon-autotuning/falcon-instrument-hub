@@ -196,23 +196,6 @@ class STATUS(RESPONSE):
         return "status"
 
 
-class REQUEST_DAEMON_CONFIGURATIONS(RESPONSE):
-    """The substrings necessary to request the daemon configurations."""
-
-    @property
-    def COMM_CHANNEL(self) -> str:
-        return "REQUEST_DAEMON_CONFIGURATIONS"
-
-    @property
-    def configurations(self) -> str:
-        """This is the configurations of the daemon.
-
-        This is a json payload containing the configuration of the daemons
-        """
-        # TODO: discuss format of this
-        return "configurations"
-
-
 class UPDATE_DAEMON_PROPERTY(RESPONSE):
     """The substrings necessary to update the daemon property."""
 
@@ -252,6 +235,15 @@ class PROCESS_REQUEST(BASE_COMMAND):
         This message is a Jsonable string.
         """
         return "request"
+
+    @property
+    def CONFIGURATIONS(self) -> str:
+        """This is the configurations of the daemon.
+
+        This is a json payload containing the configuration of the daemons
+        """
+        # TODO: discuss format of this
+        return "configurations"
 
     @property
     def PROCESS_ID(self) -> str:
@@ -359,12 +351,12 @@ class INTERPRETER_RUNTIME_COMMANDS:
     """All of the various runtime commands that a compiler may use."""
 
     LOG = LOG()
-    REQUEST_DAEMON_CONFIGURATIONS = REQUEST_DAEMON_CONFIGURATIONS()
     UPDATE_DAEMON_PROPERTY = UPDATE_DAEMON_PROPERTY()
     PROCESS_REQUEST = PROCESS_REQUEST()
     MEASUREMENT_READY = MEASUREMENT_READY()
     PROCESS_DATA = PROCESS_DATA()
     UPLOAD_DATA = UPLOAD_DATA()
+    STATUS = STATUS()
 
 
 class SUPPORTED_PROPERTIES:

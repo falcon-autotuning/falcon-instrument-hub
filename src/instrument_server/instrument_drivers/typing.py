@@ -3,7 +3,8 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
-from ..messaging_daemon.sync_sender import SyncSender
+from ..daemons.instrument_sync_sender import InstrumentSyncSender
+from ..daemons.interpreter_sync_sender import InterpreterSyncSender
 
 if TYPE_CHECKING:
     from typing import TypeAlias
@@ -20,7 +21,8 @@ GetIndexedCommand: "TypeAlias" = Callable[[Index], T]
 PropertyName: "TypeAlias" = str
 Bounds: "TypeAlias" = tuple[T, T]
 Staircase = tuple[int, int, int, float]
-
+DriverConfig: "TypeAlias" = dict[PropertyName, dict[Index, dict[str, bool | Bounds]]]
 __all__ = [
-    "SyncSender",
+    "InstrumentSyncSender",
+    "InterpreterSyncSender",
 ]

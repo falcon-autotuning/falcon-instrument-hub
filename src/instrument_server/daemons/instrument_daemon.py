@@ -1,19 +1,19 @@
 """An instrument daemon that runs instrument drivers."""
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from .constants import DAEMON_RUNTIME_COMMANDS
 from .dependancies import asyncio, json, nats, time
-from .sync_sender import SyncSender
+from .instrument_sync_sender import InstrumentSyncSender
 
 if TYPE_CHECKING:
-    from .typing import BaseInstrumentDriver, Msg, Client
+    from .typing import Any, BaseInstrumentDriver, Client, Msg
 
 
 class InstrumentDaemon:
     """A daemon that runs in the background and maintains and manages an instrument."""
 
-    _nc: Client
+    _nc: "Client"
     _loop: asyncio.AbstractEventLoop
     _url: str
     _instrument_name: str
@@ -35,12 +35,12 @@ class InstrumentDaemon:
         self._url = url
         self._loop = loop
         self._instrument_name = instrument_class.__name__
-        sync_sender = SyncSender(self.send_command, loop=loop)
+        sync_sender = InstrumentSyncSender(self.send_command, loop=loop)
         self._instrument = instrument_class(
             sync_sender=sync_sender,
         )
 
-    async def main(self):
+    async def start(self):
         """The main loop for the daemon."""
         self._nc = await nats.connect(self._url)
         await self.confirm_initialization()
