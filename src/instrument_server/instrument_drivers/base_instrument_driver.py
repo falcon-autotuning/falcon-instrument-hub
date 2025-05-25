@@ -4,19 +4,22 @@ from typing import TYPE_CHECKING
 
 from .base_property import BaseProperty
 from .constants import SUPPORTED_PROPERTIES
-from .dependancies import add_driver, threading
-from .indexed_properties import IndexedProperties
+from .dependancies import Units, add_driver, threading
+from .indexed_properties import (
+    IndexedProperties,
+)
 
 if TYPE_CHECKING:
     from .typing import (
         Bounds,
-        GetCommand,
         DriverConfig,
+        GetCommand,
         Index,
         InstrumentSyncSender,
         PropertyName,
         PropertyValue,
         SetCommand,
+        SymbolUnit,
     )
 
 
@@ -60,6 +63,7 @@ class BaseInstrumentDriver:
         get_cmd: "GetCommand | None" = None,
         bounds: "Bounds | None" = None,
         set_cmd: "SetCommand | None" = None,
+        unit: "SymbolUnit" = Units.DIMENSIONLESS,
     ) -> None:
         """Program a property for the daemon.
 
@@ -86,6 +90,7 @@ class BaseInstrumentDriver:
             get_cmd=get_cmd,
             set_cmd=set_cmd,
             bounds=bounds,
+            unit=unit,
         )
         self._properties[property_name][index] = prop
 
@@ -169,7 +174,7 @@ class BaseInstrumentDriver:
 
     def to_json_config(
         self,
-    ) -> DriverConfig:
+    ) -> "DriverConfig":
         """Convert the properties to a JSON serializable format.
 
         Returns:

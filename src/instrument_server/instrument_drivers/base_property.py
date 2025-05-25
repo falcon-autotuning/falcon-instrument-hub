@@ -2,8 +2,10 @@
 
 from typing import TYPE_CHECKING
 
+from .dependancies import Units
+
 if TYPE_CHECKING:
-    from .typing import Bounds, GetCommand, SetCommand
+    from .typing import Bounds, GetCommand, PropertyJson, SetCommand, SymbolUnit
 
 
 class BaseProperty:
@@ -14,12 +16,14 @@ class BaseProperty:
     _settable: bool = False
     _gettable: bool = False
     _bounds: tuple[int | float, int | float]
+    _unit: "SymbolUnit" = Units.DIMENSIONLESS
 
     def __init__(
         self,
         get_cmd: "GetCommand | None" = None,
         set_cmd: "SetCommand | None" = None,
         bounds: tuple[int | float, int | float] | None = None,
+        unit: "SymbolUnit" = Units.DIMENSIONLESS,
     ):
         """Initialize the base property.
 
@@ -27,6 +31,7 @@ class BaseProperty:
             get_cmd: The command to get the property.
             set_cmd: The command to set the property.
             bounds: Optional bounds of the property. This is a tuple of (min, max).
+            unit: The unit of the property.
 
         """
         self._get_cmd = get_cmd
@@ -34,6 +39,7 @@ class BaseProperty:
         self._settable = set_cmd is not None
         self._gettable = get_cmd is not None
         self._bounds = bounds if bounds is not None else self._bounds
+        self._unit = unit
 
     @property
     def get_cmd(self) -> "GetCommand":
@@ -72,7 +78,17 @@ class BaseProperty:
         """
         return self._bounds
 
-    def _to_json(self) -> dict[str, "bool | Bounds"]:
+    @property
+    def unit(self) -> "SymbolUnit":
+        """Gets the unit of the property.
+
+        Returns:
+            The unit of the property.
+
+        """
+        return self._unit
+
+    def _to_json(self) -> "PropertyJson":
         """Convert the property to a JSON serializable dictionary.
 
         Returns:
@@ -81,5 +97,6 @@ class BaseProperty:
         """
         return {
             "bounds": self._bounds,
+            "unit": self._unit.to_json(),
             "settable": self._settable,
         }

@@ -3,10 +3,11 @@
 from typing import TYPE_CHECKING
 
 from .constants import INTERPRETER_RUNTIME_COMMANDS
-from .dependancies import json
+from .dependancies import json, time
 from .sync_sender import SyncSender
 
 if TYPE_CHECKING:
+    from .dependancies import MeasurementResponse
     from .typing import (
         ID,
         Connection,
@@ -83,22 +84,17 @@ class InterpreterSyncSender(SyncSender):
 
     def upload_data(
         self,
-        measurement_name: str,
-        measurement_id: "ID",
-        data,  # TODO: type this
+        data: "MeasurementResponse",
     ) -> None:
         """Uploads the interpreted data to the server for storing in the database.
 
         Args:
-            measurement_name: The name of the measurement.
-            measurement_id: The ID of the measurement.
             data: The data to upload.
         """
         message = json.dumps(
             {
-                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.MEASUREMENT_NAME: measurement_name,
-                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.PROCESS_ID: measurement_id,
-                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: data,
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: data.to_json(),
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: str(time.time()),
             }
         )
         self._sync_send(

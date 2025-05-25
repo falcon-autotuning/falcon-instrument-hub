@@ -3,6 +3,8 @@
 from collections.abc import Callable
 from typing import TYPE_CHECKING, TypeVar
 
+from falcon_core.physics.units import SymbolUnit
+
 from ..daemons.instrument_sync_sender import InstrumentSyncSender
 from ..daemons.interpreter_sync_sender import InterpreterSyncSender
 
@@ -21,8 +23,11 @@ GetIndexedCommand: "TypeAlias" = Callable[[Index], T]
 PropertyName: "TypeAlias" = str
 Bounds: "TypeAlias" = tuple[T, T]
 Staircase = tuple[int, int, int, float]
-DriverConfig: "TypeAlias" = dict[PropertyName, dict[Index, dict[str, bool | Bounds]]]
+PropertyJson: "TypeAlias" = dict[str, bool | Bounds | str]
+IndexedPropertyJson: "TypeAlias" = dict[Index, PropertyJson]
+DriverConfig: "TypeAlias" = dict[PropertyName, IndexedPropertyJson]
 __all__ = [
     "InstrumentSyncSender",
+    "SymbolUnit",
     "InterpreterSyncSender",
 ]
