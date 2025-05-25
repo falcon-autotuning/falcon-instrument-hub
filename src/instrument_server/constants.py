@@ -242,8 +242,12 @@ class PROCESS_REQUEST(BASE_COMMAND):
 
         This is a json payload containing the configuration of the daemons
         """
-        # TODO: discuss format of this
         return "configurations"
+
+    @property
+    def DATA_PATH(self) -> str:
+        """The data directory to save the data to."""
+        return "data_path"
 
     @property
     def PROCESS_ID(self) -> str:
@@ -260,15 +264,6 @@ class MEASUREMENT_READY(RESPONSE):
         return "MEASUREMENT_READY"
 
     @property
-    def SETTERS(self) -> str:
-        """This is the setters that are ready to be measured.
-
-        this is json containing a dictionary of properties indexed by names for each connection that needs to be set
-        if not buffered, each connection is the key to another nest of dictionaries detailing each datapoint
-        """
-        return "setters"
-
-    @property
     def GETTERS(self) -> str:
         """This is the getters that are ready to be measured.
 
@@ -282,7 +277,7 @@ class MEASUREMENT_READY(RESPONSE):
         return "process_id"
 
 
-class PROCESS_DATA(BASE_COMMAND):
+class PROCESS_DATA(RESPONSE):
     """The substrings necessary to process data."""
 
     @property
@@ -294,8 +289,10 @@ class PROCESS_DATA(BASE_COMMAND):
     def DATA(self) -> str:
         """This is the data to issue the command.
 
-        If buffered measurement this is one long array.
-        If not buffered, this is a list of lists of data points.
+        Regardless of measurement type, this is a json object.
+        The dictionary contains keys, which are InstrumentPort from the Meters.
+        If buffered measurement the values are Jsonable array.
+        If not buffered, the values are a data point.
         """
         return "data"
 
@@ -306,7 +303,10 @@ class PROCESS_DATA(BASE_COMMAND):
 
 
 class UPLOAD_DATA(RESPONSE):
-    """The substrings necessary to probe runtime to load the data into the database and handoff to FAlCon."""
+    """The substrings necessary to probe runtime to load the data into the database and handoff to FAlCon.
+
+    The interpreter will upload the data to the database independantly.
+    """
 
     @property
     def COMM_CHANNEL(self) -> str:
@@ -314,23 +314,12 @@ class UPLOAD_DATA(RESPONSE):
         return "UPLOAD_DATA"
 
     @property
-    def MEASUREMENT_NAME(self) -> str:
-        """This is the name of the measurement to upload."""
-        return "measurement_name"
-
-    @property
     def DATA(self) -> str:
         """This is the data to issue the command.
-        This is Jsonable in database format.
+
+        This is Jsonable MeasurementResponse.
         """
         return "data"
-
-    @property
-    def PROCESS_ID(self) -> str:
-        """This is the process id of the measurement."""
-        return "process_id"
-
-    # TODO: discuss format of this
 
 
 class DAEMON_RUNTIME_COMMANDS:
@@ -371,9 +360,10 @@ class SUPPORTED_PROPERTIES:
     NUMBER_OF_SAMPLES = "number_of_samples"
     SAMPLE_RATE = "sample_rate"
     TIMEOUT = "timeout"
+    SAMPLES = "samples"
 
     # buffered instruments
-    # combo parameter: step_width, num_steps, repeats, v_stop
+    # combo parameter: step_width [msec], num_steps, repeats, v_start [V], v_stop [V]
     STAIRCASE = "staircase"
     # TODO: continue generalizing properties. such as AC control, other DC control, etc.
 

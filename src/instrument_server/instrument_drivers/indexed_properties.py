@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .base_property import BaseProperty
-    from .typing import Bounds, Index
+    from .typing import Index, IndexedPropertyJson
 
 
 class IndexedProperties:
@@ -45,7 +45,7 @@ class IndexedProperties:
         """Get a list of indices."""
         return list(self._values.keys())
 
-    def _to_json(self) -> dict["Index", dict[str, "bool | Bounds"]]:
+    def _to_json(self) -> "IndexedPropertyJson":
         """Convert the properties to a JSON serializable format.
 
         Returns:
