@@ -47,7 +47,6 @@ class InterpreterSyncSender(SyncSender):
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.PROCESS_ID: id,
-                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.SETTERS: setters,
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS: getters,
             }
         )

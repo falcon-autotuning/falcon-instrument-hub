@@ -16,4 +16,3 @@ Requires-Dist: numpy>=2.0.0
 Requires-Dist: pytest==8.2.1
 Requires-Dist: setuptools-scm==8.1.0
 Requires-Dist: nats.py==2.10.0
-Requires-Dist: falcon_core

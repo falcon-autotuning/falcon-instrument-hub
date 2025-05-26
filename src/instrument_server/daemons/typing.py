@@ -8,6 +8,7 @@ from falcon_core.instrument_interfaces.names import InstrumentPort
 from falcon_core.physics.device_structures import Connection
 from nats.aio.client import Client
 from nats.aio.msg import Msg
+from numpy.typing import NDArray
 
 from ..instrument_drivers.base_instrument_driver import BaseInstrumentDriver
 from ..instrument_drivers.typing import Index, PropertyJson, PropertyName, PropertyValue
@@ -29,6 +30,7 @@ Dimensions: "TypeAlias" = dict[DimensionIndex, Dimension]
 Metadata: "TypeAlias" = dict[str, str | int | float]
 __all__ = [
     "Connection",
+    "NDArray",
     "InstrumentPort",
     "Instrument",
     "ID",

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
         Client,
         InstrumentPort,
         Msg,
+        NDArray,
         PropertyJson,
         PropertyName,
         PropertyValue,
@@ -294,6 +295,9 @@ class InterpreterDaemon:
         Returns:
             the number of unique collected measurments
             the end shape of the compiled data.
+
+        Raises:
+            RuntimeError: If no valid waveform is found in the request.
         """
         # TODO: add in knob_transforms parsing, this only supports cartesian type waveforms
         [waveform._space._space.compile() for waveform in request.waveforms]
@@ -321,7 +325,6 @@ class InterpreterDaemon:
                 for knob in domain.knobs
             ]
         )
-        step_width = request.time_domain.domain.range  # in [sec]
         raw_time_trace = cast(
             BaseArray,
             valid_waveform._space._space._space,
@@ -335,82 +338,129 @@ class InterpreterDaemon:
             valid_waveform._space._axes,
         )
         instructions = []
-        meters = [transform.port for transform in request.meter_transforms]
-        if buffered:
-            # we only support staircase right now
-            # Find chunk boundaries where the primary axis stops staircasing
-            primary_axis = raw_time_trace.data[:, 0]
-            breaks = np.where(np.diff(primary_axis) < 0)[0] + 1
-            chunks = np.split(raw_time_trace.data, breaks)
-            # in a staircase, all the values on the other axes are the same
-            # Check that within each chunk, each non-time axis is constant (column-wise)
-            for chunk in chunks:
-                if chunk.shape[0] == 0:
-                    continue
-                other_axes = chunk[:, 1:]
-                # For each column, all values must be the same
-                if not np.all([np.all(col == col[0]) for col in other_axes.T]):
-                    msg = "Within a chunk, each non-time axis must be constant."
-                    raise ValueError(msg)
-            for chunk in chunks:
-                setters: dict[InstrumentPort, dict[PropertyName, PropertyValue]] = {}
-                getters = {meter: SUPPORTED_PROPERTIES.SAMPLES for meter in meters}
-                for i, couple_domain in enumerate(axes_domains):
-                    raw_space = chunk[i, :]
-                    for domain in couple_domain:
-                        v_start = unit_domain.transform(
-                            value=raw_space[0],
-                            other=domain.domain,
+        chunks = self.chunk_instructions(
+            raw_time_trace=raw_time_trace, buffered=buffered
+        )
+        getters = {
+            transform.port: SUPPORTED_PROPERTIES.SAMPLES
+            for transform in request.meter_transforms
+        }
+
+        for chunk in chunks:
+            instruction = Instruction(getters=getters)
+            for i, couple_domain in enumerate(axes_domains):
+                raw_space = chunk[i, :]
+                for domain in couple_domain:
+                    v_start = unit_domain.transform(
+                        value=raw_space[0],
+                        other=domain.domain,
+                    )
+                    if not buffered or i != 0:
+                        instruction.add_setter(
+                            instrument=domain.label,
+                            properties={SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start},
                         )
-                        if i != 0:
-                            setters[domain.label] = {
-                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
-                            }
-                            continue
-                        v_stop = unit_domain.transform(
-                            value=raw_space[-1],
-                            other=domain.domain,
-                        )
-                        setters[domain.label] = {
+                        continue
+                    v_stop = unit_domain.transform(
+                        value=raw_space[-1],
+                        other=domain.domain,
+                    )
+                    instruction.add_setter(
+                        instrument=domain.label,
+                        properties={
                             SUPPORTED_PROPERTIES.STAIRCASE: (
-                                step_width,
+                                request.time_domain.domain.range * 1000,  # [msec]
                                 len(raw_space),
                                 0,
                                 v_start,
                                 v_stop,
                             )
-                        }
-                instructions.append(Instruction(setters=setters, getters=getters))
-                collected_measurements = len(instructions)
-                # TODO: ramp between each instruction
+                        },
+                    )
+            instructions.append(instruction)
 
-        else:
-            instruction = Instruction(
-                getters={meter: SUPPORTED_PROPERTIES.SAMPLES for meter in meters},
-            )
-            for i in range(raw_time_trace.data.shape[0]):
-                for j, coupled_domains in enumerate(axes_domains):
-                    data_point = raw_time_trace.data[j, i]
-                    [
-                        instruction.add_setter(
-                            instrument=domain.label,
-                            properties={
-                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: unit_domain.transform(
-                                    value=data_point,
-                                    other=domain.domain,
-                                )
-                            },
-                        )
-                        for domain in coupled_domains
-                    ]
-                instructions.append(instruction)
-            collected_measurements = len(instructions)
+        collected_measurements = len(instructions)
+        if buffered:
+            # inject ramps in between each instruction
+            instructions = self.interject_ramps(instructions=instructions)
 
         self._measurement_groups[id] = MeasurementInstructions(
             instructions=instructions
         )
         shape = valid_waveform._space._space.shape
+        assert isinstance(shape, tuple), "Invalid shape for waveform data."
         return (collected_measurements, shape)
+
+    def chunk_instructions(
+        self,
+        raw_time_trace: BaseArray,
+        buffered: bool = False,
+    ) -> list["NDArray[np.floating]"]:
+        """Chunks the raw time trace data into staircased segments.
+
+        Args:
+            raw_time_trace: The raw time trace data to chunk.
+            buffered: Whether the data is buffered or not.
+
+        Returns:
+            the chunks of the raw time trace data, where each chunk is a staircased segment.
+        """
+        if not buffered:
+            # treat each column as a chunk of shape (n_axes, 1)
+            data = raw_time_trace.data
+            return [data[:, i : i + 1] for i in range(data.shape[1])]
+        # Find chunk boundaries where the primary axis stops staircasing
+        primary_axis = raw_time_trace.data[:, 0]
+        breaks = np.where(np.diff(primary_axis) < 0)[0] + 1
+        chunks = np.split(raw_time_trace.data, breaks)
+        # in a staircase, all the values on the other axes are the same
+        # Check that within each chunk, each non-time axis is constant (column-wise)
+        for chunk in chunks:
+            if chunk.shape[0] == 0:
+                continue
+            other_axes = chunk[:, 1:]
+            # For each column, all values must be the same
+            if not bool(
+                np.all(np.array([np.all(col == col[0]) for col in other_axes.T]))
+            ):
+                msg = "Within a chunk, each non-time axis must be constant."
+                raise ValueError(msg)
+        return chunks
+
+    def interject_ramps(
+        self,
+        instructions: list[Instruction],
+    ) -> list[Instruction]:
+        """Interjects ramps between each instruction.
+
+        Args:
+            instructions: The list of instructions to interject ramps into.
+
+        Returns:
+            the list of instructions with ramps interjected.
+        """
+        new_instructions = []
+        for i, instruction in enumerate(instructions):
+            if i == 0:
+                new_instructions.append(instruction)
+                continue
+            new_instruction = Instruction(
+                setters={
+                    port: (
+                        {
+                            SUPPORTED_PROPERTIES.VOLTAGE_STATE: properties[  # type: ignore[reportOptionalMemberAccess]
+                                SUPPORTED_PROPERTIES.STAIRCASE
+                            ][3]
+                        }
+                        if SUPPORTED_PROPERTIES.VOLTAGE_STATE not in properties
+                        else properties
+                    )
+                    for port, properties in instruction.setters.items()
+                }
+            )
+            new_instructions.append(new_instruction)
+            new_instructions.append(instruction)
+        return new_instructions
 
     async def deploy_measurements(
         self,
@@ -452,8 +502,10 @@ class InterpreterDaemon:
         try:
             data = json.loads(msg.data.decode())
             instrument_data = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
-            id = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID)
-            timestamp = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
+            id = str(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
+            timestamp = str(
+                data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
+            )
             assert isinstance(instrument_data, dict)
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
@@ -535,7 +587,9 @@ class InterpreterDaemon:
         hdf.to_file(path=data_path)
 
     def make_response(
-        self, data_arrays: dict["InstrumentPort", list[float]], shape: tuple[int, ...]
+        self,
+        data_arrays: dict["InstrumentPort", list[float]],
+        shape: tuple[int, ...],
     ) -> MeasurementResponse:
         """Creates a MeasurementResponse object from the data arrays.
 
@@ -609,7 +663,7 @@ class InterpreterDaemon:
                     computation = np.mean(masked) if masked.size > 0 else 0.0
                     if port not in final_data:
                         final_data[port] = []
-                    final_data[port].append(computation)
+                    final_data[port].append(float(computation))
 
         return final_data
 

@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from .base_property import BaseProperty
 from .constants import SUPPORTED_PROPERTIES
-from .dependancies import Units, add_driver, threading
+from .dependancies import TypeVar, Units, add_driver, threading
 from .indexed_properties import (
     IndexedProperties,
 )
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         SetCommand,
         SymbolUnit,
     )
+T = TypeVar("T", bound="PropertyValue")
 
 
 class BaseInstrumentDriver:
@@ -60,9 +61,9 @@ class BaseInstrumentDriver:
         self,
         property_name: "PropertyName",
         index: "Index",
-        get_cmd: "GetCommand | None" = None,
-        bounds: "Bounds | None" = None,
-        set_cmd: "SetCommand | None" = None,
+        get_cmd: "GetCommand[T] | None" = None,
+        bounds: "Bounds[T] | None" = None,
+        set_cmd: "SetCommand[T] | None" = None,
         unit: "SymbolUnit" = Units.DIMENSIONLESS,
     ) -> None:
         """Program a property for the daemon.
@@ -86,7 +87,7 @@ class BaseInstrumentDriver:
             self._properties[property_name] = IndexedProperties()
             self._property_cache[property_name] = {}
 
-        prop = BaseProperty(
+        prop = BaseProperty[T](
             get_cmd=get_cmd,
             set_cmd=set_cmd,
             bounds=bounds,
