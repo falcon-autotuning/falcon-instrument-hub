@@ -28,7 +28,6 @@ dependencies = [
   "pytest==8.2.1",
   "setuptools-scm==8.1.0",
   "nats.py==2.10.0",
-  "falcon_core",
 ]
 [project.entry-points."driver.plugins"]
 base_autotuner = "instrument_server.instrument_daemons.base_instrument_daemon"
@@ -105,6 +104,11 @@ namespaces = false               # true by default
 [tool.ruff]
 line-length = 88
 
+[tool.basedpyright]
+include = ["src"]
+exclude = ["**/__pycache__"]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
 
 # Pyrefly header
 [tool.pyrefly]
@@ -113,12 +117,12 @@ line-length = 88
 project_includes = ["src"]
 project_excludes = ["**/.[!/.]*", "**/tests"]
 search_path = ["src"]
-site_package_path = ["venv/lib/python3.13/site-packages"]
+site_package_path = [".venv/lib/python3.13/site-packages"]
 
 #### configuring your python environment
 python_platform = "linux"
 python_version = "3.13"
-python_interpreter = "venv/bin/python3"
+python_interpreter = ".venv/bin/python3"
 
 ignore_errors_in_generated_code = true
 use_untyped_imports = true

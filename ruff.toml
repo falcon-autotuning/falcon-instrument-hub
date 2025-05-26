@@ -34,7 +34,7 @@ indent-width = 4
 
 unsafe-fixes = true
 # Assume Python 3.11
-target-version = "py311"
+target-version = "py313"
 
 [lint]
 select = [

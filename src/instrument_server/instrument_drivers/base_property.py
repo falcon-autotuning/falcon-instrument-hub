@@ -5,24 +5,31 @@ from typing import TYPE_CHECKING
 from .dependancies import Units
 
 if TYPE_CHECKING:
-    from .typing import Bounds, GetCommand, PropertyJson, SetCommand, SymbolUnit
+    from .typing import (
+        Bounds,
+        GetCommand,
+        PropertyJson,
+        PropertyValue,
+        SetCommand,
+        SymbolUnit,
+    )
 
 
-class BaseProperty:
+class BaseProperty[T: PropertyValue]:
     """A base property is something that can be set for each subunit of a daemon."""
 
-    _set_cmd: "SetCommand | None" = None
-    _get_cmd: "GetCommand | None" = None
+    _set_cmd: "SetCommand[T] | None" = None
+    _get_cmd: "GetCommand[T] | None" = None
     _settable: bool = False
     _gettable: bool = False
-    _bounds: tuple[int | float, int | float]
+    _bounds: "Bounds[T]"
     _unit: "SymbolUnit" = Units.DIMENSIONLESS
 
     def __init__(
         self,
-        get_cmd: "GetCommand | None" = None,
-        set_cmd: "SetCommand | None" = None,
-        bounds: tuple[int | float, int | float] | None = None,
+        get_cmd: "GetCommand[T] | None" = None,
+        set_cmd: "SetCommand[T] | None" = None,
+        bounds: "Bounds[T] | None" = None,
         unit: "SymbolUnit" = Units.DIMENSIONLESS,
     ):
         """Initialize the base property.
@@ -69,7 +76,7 @@ class BaseProperty:
         raise AttributeError(msg)
 
     @property
-    def bounds(self) -> "Bounds":
+    def bounds(self) -> "Bounds[T]":
         """Gets the bounds of the property.
 
         Returns:
