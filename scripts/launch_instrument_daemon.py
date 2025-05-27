@@ -68,6 +68,7 @@ def build_instrument_driver(config: dict[str, Any]) -> type["BaseInstrumentDrive
 if __name__ == "__main__":
     config = get_driver_config_from_args()
     daemon_class = build_instrument_driver(config)
+    print("Found daemon class:", daemon_class)
 
     # Create the event loop that will be shared with SyncSender
     loop = asyncio.new_event_loop()
@@ -75,7 +76,7 @@ if __name__ == "__main__":
     url = config["url"]
     daemon = InstrumentDaemon(
         url=url,
-        instrument_class=daemon_class,
+        instrument_driver=daemon_class,
         loop=loop,
     )
     try:

@@ -27,7 +27,7 @@ class InstrumentDaemon:
     def __init__(
         self,
         url: str,
-        instrument_class: type["BaseInstrumentDriver"],
+        instrument_driver: type["BaseInstrumentDriver"],
         loop: asyncio.AbstractEventLoop,
     ):
         """Initialize the InstrumentDaemon.
@@ -39,9 +39,9 @@ class InstrumentDaemon:
         """
         self._url = url
         self._loop = loop
-        self._instrument_name = instrument_class.__name__
+        self._instrument_name = instrument_driver.__name__
         sync_sender = InstrumentSyncSender(self.send_command, loop=loop)
-        self._instrument = instrument_class(
+        self._instrument = instrument_driver(
             sync_sender=sync_sender,
         )
 
