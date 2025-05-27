@@ -4,7 +4,7 @@
 import argparse
 import asyncio
 
-from instrument_server.daemons.interpreter_daemon import InterpreterDaemon
+from server_daemons.interpreter_daemon import InterpreterDaemon
 
 
 def get_driver_config_from_args() -> dict[str, str]:

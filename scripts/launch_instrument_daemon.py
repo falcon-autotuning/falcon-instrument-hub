@@ -7,11 +7,12 @@ import importlib
 import importlib.metadata
 from typing import TYPE_CHECKING, Any
 
-from instrument_server.daemons.instrument_daemon import InstrumentDaemon
-from instrument_server.registry_controls import find_driver
+from instrument_templates.registry_controls import find_driver
+
+from server_daemons.instrument_daemon import InstrumentDaemon
 
 if TYPE_CHECKING:
-    from instrument_server.instrument_drivers.base_instrument_driver import (
+    from instrument_templates.base_instrument_driver import (
         BaseInstrumentDriver,
     )
 

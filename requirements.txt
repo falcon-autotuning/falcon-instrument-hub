@@ -3,4 +3,4 @@ pytest==8.2.1
 setuptools-scm==8.1.0
 nats.py==2.10.0
 falcon_core @ git+ssh://git@github.com/FrEQuENTS/FAlCon_core.git@dev
-instument_templates @ git+ssh://git@github.com/FrEQuENTS/instrument_templates.git@dev
+instrument_templates @ git+ssh://git@github.com/FrEQuENTS/instrument_templates.git@dev

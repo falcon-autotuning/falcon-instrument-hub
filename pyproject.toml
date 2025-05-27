@@ -7,7 +7,7 @@ requires = [
 build-backend = 'setuptools.build_meta'
 
 [project]
-name = "instrument_server"
+name = "server_daemons"
 maintainers = [
   { name = "FAlCon Core Developers", email = "falcon-support@falcon.com" },
 ]
