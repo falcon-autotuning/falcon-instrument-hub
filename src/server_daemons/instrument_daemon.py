@@ -2,9 +2,14 @@
 
 from typing import TYPE_CHECKING
 
-from .constants import DAEMON_RUNTIME_COMMANDS
-from .dependancies import InstrumentPort, asyncio, json, nats, time
-from .instrument_sync_sender import InstrumentSyncSender
+from .dependancies import (
+    DRIVER_RUNTIME_COMMANDS,
+    InstrumentSyncSender,
+    asyncio,
+    json,
+    nats,
+    time,
+)
 
 if TYPE_CHECKING:
     from .typing import Any, BaseInstrumentDriver, Client, Msg
@@ -75,11 +80,11 @@ class InstrumentDaemon:
     async def setup_subscriptions(self):
         """Set up subscriptions for the daemon."""
         subscriptions: list[tuple[str, Any]] = [
-            (DAEMON_RUNTIME_COMMANDS.SET.COMM_CHANNEL, self.handle_set),
-            (DAEMON_RUNTIME_COMMANDS.TRIGGER.COMM_CHANNEL, self.handle_trigger),
-            (DAEMON_RUNTIME_COMMANDS.GET.COMM_CHANNEL, self.handle_get),
+            (DRIVER_RUNTIME_COMMANDS.SET.COMM_CHANNEL, self.handle_set),
+            (DRIVER_RUNTIME_COMMANDS.TRIGGER.COMM_CHANNEL, self.handle_trigger),
+            (DRIVER_RUNTIME_COMMANDS.GET.COMM_CHANNEL, self.handle_get),
             (
-                DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.COMM_CHANNEL,
+                DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.COMM_CHANNEL,
                 self.handle_arbitration,
             ),
         ]
@@ -115,13 +120,13 @@ class InstrumentDaemon:
         """
         message = json.dumps(
             {
-                DAEMON_RUNTIME_COMMANDS.LOG.MESSAGE: message,
-                DAEMON_RUNTIME_COMMANDS.LOG.TIMESTAMP: str(time.time()),
+                DRIVER_RUNTIME_COMMANDS.LOG.MESSAGE: message,
+                DRIVER_RUNTIME_COMMANDS.LOG.TIMESTAMP: str(time.time()),
             }
         )
         await self.send_command(
             channel=self.specific_channel(
-                channel=DAEMON_RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
+                channel=DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
             ),
             message=message,
         )
@@ -131,18 +136,18 @@ class InstrumentDaemon:
         init_config = self._instrument.to_json_config()
         init_message = json.dumps(
             {
-                DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
-                DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
                     time.time()
                 ),
-                DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(
                     init_config
                 ),
             }
         )
         await self.send_command(
             channel=self.specific_channel(
-                channel=DAEMON_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL,
+                channel=DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL,
             ),
             message=init_message,
         )
@@ -153,13 +158,13 @@ class InstrumentDaemon:
             pending = len([t for t in asyncio.all_tasks() if not t.done()])
             message = json.dumps(
                 {
-                    DAEMON_RUNTIME_COMMANDS.STATUS.TIMESTAMP: str(time.time()),
-                    DAEMON_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
+                    DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: str(time.time()),
+                    DRIVER_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
                 }
             )
             await self.send_command(
                 channel=self.specific_channel(
-                    channel=DAEMON_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL,
+                    channel=DRIVER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL,
                 ),
                 message=message,
             )
@@ -177,10 +182,10 @@ class InstrumentDaemon:
         try:
             data = json.loads(msg.data.decode())
             method_name = data.get(
-                DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.METHOD
+                DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.METHOD
             )
             keywords = data.get(
-                DAEMON_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.KEYWORD_ARGS
+                DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.KEYWORD_ARGS
             )
             kwargs: dict[str, Any] = json.loads(keywords)
 
@@ -228,7 +233,7 @@ class InstrumentDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            port = data.get(DAEMON_RUNTIME_COMMANDS.TRIGGER.TRIGGER_PORT)
+            port = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.TRIGGER_PORT)
             # Locks the threads to make sure the calls are synchronous
             await self._loop.run_in_executor(
                 None,
@@ -254,9 +259,9 @@ class InstrumentDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            property_name = data.get(DAEMON_RUNTIME_COMMANDS.SET.PROPERTY)
-            index = data.get(DAEMON_RUNTIME_COMMANDS.SET.INDEX)
-            value = data.get(DAEMON_RUNTIME_COMMANDS.SET.VALUE)
+            property_name = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
+            index = data.get(DRIVER_RUNTIME_COMMANDS.SET.INDEX)
+            value = data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
 
             if not all([property_name, index, value is not None]):
                 await self.log(

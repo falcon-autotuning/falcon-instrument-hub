@@ -11,21 +11,19 @@ import numpy as np
 import pytest
 from falcon_core.instrument_interfaces.names import InstrumentPort
 from falcon_core.physics.device_structures import PlungerGate
+from instrument_templates.constants import SUPPORTED_PROPERTIES
 
-from instrument_server.constants import (
-    INTERPRETER_RUNTIME_COMMANDS,
-    SUPPORTED_PROPERTIES,
-)
-from instrument_server.daemons.data_queue import DataEntry, DataQueue
-from instrument_server.daemons.dependancies import (
+from server_daemons.constants import INTERPRETER_RUNTIME_COMMANDS
+from server_daemons.data_queue import DataEntry, DataQueue
+from server_daemons.dependancies import (
     MeasurementRequest,
     MeasurementResponse,
 )
-from instrument_server.daemons.instructions import (
+from server_daemons.instructions import (
     Instruction,
     MeasurementInstructions,
 )
-from instrument_server.daemons.interpreter_daemon import InterpreterDaemon
+from server_daemons.interpreter_daemon import InterpreterDaemon
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -40,16 +38,9 @@ class MockMsg:
 
 class TestInterpreterDaemon:
     @pytest.fixture
-    def mock_time(self):
-        """Create a mock for the time module."""
-        with patch("instrument_server.daemons.interpreter_daemon.time") as mock_time:
-            mock_time.time.return_value = 12345.67
-            yield mock_time
-
-    @pytest.fixture
     def mock_nats(self):
-        """Create a mock for the NATS client."""
-        with patch("instrument_server.daemons.interpreter_daemon.nats") as mock_nats:
+        """Create a mock for the time module."""
+        with patch("server_daemons.interpreter_daemon.nats") as mock_nats:
             # Create a mock client with necessary methods
             mock_client = AsyncMock()
             mock_client.publish = AsyncMock()
@@ -254,7 +245,11 @@ class TestInterpreterDaemon:
         )
 
     @pytest.mark.asyncio
-    async def test_deploy_measurement(self, interpreter_daemon, mock_nats):
+    async def test_deploy_measurement(
+        self,
+        interpreter_daemon,
+        mock_nats,
+    ):
         """Test the deploy_measurement method."""
         _, mock_client = mock_nats
 
@@ -306,9 +301,12 @@ class TestInterpreterDaemon:
         assert second_call[1]["cb"] == interpreter_daemon.handle_data
 
     @pytest.mark.asyncio
-    @patch("instrument_server.daemons.interpreter_daemon.MeasurementRequest")
+    @patch("server_daemons.interpreter_daemon.MeasurementRequest")
     async def test_handle_request(
-        self, mock_measurement_request, interpreter_daemon, mock_nats
+        self,
+        mock_measurement_request,
+        interpreter_daemon,
+        mock_nats,
     ):
         """Test the handle_request method."""
         _, mock_client = mock_nats
@@ -508,7 +506,7 @@ class TestInterpreterDaemon:
         )
 
     @pytest.mark.asyncio
-    @patch("instrument_server.daemons.interpreter_daemon.HDF5Data")
+    @patch("server_daemons.interpreter_daemon.HDF5Data")
     async def test_upload_data(
         self,
         mock_hdf5,

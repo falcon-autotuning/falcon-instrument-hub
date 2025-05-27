@@ -1,6 +1,6 @@
 """The instuctions for a measurement interpretet."""
 
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .typing import (
@@ -9,8 +9,6 @@ if TYPE_CHECKING:
         PropertyName,
         PropertyValue,
     )
-
-DataQueue: TypeAlias = dict[str, list[dict[str, "Any"]]]
 
 
 class Instruction:

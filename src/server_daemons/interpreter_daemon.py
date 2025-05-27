@@ -2,9 +2,10 @@
 
 from typing import TYPE_CHECKING
 
-from .constants import INTERPRETER_RUNTIME_COMMANDS, SUPPORTED_PROPERTIES
+from .constants import INTERPRETER_RUNTIME_COMMANDS
 from .data_queue import DataEntry, DataQueue
 from .dependancies import (
+    SUPPORTED_PROPERTIES,
     HDF5Data,
     LabelledMeasuredArray,
     LabelledMeasuredArrays,
@@ -21,14 +22,12 @@ from .dependancies import (
 from .instructions import Instruction, MeasurementInstructions
 
 if TYPE_CHECKING:
-    from .dependancies import (
-        BaseArray,
-    )
     from .typing import (
         ID,
         Any,
-        Client,
+        BaseArray,
         InstrumentPort,
+        Client,
         Msg,
         NDArray,
         PropertyJson,

@@ -3,11 +3,9 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from falcon_core.math.arrays.measured_array_1D import MeasuredArray1D
+    from .typing import InstrumentPort, MeasuredArray1D
 
-    from .typing import InstrumentPort, TypeAlias
-
-Data: "TypeAlias" = dict["InstrumentPort", "MeasuredArray1D"]
+type Data = dict[InstrumentPort, MeasuredArray1D]
 
 
 class DataEntry:
