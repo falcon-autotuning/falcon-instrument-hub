@@ -5,6 +5,7 @@ import fcntl
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -212,7 +213,8 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
 
     # Subscribe to get response
     get_response_channel = (
-        DRIVER_RUNTIME_COMMANDS.GET.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+        DRIVER_RUNTIME_COMMANDS.RETURN_GET.COMM_CHANNEL
+        + f".{TestInstrumentDriver.__name__}"
     )
 
     async def get_response_handler(msg):
@@ -271,6 +273,75 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
         f"Expected value 3, got {response_data.get(DRIVER_RUNTIME_COMMANDS.RETURN_GET.VALUE)}"
     )
     print(f"✅ GET response verified: {response_data}", flush=True)
+
+    # Capture any additional output
+    captured = capfd.readouterr()
+    print(f"Additional captured stdout: {captured.out}", flush=True)
+    print(f"Additional captured stderr: {captured.err}", flush=True)
+
+
+@pytest.mark.asyncio
+async def test_perform_arbitrary_method(nats_client, daemon_process, capfd):
+    """Test that the daemon correctly handles PERFORM_ARBITRARY_METHOD commands."""
+    print("\n=== STARTING PERFORM_ARBITRARY_METHOD TEST ===", flush=True)
+
+    # Set up message collection
+    log_msgs = []
+
+    # Subscribe to log messages
+    log_channel = (
+        DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+    )
+
+    async def log_handler(msg):
+        print(f"Received log message: {msg.data.decode()}", flush=True)
+
+    await subscribe_and_collect(nats_client, log_channel, log_msgs, log_handler)
+
+    # Start the daemon process
+    daemon_process()
+
+    # Wait a moment for the daemon to initialize
+    await asyncio.sleep(1)
+
+    # Send PERFORM_ARBITRARY_METHOD command
+    arbitration_channel = (
+        DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.COMM_CHANNEL
+        + f".{TestInstrumentDriver.__name__}"
+    )
+
+    # Create a method that sets a property value
+    # We'll use set_property method with special parameters
+    arbitrary_data = {
+        DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.METHOD: "set_property",
+        DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.TIMESTAMP: str(time.time()),
+        DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.KEYWORD_ARGS: json.dumps(
+            {
+                "property_name": SUPPORTED_PROPERTIES.VOLTAGE_STATE,
+                "index": 1,
+                "value": 5,
+            }
+        ),
+    }
+
+    print(
+        f"Sending PERFORM_ARBITRARY_METHOD command to channel {arbitration_channel}...",
+        flush=True,
+    )
+    await nats_client.publish(arbitration_channel, json.dumps(arbitrary_data).encode())
+
+    # Wait for confirmation that the arbitrary method was executed
+    def arbitrary_confirmed(msgs):
+        return any(
+            "PERFORM_ARBITRARY_METHOD command executed" in msg.data.decode()
+            for msg in msgs
+        )
+
+    arbitrary_received = await wait_for_messages(
+        log_msgs, condition=arbitrary_confirmed
+    )
+    assert arbitrary_received, "PERFORM_ARBITRARY_METHOD command not confirmed"
+    print("PERFORM_ARBITRARY_METHOD command confirmed", flush=True)
 
     # Capture any additional output
     captured = capfd.readouterr()

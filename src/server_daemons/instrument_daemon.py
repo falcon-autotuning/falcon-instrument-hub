@@ -201,19 +201,20 @@ class InstrumentDaemon:
                 )
                 return
 
-            method = getattr(self._instrument, method_name)
-            if not callable(method):
+            # Check if the attribute is callable
+            if not callable(getattr(self._instrument, method_name)):
                 await self.log(
                     message=f"Method {method_name} is not callable in {self._instrument_name}",
                 )
                 return
 
-            def locked_method_call():
-                with self._instrument._property_lock:
-                    method(**kwargs)
+            # Execute the method properly with the instance context
+            def execute_method():
+                # Call the method directly on the instrument instance
+                return getattr(self._instrument, method_name)(**kwargs)
 
-            await self._loop.run_in_executor(None, locked_method_call)
-
+            # Run in executor to avoid blocking the event loop
+            await self._loop.run_in_executor(None, execute_method)
             await self.log(
                 message="PERFORM_ARBITRARY_METHOD command executed",
             )
@@ -295,8 +296,8 @@ class InstrumentDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            property_name = data.get("property_name")
-            index = data.get("index")
+            property_name = data.get(DRIVER_RUNTIME_COMMANDS.GET.PROPERTY)
+            index = data.get(DRIVER_RUNTIME_COMMANDS.GET.INDEX)
 
             if not all([property_name, index]):
                 await self.log(
