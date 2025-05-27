@@ -4,7 +4,6 @@ import asyncio
 import fcntl
 import os
 import subprocess
-import sys
 from pathlib import Path
 
 import nats
@@ -17,10 +16,6 @@ from tests.test_launch import TestInstrumentDriver
 @pytest.mark.asyncio
 async def test_initialization(capfd):
     """Test that the daemon sends an initialization message at startup."""
-    # Force output to be unbuffered to ensure it appears in test logs
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
-
     print("\n=== STARTING DAEMON TEST ===", flush=True)
 
     env = os.environ.copy()
