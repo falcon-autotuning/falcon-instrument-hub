@@ -1,0 +1,32 @@
+Metadata-Version: 2.4
+Name: server_daemons
+Version: 0.0.0
+Summary: Backend daemons for the instrument server to use.
+Maintainer-email: FAlCon Core Developers <falcon-support@falcon.com>
+License: MIT
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Requires-Python: >=3.13
+Description-Content-Type: text/x-rst
+Requires-Dist: numpy>=2.0.0
+Requires-Dist: pytest==8.2.1
+Requires-Dist: setuptools-scm==8.1.0
+Requires-Dist: nats.py==2.10.0
+Requires-Dist: pytest-asyncio>=1.0.0
+Requires-Dist: falcon_core
+Requires-Dist: instrument_templates
+
+# instrument_server
+
+Contains go executable code with python launch scripts to deploy different daemons.
+Please use Python 3.13 only.
+
+# Docs
+
+# Contributing
+
+# License
