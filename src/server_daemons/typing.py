@@ -1,7 +1,7 @@
 """Typing for the messaging daemon module."""
 
 from collections.abc import Awaitable, Callable
-from typing import Any, TypeAlias
+from typing import TYPE_CHECKING, Any
 
 from falcon_core.instrument_interfaces.instrument import Instrument
 from falcon_core.instrument_interfaces.names import InstrumentPort
@@ -12,7 +12,9 @@ from numpy.typing import NDArray
 
 from ..instrument_drivers.base_instrument_driver import BaseInstrumentDriver
 from ..instrument_drivers.typing import Index, PropertyJson, PropertyName, PropertyValue
-from ..interpreter.typing import ID
+
+if TYPE_CHECKING:
+    from typing import TypeAlias
 
 Dimension: "TypeAlias" = int
 DimensionIndex: "TypeAlias" = str
@@ -28,6 +30,7 @@ Ranges: "TypeAlias" = dict[AxisLabel, Range]
 Domains: "TypeAlias" = dict[DimensionIndex, Domain]
 Dimensions: "TypeAlias" = dict[DimensionIndex, Dimension]
 Metadata: "TypeAlias" = dict[str, str | int | float]
+ID: "TypeAlias" = str
 __all__ = [
     "Connection",
     "NDArray",
