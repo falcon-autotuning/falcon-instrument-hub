@@ -11,7 +11,7 @@ name = "instrument_server"
 maintainers = [
   { name = "FAlCon Core Developers", email = "falcon-support@falcon.com" },
 ]
-description = "Python-based instrument server for loading instruments into FAlCon."
+description = "Backend daemons for the instrument server to use."
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
@@ -29,28 +29,19 @@ dependencies = [
   "setuptools-scm==8.1.0",
   "nats.py==2.10.0",
   "pytest-asyncio>=1.0.0",
+  "falcon_core",
+  "instrument_templates",
 ]
-[project.entry-points."driver.plugins"]
-base_autotuner = "instrument_server.instrument_daemons.base_instrument_daemon"
 
 [project.readme]
-file = "README.rst"
+file = "README.md"
 content-type = "text/x-rst"
-
-[project.scripts]
-launch-daemon = "falcon.bin.launch_instrument_daemon:main"
-# [project.urls]
-# Homepage = "https://github.com/microsoft/Qcodes"
-# Documentation = "https://microsoft.github.io/Qcodes/"
-# Source = "https://github.com/microsoft/qcodes"
-# Tracker = "https://github.com/microsoft/Qcodes/issues"
-# Changelog = "https://microsoft.github.io/Qcodes/changes/index.html"
 
 
 [tool.setuptools_scm]
 version_scheme = "post-release"
 [tool.coverage.run]
-omit = ["src/falcon/__init__.py", "*/__init__.py"]
+omit = ["src/server_daemons/__init__.py", "*/__init__.py"]
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 

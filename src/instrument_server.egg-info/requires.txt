@@ -1,5 +1,0 @@
-numpy>=2.0.0
-pytest==8.2.1
-setuptools-scm==8.1.0
-nats.py==2.10.0
-pytest-asyncio>=1.0.0
