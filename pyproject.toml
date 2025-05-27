@@ -84,10 +84,10 @@ filterwarnings = [
 
 [tool.setuptools.packages.find]
 # All the following settings are optional:
-where = ["src"]                  # ["."] by default
-include = ["instrument_server*"] # ["*"] by default
-exclude = []                     # empty by default
-namespaces = false               # true by default
+where = ["src"]               # ["."] by default
+include = ["server_daemons*"] # ["*"] by default
+exclude = []                  # empty by default
+namespaces = false            # true by default
 
 [tool.pytest.ini_options]
 # addopts="-n 5 --dist worksteal"
