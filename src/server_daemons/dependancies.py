@@ -22,8 +22,6 @@ from falcon_core.math.labelled_arrays import (
     LabelledMeasuredArrays,
 )
 
-from ..interpreter.measurement_interpreter import MeasurementInterpreter
-
 __all__ = [
     "BaseArray",
     "ControlArray1D",
@@ -40,7 +38,6 @@ __all__ = [
     "InstrumentPort",
     "MeasurementRequest",
     "MeasurementResponse",
-    "MeasurementInterpreter",
     "asyncio",
     "json",
     "time",

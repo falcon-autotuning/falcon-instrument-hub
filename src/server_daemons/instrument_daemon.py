@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 from .constants import DAEMON_RUNTIME_COMMANDS
-from .dependancies import asyncio, json, nats, time
+from .dependancies import InstrumentPort, asyncio, json, nats, time
 from .instrument_sync_sender import InstrumentSyncSender
 
 if TYPE_CHECKING:
@@ -227,10 +227,13 @@ class InstrumentDaemon:
             msg: The NATS message.
         """
         try:
+            data = json.loads(msg.data.decode())
+            port = data.get(DAEMON_RUNTIME_COMMANDS.TRIGGER.TRIGGER_PORT)
             # Locks the threads to make sure the calls are synchronous
             await self._loop.run_in_executor(
                 None,
                 self._instrument.process_trigger,
+                port,
             )
             await self.log(
                 message="TRIGGER command executed",

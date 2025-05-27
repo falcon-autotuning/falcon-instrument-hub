@@ -2,33 +2,28 @@
 
 from typing import TYPE_CHECKING
 
-from falcon_core.math.domains import CoupledKnobDomain
-
 from .constants import INTERPRETER_RUNTIME_COMMANDS, SUPPORTED_PROPERTIES
 from .data_queue import DataEntry, DataQueue
 from .dependancies import (
-    Axes,
-    BaseArray,
-    Domain,
     HDF5Data,
     LabelledMeasuredArray,
     LabelledMeasuredArrays,
     MeasuredArray,
-    MeasurementInterpreter,
     MeasurementRequest,
     MeasurementResponse,
     Path,
     asyncio,
-    cast,
     json,
     nats,
     np,
     time,
 )
 from .instructions import Instruction, MeasurementInstructions
-from .interpreter_sync_sender import InterpreterSyncSender
 
 if TYPE_CHECKING:
+    from .dependancies import (
+        BaseArray,
+    )
     from .typing import (
         ID,
         Any,
@@ -47,9 +42,7 @@ class InterpreterDaemon:
 
     _url: str
     _nc: "Client"
-    _sync_sender: "InterpreterSyncSender"
     _loop: asyncio.AbstractEventLoop
-    _interpreter: MeasurementInterpreter
     _data_queue: dict["ID", "DataQueue"]
     _measurement_groups: dict[
         "ID",
@@ -62,17 +55,10 @@ class InterpreterDaemon:
         loop: asyncio.AbstractEventLoop,
     ):
         """Initializes the MeasurementInterpreter and stores communication information."""
-        self._sync_sender = InterpreterSyncSender(self.send_command, loop=loop)
-        self._interpreter = MeasurementInterpreter(sync_sender=self.sync_sender)
         self._url = url
         self._loop = loop
         self._data_queue = {}
         self._measurement_groups = {}
-
-    @property
-    def sync_sender(self) -> "InterpreterSyncSender":
-        """Gets the sync sender for sending messages."""
-        return self._sync_sender
 
     @property
     def data_queue(self) -> dict["ID", "DataQueue"]:
@@ -325,21 +311,13 @@ class InterpreterDaemon:
                 for knob in domain.knobs
             ]
         )
-        raw_time_trace = cast(
-            BaseArray,
-            valid_waveform._space._space._space,
-        )
-        unit_domain = cast(
-            Domain,
-            valid_waveform._space._space.domain,
-        )
-        axes_domains = cast(
-            Axes[CoupledKnobDomain],
-            valid_waveform._space._axes,
-        )
+        raw_time_trace = valid_waveform._space._space._space
+        unit_domain = valid_waveform._space._space.domain
+        axes_domains = valid_waveform._space._axes
         instructions = []
         chunks = self.chunk_instructions(
-            raw_time_trace=raw_time_trace, buffered=buffered
+            raw_time_trace=raw_time_trace,
+            buffered=buffered,
         )
         getters = {
             transform.port: SUPPORTED_PROPERTIES.SAMPLES
@@ -393,7 +371,7 @@ class InterpreterDaemon:
 
     def chunk_instructions(
         self,
-        raw_time_trace: BaseArray,
+        raw_time_trace: "BaseArray",
         buffered: bool = False,
     ) -> list["NDArray[np.floating]"]:
         """Chunks the raw time trace data into staircased segments.
@@ -404,27 +382,35 @@ class InterpreterDaemon:
 
         Returns:
             the chunks of the raw time trace data, where each chunk is a staircased segment.
+
+        Raises:
+            ValueError: If the data is not staircased correctly.
         """
         if not buffered:
             # treat each column as a chunk of shape (n_axes, 1)
             data = raw_time_trace.data
             return [data[:, i : i + 1] for i in range(data.shape[1])]
         # Find chunk boundaries where the primary axis stops staircasing
-        primary_axis = raw_time_trace.data[:, 0]
-        breaks = np.where(np.diff(primary_axis) < 0)[0] + 1
-        chunks = np.split(raw_time_trace.data, breaks)
+        primary_axis = raw_time_trace.data[0, :]
+        dominate_polarity = np.sign(np.mean(np.sign(np.diff(primary_axis))))
+        breaks = np.where(np.sign(np.diff(primary_axis)) != dominate_polarity)[0] + 1
+        chunks = np.split(raw_time_trace.data, breaks, axis=1)
         # in a staircase, all the values on the other axes are the same
         # Check that within each chunk, each non-time axis is constant (column-wise)
         for chunk in chunks:
             if chunk.shape[0] == 0:
                 continue
-            other_axes = chunk[:, 1:]
+            other_axes = chunk[1:, :]
             # For each column, all values must be the same
             if not bool(
-                np.all(np.array([np.all(col == col[0]) for col in other_axes.T]))
+                np.all(np.array([np.all(row == row[0]) for row in other_axes]))
             ):
                 msg = "Within a chunk, each non-time axis must be constant."
                 raise ValueError(msg)
+            first_row = chunk[0, :]
+            assert np.all(np.sign(np.diff(first_row)) == dominate_polarity), (
+                "Chunks must all have the same polarity."
+            )
         return chunks
 
     def interject_ramps(
@@ -637,7 +623,7 @@ class InterpreterDaemon:
         """
         final_data: dict[InstrumentPort, list[float]] = {}
         for queue in self.data_queue[id]:
-            for i, (port, individual_data) in enumerate(queue.data.items()):
+            for port, individual_data in queue.data.items():
                 datas = individual_data.even_divisions(divisions=number_of_bins)
                 transform = next(
                     (t for t in request.meter_transforms if t.port == port), None
@@ -673,7 +659,7 @@ class InterpreterDaemon:
         Modifies the setup stored in teh measurement_groups.
 
         Args:
-            isd: The ID of the measurement.
+            id: The ID of the measurement.
 
         Returns:
             the preprocessed voltage states.
