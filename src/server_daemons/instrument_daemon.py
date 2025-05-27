@@ -22,7 +22,7 @@ class InstrumentDaemon:
     _loop: asyncio.AbstractEventLoop
     _url: str
     _instrument_name: str
-    _instument: "BaseInstrumentDriver"
+    _instrument: "BaseInstrumentDriver"
 
     def __init__(
         self,
