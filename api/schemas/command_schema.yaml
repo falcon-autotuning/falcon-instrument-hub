@@ -1,0 +1,38 @@
+# Command Schema defition
+$schema: "http://json-schema.org/draft-07/schema#"
+title: "Command/Response Definition Schema"
+type: object
+required:
+  - name
+  - version
+  - parameters
+properties:
+  name:
+    type: string
+    description: Command identifier (e.g., PROCESS_REQUEST) used as the communication channel
+  version:
+    type: string
+    description: Command version in semver format
+  description:
+    type: string
+    description: Human-readable description of the command
+  parameters:
+    type: object
+    description: Command parameters specification
+    additionalProperties:
+      type: object
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [string, float, integer, boolean, array, json, jsonable]
+        required:
+          type: boolean
+          default: false
+        description:
+          type: string
+        items:
+          type: string
+          enum: [string, float, integer, boolean, json, jsonable]
+          description: The type of items when type is array

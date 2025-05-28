@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from .constants import INTERPRETER_RUNTIME_COMMANDS
+from .api import INTERPRETER_RUNTIME_COMMANDS
 from .data_queue import DataEntry, DataQueue
 from .dependancies import (
     SUPPORTED_PROPERTIES,
@@ -26,13 +26,15 @@ if TYPE_CHECKING:
         ID,
         Any,
         BaseArray,
-        InstrumentPort,
         Client,
+        Getters,
+        InstrumentPort,
         Msg,
         NDArray,
         PropertyJson,
         PropertyName,
         PropertyValue,
+        Setters,
     )
 
 
@@ -163,18 +165,27 @@ class InterpreterDaemon:
     async def deploy_measurement(
         self,
         id: "ID",
-        getters: dict["InstrumentPort", "PropertyName"],
+        getters: "Getters",
+        setters: "Setters" = {},
     ) -> None:
         """Deploys a measurement to the local runtime server.
+
+        Setters are only required if the measurment is buffered and they need to be triggered
 
         Args:
             id: The ID of the measurement.
             getters: The getters to deploy.
+            setters: The setters to deploy (optional, defaults to empty).
         """
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.PROCESS_ID: id,
-                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS: getters,
+                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS: [
+                    getter.to_json() for getter in getters
+                ],
+                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.SETTERS: [
+                    setter.to_json() for setter in setters
+                ],
             }
         )
 
@@ -318,13 +329,13 @@ class InterpreterDaemon:
             raw_time_trace=raw_time_trace,
             buffered=buffered,
         )
-        getters = {
-            transform.port: SUPPORTED_PROPERTIES.SAMPLES
-            for transform in request.meter_transforms
-        }
+        getters = [transform.port for transform in request.meter_transforms]
 
         for chunk in chunks:
-            instruction = Instruction(getters=getters)
+            instruction = Instruction(
+                getters=getters,
+                buffered=buffered,
+            )
             for i, couple_domain in enumerate(axes_domains):
                 raw_space = chunk[i, :]
                 for domain in couple_domain:
@@ -441,7 +452,8 @@ class InterpreterDaemon:
                         else properties
                     )
                     for port, properties in instruction.setters.items()
-                }
+                },
+                buffered=True,
             )
             new_instructions.append(new_instruction)
             new_instructions.append(instruction)
@@ -473,6 +485,7 @@ class InterpreterDaemon:
             await self.deploy_measurement(
                 id=measurement_id,
                 getters=step.getters,
+                setters=step.setters if step.buffered else {},
             )
 
     async def handle_data(

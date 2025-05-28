@@ -29,6 +29,8 @@ type Domains = dict[DimensionIndex, Domain]
 type Dimensions = dict[DimensionIndex, Dimension]
 type Metadata = dict[str, str | int | float]
 type ID = str
+type Getters = list[InstrumentPort]
+type Setters = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
     "BaseArray",
