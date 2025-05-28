@@ -4,10 +4,11 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .typing import (
-        Any,
+        Getters,
         InstrumentPort,
         PropertyName,
         PropertyValue,
+        Setters,
     )
 
 
@@ -22,33 +23,35 @@ class Instruction:
     Getters are no required, but setters are, otherwise there is no measurement to perform.
     """
 
-    _setters: dict["InstrumentPort", dict["PropertyName", "PropertyValue"]]
-    _getters: dict["InstrumentPort", "PropertyName"]
+    _setters: "Setters"
+    _getters: "Getters"
+    _buffered: bool
 
     def __init__(
         self,
-        setters: dict["InstrumentPort", dict["PropertyName", "PropertyValue"]] = {},
-        getters: dict["InstrumentPort", "PropertyName"] = {},
+        setters: "Setters" = {},
+        getters: "Getters" = [],
+        buffered: bool = False,
     ):
         """Initialize the instruction."""
         self._getters = getters
         self._setters = setters
+        self._buffered = buffered
 
     @property
-    def getters(self) -> dict["InstrumentPort", "PropertyName"]:
+    def getters(self) -> "Getters":
         """The getters for the instruction."""
         return self._getters
 
     def add_getter(
         self,
         instrument: "InstrumentPort",
-        property_name: "PropertyName",
     ) -> None:
         """Add a getter to the instruction."""
-        self._getters[instrument] = property_name
+        self._getters.append(instrument)
 
     @property
-    def setters(self) -> dict["InstrumentPort", dict["PropertyName", "PropertyValue"]]:
+    def setters(self) -> "Setters":
         """The setters for the instruction."""
         return self._setters
 
@@ -59,6 +62,11 @@ class Instruction:
     ) -> None:
         """Add a setter to the instruction."""
         self._setters[instrument] = properties
+
+    @property
+    def buffered(self) -> bool:
+        """If the instruction is buffered."""
+        return self._buffered
 
 
 class MeasurementInstructions:

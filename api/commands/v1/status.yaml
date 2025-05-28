@@ -1,0 +1,11 @@
+name: STATUS
+version: 1.0.0
+description: Provide the status of the process
+
+parameters:
+  <<: *timestamp
+
+  status:
+    type: boolean
+    required: true
+    description: At compilation of this message the state of the process

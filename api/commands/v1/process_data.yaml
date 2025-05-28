@@ -1,0 +1,12 @@
+name: PROCESS_DATA
+version: 1.0.0
+description: Used by interpreter to handle the need to collect some data
+
+parameters:
+  <<: [*process_id, *timestamp]
+
+  data:
+    type: array
+    required: true
+    items: [float, integer]
+    description: the data taken from the instruments for interpretation

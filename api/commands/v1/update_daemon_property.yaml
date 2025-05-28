@@ -1,0 +1,21 @@
+name: UPDATE_DAEMON_PROPERTY
+version: 1.0.0
+description: Issued to selectively update an instruments property in a daemon
+
+parameters:
+  <<: *timestamp
+
+  property:
+    type: string
+    required: true
+    description: The main subclass of property
+
+  name:
+    type: string
+    required: true
+    description: The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
+
+  value:
+    type: [string, float, integer, object]
+    required: true
+    description: The quantity

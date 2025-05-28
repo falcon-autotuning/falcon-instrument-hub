@@ -1,0 +1,6 @@
+# Common paramter for many measurement commands
+process_id: &process_id
+  process_id:
+    type: string
+    required: true
+    description: A unique identifier for the process/ measurement and can index it
