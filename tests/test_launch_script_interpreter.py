@@ -13,7 +13,7 @@ import nats
 import pytest
 import pytest_asyncio
 
-from server_daemons.constants import INTERPRETER_RUNTIME_COMMANDS
+from server_daemons.api import INTERPRETER_RUNTIME_COMMANDS
 from server_daemons.dependancies import MeasurementRequest
 
 if TYPE_CHECKING:

@@ -13,7 +13,7 @@ from falcon_core.instrument_interfaces.names import InstrumentPort
 from falcon_core.physics.device_structures import PlungerGate
 from instrument_templates.constants import SUPPORTED_PROPERTIES
 
-from server_daemons.constants import INTERPRETER_RUNTIME_COMMANDS
+from server_daemons.api import INTERPRETER_RUNTIME_COMMANDS
 from server_daemons.data_queue import DataEntry, DataQueue
 from server_daemons.dependancies import (
     MeasurementRequest,
@@ -466,11 +466,11 @@ class TestInterpreterDaemon:
         measurement_id = "test_id"
         instr1 = Instruction(
             setters={port: {SUPPORTED_PROPERTIES.VOLTAGE_STATE: 1.0}},
-            getters={port: SUPPORTED_PROPERTIES.SAMPLES},
+            getters=[port],
         )
         instr2 = Instruction(
             setters={port: {SUPPORTED_PROPERTIES.VOLTAGE_STATE: 2.0}},
-            getters={port: SUPPORTED_PROPERTIES.SAMPLES},
+            getters=[port],
         )
 
         interpreter_daemon._measurement_groups[measurement_id] = (
