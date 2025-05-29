@@ -1,6 +1,0 @@
-# Common parameter for many commands
-timestamp: &timestamp
-  timestamp:
-    type: string
-    required: true
-    description: When the response was completed
