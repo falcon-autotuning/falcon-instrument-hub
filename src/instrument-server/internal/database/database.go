@@ -46,13 +46,14 @@ type JSONPrimitive = interface{}
 
 // DeviceCharacteristic struct to represent the data
 type DeviceCharacteristic struct {
-	Name           string                   `json:"name" db:"name"`
-	Indexes        []string                 `json:"indexes" db:"indexes"`
-	Uncertainty    float64                  `json:"uncertainty" db:"uncertainty"`
-	Hash           string                   `json:"hash" db:"hash"`
-	Time           time.Time                `json:"time" db:"time"`
-	State          map[string]JSONPrimitive `json:"state" db:"state"`
-	Characteristic JSONPrimitive            `json:"characteristic" db:"characteristic"`
+	Name        string    `json:"name" db:"name"`
+	HDF5File    string    `json:"hdf5_file" db:"hdf5_file"`    // Path to the HDF5 file
+	Dataset     string    `json:"dataset" db:"dataset"`       // Name of the dataset within the HDF5 file
+	Indexes     []string  `json:"indexes" db:"indexes"`
+	Uncertainty float64   `json:"uncertainty" db:"uncertainty"`
+	Hash        string    `json:"hash" db:"hash"`
+	Time        time.Time `json:"time" db:"time"`
+	State       map[string]JSONPrimitive `json:"state" db:"state"` // Other relevant metadata
 }
 
 // NewDB creates and initializes a new DB instance and sets up the database
@@ -156,8 +157,8 @@ func (db *DB) ExecuteNonQuery(command string, args ...interface{}) (sql.Result, 
 // PutCharacteristic inserts a new DeviceCharacteristic into the database.
 func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 	query := `
-        INSERT INTO device_characteristics (name, indexes, uncertainty, hash, time, state, characteristic)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO device_characteristics (name, hdf5_file, dataset, indexes, uncertainty, hash, time, state)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     `
 	// Convert the string slice to a PostgreSQL array string representation.
 	// indexesString := "{" + strings.Join(characteristic.Indexes, ",") + "}" // Old way
@@ -166,24 +167,21 @@ func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 		return fmt.Errorf("failed to marshal indexes to JSON: %w", err)
 	}
 
-	// Convert the state and characteristic maps to JSON strings
+	// Convert the state maps to JSON strings
 	stateJSON, err := json.Marshal(characteristic.State)
 	if err != nil {
 		return fmt.Errorf("failed to marshal state to JSON: %w", err)
 	}
-	characteristicJSON, err := json.Marshal(characteristic.Characteristic)
-	if err != nil {
-		return fmt.Errorf("failed to marshal characteristic to JSON: %w", err)
-	}
 
 	_, err = db.conn.Exec(query,
 		characteristic.Name,
+		characteristic.HDF5File,
+		characteristic.Dataset,
 		indexesJSON, // Use the JSON marshaled string here
 		characteristic.Uncertainty,
 		characteristic.Hash,
 		characteristic.Time,
-		stateJSON,          // Use the JSON string
-		characteristicJSON, // Use the JSON string
+		stateJSON, // Use the JSON string
 	)
 	if err != nil {
 		return fmt.Errorf("failed to put characteristic: %w", err)
@@ -194,7 +192,7 @@ func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 // GetCharacteristicByName retrieves a DeviceCharacteristic by its name.
 func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error) {
 	query := `
-        SELECT name, indexes, uncertainty, hash, time, state, characteristic
+        SELECT name, hdf5_file, dataset, indexes, uncertainty, hash, time, state
         FROM device_characteristics
         WHERE name = $1
     `
@@ -203,12 +201,13 @@ func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error
 	var characteristic DeviceCharacteristic
 	err := row.Scan(
 		&characteristic.Name,
+		&characteristic.HDF5File,
+		&characteristic.Dataset,
 		&characteristic.Indexes,
 		&characteristic.Uncertainty,
 		&characteristic.Hash,
 		&characteristic.Time,
 		&characteristic.State,
-		&characteristic.Characteristic,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
