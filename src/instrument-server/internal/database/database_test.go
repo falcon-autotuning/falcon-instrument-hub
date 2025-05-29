@@ -7,9 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"instrument-server/internal/database" // Import the correct package
-
 	"github.com/google/uuid"
+	"instrument-server/internal/database" // Import the correct package
 )
 
 // MockDBConnector for testing purposes
@@ -45,11 +44,11 @@ func TestDatabaseOperations(t *testing.T) {
 	connector := &MockDBConnector{DB: db}
 
 	// Initialize the DB instance
-	database, err := database.NewDB(connector, "localhost", "5432", "postgres", "password", "test")
+	databaseInstance, err := database.NewDB(connector, "localhost", "5432", "postgres", "password", "test")
 	if err != nil {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
-	defer database.Close()
+	defer databaseInstance.Close()
 
 	// Test PutCharacteristic
 	characteristic := &database.DeviceCharacteristic{
@@ -64,12 +63,12 @@ func TestDatabaseOperations(t *testing.T) {
 		UUID:        uuid.New().String(),
 	}
 
-	if err := database.PutCharacteristic(characteristic); err != nil {
+	if err := databaseInstance.PutCharacteristic(characteristic); err != nil {
 		t.Fatalf("Failed to put characteristic: %v", err)
 	}
 
 	// Test GetCharacteristicByName
-	retrievedCharacteristic, err := database.GetCharacteristicByName("test_characteristic")
+	retrievedCharacteristic, err := databaseInstance.GetCharacteristicByName("test_characteristic")
 	if err != nil {
 		t.Fatalf("Failed to get characteristic by name: %v", err)
 	}
@@ -79,27 +78,27 @@ func TestDatabaseOperations(t *testing.T) {
 	}
 
 	// Test DeleteCharacteristicByName
-	if err := database.DeleteCharacteristicByName("test_characteristic"); err != nil {
+	if err := databaseInstance.DeleteCharacteristicByName("test_characteristic"); err != nil {
 		t.Fatalf("Failed to delete characteristic by name: %v", err)
 	}
 
 	// Verify that the characteristic is deleted
-	_, err = database.GetCharacteristicByName("test_characteristic")
+	_, err = databaseInstance.GetCharacteristicByName("test_characteristic")
 	if err == nil {
 		t.Error("Expected error when getting deleted characteristic, but got nil")
 	}
 
 	// Test ClearCharacteristics
-	if err := database.PutCharacteristic(characteristic); err != nil {
+	if err := databaseInstance.PutCharacteristic(characteristic); err != nil {
 		t.Fatalf("Failed to put characteristic: %v", err)
 	}
 
-	if err := database.ClearCharacteristics(); err != nil {
+	if err := databaseInstance.ClearCharacteristics(); err != nil {
 		t.Fatalf("Failed to clear characteristics: %v", err)
 	}
 
 	// Verify that the table is cleared
-	_, err = database.GetCharacteristicByName("test_characteristic")
+	_, err = databaseInstance.GetCharacteristicByName("test_characteristic")
 	if err == nil {
 		t.Error("Expected error when getting characteristic after clearing, but got nil")
 	}
