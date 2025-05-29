@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"instrument-server/internal/database" // Import the correct package
+
+	"github.com/google/uuid"
 )
 
 // MockDBConnector for testing purposes
@@ -30,7 +31,7 @@ func TestDatabaseOperations(t *testing.T) {
 	defer os.RemoveAll(tempDir) // Clean up after the test
 
 	// Construct the database file path within the temporary directory
-	//dbPath := filepath.Join(tempDir, "test.db") // Remove unused variable
+	// dbPath := filepath.Join(tempDir, "test.db") // Remove unused variable
 	connStr := fmt.Sprintf("host=localhost port=5432 user=postgres password=password dbname=test sslmode=disable")
 
 	// Initialize the database connection
