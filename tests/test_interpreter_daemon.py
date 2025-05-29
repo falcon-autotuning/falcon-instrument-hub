@@ -10,10 +10,12 @@ from unittest.mock import AsyncMock, MagicMock, call, patch
 import numpy as np
 import pytest
 from falcon_core.instrument_interfaces.names import InstrumentPort
-from falcon_core.physics.device_structures import PlungerGate
+from falcon_core.physics.device_structures import Ohmic, PlungerGate
 from instrument_templates.constants import SUPPORTED_PROPERTIES
 
-from server_daemons.api import INTERPRETER_RUNTIME_COMMANDS
+from server_daemons.api.interpreter import (
+    RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
+)
 from server_daemons.data_queue import DataEntry, DataQueue
 from server_daemons.dependancies import (
     MeasurementRequest,
@@ -247,16 +249,18 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_deploy_measurement(
         self,
-        interpreter_daemon,
+        interpreter_daemon: InterpreterDaemon,
         mock_nats,
     ):
         """Test the deploy_measurement method."""
         _, mock_client = mock_nats
 
         interpreter_daemon._nc = mock_client
-        await interpreter_daemon.deploy_measurement(
-            id="test_id", getters={"device1": "samples"}
+        port = InstrumentPort(
+            default_name="device1",
+            pseudo_name=Ohmic("test_port"),
         )
+        await interpreter_daemon.deploy_measurement(id="test_id", getters=[port])
 
         # Verify the correct message format
         mock_client.publish.assert_called_once()
@@ -269,9 +273,9 @@ class TestInterpreterDaemon:
             message_data[INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.PROCESS_ID]
             == "test_id"
         )
-        assert message_data[INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS] == {
-            "device1": "samples"
-        }
+        assert message_data[INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS] == [
+            port.to_json()
+        ]
 
     @pytest.mark.asyncio
     async def test_setup_subscriptions(self, interpreter_daemon, mock_nats):
@@ -500,8 +504,8 @@ class TestInterpreterDaemon:
         assert interpreter_daemon.deploy_measurement.call_count == 2
         interpreter_daemon.deploy_measurement.assert_has_calls(
             [
-                call(id=measurement_id, getters={port: SUPPORTED_PROPERTIES.SAMPLES}),
-                call(id=measurement_id, getters={port: SUPPORTED_PROPERTIES.SAMPLES}),
+                call(id=measurement_id, getters=[port], setters={}),
+                call(id=measurement_id, getters=[port], setters={}),
             ]
         )
 

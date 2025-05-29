@@ -2,7 +2,7 @@
 
 from typing import TYPE_CHECKING
 
-from .api import INTERPRETER_RUNTIME_COMMANDS
+from .api.interpreter import RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS
 from .data_queue import DataEntry, DataQueue
 from .dependancies import (
     SUPPORTED_PROPERTIES,

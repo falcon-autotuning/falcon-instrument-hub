@@ -12,8 +12,9 @@ from typing import TYPE_CHECKING
 import nats
 import pytest
 import pytest_asyncio
-from instrument_templates.constants import DRIVER_RUNTIME_COMMANDS, SUPPORTED_PROPERTIES
+from instrument_templates.constants import SUPPORTED_PROPERTIES
 
+from server_daemons.api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
 from tests.test_launch import TestInstrumentDriver
 
 if TYPE_CHECKING:
