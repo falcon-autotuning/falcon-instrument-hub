@@ -12,6 +12,9 @@ from instrument_templates.registry_controls import add_driver
 class TestInstrumentDriver(BaseInstrumentDriver):
     """A simple test instrument daemon for testing."""
 
+    _instrument_type = "Test Instrument Daemon"
+    _description = "A test instrument daemon for testing purposes."
+
     def __init__(self, sync_sender):
         """Initialize the test instrument daemon."""
         super().__init__(sync_sender)
