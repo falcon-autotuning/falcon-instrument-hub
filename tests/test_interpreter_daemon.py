@@ -13,7 +13,9 @@ from falcon_core.instrument_interfaces.names import InstrumentPort
 from falcon_core.physics.device_structures import PlungerGate
 from instrument_templates.constants import SUPPORTED_PROPERTIES
 
-from server_daemons.api import INTERPRETER_RUNTIME_COMMANDS
+from server_daemons.api.interpreter import (
+    RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
+)
 from server_daemons.data_queue import DataEntry, DataQueue
 from server_daemons.dependancies import (
     MeasurementRequest,

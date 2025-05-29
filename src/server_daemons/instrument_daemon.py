@@ -2,8 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from .api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
 from .dependancies import (
-    DRIVER_RUNTIME_COMMANDS,
     InstrumentSyncSender,
     asyncio,
     json,
@@ -234,12 +234,14 @@ class InstrumentDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            port = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.TRIGGER_PORT)
+            property = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.PROPERTY)
+            index = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.INDEX)
             # Locks the threads to make sure the calls are synchronous
             await self._loop.run_in_executor(
                 None,
                 self._instrument.process_trigger,
-                port,
+                property,
+                index,
             )
             await self.log(
                 message="TRIGGER command executed",

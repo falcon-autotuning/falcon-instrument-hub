@@ -1,5 +1,6 @@
 """Constants for the daemons contained for the instrument server."""
 
+
 class CONFIRM_INITIALIZATION:
     """The substrings necessary for confirm initialization of a daemon and provide configuration."""
 
@@ -23,6 +24,7 @@ class CONFIRM_INITIALIZATION:
         """When the response was completed"""
         return "timestamp"
 
+
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
 
@@ -40,6 +42,7 @@ class GET:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
 
 class LOG:
     """The substrings necessary for contains the necessary substrings for a logging style command."""
@@ -64,6 +67,7 @@ class LOG:
         """the hash for the requesting unit"""
         return "hash"
 
+
 class PERFORM_ARBITRARY_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
 
@@ -87,6 +91,7 @@ class PERFORM_ARBITRARY_METHOD:
         """When the response was completed"""
         return "timestamp"
 
+
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
 
@@ -99,6 +104,7 @@ class RETURN_DATA:
     def DATA(self) -> str:
         """The measured data collected on the instrument"""
         return "data"
+
 
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
@@ -117,6 +123,7 @@ class RETURN_GET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
+
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -141,6 +148,7 @@ class SET:
         """The argument to be set inside the instrument"""
         return "value"
 
+
 class STATUS:
     """The substrings necessary for provide the status of the process."""
 
@@ -158,6 +166,7 @@ class STATUS:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class TRIGGER:
     """The substrings necessary for execute a trigger/arm on a buffered instrument."""
