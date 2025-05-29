@@ -46,15 +46,15 @@ type JSONPrimitive = interface{}
 
 // DeviceCharacteristic struct to represent the data
 type DeviceCharacteristic struct {
-	Name        string    `json:"name" db:"name"`
-	HDF5File    string    `json:"hdf5_file" db:"hdf5_file"`    // Path to the HDF5 file
-	Dataset     string    `json:"dataset" db:"dataset"`       // Name of the dataset within the HDF5 file
-	Indexes     []string  `json:"indexes" db:"indexes"`
-	Uncertainty float64   `json:"uncertainty" db:"uncertainty"`
-	Hash        string    `json:"hash" db:"hash"`
-	Time        time.Time `json:"time" db:"time"`
+	Name        string                   `json:"name" db:"name"`
+	HDF5File    string                   `json:"hdf5_file" db:"hdf5_file"` // Path to the HDF5 file
+	Dataset     string                   `json:"dataset" db:"dataset"`     // Name of the dataset within the HDF5 file
+	Indexes     []string                 `json:"indexes" db:"indexes"`
+	Uncertainty float64                  `json:"uncertainty" db:"uncertainty"`
+	Hash        string                   `json:"hash" db:"hash"`
+	Time        time.Time                `json:"time" db:"time"`
 	State       map[string]JSONPrimitive `json:"state" db:"state"` // Other relevant metadata
-	UUID        string    `json:"uuid" db:"uuid"`
+	UUID        string                   `json:"uuid" db:"uuid"`
 }
 
 // NewDB creates and initializes a new DB instance and sets up the database

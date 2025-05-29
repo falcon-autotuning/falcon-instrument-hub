@@ -7,8 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"instrument-server/internal/database" // Import the correct package
+
+	"github.com/google/uuid"
 )
 
 // MockDBConnector for testing purposes
@@ -44,7 +45,7 @@ func TestDatabaseOperations(t *testing.T) {
 	connector := &MockDBConnector{DB: db}
 
 	// Initialize the DB instance
-	databaseInstance, err := database.NewDB(connector, "localhost", "5432", "postgres", "password", "test")
+	databaseInstance, err := database.NewDB(connector, "localhost", "5432", "postgres", "password", "falcon_123")
 	if err != nil {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
