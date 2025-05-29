@@ -11,17 +11,17 @@ class CONFIRM_INITIALIZATION:
 
     @property
     def INIT(self) -> str:
-        """the configuration of the daemon, property_name and index indexed"""
+        """The configuration of the daemon, property_name and index indexed."""
         return "init"
 
     @property
     def PORT(self) -> str:
-        """the configuration of the instrument ports"""
+        """The configuration of the instrument ports."""
         return "port"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -35,12 +35,12 @@ class GET:
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
 
@@ -54,17 +54,17 @@ class LOG:
 
     @property
     def MESSAGE(self) -> str:
-        """The contents of the log message"""
+        """The contents of the log message."""
         return "message"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def HASH(self) -> str:
-        """the hash for the requesting unit"""
+        """The hash for the requesting unit."""
         return "hash"
 
 
@@ -78,17 +78,17 @@ class PERFORM_ARBITRARY_METHOD:
 
     @property
     def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
+        """The name of the method that is to be performed."""
         return "method"
 
     @property
     def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
+        """Arbitrary keyword arguments to be passes to the method."""
         return "keyword_args"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -102,7 +102,7 @@ class RETURN_DATA:
 
     @property
     def DATA(self) -> str:
-        """The measured data collected on the instrument"""
+        """The measured data collected on the instrument."""
         return "data"
 
 
@@ -116,12 +116,12 @@ class RETURN_GET:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
+        """The argument to be set inside the instrument."""
         return "value"
 
 
@@ -135,17 +135,17 @@ class SET:
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
     @property
     def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
+        """The argument to be set inside the instrument."""
         return "value"
 
 
@@ -159,12 +159,12 @@ class STATUS:
 
     @property
     def STATUS(self) -> str:
-        """At compilation of this message the state of the process"""
+        """At compilation of this message the state of the process."""
         return "status"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -178,12 +178,12 @@ class TRIGGER:
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
 
