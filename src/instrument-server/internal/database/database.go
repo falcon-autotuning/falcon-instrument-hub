@@ -54,6 +54,7 @@ type DeviceCharacteristic struct {
 	Hash        string    `json:"hash" db:"hash"`
 	Time        time.Time `json:"time" db:"time"`
 	State       map[string]JSONPrimitive `json:"state" db:"state"` // Other relevant metadata
+	UUID        string    `json:"uuid" db:"uuid"`
 }
 
 // NewDB creates and initializes a new DB instance and sets up the database
@@ -157,8 +158,8 @@ func (db *DB) ExecuteNonQuery(command string, args ...interface{}) (sql.Result, 
 // PutCharacteristic inserts a new DeviceCharacteristic into the database.
 func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 	query := `
-        INSERT INTO device_characteristics (name, hdf5_file, dataset, indexes, uncertainty, hash, time, state)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        INSERT INTO device_characteristics (name, hdf5_file, dataset, indexes, uncertainty, hash, time, state, uuid)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
     `
 	// Convert the string slice to a PostgreSQL array string representation.
 	// indexesString := "{" + strings.Join(characteristic.Indexes, ",") + "}" // Old way
@@ -182,6 +183,7 @@ func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 		characteristic.Hash,
 		characteristic.Time,
 		stateJSON, // Use the JSON string
+		characteristic.UUID,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to put characteristic: %w", err)
@@ -192,7 +194,7 @@ func (db *DB) PutCharacteristic(characteristic *DeviceCharacteristic) error {
 // GetCharacteristicByName retrieves a DeviceCharacteristic by its name.
 func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error) {
 	query := `
-        SELECT name, hdf5_file, dataset, indexes, uncertainty, hash, time, state
+        SELECT name, hdf5_file, dataset, indexes, uncertainty, hash, time, state, uuid
         FROM device_characteristics
         WHERE name = $1
     `
@@ -208,6 +210,7 @@ func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error
 		&characteristic.Hash,
 		&characteristic.Time,
 		&characteristic.State,
+		&characteristic.UUID,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
