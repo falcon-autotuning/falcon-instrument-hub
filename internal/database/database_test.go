@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,9 @@ func (m *MockDBConnector) Open(driverName, dataSourceName string) (*sql.DB, erro
 func TestDatabaseOperations(t *testing.T) {
 	// Generate a unique database name for this test run
 	testDBName := fmt.Sprintf("testdb_%s", uuid.New().String())
+
+	// Remove hyphens from the database name
+	testDBName = strings.ReplaceAll(testDBName, "-", "")
 
 	// Database connection parameters
 	dbHost := "localhost"
