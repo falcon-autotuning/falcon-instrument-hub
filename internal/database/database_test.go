@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"instrument-server/internal/database" // Import the correct package
+
+	"github.com/google/uuid"
 
 	_ "github.com/lib/pq"
 )
