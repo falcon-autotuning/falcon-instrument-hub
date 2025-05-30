@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING
 from .api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
 from .dependancies import (
     InstrumentSyncSender,
+    Time,
     asyncio,
     json,
     nats,
-    time,
 )
 
 if TYPE_CHECKING:
@@ -121,7 +121,7 @@ class InstrumentDaemon:
         message = json.dumps(
             {
                 DRIVER_RUNTIME_COMMANDS.LOG.MESSAGE: message,
-                DRIVER_RUNTIME_COMMANDS.LOG.TIMESTAMP: str(time.time()),
+                DRIVER_RUNTIME_COMMANDS.LOG.TIMESTAMP: Time().time,
             }
         )
         await self.send_command(
@@ -137,9 +137,7 @@ class InstrumentDaemon:
         init_message = json.dumps(
             {
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
-                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: str(
-                    time.time()
-                ),
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: Time().time,
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(
                     init_config
                 ),
@@ -158,7 +156,7 @@ class InstrumentDaemon:
             pending = len([t for t in asyncio.all_tasks() if not t.done()])
             message = json.dumps(
                 {
-                    DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: str(time.time()),
+                    DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
                     DRIVER_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
                 }
             )

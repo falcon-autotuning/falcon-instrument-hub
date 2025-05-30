@@ -13,11 +13,11 @@ from .dependancies import (
     MeasurementRequest,
     MeasurementResponse,
     Path,
+    Time,
     asyncio,
     json,
     nats,
     np,
-    time,
 )
 from .instructions import Instruction, MeasurementInstructions
 
@@ -94,7 +94,7 @@ class InterpreterDaemon:
             pending = len([t for t in asyncio.all_tasks() if not t.done()])
             message = json.dumps(
                 {
-                    INTERPRETER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: str(time.time()),
+                    INTERPRETER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
                     INTERPRETER_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
                 }
             )
@@ -129,7 +129,7 @@ class InterpreterDaemon:
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.LOG.MESSAGE: message,
-                INTERPRETER_RUNTIME_COMMANDS.LOG.TIMESTAMP: str(time.time()),
+                INTERPRETER_RUNTIME_COMMANDS.LOG.TIMESTAMP: Time().time,
             }
         )
         await self.send_command(
@@ -206,7 +206,7 @@ class InterpreterDaemon:
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response,
-                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: str(time.time()),
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
         await self.send_command(
@@ -579,7 +579,7 @@ class InterpreterDaemon:
             request=request,
             response=response,
             unique_id=id,
-            timestamp=str(time.time()),
+            timestamp=Time().time,
             measurement_title=request.measurement_name,
         )
         hdf.to_file(path=data_path)
