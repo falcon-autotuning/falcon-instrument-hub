@@ -52,7 +52,7 @@ func TestDatabaseOperations(t *testing.T) {
 	}()
 
 	// Construct the connection string to the test database
-	testDBConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPassword, testDBName)
+	// testDBConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPassword, testDBName)
 
 	// Connect to the test database
 	//testDB, err := sql.Open("postgres", testDBConnStr)
