@@ -69,7 +69,6 @@ func TestDatabaseOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to test database: %v", err)
 	}
-	defer testDB.Close()
 
 	// Create a mock DBConnector
 	connector := &MockDBConnector{DB: testDB}
@@ -80,6 +79,9 @@ func TestDatabaseOperations(t *testing.T) {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
 	defer databaseInstance.Close()
+
+	// Defer closing the testDB connection until after the databaseInstance is used
+	defer testDB.Close()
 
 	// Test PutCharacteristic
 	characteristic := &database.DeviceCharacteristic{
