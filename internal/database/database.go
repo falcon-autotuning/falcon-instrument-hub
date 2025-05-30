@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-
-	// "strings"
 	"time"
 
 	_ "github.com/lib/pq" // Import the PostgreSQL driver
@@ -15,26 +13,6 @@ import (
 
 //go:embed specschema.sql
 var schemaSQL string
-
-// DBConnector interface for database connection
-type DBConnector interface {
-	Open(driverName, dataSourceName string) (*sql.DB, error)
-}
-
-// PQConnector implements DBConnector for PostgreSQL
-type PQConnector struct{}
-
-// Open opens a PostgreSQL connection
-func (p *PQConnector) Open(driverName, dataSourceName string) (*sql.DB, error) {
-	if driverName != "postgres" {
-		return nil, fmt.Errorf("unsupported driver: %s", driverName)
-	}
-	db, err := sql.Open(driverName, dataSourceName)
-	if err != nil {
-		return nil, fmt.Errorf("failed to open postgres database: %w", err)
-	}
-	return db, nil
-}
 
 // DB struct to hold the database connection
 type DB struct {
@@ -58,10 +36,10 @@ type DeviceCharacteristic struct {
 }
 
 // NewDB creates and initializes a new DB instance and sets up the database
-func NewDB(connector DBConnector, host, port, user, password, dbname string) (*DB, error) {
+func NewDB(host, port, user, password, dbname string) (*DB, error) {
 	// Connect to the default 'postgres' database initially to check/create our target database
 	defaultConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable", host, port, user, password)
-	defaultConn, err := connector.Open("postgres", defaultConnStr)
+	defaultConn, err := sql.Open("postgres", defaultConnStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to default database: %w", err)
 	}
@@ -86,7 +64,7 @@ func NewDB(connector DBConnector, host, port, user, password, dbname string) (*D
 
 	// Now connect to the target database
 	connStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-	conn, err := connector.Open("postgres", connStr)
+	conn, err := sql.Open("postgres", connStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open target database '%s': %w", dbname, err)
 	}

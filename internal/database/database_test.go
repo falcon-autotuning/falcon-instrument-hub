@@ -65,7 +65,7 @@ func TestDatabaseOperations(t *testing.T) {
 	//connector := &MockDBConnector{DB: testDB}
 
 	// Initialize the DB instance
-	databaseInstance, err := database.NewDB(nil, dbHost, dbPort, dbUser, dbPassword, testDBName)
+	databaseInstance, err := database.NewDB(dbHost, dbPort, dbUser, dbPassword, testDBName)
 	if err != nil {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
