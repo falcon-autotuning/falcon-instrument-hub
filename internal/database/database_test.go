@@ -32,7 +32,7 @@ func TestDatabaseOperations(t *testing.T) {
 
 	// Construct the database file path within the temporary directory
 	// dbPath := filepath.Join(tempDir, "test.db") // Remove unused variable
-	connStr := fmt.Sprintf("host=localhost port=5432 user=postgres password=password dbname=test sslmode=disable")
+	connStr := fmt.Sprintf("host=localhost port=5432 user=postgres password=falcon_123 dbname=test sslmode=disable")
 
 	// Initialize the database connection
 	db, err := sql.Open("postgres", connStr)
