@@ -3,13 +3,15 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"instrument-server/internal/database" // Import the correct package
 
-	"github.com/google/uuid"
+	_ "github.com/lib/pq"
 )
 
 // MockDBConnector for testing purposes
@@ -23,29 +25,53 @@ func (m *MockDBConnector) Open(driverName, dataSourceName string) (*sql.DB, erro
 }
 
 func TestDatabaseOperations(t *testing.T) {
-	// Create a temporary directory for the test database
-	tempDir, err := os.MkdirTemp("", "testdb")
-	if err != nil {
-		t.Fatalf("Failed to create temporary directory: %v", err)
-	}
-	defer os.RemoveAll(tempDir) // Clean up after the test
+	// Generate a unique database name for this test run
+	testDBName := fmt.Sprintf("testdb_%s", uuid.New().String())
 
-	// Construct the database file path within the temporary directory
-	// dbPath := filepath.Join(tempDir, "test.db") // Remove unused variable
-	connStr := fmt.Sprintf("host=localhost port=5432 user=postgres password=falcon_123 dbname=test sslmode=disable")
+	// Database connection parameters
+	dbHost := "localhost"
+	dbPort := "5432"
+	dbUser := "postgres"
+	dbPassword := "falcon_123"
 
-	// Initialize the database connection
-	db, err := sql.Open("postgres", connStr)
+	// Construct the connection string to the default database (postgres)
+	defaultDBConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=postgres sslmode=disable", dbHost, dbPort, dbUser, dbPassword)
+
+	// Connect to the default database to create the test database
+	defaultDB, err := sql.Open("postgres", defaultDBConnStr)
 	if err != nil {
-		t.Fatalf("Failed to open database: %v", err)
+		t.Fatalf("Failed to connect to default database: %v", err)
 	}
-	defer db.Close()
+	defer defaultDB.Close()
+
+	// Create the test database
+	_, err = defaultDB.Exec(fmt.Sprintf("CREATE DATABASE %s", testDBName))
+	if err != nil {
+		t.Fatalf("Failed to create test database: %v", err)
+	}
+	defer func() {
+		// Drop the test database after the test is complete
+		_, err := defaultDB.Exec(fmt.Sprintf("DROP DATABASE %s", testDBName))
+		if err != nil {
+			log.Printf("Failed to drop test database: %v", err) // Log the error, but don't fail the test
+		}
+	}()
+
+	// Construct the connection string to the test database
+	testDBConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPassword, testDBName)
+
+	// Connect to the test database
+	testDB, err := sql.Open("postgres", testDBConnStr)
+	if err != nil {
+		t.Fatalf("Failed to connect to test database: %v", err)
+	}
+	defer testDB.Close()
 
 	// Create a mock DBConnector
-	connector := &MockDBConnector{DB: db}
+	connector := &MockDBConnector{DB: testDB}
 
 	// Initialize the DB instance
-	databaseInstance, err := database.NewDB(connector, "localhost", "5432", "postgres", "password", "falcon_123")
+	databaseInstance, err := database.NewDB(connector, dbHost, dbPort, dbUser, dbPassword, testDBName)
 	if err != nil {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
