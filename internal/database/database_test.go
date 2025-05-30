@@ -15,16 +15,6 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// MockDBConnector for testing purposes
-type MockDBConnector struct {
-	DB *sql.DB
-}
-
-// Open mocks the database connection
-func (m *MockDBConnector) Open(driverName, dataSourceName string) (*sql.DB, error) {
-	return m.DB, nil
-}
-
 func TestDatabaseOperations(t *testing.T) {
 	// Generate a unique database name for this test run
 	testDBName := fmt.Sprintf("testdb_%s", uuid.New().String())
@@ -65,23 +55,21 @@ func TestDatabaseOperations(t *testing.T) {
 	testDBConnStr := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", dbHost, dbPort, dbUser, dbPassword, testDBName)
 
 	// Connect to the test database
-	testDB, err := sql.Open("postgres", testDBConnStr)
-	if err != nil {
-		t.Fatalf("Failed to connect to test database: %v", err)
-	}
+	//testDB, err := sql.Open("postgres", testDBConnStr)
+	//if err != nil {
+	//	t.Fatalf("Failed to connect to test database: %v", err)
+	//}
+	//defer testDB.Close()
 
-	// Create a mock DBConnector
-	connector := &MockDBConnector{DB: testDB}
+	//// Create a mock DBConnector
+	//connector := &MockDBConnector{DB: testDB}
 
 	// Initialize the DB instance
-	databaseInstance, err := database.NewDB(connector, dbHost, dbPort, dbUser, dbPassword, testDBName)
+	databaseInstance, err := database.NewDB(nil, dbHost, dbPort, dbUser, dbPassword, testDBName)
 	if err != nil {
 		t.Fatalf("Failed to create database instance: %v", err)
 	}
 	defer databaseInstance.Close()
-
-	// Defer closing the testDB connection until after the databaseInstance is used
-	defer testDB.Close()
 
 	// Test PutCharacteristic
 	characteristic := &database.DeviceCharacteristic{
