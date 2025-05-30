@@ -179,15 +179,18 @@ func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error
 	row := db.conn.QueryRow(query, name)
 
 	var characteristic DeviceCharacteristic
+	var indexesJSON []byte
+	var stateJSON []byte
+
 	err := row.Scan(
 		&characteristic.Name,
 		&characteristic.HDF5File,
 		&characteristic.Dataset,
-		&characteristic.Indexes,
+		&indexesJSON,
 		&characteristic.Uncertainty,
 		&characteristic.Hash,
 		&characteristic.Time,
-		&characteristic.State,
+		&stateJSON,
 		&characteristic.UUID,
 	)
 	if err != nil {
@@ -196,6 +199,17 @@ func (db *DB) GetCharacteristicByName(name string) (*DeviceCharacteristic, error
 		}
 		return nil, fmt.Errorf("failed to get characteristic by name: %w", err)
 	}
+
+	err = json.Unmarshal(indexesJSON, &characteristic.Indexes)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal indexes: %w", err)
+	}
+
+	err = json.Unmarshal(stateJSON, &characteristic.State)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal state: %w", err)
+	}
+
 	return &characteristic, nil
 }
 
