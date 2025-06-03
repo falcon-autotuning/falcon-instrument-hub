@@ -73,11 +73,6 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
-    def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
-        return "method"
-
-    @property
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
@@ -86,6 +81,11 @@ class PERFORM_ARBITRARY_METHOD:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def METHOD(self) -> str:
+        """The name of the method that is to be performed"""
+        return "method"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""

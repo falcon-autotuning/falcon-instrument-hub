@@ -349,4 +349,3 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     captured = capfd.readouterr()
     print(f"Additional captured stdout: {captured.out}", flush=True)
     print(f"Additional captured stderr: {captured.err}", flush=True)
-    return None
