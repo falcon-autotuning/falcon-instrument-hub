@@ -7,187 +7,166 @@ This file is auto-generated from YAML command schemas.
 
 // Log: Contains the necessary substrings for a logging style command
 type Log struct {
-	Message   string `yaml:"message" json:"message"`     // The contents of the log message
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
-	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
+    Message string `yaml:"message" json:"message"` // The contents of the log message
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Hash int64 `yaml:"hash" json:"hash"` // the hash for the requesting unit
 }
 
 // MeasurementReady: Indicates that a meassurement is ready for the server to perform
 type MeasurementReady struct {
-	Setters   []string `yaml:"setters" json:"setters"`       // the connections that are to be set when buffered
-	ProcessId string   `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
-	Timestamp int64    `yaml:"timestamp" json:"timestamp"`   // When the response was completed
-	Getters   []string `yaml:"getters" json:"getters"`       // the connections that are ready to be measured
+    Setters []string `yaml:"setters" json:"setters"` // the connections that are to be set when buffered
+    ProcessId string `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Getters []string `yaml:"getters" json:"getters"` // the connections that are ready to be measured
 }
 
 // ProcessData: Used by interpreter to handle the need to collect some data
 type ProcessData struct {
-	Data      []interface{} `yaml:"data" json:"data"`             // the data taken from the instruments for interpretation
-	ProcessId string        `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
-	Timestamp int64         `yaml:"timestamp" json:"timestamp"`   // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Data []interface{} `yaml:"data" json:"data"` // the data taken from the instruments for interpretation
+    ProcessId string `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 }
 
 // ProcessRequest: A request to the interpreter to process an incoming measurement
 type ProcessRequest struct {
-	Request        string                 `yaml:"request" json:"request"`               // The measurement request from FAlCon
-	Configurations map[string]interface{} `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
-	DataPath       string                 `yaml:"data_path" json:"data_path"`           // The filepath to the spot in the HDF5 database to store the collected data at
-	ProcessId      string                 `yaml:"process_id" json:"process_id"`         // A unique identifier for the process/ measurement and can index it
+    ProcessId string `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
+    Request string `yaml:"request" json:"request"` // The measurement request from FAlCon
+    Configurations map[string]interface{} `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
+    DataPath string `yaml:"data_path" json:"data_path"` // The filepath to the spot in the HDF5 database to store the collected data at
 }
 
 // Status: Provide the status of the process
 type Status struct {
-	Status    bool  `yaml:"status" json:"status"`       // At compilation of this message the state of the process
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Status bool `yaml:"status" json:"status"` // At compilation of this message the state of the process
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // UpdateDaemonProperty: Issued to selectively update an instruments property in a daemon
 type UpdateDaemonProperty struct {
-	Property  string      `yaml:"property" json:"property"`   // The main subclass of property
-	Name      string      `yaml:"name" json:"name"`           // The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
-	Value     interface{} `yaml:"value" json:"value"`         // The quantity
-	Timestamp int64       `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Property string `yaml:"property" json:"property"` // The main subclass of property
+    Name string `yaml:"name" json:"name"` // The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
+    Value interface{} `yaml:"value" json:"value"` // The quantity
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // UploadData: Used by the interpreter to hand data off the the runtime for FAlCon
 type UploadData struct {
-	Data      string `yaml:"data" json:"data"`           // the jsonable measurement request for the FAlCon to unpack and use
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Data string `yaml:"data" json:"data"` // the jsonable measurement request for the FAlCon to unpack and use
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // ConfirmInitialization: Confirm initialization of a daemon and provide configuration
 type ConfirmInitialization struct {
-	Init      map[string]interface{} `yaml:"init" json:"init"`           // the configuration of the daemon, property_name and index indexed
-	Port      map[string]interface{} `yaml:"port" json:"port"`           // the configuration of the instrument ports
-	Timestamp int64                  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Init map[string]interface{} `yaml:"init" json:"init"` // the configuration of the daemon, property_name and index indexed
+    Port map[string]interface{} `yaml:"port" json:"port"` // the configuration of the instrument ports
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // Get: Execute a get instruction on a sandboxed instrument
 type Get struct {
-	Property string `yaml:"property" json:"property"` // The name of the property that is to be set
-	Index    int64  `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
-}
-
-// Log: Contains the necessary substrings for a logging style command
-type Log struct {
-	Message   string `yaml:"message" json:"message"`     // The contents of the log message
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
-	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
+    Property string `yaml:"property" json:"property"` // The name of the property that is to be set
+    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
 }
 
 // PerformArbitraryMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
 type PerformArbitraryMethod struct {
-	Method      string                 `yaml:"method" json:"method"`             // The name of the method that is to be performed
-	KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
-	Timestamp   int64                  `yaml:"timestamp" json:"timestamp"`       // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Method string `yaml:"method" json:"method"` // The name of the method that is to be performed
+    KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
 }
 
 // ReturnData: Returns measured data
 type ReturnData struct {
-	Data []interface{} `yaml:"data" json:"data"` // The measured data collected on the instrument
+    Data []interface{} `yaml:"data" json:"data"` // The measured data collected on the instrument
 }
 
 // ReturnGet: Response from a get instruction on a sandboxed instrument
 type ReturnGet struct {
-	Value     interface{} `yaml:"value" json:"value"`         // The argument to be set inside the instrument
-	Timestamp int64       `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // Set: Execute a set instruction on a sandboxed instrument
 type Set struct {
-	Property string      `yaml:"property" json:"property"` // The name of the property that is to be set
-	Index    int64       `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
-	Value    interface{} `yaml:"value" json:"value"`       // The argument to be set inside the instrument
-}
-
-// Status: Provide the status of the process
-type Status struct {
-	Status    bool  `yaml:"status" json:"status"`       // At compilation of this message the state of the process
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Property string `yaml:"property" json:"property"` // The name of the property that is to be set
+    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
+    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
 }
 
 // Trigger: Execute a trigger/arm on a buffered instrument
 type Trigger struct {
-	Property string `yaml:"property" json:"property"` // The name of the property that is to be set
-	Index    int64  `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
-}
-
-// Shutdown: Shutdown a process
-type Shutdown struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Property string `yaml:"property" json:"property"` // The name of the property that is to be set
+    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
 }
 
 // SetupInstrument: Sets u pan instrument on a instrument server
 type SetupInstrument struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DestroyInstrument: Shuts down an instrument on a instrument server
 type DestroyInstrument struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PerformInstrumentMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
 type PerformInstrumentMethod struct {
-	Method      string                 `yaml:"method" json:"method"`             // The name of the method that is to be performed
-	KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
-	Timestamp   int64                  `yaml:"timestamp" json:"timestamp"`       // When the response was completed
-	Instrument  string                 `yaml:"instrument" json:"instrument"`     // Which instrument are we communicating with?
+    Method string `yaml:"method" json:"method"` // The name of the method that is to be performed
+    KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Instrument string `yaml:"instrument" json:"instrument"` // Which instrument are we communicating with?
 }
 
 // Busy: If a process is currently running an action right now
 type Busy struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PortRequest: Request all current instrument ports
 type PortRequest struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PortPayload: All of the current instrument ports
 type PortPayload struct {
-	Knobs     string `yaml:"knobs" json:"knobs"`         // All of the knobs attached to the instrument server
-	Meters    string `yaml:"meters" json:"meters"`       // All of the meters attached to the instrument server
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Knobs string `yaml:"knobs" json:"knobs"` // All of the knobs attached to the instrument server
+    Meters string `yaml:"meters" json:"meters"` // All of the meters attached to the instrument server
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DeviceConfigRequest: A request for the device configuration
 type DeviceConfigRequest struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DeviceConfigResponse: A response containing the device configuration
 type DeviceConfigResponse struct {
-	Response  string `yaml:"response" json:"response"`   // The device config for use understanding the device layout
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Response string `yaml:"response" json:"response"` // The device config for use understanding the device layout
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // CommandRegistry maps command names to empty struct instances
 var CommandRegistry = map[string]interface{}{
-	"LOG":                       Log{},
-	"MEASUREMENT_READY":         MeasurementReady{},
-	"PROCESS_DATA":              ProcessData{},
-	"PROCESS_REQUEST":           ProcessRequest{},
-	"STATUS":                    Status{},
-	"UPDATE_DAEMON_PROPERTY":    UpdateDaemonProperty{},
-	"UPLOAD_DATA":               UploadData{},
-	"CONFIRM_INITIALIZATION":    ConfirmInitialization{},
-	"GET":                       Get{},
-	"LOG":                       Log{},
-	"PERFORM_ARBITRARY_METHOD":  PerformArbitraryMethod{},
-	"RETURN_DATA":               ReturnData{},
-	"RETURN_GET":                ReturnGet{},
-	"SET":                       Set{},
-	"STATUS":                    Status{},
-	"TRIGGER":                   Trigger{},
-	"SHUTDOWN":                  Shutdown{},
-	"SETUP_INSTRUMENT":          SetupInstrument{},
-	"DESTROY_INSTRUMENT":        DestroyInstrument{},
-	"PERFORM_INSTRUMENT_METHOD": PerformInstrumentMethod{},
-	"BUSY":                      Busy{},
-	"PORT_REQUEST":              PortRequest{},
-	"PORT_PAYLOAD":              PortPayload{},
-	"DEVICE_CONFIG_REQUEST":     DeviceConfigRequest{},
-	"DEVICE_CONFIG_RESPONSE":    DeviceConfigResponse{},
+    "LOG": Log{},
+    "MEASUREMENT_READY": MeasurementReady{},
+    "PROCESS_DATA": ProcessData{},
+    "PROCESS_REQUEST": ProcessRequest{},
+    "STATUS": Status{},
+    "UPDATE_DAEMON_PROPERTY": UpdateDaemonProperty{},
+    "UPLOAD_DATA": UploadData{},
+    "CONFIRM_INITIALIZATION": ConfirmInitialization{},
+    "GET": Get{},
+    "PERFORM_ARBITRARY_METHOD": PerformArbitraryMethod{},
+    "RETURN_DATA": ReturnData{},
+    "RETURN_GET": ReturnGet{},
+    "SET": Set{},
+    "TRIGGER": Trigger{},
+    "SETUP_INSTRUMENT": SetupInstrument{},
+    "DESTROY_INSTRUMENT": DestroyInstrument{},
+    "PERFORM_INSTRUMENT_METHOD": PerformInstrumentMethod{},
+    "BUSY": Busy{},
+    "PORT_REQUEST": PortRequest{},
+    "PORT_PAYLOAD": PortPayload{},
+    "DEVICE_CONFIG_REQUEST": DeviceConfigRequest{},
+    "DEVICE_CONFIG_RESPONSE": DeviceConfigResponse{},
 }
