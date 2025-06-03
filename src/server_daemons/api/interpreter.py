@@ -32,11 +32,6 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def GETTERS(self) -> str:
         """the connections that are ready to be measured"""
         return "getters"
@@ -51,6 +46,11 @@ class MEASUREMENT_READY:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
 
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
 
@@ -58,6 +58,11 @@ class PROCESS_DATA:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "PROCESS_DATA"
+
+    @property
+    def DATA(self) -> str:
+        """the data taken from the instruments for interpretation"""
+        return "data"
 
     @property
     def PROCESS_ID(self) -> str:
@@ -68,11 +73,6 @@ class PROCESS_DATA:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def DATA(self) -> str:
-        """the data taken from the instruments for interpretation"""
-        return "data"
 
 class PROCESS_REQUEST:
     """The substrings necessary for a request to the interpreter to process an incoming measurement."""
@@ -129,11 +129,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROPERTY(self) -> str:
         """The main subclass of property"""
         return "property"
@@ -148,6 +143,11 @@ class UPDATE_DAEMON_PROPERTY:
         """The quantity"""
         return "value"
 
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
 
@@ -157,14 +157,14 @@ class UPLOAD_DATA:
         return "UPLOAD_DATA"
 
     @property
-    def DATA(self) -> str:
-        """the jsonable measurement request for the FAlCon to unpack and use"""
-        return "data"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def DATA(self) -> str:
+        """the jsonable measurement request for the FAlCon to unpack and use"""
+        return "data"
 
 
 class RUNTIME_COMMANDS:
