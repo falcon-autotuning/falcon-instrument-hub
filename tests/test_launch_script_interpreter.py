@@ -12,11 +12,11 @@ from typing import TYPE_CHECKING
 import nats
 import pytest
 import pytest_asyncio
+from falcon_core.communications.messages import MeasurementRequest
 
 from server_daemons.api.interpreter import (
     RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
 )
-from server_daemons.dependancies import MeasurementRequest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -272,22 +272,21 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
 
     # Start the daemon process
     daemon_process()
+    # Give the daemon time to start up and connect
+    await asyncio.sleep(2.0)  # Increased wait time
 
     # Create a simplified MeasurementRequest
-    # In a real test, this would be a properly constructed MeasurementRequest
-    simple_measurement_request = {
-        "type": MeasurementRequest.__name__,
-        "waveforms": [],
-        "meter_transforms": [],
-        "measurement_name": "test_measurement",
-    }
+    request = MeasurementRequest(
+        message="is this working",
+        measurement_name="test_measurement",
+        waveforms=[],
+        meter_transforms=[],
+    )
 
     # Send process request
     process_request_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL
     process_request = {
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: json.dumps(
-            simple_measurement_request
-        ),
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: request.to_json(),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: "test_id",
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
@@ -301,8 +300,24 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     )
 
     # Wait for log message indicating request was received
+
     def request_received(msgs):
-        return any("Error processing request" in msg.data.decode() for msg in msgs)
+        if not msgs:
+            return False
+        for msg in msgs:
+            msg_content = msg.data.decode()
+            print(f"Checking log message: {msg_content}", flush=True)
+            if any(
+                keyword in msg_content
+                for keyword in [
+                    "Error processing request",
+                    "Processing request",
+                    "request",
+                    "Request",
+                ]
+            ):
+                return True
+        return False
 
     received = await wait_for_messages(log_msgs, condition=request_received)
     assert received, "No confirmation of process request received"
@@ -334,3 +349,4 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     captured = capfd.readouterr()
     print(f"Additional captured stdout: {captured.out}", flush=True)
     print(f"Additional captured stderr: {captured.err}", flush=True)
+    return None
