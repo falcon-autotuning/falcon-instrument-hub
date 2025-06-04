@@ -6,11 +6,11 @@
   - [Build](#build)
     - [Linux](#linux)
     - [Windows](#windows)
-  - [configuration](#configuration)
-    - [device-config](#device-config)
+  - [Configuration](#configuration)
+    - [Device configuration](#device-configuration)
       - [Region 1: Global name categorization](#region-1-global-name-categorization)
       - [Region 2: Specific channel registration](#region-2-specific-channel-registration)
-    - [wiremap](#wiremap)
+    - [Wire-map](#wire-map)
       - [Direct connection between instruments](#direct-connection-between-instruments)
       - [Connection between an instrument and a device](#connection-between-an-instrument-and-a-device)
   - [Docs](#docs)
@@ -45,18 +45,24 @@ The go server is designed to accept a few inputs on startup:
   device(see next section)
 - wiremap: a path to a yaml file containing the wiremap for the device(see next section)
 
+### Packages
+
+All of the packages need to import `falcon-autotuning/instrument-templates` and follow
+the guidelines there for creating instrument driver packages.
+If you have multiple packages, simply list them comma separated `--packages pkg1,pkg2,pkg3`
+
 ### Device configuration
 
 Right now this configuration file can only be used to configure 1D array style
 quantum dot devices with a parallel set of charge sensors across the central
 screening gate.
 
-A ScreeningGate is a large gate that is used to isolate the region of the device
+A screening gate is a large gate that is used to isolate the region of the device
 from the bulk.
-A PlungerGate is a gate that is used to control the potential of the quantum dots.
-A BarrierGate is a gate that is used to control the potential of the barrier
+A plunger gate is a gate that is used to control the potential of the quantum dots.
+A barrier gate is a gate that is used to control the potential of the barrier
 between quantum dots.
-A ReservoirGate is a large gate that is used to deliver the electrons to the
+A reservoir gate is a large gate that is used to deliver the electrons to the
 quantum dots.
 
 There are two regions in the configuration file. Combined together, they represent
