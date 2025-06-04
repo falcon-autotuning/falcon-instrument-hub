@@ -6,7 +6,7 @@ This file is auto-generated from YAML command schemas.
 */
 
 // Log: Contains the necessary substrings for a logging style command
-type Log struct { // TODO: implement
+type Log struct {
 	Message   string `yaml:"message" json:"message"`     // The contents of the log message
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
