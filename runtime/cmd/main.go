@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
 	"github.com/spf13/cobra"
@@ -71,9 +73,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 	}
 	defer measurementManager.Close()
 
-	// create handler manager
-	handlerManager := networking.NewHandlerManager(natsManager.GetConnection(), measurementManager)
-	defer handlerManager.Close()
+	// create logger for handlers
+	logger, err := logging.NewLogger(filepath.Join(workingdir, "log"))
+	if err != nil {
+		return fmt.Errorf("failed to create logger: %w", err)
+	}
+	defer logger.Close()
+
+	// create handler manager from handlers package
+	handlerManager := handlers.NewManager(logger)
 
 	log.Printf("starting falcon instrument server...")
 	log.Printf("packages: %v", packages)
@@ -92,8 +100,11 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// todo: initialize python instrument templates with config paths
 	// you can pass cfg.DeviceConfigPath and cfg.WiremapPath to python scripts
 
-	// register all handlers
-	handlerManager.RegisterAllHandlers()
+	// subscribe all handlers using the handlers manager
+	if err := handlerManager.Subscribe(natsManager.GetConnection()); err != nil {
+		return fmt.Errorf("failed to subscribe handlers: %w", err)
+	}
+	defer handlerManager.Unsubscribe()
 	log.Println("falcon runtime is ready and listening for commands...")
 
 	// wait for interrupt signal
