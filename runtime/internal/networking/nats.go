@@ -11,14 +11,16 @@ import (
 
 // NATSManager handles NATS server and connection management
 type NATSManager struct {
-	conn   *nats.Conn
-	server *server.Server
+	conn    *nats.Conn
+	server  *server.Server
+	natsURL string
 }
 
 // NewNATSManager creates a new NATS manager
 func NewNATSManager(natsURL string) (*NATSManager, error) {
 	var conn *nats.Conn
 	var natsServer *server.Server
+	var finalNatsURL string
 	var err error
 
 	if natsURL != "" {
@@ -28,19 +30,26 @@ func NewNATSManager(natsURL string) (*NATSManager, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to NATS server: %w", err)
 		}
+		finalNatsURL = natsURL
 	} else {
 		// Start embedded NATS server
 		log.Printf("Starting embedded NATS server...")
-		natsServer, conn, err = startEmbeddedNATS()
+		natsServer, conn, finalNatsURL, err = startEmbeddedNATS()
 		if err != nil {
 			return nil, fmt.Errorf("failed to start embedded NATS server: %w", err)
 		}
 	}
 
 	return &NATSManager{
-		conn:   conn,
-		server: natsServer,
+		conn:    conn,
+		server:  natsServer,
+		natsURL: finalNatsURL,
 	}, nil
+}
+
+// GetNATSURL returns the NATS server URL
+func (nm *NATSManager) GetNATSURL() string {
+	return nm.natsURL
 }
 
 // GetConnection returns the NATS connection
@@ -66,7 +75,7 @@ func (nm *NATSManager) Close() {
 }
 
 // startEmbeddedNATS starts an embedded NATS server
-func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
+func startEmbeddedNATS() (*server.Server, *nats.Conn, string, error) {
 	// Find an available port
 	port := findAvailablePort()
 
@@ -79,7 +88,7 @@ func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
 	// Start the server
 	natsServer, err := server.NewServer(opts)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create NATS server: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to create NATS server: %w", err)
 	}
 
 	// Start the server in a goroutine
@@ -87,7 +96,7 @@ func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
 
 	// Wait for server to be ready
 	if !natsServer.ReadyForConnections(5 * time.Second) {
-		return nil, nil, fmt.Errorf("NATS server failed to start within timeout")
+		return nil, nil, "", fmt.Errorf("NATS server failed to start within timeout")
 	}
 
 	// Connect to the embedded server
@@ -95,11 +104,11 @@ func startEmbeddedNATS() (*server.Server, *nats.Conn, error) {
 	natsConn, err := nats.Connect(natsURL)
 	if err != nil {
 		natsServer.Shutdown()
-		return nil, nil, fmt.Errorf("failed to connect to embedded NATS server: %w", err)
+		return nil, nil, "", fmt.Errorf("failed to connect to embedded NATS server: %w", err)
 	}
 
 	log.Printf("Embedded NATS server started on port %d", port)
-	return natsServer, natsConn, nil
+	return natsServer, natsConn, natsURL, nil
 }
 
 // findAvailablePort finds an available port for the NATS server

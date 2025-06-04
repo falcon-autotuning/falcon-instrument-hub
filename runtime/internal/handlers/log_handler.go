@@ -13,6 +13,10 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
+const (
+	LogHandlerName = "LOG_HANDLER"
+)
+
 // ToTime converts the timestamp to a Go time.Time
 func ToTime(l api.Log) time.Time {
 	return api.ToTime(l)
@@ -40,7 +44,7 @@ func (h *LogHandler) Subscribe(nc *nats.Conn) error {
 	}
 
 	h.subscription = sub
-	h.logger.Info("LOG_HANDLER", "Subscribed to LOG.> channels")
+	h.logger.Info(LogHandlerName, "Subscribed to LOG.> channels")
 	log.Printf("LOG handler subscribed to LOG.* channels")
 
 	return nil
@@ -51,10 +55,13 @@ func (h *LogHandler) Unsubscribe() error {
 	if h.subscription != nil {
 		err := h.subscription.Unsubscribe()
 		if err != nil {
-			h.logger.Error("LOG_HANDLER", fmt.Sprintf("Failed to unsubscribe: %v", err))
+			h.logger.Error(
+				LogHandlerName,
+				fmt.Sprintf("Failed to unsubscribe: %v", err),
+			)
 			return err
 		}
-		h.logger.Info("LOG_HANDLER", "Unsubscribed from LOG.* channels")
+		h.logger.Info(LogHandlerName, "Unsubscribed from LOG.* channels")
 		h.subscription = nil
 	}
 	return nil
@@ -66,31 +73,41 @@ func (h *LogHandler) handleLogMessage(msg *nats.Msg) {
 	rawData := msg.Data
 
 	// Debug: Log message reception
-	h.logger.Debug("LOG_HANDLER", fmt.Sprintf("Received message on %s: %s", channel, string(rawData)))
+	h.logger.Debug(
+		LogHandlerName,
+		fmt.Sprintf("Received message on %s: %s", channel, string(rawData)),
+	)
 
 	// Try to decode as JSON first (structured log message)
 	var apiLog api.Log
 	if err := json.Unmarshal(rawData, &apiLog); err != nil {
 		// If JSON decoding fails, treat as plain text message
-		h.logger.Debug("LOG_HANDLER", fmt.Sprintf("Treating as plain text (JSON decode failed: %v)", err))
+		h.logger.Debug(
+			LogHandlerName,
+			fmt.Sprintf("Treating as plain text (JSON decode failed: %v)", err),
+		)
 		h.handlePlainTextLog(channel, string(rawData))
 		return
 	}
 
 	// Handle structured log message
-	h.logger.Debug("LOG_HANDLER", "Handling structured log")
+	h.logger.Debug(LogHandlerName, "Handling structured log")
 	h.handleStructuredLog(channel, &apiLog)
 
 	// Optional: Reply if the message expects a response
 	if msg.Reply != "" {
 		response := fmt.Sprintf("LOG received: %s", channel)
 		if err := msg.Respond([]byte(response)); err != nil {
-			h.logger.Error("LOG_HANDLER", fmt.Sprintf("Failed to respond to %s: %v", channel, err))
+			h.logger.Error(
+				LogHandlerName,
+				fmt.Sprintf("Failed to respond to %s: %v", channel, err),
+			)
 		}
 	}
 }
 
-// handleStructuredLog processes a structured log message with timestamp and optional hash
+// handleStructuredLog processes a structured log message with timestamp and
+// optional hash
 func (h *LogHandler) handleStructuredLog(channel string, apiLog *api.Log) {
 	// Get timestamp (use provided timestamp or current time)
 	timestamp := api.ToTime(apiLog)
@@ -102,7 +119,11 @@ func (h *LogHandler) handleStructuredLog(channel string, apiLog *api.Log) {
 	level := h.extractLogLevel(channel)
 
 	// Create formatted message with hash if present
-	formattedMessage := fmt.Sprintf("[HASH:%s] %s", strconv.FormatInt(hash, 10), apiLog.Message)
+	formattedMessage := fmt.Sprintf(
+		"[HASH:%s] %s",
+		strconv.FormatInt(hash, 10),
+		apiLog.Message,
+	)
 
 	// Log with custom timestamp
 	h.logWithTimestamp(level, "EXTERNAL", formattedMessage, channel, timestamp)
@@ -111,7 +132,8 @@ func (h *LogHandler) handleStructuredLog(channel string, apiLog *api.Log) {
 	h.logger.LogNATSMessage(channel, fmt.Sprintf("JSON: %s", apiLog.Message))
 }
 
-// handlePlainTextLog processes a plain text log message (backward compatibility)
+// handlePlainTextLog processes a plain text log message (backward
+// compatibility)
 func (h *LogHandler) handlePlainTextLog(channel, message string) {
 	// Extract log level from channel
 	level := h.extractLogLevel(channel)
@@ -146,7 +168,10 @@ func (h *LogHandler) extractLogLevel(channel string) string {
 }
 
 // logWithTimestamp logs a message with a specific timestamp
-func (h *LogHandler) logWithTimestamp(level, source, message, channel string, timestamp time.Time) {
+func (h *LogHandler) logWithTimestamp(
+	level, source, message, channel string,
+	timestamp time.Time,
+) {
 	// Format: [TIMESTAMP] [LEVEL] [SOURCE] [CHANNEL] MESSAGE
 	var logLine string
 	if channel != "" {

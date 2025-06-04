@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"syscall"
 	"time"
@@ -19,8 +20,31 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
+// Handler Names
+const (
+	InstrumentHandlerName = "INSTRUMENT_HANDLER"
+)
+
+// File Paths
+const (
+	ScriptsDir                 = "scripts"
+	LaunchInstrumentScriptName = "launch_instrument_daemon.py"
+)
+
+// Process Management
+const (
+	GracefulShutdownTimeout = 5 // seconds
+)
+
 //go:embed scripts/launch_instrument_daemon.py
 var embeddedScript embed.FS
+
+var (
+	SetupInstrumentCommand   = api.GetCommandName(api.SetupInstrument{})
+	DestroyInstrumentCommand = api.GetCommandName(api.DestroyInstrument{})
+	SetupInstrumentSubject   = SetupInstrumentCommand + ".external.*"
+	DestroyInstrumentSubject = DestroyInstrumentCommand + ".external.*"
+)
 
 // InstrumentProcess represents a running instrument daemon
 type InstrumentProcess struct {
@@ -41,7 +65,10 @@ type InstrumentHandler struct {
 }
 
 // NewInstrumentHandler creates a new instrument handler
-func NewInstrumentHandler(logger *logging.Logger, natsURL string) *InstrumentHandler {
+func NewInstrumentHandler(
+	logger *logging.Logger,
+	natsURL string,
+) *InstrumentHandler {
 	return &InstrumentHandler{
 		logger:      logger,
 		natsURL:     natsURL,
@@ -51,7 +78,10 @@ func NewInstrumentHandler(logger *logging.Logger, natsURL string) *InstrumentHan
 
 // Subscribe sets up NATS subscriptions for instrument commands
 func (h *InstrumentHandler) Subscribe(nc *nats.Conn) error {
-	h.logger.Info("INSTRUMENT_HANDLER", "Setting up instrument handler subscriptions")
+	h.logger.Info(
+		InstrumentHandlerName,
+		"Setting up instrument handler subscriptions",
+	)
 
 	// Ensure script is up to date
 	if err := h.ensureScriptExists(); err != nil {
@@ -59,26 +89,46 @@ func (h *InstrumentHandler) Subscribe(nc *nats.Conn) error {
 	}
 
 	// Subscribe to setup commands
-	setupSub, err := nc.Subscribe("SETUP_INSTRUMENT.external.*", h.handleSetupInstrument)
+	setupSub, err := nc.Subscribe(
+		SetupInstrumentSubject,
+		h.handleSetupInstrument,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe to SETUP_INSTRUMENT: %w", err)
+		return fmt.Errorf(
+			"failed to subscribe to %s: %w",
+			SetupInstrumentCommand,
+			err,
+		)
 	}
 	h.setupSub = setupSub
 
 	// Subscribe to destroy commands
-	destroySub, err := nc.Subscribe("DESTROY_INSTRUMENT.external.*", h.handleDestroyInstrument)
+	destroySub, err := nc.Subscribe(
+		DestroyInstrumentSubject,
+		h.handleDestroyInstrument,
+	)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe to DESTROY_INSTRUMENT: %w", err)
+		return fmt.Errorf(
+			"failed to subscribe to %s: %w",
+			DestroyInstrumentCommand,
+			err,
+		)
 	}
 	h.destroySub = destroySub
 
-	h.logger.Info("INSTRUMENT_HANDLER", "Instrument handler subscriptions ready")
+	h.logger.Info(
+		InstrumentHandlerName,
+		"Instrument handler subscriptions ready",
+	)
 	return nil
 }
 
 // Unsubscribe removes NATS subscriptions
 func (h *InstrumentHandler) Unsubscribe() error {
-	h.logger.Info("INSTRUMENT_HANDLER", "Unsubscribing from instrument handler")
+	h.logger.Info(
+		InstrumentHandlerName,
+		"Unsubscribing from instrument handler",
+	)
 
 	if h.setupSub != nil {
 		h.setupSub.Unsubscribe()
@@ -92,7 +142,10 @@ func (h *InstrumentHandler) Unsubscribe() error {
 	defer h.mutex.Unlock()
 
 	for name, process := range h.instruments {
-		h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Stopping instrument %s during cleanup", name))
+		h.logger.Info(
+			InstrumentHandlerName,
+			fmt.Sprintf("Stopping instrument %s during cleanup", name),
+		)
 		h.stopInstrument(process)
 	}
 	h.instruments = make(map[string]*InstrumentProcess)
@@ -102,8 +155,8 @@ func (h *InstrumentHandler) Unsubscribe() error {
 
 // ensureScriptExists extracts the embedded script if needed
 func (h *InstrumentHandler) ensureScriptExists() error {
-	scriptsDir := "scripts"
-	scriptPath := filepath.Join(scriptsDir, "launch_instrument_daemon.py")
+	scriptsDir := ScriptsDir
+	scriptPath := filepath.Join(scriptsDir, LaunchInstrumentScriptName)
 
 	// Create scripts directory if it doesn't exist
 	if err := os.MkdirAll(scriptsDir, 0755); err != nil {
@@ -111,7 +164,9 @@ func (h *InstrumentHandler) ensureScriptExists() error {
 	}
 
 	// Extract embedded script
-	scriptContent, err := embeddedScript.ReadFile("scripts/launch_instrument_daemon.py")
+	scriptContent, err := embeddedScript.ReadFile(
+		filepath.Join(ScriptsDir, LaunchInstrumentScriptName),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to read embedded script: %w", err)
 	}
@@ -121,22 +176,26 @@ func (h *InstrumentHandler) ensureScriptExists() error {
 		return fmt.Errorf("failed to write script file: %w", err)
 	}
 
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Script updated at %s", scriptPath))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf("Script updated at %s", scriptPath),
+	)
 	return nil
 }
 
 // handleSetupInstrument processes SETUP_INSTRUMENT commands
 func (h *InstrumentHandler) handleSetupInstrument(msg *nats.Msg) {
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Received SETUP_INSTRUMENT on subject: %s", msg.Subject))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf(
+			"Received %s on subject: %s",
+			SetupInstrumentCommand,
+			msg.Subject,
+		),
+	)
 
 	var req api.SetupInstrument
-	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Failed to unmarshal SETUP_INSTRUMENT: %v", err))
-		return
-	}
-
-	if req.Name == "" {
-		h.logger.Error("INSTRUMENT_HANDLER", "SETUP_INSTRUMENT missing instrument name")
+	if err := h.unmarshalAndValidate(msg.Data, &req, SetupInstrumentCommand); err != nil {
 		return
 	}
 
@@ -144,32 +203,42 @@ func (h *InstrumentHandler) handleSetupInstrument(msg *nats.Msg) {
 	h.mutex.RLock()
 	if _, exists := h.instruments[req.Name]; exists {
 		h.mutex.RUnlock()
-		h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Instrument %s is already running", req.Name))
+		h.logger.Error(
+			InstrumentHandlerName,
+			fmt.Sprintf("Instrument %s is already running", req.Name),
+		)
 		return
 	}
 	h.mutex.RUnlock()
 
 	// Start the instrument
 	if err := h.startInstrument(req.Name); err != nil {
-		h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Failed to start instrument %s: %v", req.Name, err))
+		h.logger.Error(
+			InstrumentHandlerName,
+			fmt.Sprintf("Failed to start instrument %s: %v", req.Name, err),
+		)
 		return
 	}
 
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Successfully started instrument: %s", req.Name))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf("Successfully started instrument: %s", req.Name),
+	)
 }
 
 // handleDestroyInstrument processes DESTROY_INSTRUMENT commands
 func (h *InstrumentHandler) handleDestroyInstrument(msg *nats.Msg) {
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Received DESTROY_INSTRUMENT on subject: %s", msg.Subject))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf(
+			"Received %s on subject: %s",
+			DestroyInstrumentCommand,
+			msg.Subject,
+		),
+	)
 
 	var req api.DestroyInstrument
-	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Failed to unmarshal DESTROY_INSTRUMENT: %v", err))
-		return
-	}
-
-	if req.Name == "" {
-		h.logger.Error("INSTRUMENT_HANDLER", "DESTROY_INSTRUMENT missing instrument name")
+	if err := h.unmarshalAndValidate(msg.Data, &req, DestroyInstrumentCommand); err != nil {
 		return
 	}
 
@@ -179,19 +248,25 @@ func (h *InstrumentHandler) handleDestroyInstrument(msg *nats.Msg) {
 
 	process, exists := h.instruments[req.Name]
 	if !exists {
-		h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Instrument %s not found", req.Name))
+		h.logger.Error(
+			InstrumentHandlerName,
+			fmt.Sprintf("Instrument %s not found", req.Name),
+		)
 		return
 	}
 
 	h.stopInstrument(process)
 	delete(h.instruments, req.Name)
 
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Successfully stopped instrument: %s", req.Name))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf("Successfully stopped instrument: %s", req.Name),
+	)
 }
 
 // startInstrument launches a new instrument daemon
 func (h *InstrumentHandler) startInstrument(name string) error {
-	scriptPath := filepath.Join("scripts", "launch_instrument_daemon.py")
+	scriptPath := filepath.Join(ScriptsDir, LaunchInstrumentScriptName)
 
 	// Create context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -218,7 +293,10 @@ func (h *InstrumentHandler) startInstrument(name string) error {
 	}
 	h.mutex.Unlock()
 
-	h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Started instrument %s with PID %d", name, cmd.Process.Pid))
+	h.logger.Info(
+		InstrumentHandlerName,
+		fmt.Sprintf("Started instrument %s with PID %d", name, cmd.Process.Pid),
+	)
 	return nil
 }
 
@@ -231,7 +309,14 @@ func (h *InstrumentHandler) stopInstrument(process *InstrumentProcess) {
 	if process.Process != nil {
 		// Send SIGTERM first
 		if err := process.Process.Signal(syscall.SIGTERM); err != nil {
-			h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Failed to send SIGTERM to %s: %v", process.Name, err))
+			h.logger.Error(
+				InstrumentHandlerName,
+				fmt.Sprintf(
+					"Failed to send SIGTERM to %s: %v",
+					process.Name,
+					err,
+				),
+			)
 		}
 
 		// Wait a bit for graceful shutdown
@@ -243,13 +328,47 @@ func (h *InstrumentHandler) stopInstrument(process *InstrumentProcess) {
 
 		select {
 		case <-done:
-			h.logger.Info("INSTRUMENT_HANDLER", fmt.Sprintf("Instrument %s stopped gracefully", process.Name))
-		case <-time.After(5 * time.Second):
+			h.logger.Info(
+				InstrumentHandlerName,
+				fmt.Sprintf("Instrument %s stopped gracefully", process.Name),
+			)
+		case <-time.After(time.Duration(GracefulShutdownTimeout) * time.Second):
 			// Force kill if it doesn't stop gracefully
-			h.logger.Error("INSTRUMENT_HANDLER", fmt.Sprintf("Force killing instrument %s", process.Name))
+			h.logger.Error(
+				InstrumentHandlerName,
+				fmt.Sprintf("Force killing instrument %s", process.Name),
+			)
 			process.Process.Kill()
 		}
 	}
+}
+
+// unmarshalAndValidate handles the common unmarshaling and validation logic
+func (h *InstrumentHandler) unmarshalAndValidate(
+	data []byte,
+	req any,
+	commandName string,
+) error {
+	if err := json.Unmarshal(data, req); err != nil {
+		h.logger.Error(
+			InstrumentHandlerName,
+			fmt.Sprintf("Failed to unmarshal %s: %v", commandName, err),
+		)
+		return err
+	}
+
+	// Use reflection to get the Name field
+	v := reflect.ValueOf(req).Elem()
+	nameField := v.FieldByName("Name")
+	if !nameField.IsValid() || nameField.String() == "" {
+		h.logger.Error(
+			InstrumentHandlerName,
+			fmt.Sprintf("%s missing instrument name", commandName),
+		)
+		return fmt.Errorf("missing instrument name")
+	}
+
+	return nil
 }
 
 // GetActiveInstruments returns a list of currently running instruments
