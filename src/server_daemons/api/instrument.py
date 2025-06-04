@@ -127,6 +127,11 @@ class SET:
         return "SET"
 
     @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
@@ -135,11 +140,6 @@ class SET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""
