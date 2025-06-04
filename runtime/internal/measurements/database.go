@@ -92,7 +92,6 @@ func (mdb *MeasurementDB) Close() error {
 }
 
 // AllocateUniqueID reserves the next available unique ID and marks it as incomplete
-// AllocateUniqueID reserves the next available unique ID and marks it as incomplete
 func (mdb *MeasurementDB) AllocateUniqueID(timestamp time.Time) (int, error) {
 	// Retry logic for handling database locks with exponential backoff
 	maxRetries := 10

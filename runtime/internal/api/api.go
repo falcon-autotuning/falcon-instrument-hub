@@ -13,8 +13,7 @@ type Log struct {
 }
 
 // MeasurementReady: Indicates that a meassurement is ready for the server to perform
-type MeasurementReady struct { // TODO: implement
-
+type MeasurementReady struct { // TODO: implement this
 	Setters   []string `yaml:"setters" json:"setters"`       // the connections that are to be set when buffered
 	ProcessId string   `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 	Timestamp int64    `yaml:"timestamp" json:"timestamp"`   // When the response was completed
@@ -22,47 +21,47 @@ type MeasurementReady struct { // TODO: implement
 }
 
 // ProcessData: Used by interpreter to handle the need to collect some data
-type ProcessData struct { // TODO: implement
+type ProcessData struct { // TODO: implement this
 
+	ProcessId string        `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 	Timestamp int64         `yaml:"timestamp" json:"timestamp"`   // When the response was completed
 	Data      []interface{} `yaml:"data" json:"data"`             // the data taken from the instruments for interpretation
-	ProcessId string        `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 }
 
 // ProcessRequest: A request to the interpreter to process an incoming measurement
-type ProcessRequest struct { // TODO: implement
+type ProcessRequest struct { // TODO: implement this
 
-	ProcessId      string                 `yaml:"process_id" json:"process_id"`         // A unique identifier for the process/ measurement and can index it
 	Request        string                 `yaml:"request" json:"request"`               // The measurement request from FAlCon
 	Configurations map[string]interface{} `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
 	DataPath       string                 `yaml:"data_path" json:"data_path"`           // The filepath to the spot in the HDF5 database to store the collected data at
+	ProcessId      string                 `yaml:"process_id" json:"process_id"`         // A unique identifier for the process/ measurement and can index it
 }
 
 // Status: Provide the status of the process
-type Status struct { // TODO: implement
+type Status struct { // TODO: implement this
 
 	Status    bool  `yaml:"status" json:"status"`       // At compilation of this message the state of the process
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // UpdateDaemonProperty: Issued to selectively update an instruments property in a daemon
-type UpdateDaemonProperty struct { // TODO: implement
+type UpdateDaemonProperty struct { // TODO: implement this
 
-	Property  string      `yaml:"property" json:"property"`   // The main subclass of property
 	Name      string      `yaml:"name" json:"name"`           // The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
 	Value     interface{} `yaml:"value" json:"value"`         // The quantity
 	Timestamp int64       `yaml:"timestamp" json:"timestamp"` // When the response was completed
+	Property  string      `yaml:"property" json:"property"`   // The main subclass of property
 }
 
 // UploadData: Used by the interpreter to hand data off the the runtime for FAlCon
-type UploadData struct { // TODO: implement
+type UploadData struct { // TODO: implement this
 
 	Data      string `yaml:"data" json:"data"`           // the jsonable measurement request for the FAlCon to unpack and use
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // ConfirmInitialization: Confirm initialization of a daemon and provide configuration
-type ConfirmInitialization struct { // TODO: implement
+type ConfirmInitialization struct { // TODO: implement this
 
 	Init      map[string]interface{} `yaml:"init" json:"init"`           // the configuration of the daemon, property_name and index indexed
 	Port      map[string]interface{} `yaml:"port" json:"port"`           // the configuration of the instrument ports
@@ -70,35 +69,35 @@ type ConfirmInitialization struct { // TODO: implement
 }
 
 // Get: Execute a get instruction on a sandboxed instrument
-type Get struct { // TODO: implement
+type Get struct { // TODO: implement this
 
-	Property string `yaml:"property" json:"property"` // The name of the property that is to be set
 	Index    int64  `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
+	Property string `yaml:"property" json:"property"` // The name of the property that is to be set
 }
 
 // PerformArbitraryMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
-type PerformArbitraryMethod struct { // TODO: implement
+type PerformArbitraryMethod struct { // TODO: implement this
 
+	KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
 	Timestamp   int64                  `yaml:"timestamp" json:"timestamp"`       // When the response was completed
 	Method      string                 `yaml:"method" json:"method"`             // The name of the method that is to be performed
-	KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
 }
 
 // ReturnData: Returns measured data
-type ReturnData struct { // TODO: implement
+type ReturnData struct { // TODO: implement this
 
 	Data []interface{} `yaml:"data" json:"data"` // The measured data collected on the instrument
 }
 
 // ReturnGet: Response from a get instruction on a sandboxed instrument
-type ReturnGet struct { // TODO: implement
+type ReturnGet struct { // TODO: implement this
 
 	Value     interface{} `yaml:"value" json:"value"`         // The argument to be set inside the instrument
 	Timestamp int64       `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // Set: Execute a set instruction on a sandboxed instrument
-type Set struct { // TODO: implement
+type Set struct { // TODO: implement this
 
 	Property string      `yaml:"property" json:"property"` // The name of the property that is to be set
 	Index    int64       `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
@@ -106,47 +105,49 @@ type Set struct { // TODO: implement
 }
 
 // Trigger: Execute a trigger/arm on a buffered instrument
-type Trigger struct { // TODO: implement
+type Trigger struct { // TODO: implement this
 
 	Property string `yaml:"property" json:"property"` // The name of the property that is to be set
 	Index    int64  `yaml:"index" json:"index"`       // The particular index of a instrument that is to be set
 }
 
-// SetupInstrument: Sets u pan instrument on a instrument server
-type SetupInstrument struct { // TODO: implement
+// SetupInstrument: Sets up an instrument on a instrument server
+type SetupInstrument struct { // TODO: implement this
 
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+	Name      string `yaml:"name" json:"name"`           // the name of the instrument to startup
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DestroyInstrument: Shuts down an instrument on a instrument server
-type DestroyInstrument struct { // TODO: implement
+type DestroyInstrument struct { // TODO: implement this
 
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+	Name      string `yaml:"name" json:"name"`           // the name of the instrument to stop
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PerformInstrumentMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
-type PerformInstrumentMethod struct { // TODO: implement
+type PerformInstrumentMethod struct { // TODO: implement this
 
+	Instrument  string                 `yaml:"instrument" json:"instrument"`     // Which instrument are we communicating with?
 	Method      string                 `yaml:"method" json:"method"`             // The name of the method that is to be performed
 	KeywordArgs map[string]interface{} `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
 	Timestamp   int64                  `yaml:"timestamp" json:"timestamp"`       // When the response was completed
-	Instrument  string                 `yaml:"instrument" json:"instrument"`     // Which instrument are we communicating with?
 }
 
 // Busy: If a process is currently running an action right now
-type Busy struct { // TODO: implement
-
+type Busy struct // TODO: implement this
+{
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PortRequest: Request all current instrument ports
-type PortRequest struct { // TODO: implement
+type PortRequest struct { // TODO: implement this
 
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PortPayload: All of the current instrument ports
-type PortPayload struct { // TODO: implement
+type PortPayload struct { // TODO: implement this
 
 	Knobs     string `yaml:"knobs" json:"knobs"`         // All of the knobs attached to the instrument server
 	Meters    string `yaml:"meters" json:"meters"`       // All of the meters attached to the instrument server
