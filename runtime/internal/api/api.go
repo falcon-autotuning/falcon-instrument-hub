@@ -112,15 +112,13 @@ type Trigger struct { // TODO: implement this
 }
 
 // SetupInstrument: Sets up an instrument on a instrument server
-type SetupInstrument struct { // TODO: implement this
-
+type SetupInstrument struct {
 	Name      string `yaml:"name" json:"name"`           // the name of the instrument to startup
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DestroyInstrument: Shuts down an instrument on a instrument server
-type DestroyInstrument struct { // TODO: implement this
-
+type DestroyInstrument struct {
 	Name      string `yaml:"name" json:"name"`           // the name of the instrument to stop
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }

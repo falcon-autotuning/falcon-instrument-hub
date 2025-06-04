@@ -1,9 +1,11 @@
+//go:generate ./copy_script.sh
 package handlers
 
 import (
 	"fmt"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 )
@@ -26,7 +28,7 @@ type Manager struct {
 	nc                  *nats.Conn
 	logHandler          *LogHandler
 	deviceConfigHandler *DeviceConfigHandler
-	instrumentHandler   *InstrumentHandler
+	instrumentHandler   *instrument.Handler
 	interpreterHandler  *InterpreterHandler
 	natsURL             string
 }
@@ -45,7 +47,7 @@ func NewManager(
 		natsURL:             natsURL,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
-		instrumentHandler:   NewInstrumentHandler(logger, natsURL),
+		instrumentHandler:   instrument.NewHandler(logger, natsURL),
 		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
 	}
 }
@@ -96,6 +98,11 @@ func (m *Manager) GetLogHandler() *LogHandler {
 // GetDeviceConfigHandler returns the device config handler for testing purposes
 func (m *Manager) GetDeviceConfigHandler() *DeviceConfigHandler {
 	return m.deviceConfigHandler
+}
+
+// GetInstrumentHandler returns the instrument handler for testing purposes
+func (m *Manager) GetInstrumentHandler() *instrument.Handler {
+	return m.instrumentHandler
 }
 
 // getHandlerOperations returns the ordered list of handler operations
