@@ -1,5 +1,6 @@
 """An instrument daemon that runs instrument drivers."""
 
+import contextlib
 from typing import TYPE_CHECKING
 
 from .api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
@@ -9,6 +10,7 @@ from .dependancies import (
     asyncio,
     json,
     nats,
+    signal,
 )
 
 if TYPE_CHECKING:
@@ -44,24 +46,95 @@ class InstrumentDaemon:
         self._instrument = instrument_driver(
             sync_sender=sync_sender,
         )
+        self._shutdown_event = asyncio.Event()
 
     async def start(self):
         """The main loop for the daemon."""
-        self._nc = await nats.connect(self._url)
-        await self.confirm_initialization()
-        await self.setup_subscriptions()
-        self._loop.create_task(self.publish_status())
+        print(f"Starting daemon for {self._instrument_name}")
 
-        forever = asyncio.Future()
         try:
-            # Wait forever or until the program is interrupted
-            await forever
-        except asyncio.CancelledError:
-            # Handle graceful shutdown if the future is cancelled
-            print(f"Daemon serving {self._instrument_name} shutting down...")
+            # Try to connect to NATS with timeout
+            print(f"Attempting to connect to NATS at {self._url}...")
+            self._nc = await asyncio.wait_for(nats.connect(self._url), timeout=5.0)
+            print("Connected to NATS successfully")
+            await self.confirm_initialization()
+            await self.setup_subscriptions()
+            self._loop.create_task(self.publish_status())
+        except asyncio.TimeoutError:
+            print(f"Failed to connect to NATS at {self._url} within timeout")
+        except Exception as e:
+            print(f"Error during startup: {e}")
+
+        try:
+            # Wait for shutdown signal or until the program is interrupted
+            print(
+                f"Daemon {self._instrument_name} running, waiting for shutdown signal..."
+            )
+            # Just wait forever - let SIGTERM kill the process naturally
+            while True:
+                await asyncio.sleep(1.0)
+
+        except (KeyboardInterrupt, asyncio.CancelledError):
+            # Handle Ctrl+C or process termination
+            print(
+                f"Daemon serving {self._instrument_name} interrupted, shutting down..."
+            )
         finally:
-            # Properly drain the connection when exiting
-            await self._nc.drain()
+            print(f"Cleaning up {self._instrument_name}")
+            # Simple cleanup without waiting for complex shutdown events
+            if hasattr(self, "_nc") and self._nc:
+                with contextlib.suppress(asyncio.TimeoutError, Exception):
+                    await asyncio.wait_for(self._nc.close(), timeout=1.0)
+            print(f"Daemon {self._instrument_name} shutdown complete")
+
+    def _setup_signal_handlers(self):
+        """Set up signal handlers for graceful shutdown."""
+        print("Setting up signal handlers for SIGTERM and SIGINT", flush=True)
+        for sig in (signal.SIGTERM, signal.SIGINT):
+            signal.signal(sig, self._signal_handler)
+            print(f"Signal handler set for signal {sig}", flush=True)
+
+    def _signal_handler(self, signum, frame):
+        """Handle shutdown signals."""
+        print(f"Received signal {signum}, initiating graceful shutdown...", flush=True)
+
+        # Instead of using call_soon_threadsafe, directly set the event
+        # asyncio.Event.set() is thread-safe on its own
+        try:
+            self._shutdown_event.set()
+            print(f"Signal {signum} handler completed", flush=True)
+        except Exception as e:
+            print(f"Error in signal handler: {e}", flush=True)
+            # Force exit if we can't set the event
+            import os
+
+            os._exit(1)
+
+    async def _cleanup_tasks(self):
+        """Clean up all running tasks."""
+        # Get all tasks except the current one
+        tasks = [
+            task
+            for task in asyncio.all_tasks(self._loop)
+            if task is not asyncio.current_task()
+        ]
+
+        if tasks:
+            print(f"Cancelling {len(tasks)} running tasks...")
+            # Cancel all tasks
+            for task in tasks:
+                task.cancel()
+
+            # Wait for all tasks to complete cancellation
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True), timeout=3.0
+                )
+                print("All tasks cancelled successfully")
+            except asyncio.TimeoutError:
+                print("Some tasks didn't cancel within timeout, continuing...")
+        else:
+            print("No tasks to cancel")
 
     def specific_channel(
         self,
@@ -152,21 +225,26 @@ class InstrumentDaemon:
 
     async def publish_status(self, refresh: float = 0.5) -> None:
         """Publishes the status of the daemon every refresh."""
-        while True:
-            pending = len([t for t in asyncio.all_tasks() if not t.done()])
-            message = json.dumps(
-                {
-                    DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
-                    DRIVER_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
-                }
-            )
-            await self.send_command(
-                channel=self.specific_channel(
-                    channel=DRIVER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL,
-                ),
-                message=message,
-            )
-            await asyncio.sleep(refresh)
+        try:
+            while not self._shutdown_event.is_set():
+                pending = len([t for t in asyncio.all_tasks() if not t.done()])
+                message = json.dumps(
+                    {
+                        DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
+                        DRIVER_RUNTIME_COMMANDS.STATUS.STATUS: pending > 1,
+                    }
+                )
+                await self.send_command(
+                    channel=self.specific_channel(
+                        channel=DRIVER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL,
+                    ),
+                    message=message,
+                )
+                await asyncio.sleep(refresh)
+            print("Status publishing stopped due to shutdown event")
+        except asyncio.CancelledError:
+            print("Status publishing cancelled")
+            raise
 
     async def handle_arbitration(
         self,

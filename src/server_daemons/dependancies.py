@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import signal
 from pathlib import Path
 
 import nats
@@ -21,6 +22,7 @@ from instrument_templates.instrument_sync_sender import InstrumentSyncSender
 __all__ = [
     "SUPPORTED_PROPERTIES",
     "Time",
+    "signal",
     "InstrumentSyncSender",
     "Path",
     "HDF5Data",
