@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
 	"github.com/spf13/cobra"
@@ -81,10 +82,15 @@ func runStart(cmd *cobra.Command, args []string) error {
 	log.Printf("working directory: %s", workingdir)
 	log.Printf("nats url: %s", natsManager.GetConnection().ConnectedUrl())
 
-	// todo: initialize your server components here
-	// - load device configuration
-	// - load wiremap
-	// - initialize python instrument templates
+	// load device configuration and wiremap
+	cfg, err := config.LoadConfig(deviceconfig, wiremap)
+	if err != nil {
+		return fmt.Errorf("failed to load configuration: %w", err)
+	}
+	log.Printf("loaded device config with %d groups and %d wiring specs", len(cfg.DeviceConfig.Groups), len(cfg.DeviceConfig.WiringDC))
+
+	// todo: initialize python instrument templates with config paths
+	// you can pass cfg.DeviceConfigPath and cfg.WiremapPath to python scripts
 
 	// register all handlers
 	handlerManager.RegisterAllHandlers()
