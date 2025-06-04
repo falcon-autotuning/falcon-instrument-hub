@@ -207,13 +207,14 @@ class InstrumentDaemon:
     async def confirm_initialization(self):
         """Confirms the initialization of the daemon."""
         init_config = self._instrument.to_json_config()
+        init = init_config["properties"]
+        ports = init_config["ports_index"]
         init_message = json.dumps(
             {
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: Time().time,
-                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(
-                    init_config
-                ),
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(init),
+                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.PORT: json.dumps(ports),
             }
         )
         await self.send_command(
