@@ -7,9 +7,11 @@
     - [Linux](#linux)
     - [Windows](#windows)
   - [Configuration](#configuration)
+    - [Packages](#packages)
     - [Device configuration](#device-configuration)
       - [Region 1: Global name categorization](#region-1-global-name-categorization)
       - [Region 2: Specific channel registration](#region-2-specific-channel-registration)
+      - [Region 3: DC wiring](#region-3-dc-wiring)
     - [Wire-map](#wire-map)
       - [Direct connection between instruments](#direct-connection-between-instruments)
       - [Connection between an instrument and a device](#connection-between-an-instrument-and-a-device)
@@ -65,7 +67,7 @@ between quantum dots.
 A reservoir gate is a large gate that is used to deliver the electrons to the
 quantum dots.
 
-There are two regions in the configuration file. Combined together, they represent
+There are three regions in the configuration file. Combined together, they represent
 the full configuration of the device.
 
 #### Region 1: Global name categorization
@@ -92,15 +94,15 @@ The `.` is a forbidden character in the names of the gates.
 ````markdown
 ```yaml
 - groups:
-    - group1:
-        - Name: I_O2
-        - NumDots: 4
-        - ScreeningGates: S1;S2
-        - ReservoirGates: R1;R2
-        - PlungerGates: P1;P2 ...
-        - BarrierGates: B1;B2 ...
-        - Order: O1;R1;B1;P1;B2;P2; ... ;R2;O2
-    - ...
+    group1:
+      Name: I_O2
+      NumDots: 4
+      ScreeningGates: S1;S2
+      ReservoirGates: R1;R2
+      PlungerGates: P1;P2 ...
+      BarrierGates: B1;B2 ...
+      Order: O1;R1;B1;P1;B2;P2; ... ;R2;O2
+    ...
 ```
 ````
 
@@ -111,6 +113,22 @@ number.
 The order lists all of the gates in the same order that they pattern over the
 location of the ideal 1D channel.
 The number of groups should be equal to the `num-unique-connections` from earlier.
+
+#### Region 3: DC wiring
+
+````markdown
+```yaml
+- wiringDC:
+    <connection1>:
+      resistance: value
+      capacitance: value
+    ...
+```
+````
+
+The third region specifies bulk resistance and capacitance for each DC connection
+on the device.
+They are expected to be in Ohms and Farads respectively.
 
 ### Wire-map
 
