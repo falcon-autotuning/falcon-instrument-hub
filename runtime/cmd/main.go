@@ -44,11 +44,15 @@ var startCmd = &cobra.Command{
 // TODO: make sure that flacon units wanting config unpack it correctly
 
 func init() {
-	startCmd.Flags().StringSliceVar(&packages, "packages", []string{}, "python modules containing instrument templates (required)")
-	startCmd.Flags().StringVar(&natsurl, "nats-url", "", "nats server url (if not provided, starts embedded nats)")
-	startCmd.Flags().StringVar(&deviceconfig, "device-config", "", "path to device configuration yaml file (required)")
+	startCmd.Flags().
+		StringSliceVar(&packages, "packages", []string{}, "python modules containing instrument templates (required)")
+	startCmd.Flags().
+		StringVar(&natsurl, "nats-url", "", "nats server url (if not provided, starts embedded nats)")
+	startCmd.Flags().
+		StringVar(&deviceconfig, "device-config", "", "path to device configuration yaml file (required)")
 	startCmd.Flags().StringVar(&wiremap, "wiremap", "", "path to wiremap yaml file (required)")
-	startCmd.Flags().StringVar(&workingdir, "working-dir", ".", "working directory for logs and data (default: current directory)")
+	startCmd.Flags().
+		StringVar(&workingdir, "working-dir", ".", "working directory for logs and data (default: current directory)")
 
 	// mark required flags
 	startCmd.MarkFlagRequired("packages")
@@ -151,10 +155,19 @@ func setupHandlers(services *coreServices) error {
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
-	log.Printf("loaded device config with %d groups and %d wiring specs", len(cfg.DeviceConfig.Groups), len(cfg.DeviceConfig.WiringDC))
+	log.Printf(
+		"loaded device config with %d groups and %d wiring specs",
+		len(cfg.DeviceConfig.Groups),
+		len(cfg.DeviceConfig.WiringDC),
+	)
 
 	// create handler manager from handlers package
-	services.handlerManager = handlers.NewManager(cfg, services.logger, services.natsManager.GetConnection())
+	services.handlerManager = handlers.NewManager(
+		cfg,
+		services.logger,
+		services.natsManager.GetConnection(),
+		services.natsManager.GetNATSURL(),
+	)
 
 	// subscribe all handlers using the handlers manager
 	if err := services.handlerManager.Start(); err != nil {

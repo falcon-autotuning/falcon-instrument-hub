@@ -84,9 +84,9 @@ func TestDeviceConfigHandler(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	t.Run("successful device config request", func(t *testing.T) {
-		// Create response channel
+		// Create response channel using constant
 		responseCh := make(chan *nats.Msg, 1)
-		responseSubject := "DEVICE_CONFIG_RESPONSE.external.test"
+		responseSubject := deviceConfigResponsePrefix + ".test"
 
 		sub, err := nc.Subscribe(responseSubject, func(msg *nats.Msg) {
 			responseCh <- msg
@@ -101,8 +101,9 @@ func TestDeviceConfigHandler(t *testing.T) {
 		requestData, err := json.Marshal(request)
 		require.NoError(t, err)
 
-		// Send request to DEVICE_CONFIG_REQUEST.external.test
-		err = nc.Publish("DEVICE_CONFIG_REQUEST.external.test", requestData)
+		// Send request using constant
+		requestSubject := deviceConfigRequestPrefix + ".test"
+		err = nc.Publish(requestSubject, requestData)
 		require.NoError(t, err)
 
 		// Wait for response
@@ -138,8 +139,10 @@ func TestDeviceConfigHandler(t *testing.T) {
 		requestData, err := json.Marshal(request)
 		require.NoError(t, err)
 
-		// This should be handled but no response should be sent to a valid response channel
-		err = nc.Publish("DEVICE_CONFIG_REQUEST.invalid", requestData)
+		// This should be handled but no response should be sent to a valid
+		// response channel
+		invalidSubject := deviceConfigRequestPrefix + ".invalid"
+		err = nc.Publish(invalidSubject, requestData)
 		require.NoError(t, err)
 
 		// Brief wait to ensure message is processed
@@ -153,15 +156,16 @@ func TestExtractNameFromChannel(t *testing.T) {
 		subject  string
 		expected string
 	}{
-		{"DEVICE_CONFIG_REQUEST.external.test", "test"},
-		{"DEVICE_CONFIG_REQUEST.external.myname", "myname"},
-		{"DEVICE_CONFIG_REQUEST.external.complex-name", "complex-name"},
+		{deviceConfigRequestPrefix + ".test", "test"},
+		{deviceConfigRequestPrefix + ".myname", "myname"},
+		{deviceConfigRequestPrefix + ".complex-name", "complex-name"},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.subject, func(t *testing.T) {
 			parts := strings.Split(tc.subject, ".")
-			if len(parts) == 3 && parts[0] == "DEVICE_CONFIG_REQUEST" && parts[1] == "external" {
+			if len(parts) == 3 && parts[0] == deviceConfigRequestSegment &&
+				parts[1] == externalSegment {
 				result := parts[2]
 				assert.Equal(t, tc.expected, result)
 			}

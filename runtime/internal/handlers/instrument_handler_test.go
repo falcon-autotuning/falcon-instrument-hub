@@ -169,7 +169,12 @@ if __name__ == "__main__":
 				count++
 			}
 		}
-		assert.Equal(t, 1, count, "Should only have one instance of duplicate-test")
+		assert.Equal(
+			t,
+			1,
+			count,
+			"Should only have one instance of duplicate-test",
+		)
 
 		// Cleanup
 		destroyRequest := api.DestroyInstrument{Name: "duplicate-test"}
@@ -197,7 +202,10 @@ if __name__ == "__main__":
 
 	t.Run("invalid JSON in setup request", func(t *testing.T) {
 		// Send invalid JSON
-		err = nc.Publish("SETUP_INSTRUMENT.external.test", []byte("invalid json"))
+		err = nc.Publish(
+			"SETUP_INSTRUMENT.external.test",
+			[]byte("invalid json"),
+		)
 		require.NoError(t, err)
 
 		// Brief wait to process message
@@ -207,7 +215,10 @@ if __name__ == "__main__":
 
 	t.Run("invalid JSON in destroy request", func(t *testing.T) {
 		// Send invalid JSON
-		err = nc.Publish("DESTROY_INSTRUMENT.external.test", []byte("invalid json"))
+		err = nc.Publish(
+			"DESTROY_INSTRUMENT.external.test",
+			[]byte("invalid json"),
+		)
 		require.NoError(t, err)
 
 		// Brief wait to process message

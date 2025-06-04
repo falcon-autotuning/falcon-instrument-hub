@@ -1,10 +1,23 @@
 package handlers
 
 import (
+	"fmt"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 )
+
+const (
+	HandlerManagerName = "HANDLER_MANAGER"
+)
+
+// handlerOperation represents a handler operation for startup or shutdown
+type handlerOperation struct {
+	name    string
+	startOp func() error
+	stopOp  func() error
+}
 
 // Manager manages all message handlers
 type Manager struct {
@@ -14,11 +27,17 @@ type Manager struct {
 	logHandler          *LogHandler
 	deviceConfigHandler *DeviceConfigHandler
 	instrumentHandler   *InstrumentHandler
+	interpreterHandler  *InterpreterHandler
 	natsURL             string
 }
 
 // NewManager creates a new handler manager
-func NewManager(cfg *config.Config, logger *logging.Logger, nc *nats.Conn, natsURL string) *Manager {
+func NewManager(
+	cfg *config.Config,
+	logger *logging.Logger,
+	nc *nats.Conn,
+	natsURL string,
+) *Manager {
 	return &Manager{
 		config:              cfg,
 		logger:              logger,
@@ -27,55 +46,45 @@ func NewManager(cfg *config.Config, logger *logging.Logger, nc *nats.Conn, natsU
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   NewInstrumentHandler(logger, natsURL),
+		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
 	}
 }
 
 // Start initializes all handlers and their subscriptions
 func (m *Manager) Start() error {
-	m.logger.Info("HANDLER_MANAGER", "Starting handler manager")
+	m.logger.Info(HandlerManagerName, "Starting handler manager")
 
-	// Subscribe to log messages
-	if err := m.logHandler.Subscribe(m.nc); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to start log handler")
-		return err
+	// Execute each startup operation
+	for _, op := range m.getHandlerOperations() {
+		if err := op.startOp(); err != nil {
+			m.logger.Error(
+				HandlerManagerName,
+				fmt.Sprintf("Failed to start %s", op.name),
+			)
+			return err
+		}
 	}
 
-	// Subscribe to device config requests
-	if err := m.deviceConfigHandler.Subscribe(m.nc); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to start device config handler")
-		return err
-	}
-
-	// Subscribe to instrument commands
-	if err := m.instrumentHandler.Subscribe(m.nc); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to start instrument handler")
-		return err
-	}
-
-	m.logger.Info("HANDLER_MANAGER", "All handlers started successfully")
+	m.logger.Info(HandlerManagerName, "All handlers started successfully")
 	return nil
 }
 
 // Stop gracefully shuts down all handlers
 func (m *Manager) Stop() error {
-	m.logger.Info("HANDLER_MANAGER", "Stopping handler manager")
+	m.logger.Info(HandlerManagerName, "Stopping handler manager")
 
-	// Unsubscribe from device config requests
-	if err := m.deviceConfigHandler.Unsubscribe(); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to stop device config handler")
+	// Execute each shutdown operation in reverse order (continue on errors)
+	ops := m.getHandlerOperations()
+	for i := len(ops) - 1; i >= 0; i-- {
+		if err := ops[i].stopOp(); err != nil {
+			m.logger.Error(
+				HandlerManagerName,
+				fmt.Sprintf("Failed to stop %s", ops[i].name),
+			)
+		}
 	}
 
-	// Unsubscribe from instrument commands
-	if err := m.instrumentHandler.Unsubscribe(); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to stop instrument handler")
-	}
-
-	// Unsubscribe from log messages
-	if err := m.logHandler.Unsubscribe(); err != nil {
-		m.logger.Error("HANDLER_MANAGER", "Failed to stop log handler")
-	}
-
-	m.logger.Info("HANDLER_MANAGER", "Handler manager stopped")
+	m.logger.Info(HandlerManagerName, "Handler manager stopped")
 	return nil
 }
 
@@ -87,4 +96,30 @@ func (m *Manager) GetLogHandler() *LogHandler {
 // GetDeviceConfigHandler returns the device config handler for testing purposes
 func (m *Manager) GetDeviceConfigHandler() *DeviceConfigHandler {
 	return m.deviceConfigHandler
+}
+
+// getHandlerOperations returns the ordered list of handler operations
+func (m *Manager) getHandlerOperations() []handlerOperation {
+	return []handlerOperation{
+		{
+			name:    "log handler",
+			startOp: func() error { return m.logHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.logHandler.Unsubscribe() },
+		},
+		{
+			name:    "device config handler",
+			startOp: func() error { return m.deviceConfigHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.deviceConfigHandler.Unsubscribe() },
+		},
+		{
+			name:    "instrument handler",
+			startOp: func() error { return m.instrumentHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.instrumentHandler.Unsubscribe() },
+		},
+		{
+			name:    "interpreter handler",
+			startOp: func() error { return m.interpreterHandler.Start() },
+			stopOp:  func() error { return m.interpreterHandler.Stop() },
+		},
+	}
 }
