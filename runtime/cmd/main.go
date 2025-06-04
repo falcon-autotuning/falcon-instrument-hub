@@ -16,6 +16,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// Directory names
+	LogsDir      = "log"
+	DataDir      = "data"
+	DataCacheDir = "datacache"
+
+	// Database file name
+	MeasurementsDB = "measurements.db"
+)
+
 var (
 	packages     []string
 	natsurl      string
@@ -30,6 +40,8 @@ var startCmd = &cobra.Command{
 	Long:  "start the falcon instrument server with the specified configuration",
 	RunE:  runStart,
 }
+
+// TODO: make sure that flacon units wanting config unpack it correctly
 
 func init() {
 	startCmd.Flags().StringSliceVar(&packages, "packages", []string{}, "python modules containing instrument templates (required)")
@@ -46,6 +58,50 @@ func init() {
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
+	// validate and setup environment
+	if err := initializeEnvironment(); err != nil {
+		return err
+	}
+
+	// setup core services
+	services, err := setupCoreServices()
+	if err != nil {
+		return err
+	}
+	defer services.cleanup()
+
+	// load configuration and create handlers
+	if err := setupHandlers(services); err != nil {
+		return err
+	}
+
+	// start the server
+	return runServer(services)
+}
+
+type coreServices struct {
+	natsManager        *networking.NATSManager
+	measurementManager *measurements.Manager
+	logger             *logging.Logger
+	handlerManager     *handlers.Manager
+}
+
+func (s *coreServices) cleanup() {
+	if s.handlerManager != nil {
+		s.handlerManager.Stop()
+	}
+	if s.measurementManager != nil {
+		s.measurementManager.Close()
+	}
+	if s.logger != nil {
+		s.logger.Close()
+	}
+	if s.natsManager != nil {
+		s.natsManager.Close()
+	}
+}
+
+func initializeEnvironment() error {
 	// validate required files exist
 	if err := validateFiles(); err != nil {
 		return err
@@ -56,55 +112,69 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	return nil
+}
+
+func setupCoreServices() (*coreServices, error) {
+	services := &coreServices{}
+
 	// set up nats connection using the networking package
 	natsManager, err := networking.NewNATSManager(natsurl)
 	if err != nil {
-		return fmt.Errorf("failed to setup nats: %w", err)
+		return nil, fmt.Errorf("failed to setup nats: %w", err)
 	}
-	defer natsManager.Close()
+	services.natsManager = natsManager
 
 	// create measurement manager
 	measurementManager, err := measurements.NewManager(
-		filepath.Join(workingdir, "data"),
-		filepath.Join(workingdir, "datacache", "measurements.db"),
+		filepath.Join(workingdir, DataDir),
+		filepath.Join(workingdir, DataCacheDir, MeasurementsDB),
 	)
 	if err != nil {
-		return fmt.Errorf("failed to initialize measurement manager: %w", err)
+		return nil, fmt.Errorf("failed to initialize measurement manager: %w", err)
 	}
-	defer measurementManager.Close()
+	services.measurementManager = measurementManager
 
 	// create logger for handlers
-	logger, err := logging.NewLogger(filepath.Join(workingdir, "log"))
+	logger, err := logging.NewLogger(filepath.Join(workingdir, LogsDir))
 	if err != nil {
-		return fmt.Errorf("failed to create logger: %w", err)
+		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
-	defer logger.Close()
+	services.logger = logger
 
-	// create handler manager from handlers package
-	handlerManager := handlers.NewManager(logger)
+	return services, nil
+}
 
-	log.Printf("starting falcon instrument server...")
-	log.Printf("packages: %v", packages)
-	log.Printf("device config: %s", deviceconfig)
-	log.Printf("wiremap: %s", wiremap)
-	log.Printf("working directory: %s", workingdir)
-	log.Printf("nats url: %s", natsManager.GetConnection().ConnectedUrl())
-
-	// load device configuration and wiremap
+func setupHandlers(services *coreServices) error {
+	// load device configuration and wiremap first
 	cfg, err := config.LoadConfig(deviceconfig, wiremap)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
 	log.Printf("loaded device config with %d groups and %d wiring specs", len(cfg.DeviceConfig.Groups), len(cfg.DeviceConfig.WiringDC))
 
+	// create handler manager from handlers package
+	services.handlerManager = handlers.NewManager(cfg, services.logger, services.natsManager.GetConnection())
+
+	// subscribe all handlers using the handlers manager
+	if err := services.handlerManager.Start(); err != nil {
+		return fmt.Errorf("failed to start handlers: %w", err)
+	}
+
+	return nil
+}
+
+func runServer(services *coreServices) error {
+	log.Printf("starting falcon instrument server...")
+	log.Printf("packages: %v", packages)
+	log.Printf("device config: %s", deviceconfig)
+	log.Printf("wiremap: %s", wiremap)
+	log.Printf("working directory: %s", workingdir)
+	log.Printf("nats url: %s", services.natsManager.GetConnection().ConnectedUrl())
+
 	// todo: initialize python instrument templates with config paths
 	// you can pass cfg.DeviceConfigPath and cfg.WiremapPath to python scripts
 
-	// subscribe all handlers using the handlers manager
-	if err := handlerManager.Subscribe(natsManager.GetConnection()); err != nil {
-		return fmt.Errorf("failed to subscribe handlers: %w", err)
-	}
-	defer handlerManager.Unsubscribe()
 	log.Println("falcon runtime is ready and listening for commands...")
 
 	// wait for interrupt signal
@@ -123,22 +193,22 @@ func setupWorkingDirectory() error {
 	}
 
 	// create log directory
-	if err := os.MkdirAll("log", 0755); err != nil {
+	if err := os.MkdirAll(LogsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
 
 	// create data directory
-	if err := os.MkdirAll("data", 0755); err != nil {
+	if err := os.MkdirAll(DataDir, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
 
 	// create datacache directory for database indexes
-	if err := os.MkdirAll("datacache", 0755); err != nil {
+	if err := os.MkdirAll(DataCacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create datacache directory: %w", err)
 	}
 
 	log.Printf("working directory set to: %s", workingdir)
-	log.Println("created log, data, and datacache directories")
+	log.Printf("created %s, %s, and %s directories", LogsDir, DataDir, DataCacheDir)
 	return nil
 }
 
