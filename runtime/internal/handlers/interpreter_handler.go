@@ -22,6 +22,7 @@ const (
 
 // File Paths
 const (
+	ScriptsDir                  = "scripts"
 	LaunchInterpreterScriptName = "launch_interpreter.py"
 )
 

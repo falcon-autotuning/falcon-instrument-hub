@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -78,7 +79,7 @@ if __name__ == "__main__":
 	require.NoError(t, err)
 
 	// Create handler
-	handler := NewInstrumentHandler(logger, server.ClientURL())
+	handler := instrument.NewHandler(logger, server.ClientURL())
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)
@@ -100,19 +101,10 @@ if __name__ == "__main__":
 		// Wait for instrument to start
 		time.Sleep(500 * time.Millisecond)
 
-		// Verify instrument is running
-		activeInstruments := handler.GetActiveInstruments()
-		assert.Contains(t, activeInstruments, "test-instrument")
-		assert.Len(t, activeInstruments, 1)
-
 		// Verify the process is actually running
-		handler.mutex.RLock()
-		process, exists := handler.instruments["test-instrument"]
-		handler.mutex.RUnlock()
-		require.True(t, exists)
-		assert.NotNil(t, process.Process)
-		assert.NotNil(t, process.Cmd)
-		assert.NotNil(t, process.Cancel)
+		activeInstruments := handler.GetActiveInstruments()
+		require.Contains(t, activeInstruments, "test-instrument")
+		assert.Len(t, activeInstruments, 1)
 	})
 
 	t.Run("destroy existing instrument", func(t *testing.T) {
@@ -256,6 +248,15 @@ if __name__ == "__main__":
 }
 
 func TestInstrumentHandlerScriptEnsure(t *testing.T) {
+	// Start NATS server for testing
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	// Connect to NATS
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
 	tempDir := t.TempDir()
 
 	// Change to temp directory
@@ -267,15 +268,21 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := NewInstrumentHandler(logger, "nats://localhost:4222")
+	handler := instrument.NewHandler(logger, server.ClientURL())
 
 	t.Run("script creation", func(t *testing.T) {
-		// This should create the scripts directory and extract the embedded script
-		err := handler.ensureScriptExists()
+		// This should create the scripts directory and extract the embedded
+		// script - we'll test this indirectly by checking if the script file
+		// exists
+		scriptPath := filepath.Join("./", "launch_instrument_daemon.py")
+
+		// First ensure the handler can start (which calls ensureScriptExists
+		// internally)
+		err := handler.Subscribe(nc)
 		require.NoError(t, err)
+		defer handler.Unsubscribe()
 
 		// Verify script exists
-		scriptPath := filepath.Join("scripts", "launch_instrument_daemon.py")
 		_, err = os.Stat(scriptPath)
 		assert.NoError(t, err, "Script file should exist")
 
@@ -287,6 +294,13 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 }
 
 func TestInstrumentHandlerCleanup(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+	// Connect to NATS
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
 	tempDir := t.TempDir()
 
 	// Change to temp directory
@@ -296,7 +310,7 @@ func TestInstrumentHandlerCleanup(t *testing.T) {
 	os.Chdir(tempDir)
 
 	// Create mock script
-	scriptsDir := "scripts"
+	scriptsDir := "./"
 	err = os.MkdirAll(scriptsDir, 0755)
 	require.NoError(t, err)
 
@@ -321,11 +335,22 @@ while True:
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := NewInstrumentHandler(logger, "nats://localhost:4222")
+	handler := instrument.NewHandler(logger, server.ClientURL())
 
-	// Start a test instrument manually
-	err = handler.startInstrument("cleanup-test")
+	// Subscribe to enable the handler
+	err = handler.Subscribe(nc)
 	require.NoError(t, err)
+
+	// Start a test instrument using the public API
+	request := api.SetupInstrument{Name: "cleanup-test"}
+	requestData, err := json.Marshal(request)
+	require.NoError(t, err)
+
+	err = nc.Publish("SETUP_INSTRUMENT.external.test", requestData)
+	require.NoError(t, err)
+
+	// Wait for instrument to start
+	time.Sleep(300 * time.Millisecond)
 
 	// Verify it's running
 	activeInstruments := handler.GetActiveInstruments()
@@ -341,27 +366,4 @@ while True:
 	// Verify all instruments are stopped
 	activeInstruments = handler.GetActiveInstruments()
 	assert.Len(t, activeInstruments, 0)
-}
-
-func TestGetActiveInstruments(t *testing.T) {
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	handler := NewInstrumentHandler(logger, "nats://localhost:4222")
-
-	// Initially should be empty
-	activeInstruments := handler.GetActiveInstruments()
-	assert.Len(t, activeInstruments, 0)
-
-	// Add some mock instruments directly to test the getter
-	handler.mutex.Lock()
-	handler.instruments["test1"] = &InstrumentProcess{Name: "test1"}
-	handler.instruments["test2"] = &InstrumentProcess{Name: "test2"}
-	handler.mutex.Unlock()
-
-	activeInstruments = handler.GetActiveInstruments()
-	assert.Len(t, activeInstruments, 2)
-	assert.Contains(t, activeInstruments, "test1")
-	assert.Contains(t, activeInstruments, "test2")
 }
