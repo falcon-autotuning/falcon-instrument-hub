@@ -41,6 +41,7 @@ var startCmd = &cobra.Command{
 	RunE:  runStart,
 }
 
+// TODO: make sure that the instruments nicely shutdown on SIGINT/SIGTERM
 // TODO: make sure that flacon units wanting config unpack it correctly
 
 func init() {
