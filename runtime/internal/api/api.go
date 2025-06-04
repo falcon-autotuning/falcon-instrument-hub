@@ -154,14 +154,12 @@ type PortPayload struct { // TODO: implement
 }
 
 // DeviceConfigRequest: A request for the device configuration
-type DeviceConfigRequest struct { // TODO: implement
-
+type DeviceConfigRequest struct {
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DeviceConfigResponse: A response containing the device configuration
-type DeviceConfigResponse struct { // TODO: implement
-
+type DeviceConfigResponse struct {
 	Response  string `yaml:"response" json:"response"`   // The device config for use understanding the device layout
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }

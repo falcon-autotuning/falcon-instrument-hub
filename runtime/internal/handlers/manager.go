@@ -1,81 +1,75 @@
 package handlers
 
 import (
-	"fmt"
-	"log"
-	"sync"
-
-	"github.com/nats-io/nats.go"
-
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/nats-io/nats.go"
 )
 
-// Manager manages all NATS message handlers
+// Manager manages all message handlers
 type Manager struct {
-	logger *logging.Logger
-	nc     *nats.Conn
-	mu     sync.RWMutex
-
-	// Handlers
-	logHandler *LogHandler
-	// Add more handlers here as needed
+	config              *config.Config
+	logger              *logging.Logger
+	nc                  *nats.Conn
+	logHandler          *LogHandler
+	deviceConfigHandler *DeviceConfigHandler
 }
 
 // NewManager creates a new handler manager
-func NewManager(logger *logging.Logger) *Manager {
+func NewManager(cfg *config.Config, logger *logging.Logger, nc *nats.Conn) *Manager {
 	return &Manager{
-		logger: logger,
+		config:              cfg,
+		logger:              logger,
+		nc:                  nc,
+		logHandler:          NewLogHandler(logger),
+		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 	}
 }
 
-// Subscribe subscribes all handlers to their respective NATS subjects
-func (m *Manager) Subscribe(nc *nats.Conn) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// Start initializes all handlers and their subscriptions
+func (m *Manager) Start() error {
+	m.logger.Info("HANDLER_MANAGER", "Starting handler manager")
 
-	m.nc = nc
-
-	// Subscribe LOG handler
-	m.logHandler = NewLogHandler(m.logger)
-	if err := m.logHandler.Subscribe(nc); err != nil {
-		return fmt.Errorf("failed to subscribe LOG handler: %w", err)
+	// Subscribe to log messages
+	if err := m.logHandler.Subscribe(m.nc); err != nil {
+		m.logger.Error("HANDLER_MANAGER", "Failed to start log handler")
+		return err
 	}
 
-	// Add more handler subscriptions here
+	// Subscribe to device config requests
+	if err := m.deviceConfigHandler.Subscribe(m.nc); err != nil {
+		m.logger.Error("HANDLER_MANAGER", "Failed to start device config handler")
+		return err
+	}
 
-	m.logger.Info("MANAGER", "All handlers subscribed successfully")
-	log.Printf("Handler manager: All handlers subscribed successfully")
-
+	m.logger.Info("HANDLER_MANAGER", "All handlers started successfully")
 	return nil
 }
 
-// Unsubscribe unsubscribes all handlers from their NATS subjects
-func (m *Manager) Unsubscribe() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+// Stop gracefully shuts down all handlers
+func (m *Manager) Stop() error {
+	m.logger.Info("HANDLER_MANAGER", "Stopping handler manager")
 
-	var errors []error
-
-	// Unsubscribe LOG handler
-	if m.logHandler != nil {
-		if err := m.logHandler.Unsubscribe(); err != nil {
-			errors = append(errors, fmt.Errorf("LOG handler unsubscribe: %w", err))
-		}
-		m.logHandler = nil
+	// Unsubscribe from device config requests
+	if err := m.deviceConfigHandler.Unsubscribe(); err != nil {
+		m.logger.Error("HANDLER_MANAGER", "Failed to stop device config handler")
 	}
 
-	// Add more handler unsubscriptions here
-
-	if len(errors) > 0 {
-		return fmt.Errorf("handler unsubscribe errors: %v", errors)
+	// Unsubscribe from log messages
+	if err := m.logHandler.Unsubscribe(); err != nil {
+		m.logger.Error("HANDLER_MANAGER", "Failed to stop log handler")
 	}
 
+	m.logger.Info("HANDLER_MANAGER", "Handler manager stopped")
 	return nil
 }
 
-// GetLogHandler returns the log handler (for testing)
+// GetLogHandler returns the log handler for testing purposes
 func (m *Manager) GetLogHandler() *LogHandler {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	return m.logHandler
+}
+
+// GetDeviceConfigHandler returns the device config handler for testing purposes
+func (m *Manager) GetDeviceConfigHandler() *DeviceConfigHandler {
+	return m.deviceConfigHandler
 }
