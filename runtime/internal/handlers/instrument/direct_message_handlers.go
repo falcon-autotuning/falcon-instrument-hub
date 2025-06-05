@@ -3,6 +3,7 @@ package instrument
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
@@ -152,5 +153,158 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 	h.logger.Info(
 		HandlerName,
 		fmt.Sprintf("Successfully initialized instrument: %s", instrumentName),
+	)
+}
+
+// handleUpdateDaemonProperty processes UPDATE_DAEMON_PROPERTY commands
+func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
+	h.logger.Info(
+		HandlerName,
+		fmt.Sprintf(
+			"Received %s on subject: %s",
+			UpdateDaemonPropertyCommand,
+			msg.Subject,
+		),
+	)
+
+	var req api.UpdateDaemonProperty
+	if err := h.unmarshalAndValidate(msg.Data, &req, UpdateDaemonPropertyCommand); err != nil {
+		return
+	}
+
+	if req.Property == "" {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf(
+				"%s missing property field",
+				UpdateDaemonPropertyCommand,
+			),
+		)
+		return
+	}
+
+	// Find the instrument and index by searching through all instrument ports
+	var targetInstrument string
+	var targetIndex int64
+	found := false
+	h.mutex.RLock()
+
+	for instrumentName, process := range h.instruments {
+		if !process.Initialized || process.Ports == nil {
+			continue
+		}
+
+		// Check if this instrument has the requested property
+		if propertyData, exists := process.Ports[req.Property]; exists {
+			h.logger.Info(
+				HandlerName,
+				fmt.Sprintf(
+					"Received %s end it exists %v",
+					propertyData,
+					exists,
+				),
+			)
+			// Try map[int64]any first (direct assignment)
+			if propertyMap, ok := propertyData.(map[int64]any); ok {
+				h.logger.Info(
+					HandlerName,
+					fmt.Sprintf(
+						"Found property map with int64 keys: %v",
+						propertyMap,
+					),
+				)
+				// Search through the index map to find the matching port name
+				for index, portValue := range propertyMap {
+					if portName, ok := portValue.(string); ok &&
+						portName == req.Name {
+						targetInstrument = instrumentName
+						targetIndex = index
+						found = true
+						break
+					}
+				}
+			} else if propertyMapStr, ok := propertyData.(map[string]any); ok {
+				// Handle case where JSON unmarshaling converts int64 keys to
+				// strings
+				h.logger.Info(
+					HandlerName,
+					fmt.Sprintf(
+						"Found property map with string keys: %v",
+						propertyMapStr,
+					),
+				)
+				for indexStr, portValue := range propertyMapStr {
+					if portName, ok := portValue.(string); ok && portName == req.Name {
+						// Convert string key back to int64
+						if index, err := strconv.ParseInt(indexStr, 10, 64); err == nil {
+							targetInstrument = instrumentName
+							targetIndex = index
+							found = true
+							break
+						}
+					}
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+	h.mutex.RUnlock()
+
+	if !found {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf(
+				"Could not find instrument with property %s and name %s",
+				req.Property,
+				req.Name,
+			),
+		)
+		return
+	}
+
+	// Create and send the SET command to the target instrument
+	setCommand := api.Set{
+		Property: req.Property,
+		Index:    targetIndex,
+		Value:    req.Value,
+	}
+
+	setData, err := json.Marshal(setCommand)
+	if err != nil {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf("Failed to marshal %s command: %v", SetCommand, err),
+		)
+		return
+	}
+
+	// Publish the SET command to the target instrument
+	setSubject := fmt.Sprintf("%s.%s", SetCommand, targetInstrument)
+
+	if err := h.nc.Publish(setSubject, setData); err != nil {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf(
+				"Failed to publish %s command to %s: %v",
+				SetCommand,
+				setSubject,
+				err,
+			),
+		)
+		return
+	}
+
+	h.logger.Info(
+		HandlerName,
+		fmt.Sprintf(
+			"Successfully sent %s command to %s: property=%s, index=%d, value=%v",
+			SetCommand,
+			setSubject,
+			req.Property,
+			targetIndex,
+			req.Value,
+		),
 	)
 }

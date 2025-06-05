@@ -100,5 +100,10 @@ func (h *Handler) getSubscriptionConfigs() []subscriptionConfig {
 			handler: h.handleConfirmInitialization,
 			name:    ConfirmInitializationCommand,
 		},
+		{
+			subject: UpdateDaemonPropertySubject,
+			handler: h.handleUpdateDaemonProperty,
+			name:    UpdateDaemonPropertyCommand,
+		},
 	}
 }

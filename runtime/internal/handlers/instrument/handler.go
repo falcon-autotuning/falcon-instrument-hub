@@ -2,16 +2,19 @@ package instrument
 
 import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/nats-io/nats.go"
 )
 
 // NewHandler creates a new instrument handler
 func NewHandler(
 	logger *logging.Logger,
 	natsURL string,
+	nc *nats.Conn,
 ) *Handler {
 	return &Handler{
 		logger:      logger,
 		natsURL:     natsURL,
+		nc:          nc,
 		instruments: make(map[string]*InstrumentProcess),
 	}
 }
