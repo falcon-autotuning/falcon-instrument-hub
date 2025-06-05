@@ -128,7 +128,7 @@ func (h *PortRequestHandler) handleMessage(msg *nats.Msg) {
 	}
 
 	// Get all active instruments and their port properties
-	knobs, meters := h.collectPortProperties()
+	knobs, meters := h.instrumentHandler.CollectPortProperties()
 
 	// Marshal knobs and meters arrays to JSON strings
 	knobsJSON, err := json.Marshal(knobs)
@@ -191,6 +191,44 @@ func (h *PortRequestHandler) handleMessage(msg *nats.Msg) {
 	)
 }
 
+// ProcessInstrumentPorts processes and augments ports for a specific instrument
+// This should be called immediately after an instrument is loaded
+func (h *PortRequestHandler) ProcessInstrumentPorts(
+	instrumentName string,
+) error {
+	instrument, exists := h.instrumentHandler.Instruments[instrumentName]
+	if !exists || instrument.Ports == nil {
+		return fmt.Errorf(
+			"instrument %s not found or has no ports",
+			instrumentName,
+		)
+	}
+
+	// Augment the ports with device connection information using pre-built
+	// mapping
+	if err := config.ProcessInstrumentPorts(instrument.Ports, h.nameMapping, instrumentName); err != nil {
+		h.logger.Error(
+			PortRequestHandlerName,
+			fmt.Sprintf(
+				"Failed to augment ports for instrument %s: %v",
+				instrumentName,
+				err,
+			),
+		)
+		return err
+	}
+
+	h.logger.Debug(
+		PortRequestHandlerName,
+		fmt.Sprintf(
+			"Successfully processed ports for instrument %s",
+			instrumentName,
+		),
+	)
+
+	return nil
+}
+
 // collectPortProperties queries all instruments for their Port properties
 // and categorizes them into knobs and meters
 func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
@@ -202,28 +240,9 @@ func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
 		fmt.Sprintf("Collecting port properties from %d active instruments: %v",
 			len(activeInstruments), activeInstruments),
 	)
-	// First, augment all ports with device connection information
-	for _, instrumentName := range activeInstruments {
-		instrument, exists := h.instrumentHandler.Instruments[instrumentName]
-		if !exists || instrument.Ports == nil {
-			continue
-		}
 
-		// Augment the ports with device connection information using pre-built
-		// mapping
-		if err := config.ProcessInstrumentPorts(instrument.Ports, h.nameMapping, instrumentName); err != nil {
-			h.logger.Error(
-				PortRequestHandlerName,
-				fmt.Sprintf(
-					"Failed to augment ports for instrument %s: %v",
-					instrumentName,
-					err,
-				),
-			)
-			// Continue processing other instruments even if one fails
-		}
-	}
-
+	// Collect ports from all active instruments (processing should already be
+	// done)
 	for _, instrumentName := range activeInstruments {
 		// Get the instrument's ports directly from the handler
 		if instrument, exists := h.instrumentHandler.Instruments[instrumentName]; exists &&

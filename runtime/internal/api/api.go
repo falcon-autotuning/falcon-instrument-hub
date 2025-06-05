@@ -29,12 +29,12 @@ type ProcessData struct { // TODO: implement this
 }
 
 // ProcessRequest: A request to the interpreter to process an incoming measurement
-type ProcessRequest struct { // TODO: implement this
+type ProcessRequest struct { // TODO: test this
 
-	Request        string                 `yaml:"request" json:"request"`               // The measurement request from FAlCon
-	Configurations map[string]interface{} `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
-	DataPath       string                 `yaml:"data_path" json:"data_path"`           // The filepath to the spot in the HDF5 database to store the collected data at
-	ProcessId      string                 `yaml:"process_id" json:"process_id"`         // A unique identifier for the process/ measurement and can index it
+	Request        string `yaml:"request" json:"request"`               // The measurement request from FAlCon
+	Configurations string `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
+	DataPath       string `yaml:"data_path" json:"data_path"`           // The filepath to the spot in the HDF5 database to store the collected data at
+	ProcessId      string `yaml:"process_id" json:"process_id"`         // A unique identifier for the process/ measurement and can index it
 }
 
 // Status: Provide the status of the process
@@ -156,7 +156,7 @@ type DeviceConfigResponse struct {
 }
 
 // MeasureCommand: issued to runtime to request a measurement from the instrument server
-type MeasureCommand struct { // TODO: implement this
+type MeasureCommand struct { // TODO: test this
 
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
@@ -164,7 +164,7 @@ type MeasureCommand struct { // TODO: implement this
 }
 
 // MeasureResponse: Recieve a response from the runtime as to the measurement performed
-type MeasureResponse struct { // TODO: implement this
+type MeasureResponse struct { // TODO: test this
 
 	Response  string `yaml:"response" json:"response"`   // the measurement response containing the information from the server
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
