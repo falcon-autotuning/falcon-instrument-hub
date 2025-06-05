@@ -1,0 +1,4 @@
+[2025-06-05 15:09:40.087] [INFO] [SYSTEM] Logger initialized
+[2025-06-05 15:09:40.088] [INFO] [SYSTEM] Log file: test/logs/falcon-runtime_2025-06-05_15-09-40.log
+[2025-06-05 15:09:40.089] [DEBUG] [PORT_REQUEST_HANDLER] Collecting port properties from 2 active instruments: [dac1 dac2]
+[2025-06-05 15:09:40.090] [DEBUG] [PORT_REQUEST_HANDLER] Collected 2 knobs and 2 meters

@@ -59,8 +59,12 @@ func NewManager(
 			logger,
 			instrumentHandler,
 		),
-		portRequestHandler: NewPortRequestHandler(logger, instrumentHandler),
-		statusHandler:      NewStatusHandler(logger),
+		portRequestHandler: NewPortRequestHandler(
+			logger,
+			instrumentHandler,
+			cfg,
+		),
+		statusHandler: NewStatusHandler(logger),
 	}
 }
 
