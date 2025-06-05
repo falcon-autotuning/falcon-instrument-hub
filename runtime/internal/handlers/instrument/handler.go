@@ -1,6 +1,9 @@
 package instrument
 
 import (
+	"fmt"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 )
@@ -10,13 +13,21 @@ func NewHandler(
 	logger *logging.Logger,
 	natsURL string,
 	nc *nats.Conn,
-) *Handler {
-	return &Handler{
-		logger:      logger,
-		natsURL:     natsURL,
-		nc:          nc,
-		Instruments: make(map[string]*InstrumentProcess),
+	cfg *config.Config,
+) (*Handler, error) {
+	portProcessor, err := NewPortProcessor(logger, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create port processor: %w", err)
 	}
+
+	return &Handler{
+		logger:        logger,
+		natsURL:       natsURL,
+		nc:            nc,
+		Instruments:   make(map[string]*InstrumentProcess),
+		subscriptions: make([]*nats.Subscription, 0),
+		portProcessor: portProcessor,
+	}, nil
 }
 
 // GetActiveInstruments returns a list of currently running instruments

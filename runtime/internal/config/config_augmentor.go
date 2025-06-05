@@ -70,6 +70,11 @@ func BuildNameMapping(
 ) (map[string]*DeviceConnection, error) {
 	nameMapping := make(map[string]*DeviceConnection)
 
+	// Handle nil inputs gracefully
+	if deviceConfig == nil || wireMap == nil {
+		return nameMapping, nil
+	}
+
 	// Build category mappings
 	categories := map[ConnectionType]string{
 		ScreeningGate: deviceConfig.ScreeningGates,

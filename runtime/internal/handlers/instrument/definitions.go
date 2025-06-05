@@ -66,6 +66,7 @@ type Handler struct {
 	Instruments   map[string]*InstrumentProcess
 	mutex         sync.RWMutex
 	subscriptions []*nats.Subscription
+	portProcessor *PortProcessor
 }
 
 // subscriptionConfig represents a subscription configuration
@@ -73,4 +74,15 @@ type subscriptionConfig struct {
 	subject string
 	handler nats.MsgHandler
 	name    string
+}
+
+// CollectPortProperties collects port properties from all active instruments
+func (h *Handler) CollectPortProperties() (knobs, meters []string) {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	if h.portProcessor != nil {
+		return h.portProcessor.CollectPortProperties(h.Instruments)
+	}
+	return nil, nil
 }

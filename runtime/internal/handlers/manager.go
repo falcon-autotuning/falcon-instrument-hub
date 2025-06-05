@@ -44,7 +44,19 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 ) *Manager {
-	instrumentHandler := instrument.NewHandler(logger, natsURL, nc)
+	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg)
+	if err != nil {
+		logger.Error(
+			HandlerManagerName,
+			fmt.Sprintf("Failed to create instrument handler: %v", err),
+		)
+		// For now, return a basic handler - you might want to return an error
+		// instead
+		instrumentHandler = &instrument.Handler{
+			Instruments: make(map[string]*instrument.InstrumentProcess),
+		}
+	}
+
 	return &Manager{
 		config:              cfg,
 		logger:              logger,

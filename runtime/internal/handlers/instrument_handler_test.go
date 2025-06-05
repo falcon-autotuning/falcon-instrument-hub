@@ -9,12 +9,21 @@ import (
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// setupTestConfig creates a basic config for testing
+func setupTestConfig() *config.Config {
+	return &config.Config{
+		DeviceConfig: &config.DeviceConfig{},
+		WireMap:      &config.WireMap{},
+	}
+}
 
 func TestInstrumentHandler(t *testing.T) {
 	// Start NATS server for testing
@@ -80,7 +89,13 @@ if __name__ == "__main__":
 	require.NoError(t, err)
 
 	// Create handler
-	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+	handler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		setupTestConfig(),
+	)
+	require.NoError(t, err)
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)
@@ -269,7 +284,13 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+	handler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		setupTestConfig(),
+	)
+	require.NoError(t, err)
 
 	t.Run("script creation", func(t *testing.T) {
 		// This should create the scripts directory and extract the embedded
@@ -336,7 +357,13 @@ while True:
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+	handler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		setupTestConfig(),
+	)
+	require.NoError(t, err)
 
 	// Subscribe to enable the handler
 	err = handler.Subscribe(nc)
@@ -464,7 +491,13 @@ if __name__ == "__main__":
 	require.NoError(t, err)
 
 	// Create handler
-	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+	handler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		setupTestConfig(),
+	)
+	require.NoError(t, err)
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)
@@ -592,7 +625,13 @@ func TestInstrumentHandlerUpdateDaemonProperty(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create handler
-	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+	handler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		setupTestConfig(),
+	)
+	require.NoError(t, err)
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)

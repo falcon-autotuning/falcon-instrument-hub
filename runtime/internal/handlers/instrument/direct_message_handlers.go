@@ -154,6 +154,28 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		HandlerName,
 		fmt.Sprintf("Successfully initialized instrument: %s", instrumentName),
 	)
+	// Process the instrument ports to make them human-readable
+	// This should be done after the instrument is initialized and ports are set
+	if h.portProcessor != nil {
+		if err := h.portProcessor.ProcessInstrumentPorts(instrumentName, process.Ports); err != nil {
+			h.logger.Error(
+				HandlerName,
+				fmt.Sprintf(
+					"Failed to process ports for instrument %s: %v",
+					instrumentName,
+					err,
+				),
+			)
+		} else {
+			h.logger.Debug(
+				HandlerName,
+				fmt.Sprintf(
+					"Successfully processed ports for instrument %s",
+					instrumentName,
+				),
+			)
+		}
+	}
 }
 
 // handleUpdateDaemonProperty processes UPDATE_DAEMON_PROPERTY commands
