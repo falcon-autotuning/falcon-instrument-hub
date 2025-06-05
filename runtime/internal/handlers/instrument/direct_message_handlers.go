@@ -28,7 +28,7 @@ func (h *Handler) handleSetupInstrument(msg *nats.Msg) {
 
 	// Check if instrument is already running
 	h.mutex.RLock()
-	if _, exists := h.instruments[req.Name]; exists {
+	if _, exists := h.Instruments[req.Name]; exists {
 		h.mutex.RUnlock()
 		h.logger.Error(
 			HandlerName,
@@ -73,7 +73,7 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	process, exists := h.instruments[req.Name]
+	process, exists := h.Instruments[req.Name]
 	if !exists {
 		h.logger.Error(
 			HandlerName,
@@ -83,7 +83,7 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 	}
 
 	h.stopInstrument(process)
-	delete(h.instruments, req.Name)
+	delete(h.Instruments, req.Name)
 
 	h.logger.Info(
 		HandlerName,
@@ -134,7 +134,7 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	process, exists := h.instruments[instrumentName]
+	process, exists := h.Instruments[instrumentName]
 	if !exists {
 		h.logger.Error(
 			HandlerName,
@@ -189,7 +189,7 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 	found := false
 	h.mutex.RLock()
 
-	for instrumentName, process := range h.instruments {
+	for instrumentName, process := range h.Instruments {
 		if !process.Initialized || process.Ports == nil {
 			continue
 		}

@@ -15,7 +15,7 @@ func NewHandler(
 		logger:      logger,
 		natsURL:     natsURL,
 		nc:          nc,
-		instruments: make(map[string]*InstrumentProcess),
+		Instruments: make(map[string]*InstrumentProcess),
 	}
 }
 
@@ -24,8 +24,8 @@ func (h *Handler) GetActiveInstruments() []string {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
-	names := make([]string, 0, len(h.instruments))
-	for name := range h.instruments {
+	names := make([]string, 0, len(h.Instruments))
+	for name := range h.Instruments {
 		names = append(names, name)
 	}
 	return names
