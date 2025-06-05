@@ -133,14 +133,12 @@ type Busy struct {
 }
 
 // PortRequest: Request all current instrument ports
-type PortRequest struct { // TODO: implement this
-
+type PortRequest struct {
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // PortPayload: All of the current instrument ports
-type PortPayload struct { // TODO: implement this
-
+type PortPayload struct {
 	Knobs     string `yaml:"knobs" json:"knobs"`         // All of the knobs attached to the instrument server
 	Meters    string `yaml:"meters" json:"meters"`       // All of the meters attached to the instrument server
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
