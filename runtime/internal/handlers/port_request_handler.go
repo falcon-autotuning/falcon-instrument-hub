@@ -207,6 +207,8 @@ func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
 			}
 		}
 	}
+	// TODO: Add the human readable name to the knobs and meters after sorting
+	// TODO: Test this handler
 
 	h.logger.Debug(
 		PortRequestHandlerName,
