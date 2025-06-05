@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
@@ -27,16 +28,32 @@ type PortRequestHandler struct {
 	nc                *nats.Conn
 	subscription      *nats.Subscription
 	instrumentHandler *instrument.Handler
+	config            *config.Config
+	nameMapping       map[string]*config.DeviceConnection
 }
 
 // NewPortRequestHandler creates a new handler
 func NewPortRequestHandler(
 	logger *logging.Logger,
 	instrumentHandler *instrument.Handler,
+	cfg *config.Config,
 ) *PortRequestHandler {
+	// Build name mapping once during initialization
+	nameMapping, err := config.BuildNameMapping(cfg.DeviceConfig, cfg.WireMap)
+	if err != nil {
+		logger.Error(
+			PortRequestHandlerName,
+			fmt.Sprintf("Failed to build name mapping: %v", err),
+		)
+		nameMapping = make(
+			map[string]*config.DeviceConnection,
+		) // Use empty mapping
+	}
 	return &PortRequestHandler{
 		logger:            logger,
 		instrumentHandler: instrumentHandler,
+		config:            cfg,
+		nameMapping:       nameMapping,
 	}
 }
 
@@ -185,6 +202,27 @@ func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
 		fmt.Sprintf("Collecting port properties from %d active instruments: %v",
 			len(activeInstruments), activeInstruments),
 	)
+	// First, augment all ports with device connection information
+	for _, instrumentName := range activeInstruments {
+		instrument, exists := h.instrumentHandler.Instruments[instrumentName]
+		if !exists || instrument.Ports == nil {
+			continue
+		}
+
+		// Augment the ports with device connection information using pre-built
+		// mapping
+		if err := config.ProcessInstrumentPorts(instrument.Ports, h.nameMapping, instrumentName); err != nil {
+			h.logger.Error(
+				PortRequestHandlerName,
+				fmt.Sprintf(
+					"Failed to augment ports for instrument %s: %v",
+					instrumentName,
+					err,
+				),
+			)
+			// Continue processing other instruments even if one fails
+		}
+	}
 
 	for _, instrumentName := range activeInstruments {
 		// Get the instrument's ports directly from the handler
@@ -207,8 +245,6 @@ func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
 			}
 		}
 	}
-	// TODO: Add the human readable name to the knobs and meters after sorting
-	// TODO: Test this handler
 
 	h.logger.Debug(
 		PortRequestHandlerName,

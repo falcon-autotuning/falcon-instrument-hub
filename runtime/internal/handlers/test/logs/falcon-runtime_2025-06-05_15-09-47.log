@@ -1,0 +1,8 @@
+[2025-06-05 15:09:47.042] [INFO] [SYSTEM] Logger initialized
+[2025-06-05 15:09:47.043] [INFO] [SYSTEM] Log file: test/logs/falcon-runtime_2025-06-05_15-09-47.log
+[2025-06-05 15:09:47.045] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-05 15:09:47.046] [DEBUG] [PORT_REQUEST_HANDLER] Received command: {"timestamp":1749154187046505}
+[2025-06-05 15:09:47.047] [DEBUG] [PORT_REQUEST_HANDLER] Collecting port properties from 2 active instruments: [dac1 dac2]
+[2025-06-05 15:09:47.048] [DEBUG] [PORT_REQUEST_HANDLER] Collected 2 knobs and 2 meters
+[2025-06-05 15:09:47.049] [INFO] [PORT_REQUEST_HANDLER] Sent PORT_PAYLOAD response to PORT_PAYLOAD.external.test with 2 knobs and 2 meters
+[2025-06-05 15:09:47.050] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external
