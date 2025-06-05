@@ -37,9 +37,14 @@ var (
 	ConfirmInitializationCommand = api.GetCommandName(
 		api.ConfirmInitialization{},
 	)
+	UpdateDaemonPropertyCommand = api.GetCommandName(
+		api.UpdateDaemonProperty{},
+	)
+	SetCommand                   = api.GetCommandName(api.Set{})
 	SetupInstrumentSubject       = SetupInstrumentCommand + ".external.*"
 	DestroyInstrumentSubject     = DestroyInstrumentCommand + ".external.*"
 	ConfirmInitializationSubject = ConfirmInitializationCommand + ".*"
+	UpdateDaemonPropertySubject  = UpdateDaemonPropertyCommand + ".instrument-server"
 )
 
 // InstrumentProcess represents a running instrument daemon
@@ -57,6 +62,7 @@ type InstrumentProcess struct {
 type Handler struct {
 	logger        *logging.Logger
 	natsURL       string
+	nc            *nats.Conn
 	instruments   map[string]*InstrumentProcess
 	mutex         sync.RWMutex
 	subscriptions []*nats.Subscription

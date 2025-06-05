@@ -61,8 +61,7 @@ type UploadData struct { // TODO: implement this
 }
 
 // ConfirmInitialization: Confirm initialization of a daemon and provide configuration
-type ConfirmInitialization struct { // TODO: implement this
-
+type ConfirmInitialization struct {
 	Init      map[string]interface{} `yaml:"init" json:"init"`           // the configuration of the daemon, property_name and index indexed
 	Port      map[string]interface{} `yaml:"port" json:"port"`           // the configuration of the instrument ports
 	Timestamp int64                  `yaml:"timestamp" json:"timestamp"` // When the response was completed

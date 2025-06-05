@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -79,7 +80,7 @@ if __name__ == "__main__":
 	require.NoError(t, err)
 
 	// Create handler
-	handler := instrument.NewHandler(logger, server.ClientURL())
+	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)
@@ -268,7 +269,7 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := instrument.NewHandler(logger, server.ClientURL())
+	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
 
 	t.Run("script creation", func(t *testing.T) {
 		// This should create the scripts directory and extract the embedded
@@ -335,7 +336,7 @@ while True:
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 
-	handler := instrument.NewHandler(logger, server.ClientURL())
+	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
 
 	// Subscribe to enable the handler
 	err = handler.Subscribe(nc)
@@ -463,7 +464,7 @@ if __name__ == "__main__":
 	require.NoError(t, err)
 
 	// Create handler
-	handler := instrument.NewHandler(logger, server.ClientURL())
+	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
 
 	// Subscribe to instrument commands
 	err = handler.Subscribe(nc)
@@ -564,5 +565,245 @@ if __name__ == "__main__":
 		time.Sleep(100 * time.Millisecond)
 
 		// Should be handled gracefully (no crash)
+	})
+}
+
+func TestInstrumentHandlerUpdateDaemonProperty(t *testing.T) {
+	// Start NATS server for testing
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	// Connect to NATS
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	// Create temporary directory for test files
+	tempDir := t.TempDir()
+
+	// Change to temp directory
+	oldDir, err := os.Getwd()
+	require.NoError(t, err)
+	defer os.Chdir(oldDir)
+	os.Chdir(tempDir)
+
+	// Create logger
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	// Create handler
+	handler := instrument.NewHandler(logger, server.ClientURL(), nc)
+
+	// Subscribe to instrument commands
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	// Create a subscription to capture SET commands that would be sent to
+	// instruments
+	var receivedSetCommand api.Set
+	var setCommandReceived bool
+	var mu sync.Mutex
+	setSubject := "SET.*"
+
+	setSub, err := nc.Subscribe(setSubject, func(msg *nats.Msg) {
+		var setCmd api.Set
+		if err := json.Unmarshal(msg.Data, &setCmd); err == nil {
+			mu.Lock()
+			receivedSetCommand = setCmd
+			setCommandReceived = true
+			mu.Unlock()
+		}
+	})
+	require.NoError(t, err)
+	defer setSub.Unsubscribe()
+
+	t.Run("successful_update_daemon_property", func(t *testing.T) {
+		// First, we need to simulate an instrument that has been initialized
+		// with port configuration
+		instrumentName := "test-multimeter"
+
+		// Create a mock script that will send initialization data
+		scriptsDir := "scripts"
+		err = os.MkdirAll(scriptsDir, 0755)
+		require.NoError(t, err)
+
+		mockScript := `#!/usr/bin/env python3
+import sys
+import time
+import json
+import signal
+
+def signal_handler(sig, frame):
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        sys.exit(1)
+    
+    instrument_name = sys.argv[1]
+    print(f"Mock instrument {instrument_name} started")
+    
+    # Simulate instrument daemon running
+    try:
+        while True:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        sys.exit(0)
+`
+
+		scriptPath := filepath.Join(scriptsDir, "launch_instrument_daemon.py")
+		err = os.WriteFile(scriptPath, []byte(mockScript), 0755)
+		require.NoError(t, err)
+
+		// Start the instrument using the public API (this creates the
+		// InstrumentProcess)
+		setupRequest := api.SetupInstrument{Name: instrumentName}
+		setupData, err := json.Marshal(setupRequest)
+		require.NoError(t, err)
+
+		err = nc.Publish("SETUP_INSTRUMENT.external.test-multimeter", setupData)
+		require.NoError(t, err)
+
+		// Wait for instrument to start
+		time.Sleep(300 * time.Millisecond)
+
+		// Verify the instrument is running
+		activeInstruments := handler.GetActiveInstruments()
+		require.Contains(t, activeInstruments, instrumentName)
+
+		// Now simulate initialization data for the running instrument
+		initResponse := api.ConfirmInitialization{
+			Init: map[string]any{
+				"voltage": map[int64]any{
+					0: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "V",
+					},
+				},
+			},
+			Port: map[string]any{
+				"voltage": map[int64]any{
+					0: "multimeter_voltage_ch1",
+				},
+			},
+			Timestamp: time.Now().Unix(),
+		}
+
+		initData, err := json.Marshal(initResponse)
+		require.NoError(t, err)
+
+		// Send initialization for the running instrument
+		err = nc.Publish("CONFIRM_INITIALIZATION."+instrumentName, initData)
+		require.NoError(t, err)
+		time.Sleep(100 * time.Millisecond) // Wait for processing
+
+		// Reset flags
+		mu.Lock()
+		setCommandReceived = false
+		mu.Unlock()
+
+		// Create UPDATE_DAEMON_PROPERTY request
+		updateRequest := api.UpdateDaemonProperty{
+			Name:      "multimeter_voltage_ch1", // This should match the port name
+			Property:  "voltage",                // This should match the property key
+			Value:     5.5,                      // New voltage value
+			Timestamp: time.Now().Unix(),
+		}
+
+		updateData, err := json.Marshal(updateRequest)
+		require.NoError(t, err)
+
+		// Now send the UPDATE_DAEMON_PROPERTY command
+		err = nc.Publish("UPDATE_DAEMON_PROPERTY.instrument-server", updateData)
+		require.NoError(t, err)
+
+		// Wait for the command to be processed and SET command to be sent
+		time.Sleep(200 * time.Millisecond)
+
+		// Verify SET command was sent correctly
+		mu.Lock()
+		received := setCommandReceived
+		cmd := receivedSetCommand
+		mu.Unlock()
+
+		assert.True(t, received, "SET command should have been sent")
+		if received {
+			assert.Equal(t, "voltage", cmd.Property)
+			assert.Equal(t, int64(0), cmd.Index)
+			assert.Equal(t, 5.5, cmd.Value)
+		}
+	})
+
+	t.Run("missing_property_field", func(t *testing.T) {
+		// Test with missing property field
+		updateRequest := api.UpdateDaemonProperty{
+			Name:      "test_device",
+			Property:  "", // Missing property
+			Value:     123,
+			Timestamp: time.Now().Unix(),
+		}
+
+		updateData, err := json.Marshal(updateRequest)
+		require.NoError(t, err)
+
+		err = nc.Publish("UPDATE_DAEMON_PROPERTY.instrument-server", updateData)
+		require.NoError(t, err)
+
+		time.Sleep(100 * time.Millisecond)
+		// Should be handled gracefully with error log
+	})
+
+	t.Run("missing_name_field", func(t *testing.T) {
+		// Test with missing name field
+		updateRequest := api.UpdateDaemonProperty{
+			Name:      "", // Missing name
+			Property:  "voltage",
+			Value:     123,
+			Timestamp: time.Now().Unix(),
+		}
+
+		updateData, err := json.Marshal(updateRequest)
+		require.NoError(t, err)
+
+		err = nc.Publish("UPDATE_DAEMON_PROPERTY.instrument-server", updateData)
+		require.NoError(t, err)
+
+		time.Sleep(100 * time.Millisecond)
+		// Should be handled gracefully with error log
+	})
+
+	t.Run("instrument_not_found", func(t *testing.T) {
+		// Test with a name that doesn't match any instrument port
+		updateRequest := api.UpdateDaemonProperty{
+			Name:      "nonexistent_device",
+			Property:  "voltage",
+			Value:     123,
+			Timestamp: time.Now().Unix(),
+		}
+
+		updateData, err := json.Marshal(updateRequest)
+		require.NoError(t, err)
+
+		err = nc.Publish("UPDATE_DAEMON_PROPERTY.instrument-server", updateData)
+		require.NoError(t, err)
+
+		time.Sleep(100 * time.Millisecond)
+		// Should be handled gracefully with error log
+	})
+
+	t.Run("malformed_json", func(t *testing.T) {
+		// Test with invalid JSON
+		err = nc.Publish(
+			"UPDATE_DAEMON_PROPERTY.instrument-server",
+			[]byte("invalid json"),
+		)
+		require.NoError(t, err)
+
+		time.Sleep(100 * time.Millisecond)
+		// Should be handled gracefully with error log
 	})
 }

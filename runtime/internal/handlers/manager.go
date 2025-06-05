@@ -47,7 +47,7 @@ func NewManager(
 		natsURL:             natsURL,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
-		instrumentHandler:   instrument.NewHandler(logger, natsURL),
+		instrumentHandler:   instrument.NewHandler(logger, natsURL, nc),
 		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
 	}
 }
