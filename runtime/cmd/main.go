@@ -26,6 +26,7 @@ const (
 	MeasurementsDB = "measurements.db"
 )
 
+// TODO: the interpreter needs to setup a jetstream for data delivery
 var (
 	packages     []string
 	natsurl      string
@@ -50,7 +51,8 @@ func init() {
 		StringVar(&natsurl, "nats-url", "", "nats server url (if not provided, starts embedded nats)")
 	startCmd.Flags().
 		StringVar(&deviceconfig, "device-config", "", "path to device configuration yaml file (required)")
-	startCmd.Flags().StringVar(&wiremap, "wiremap", "", "path to wiremap yaml file (required)")
+	startCmd.Flags().
+		StringVar(&wiremap, "wiremap", "", "path to wiremap yaml file (required)")
 	startCmd.Flags().
 		StringVar(&workingdir, "working-dir", ".", "working directory for logs and data (default: current directory)")
 
@@ -135,7 +137,10 @@ func setupCoreServices() (*coreServices, error) {
 		filepath.Join(workingdir, DataCacheDir, MeasurementsDB),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize measurement manager: %w", err)
+		return nil, fmt.Errorf(
+			"failed to initialize measurement manager: %w",
+			err,
+		)
 	}
 	services.measurementManager = measurementManager
 
@@ -183,7 +188,10 @@ func runServer(services *coreServices) error {
 	log.Printf("device config: %s", deviceconfig)
 	log.Printf("wiremap: %s", wiremap)
 	log.Printf("working directory: %s", workingdir)
-	log.Printf("nats url: %s", services.natsManager.GetConnection().ConnectedUrl())
+	log.Printf(
+		"nats url: %s",
+		services.natsManager.GetConnection().ConnectedUrl(),
+	)
 
 	// todo: initialize python instrument templates with config paths
 	// you can pass cfg.DeviceConfigPath and cfg.WiremapPath to python scripts
@@ -202,7 +210,11 @@ func runServer(services *coreServices) error {
 func setupWorkingDirectory() error {
 	// change to working directory
 	if err := os.Chdir(workingdir); err != nil {
-		return fmt.Errorf("failed to change to working directory %s: %w", workingdir, err)
+		return fmt.Errorf(
+			"failed to change to working directory %s: %w",
+			workingdir,
+			err,
+		)
 	}
 
 	// create log directory
@@ -221,7 +233,12 @@ func setupWorkingDirectory() error {
 	}
 
 	log.Printf("working directory set to: %s", workingdir)
-	log.Printf("created %s, %s, and %s directories", LogsDir, DataDir, DataCacheDir)
+	log.Printf(
+		"created %s, %s, and %s directories",
+		LogsDir,
+		DataDir,
+		DataCacheDir,
+	)
 	return nil
 }
 
