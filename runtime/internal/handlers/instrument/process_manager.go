@@ -35,7 +35,7 @@ func (h *Handler) startInstrument(name string) error {
 
 	// Store the process info
 	h.mutex.Lock()
-	h.instruments[name] = &InstrumentProcess{
+	h.Instruments[name] = &InstrumentProcess{
 		Name:          name,
 		Process:       cmd.Process,
 		Cmd:           cmd,

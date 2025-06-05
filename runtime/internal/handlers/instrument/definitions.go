@@ -63,7 +63,7 @@ type Handler struct {
 	logger        *logging.Logger
 	natsURL       string
 	nc            *nats.Conn
-	instruments   map[string]*InstrumentProcess
+	Instruments   map[string]*InstrumentProcess
 	mutex         sync.RWMutex
 	subscriptions []*nats.Subscription
 }

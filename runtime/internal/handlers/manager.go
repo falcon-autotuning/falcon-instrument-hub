@@ -33,6 +33,7 @@ type Manager struct {
 	busyHandler                    *BusyHandler
 	performInstrumentMethodHandler *PerformInstrumentMethodHandler
 	statusHandler                  *StatusHandler
+	portRequestHandler             *PortRequestHandler
 	natsURL                        string
 }
 
@@ -58,7 +59,8 @@ func NewManager(
 			logger,
 			instrumentHandler,
 		),
-		statusHandler: NewStatusHandler(logger),
+		portRequestHandler: NewPortRequestHandler(logger, instrumentHandler),
+		statusHandler:      NewStatusHandler(logger),
 	}
 }
 
@@ -147,6 +149,11 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			name:    "perform instrument method handler",
 			startOp: func() error { return m.performInstrumentMethodHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.performInstrumentMethodHandler.Unsubscribe() },
+		},
+		{
+			name:    "port request handler",
+			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
 		},
 		{
 			name:    "status handler",
