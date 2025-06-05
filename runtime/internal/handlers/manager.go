@@ -23,14 +23,17 @@ type handlerOperation struct {
 
 // Manager manages all message handlers
 type Manager struct {
-	config              *config.Config
-	logger              *logging.Logger
-	nc                  *nats.Conn
-	logHandler          *LogHandler
-	deviceConfigHandler *DeviceConfigHandler
-	instrumentHandler   *instrument.Handler
-	interpreterHandler  *InterpreterHandler
-	natsURL             string
+	config                         *config.Config
+	logger                         *logging.Logger
+	nc                             *nats.Conn
+	logHandler                     *LogHandler
+	deviceConfigHandler            *DeviceConfigHandler
+	instrumentHandler              *instrument.Handler
+	interpreterHandler             *InterpreterHandler
+	busyHandler                    *BusyHandler
+	performInstrumentMethodHandler *PerformInstrumentMethodHandler
+	statusHandler                  *StatusHandler
+	natsURL                        string
 }
 
 // NewManager creates a new handler manager
@@ -40,6 +43,7 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 ) *Manager {
+	instrumentHandler := instrument.NewHandler(logger, natsURL, nc)
 	return &Manager{
 		config:              cfg,
 		logger:              logger,
@@ -47,8 +51,14 @@ func NewManager(
 		natsURL:             natsURL,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
-		instrumentHandler:   instrument.NewHandler(logger, natsURL, nc),
+		instrumentHandler:   instrumentHandler,
 		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
+		busyHandler:         NewBusyHandler(logger),
+		performInstrumentMethodHandler: NewPerformInstrumentMethodHandler(
+			logger,
+			instrumentHandler,
+		),
+		statusHandler: NewStatusHandler(logger),
 	}
 }
 
@@ -128,5 +138,27 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			startOp: func() error { return m.interpreterHandler.Start() },
 			stopOp:  func() error { return m.interpreterHandler.Stop() },
 		},
+		{
+			name:    "busy handler",
+			startOp: func() error { return m.busyHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.busyHandler.Unsubscribe() },
+		},
+		{
+			name:    "perform instrument method handler",
+			startOp: func() error { return m.performInstrumentMethodHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.performInstrumentMethodHandler.Unsubscribe() },
+		},
+		{
+			name:    "status handler",
+			startOp: func() error { return m.statusHandler.Start(m.nc) },
+			stopOp:  func() error { return m.statusHandler.Stop() },
+		},
 	}
+}
+
+// IsBusy checks if the system is currently busy with any operations
+func (m *Manager) IsBusy() bool {
+	// TODO: upgrade this to flagging when measurement is taking place
+
+	return false
 }
