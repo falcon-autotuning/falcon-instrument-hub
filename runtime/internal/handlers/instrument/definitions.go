@@ -86,3 +86,17 @@ func (h *Handler) CollectPortProperties() (knobs, meters []string) {
 	}
 	return nil, nil
 }
+
+// BuildConfigurations creates the configuration mapping by collecting and
+// inverting port mappings
+func (h *Handler) BuildConfigurations() (map[string]map[string]interface{}, error) {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	if h.portProcessor != nil {
+		return h.portProcessor.BuildConfigurations(h.Instruments)
+	}
+
+	// Return empty map if no port processor available
+	return make(map[string]map[string]interface{}), nil
+}

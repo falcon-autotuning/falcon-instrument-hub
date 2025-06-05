@@ -126,3 +126,101 @@ func (pp *PortProcessor) CollectPortProperties(
 
 	return knobs, meters
 }
+
+// PortConfiguration represents the inverted mapping for a port
+type PortConfiguration struct {
+	Instrument string   `json:"instrument"`
+	Properties []string `json:"properties"`
+	Index      int64    `json:"index"`
+}
+
+// BuildConfigurations creates the configuration mapping by collecting and
+// inverting port mappings
+func (pp *PortProcessor) BuildConfigurations(
+	instruments map[string]*InstrumentProcess,
+) (map[string]map[string]interface{}, error) {
+	// Step 1: Collect all ports organized by instrument → property → index
+	// → port data
+	instrumentPorts := make(map[string]map[string]map[int64]interface{})
+
+	for instrumentName, instrumentProcess := range instruments {
+		if !instrumentProcess.Initialized || instrumentProcess.Ports == nil {
+			continue
+		}
+
+		instrumentPorts[instrumentName] = make(map[string]map[int64]interface{})
+
+		// Copy the ports structure
+		for propertyName, propertyData := range instrumentProcess.Ports {
+			if portMap, ok := propertyData.(map[int64]interface{}); ok {
+				instrumentPorts[instrumentName][propertyName] = make(
+					map[int64]interface{},
+				)
+				for index, portValue := range portMap {
+					instrumentPorts[instrumentName][propertyName][index] = portValue
+				}
+			}
+		}
+	}
+
+	// Step 2: Invert the mapping - index by port name, handling collisions
+	portConfigurations := make(map[string]interface{})
+
+	for instrumentName, properties := range instrumentPorts {
+		for propertyName, indices := range properties {
+			for index, portValue := range indices {
+				if port, ok := portValue.(string); ok {
+					// Check if this port already exists
+					if existingValue, exists := portConfigurations[port]; exists {
+						if existingConfig, ok := existingValue.(PortConfiguration); ok {
+							// Add this property to the existing configuration
+							existingConfig.Properties = append(
+								existingConfig.Properties,
+								propertyName,
+							)
+							portConfigurations[port] = existingConfig
+						}
+					} else {
+						// First occurrence, create new config with property
+						// array
+						portConfigurations[port] = PortConfiguration{
+							Instrument: instrumentName,
+							Properties: []string{propertyName},
+							Index:      index,
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// Step 3: Build final configuration mapping from port names to instrument
+	// configurations
+	finalConfigurations := make(map[string]map[string]interface{})
+
+	for portName, portConfigValue := range portConfigurations {
+		if portConfig, ok := portConfigValue.(PortConfiguration); ok {
+			// Get the instrument process to access its configuration
+			if instrumentProcess, exists := instruments[portConfig.Instrument]; exists &&
+				instrumentProcess.Configuration != nil {
+
+				finalConfigurations[portName] = make(map[string]interface{})
+
+				// For each property in this port configuration
+				for _, propertyName := range portConfig.Properties {
+					// Get the configuration value for this property at the
+					// specific index
+					if propertyConfig, exists := instrumentProcess.Configuration[propertyName]; exists {
+						if propertyMap, ok := propertyConfig.(map[int64]interface{}); ok {
+							if configValue, exists := propertyMap[portConfig.Index]; exists {
+								finalConfigurations[portName][propertyName] = configValue
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return finalConfigurations, nil
+}
