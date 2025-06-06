@@ -21,24 +21,15 @@ type BusyHandler struct {
 	logger       *logging.Logger
 	nc           *nats.Conn
 	subscription *nats.Subscription
-	manager      BusyChecker
-}
-
-// BusyChecker interface allows the handler to check if the system is busy
-type BusyChecker interface {
-	IsBusy() bool
+	busyState    *bool // Direct reference to manager's busy state
 }
 
 // NewBusyHandler creates a new busy handler
-func NewBusyHandler(logger *logging.Logger) *BusyHandler {
+func NewBusyHandler(logger *logging.Logger, busyState *bool) *BusyHandler {
 	return &BusyHandler{
-		logger: logger,
+		logger:    logger,
+		busyState: busyState,
 	}
-}
-
-// SetManager sets the manager reference for busy checking
-func (h *BusyHandler) SetManager(manager BusyChecker) {
-	h.manager = manager
 }
 
 // Subscribe subscribes to BUSY.external.* channels
@@ -96,7 +87,7 @@ func (h *BusyHandler) handleBusyRequest(msg *nats.Msg) {
 	}
 
 	// Check if the system is busy
-	isBusy := h.manager != nil && h.manager.IsBusy()
+	isBusy := h.busyState != nil && *h.busyState
 
 	if isBusy {
 		fmt.Println("Currently busy")

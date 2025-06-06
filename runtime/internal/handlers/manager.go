@@ -7,6 +7,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/nats-io/nats.go"
 )
 
@@ -31,10 +32,12 @@ type Manager struct {
 	instrumentHandler              *instrument.Handler
 	interpreterHandler             *InterpreterHandler
 	busyHandler                    *BusyHandler
+	measureCommandHandler          *MeasureCommandHandler
 	performInstrumentMethodHandler *PerformInstrumentMethodHandler
 	statusHandler                  *StatusHandler
 	portRequestHandler             *PortRequestHandler
 	natsURL                        string
+	isBusy                         bool
 }
 
 // NewManager creates a new handler manager
@@ -43,6 +46,7 @@ func NewManager(
 	logger *logging.Logger,
 	nc *nats.Conn,
 	natsURL string,
+	measurementManager *measurements.Manager,
 ) *Manager {
 	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg)
 	if err != nil {
@@ -57,7 +61,7 @@ func NewManager(
 		}
 	}
 
-	return &Manager{
+	manager := &Manager{
 		config:              cfg,
 		logger:              logger,
 		nc:                  nc,
@@ -66,7 +70,6 @@ func NewManager(
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
 		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
-		busyHandler:         NewBusyHandler(logger),
 		performInstrumentMethodHandler: NewPerformInstrumentMethodHandler(
 			logger,
 			instrumentHandler,
@@ -77,7 +80,19 @@ func NewManager(
 			cfg,
 		),
 		statusHandler: NewStatusHandler(logger),
+		isBusy:        false,
 	}
+	// Create busy handler with reference to manager's busy state
+	manager.busyHandler = NewBusyHandler(logger, &manager.isBusy)
+	// Create measure command handler with manager as busy manager
+	manager.measureCommandHandler = NewMeasureCommandHandler(
+		logger,
+		measurementManager,
+		instrumentHandler,
+		manager,
+	)
+
+	return manager
 }
 
 // Start initializes all handlers and their subscriptions
@@ -162,6 +177,11 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			stopOp:  func() error { return m.busyHandler.Unsubscribe() },
 		},
 		{
+			name:    "measure command handler",
+			startOp: func() error { return m.measureCommandHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.measureCommandHandler.Unsubscribe() },
+		},
+		{
 			name:    "perform instrument method handler",
 			startOp: func() error { return m.performInstrumentMethodHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.performInstrumentMethodHandler.Unsubscribe() },
@@ -181,7 +201,10 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 
 // IsBusy checks if the system is currently busy with any operations
 func (m *Manager) IsBusy() bool {
-	// TODO: upgrade this to flagging when measurement is taking place
+	return m.isBusy
+}
 
-	return false
+// SetIsBusy sets the busy state
+func (m *Manager) SetIsBusy(busy bool) {
+	m.isBusy = busy
 }
