@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/nats-io/nats.go"
 
@@ -15,21 +14,23 @@ import (
 )
 
 const (
+	// Base message types
+	PortRequestType = "PORT_REQUEST"
+	PortPayloadType = "PORT_PAYLOAD"
+
+	// Handler and subject constants derived from base types
 	PortRequestHandlerName = "PORT_REQUEST_HANDLER"
-	PortRequestSubject     = "PORT_REQUEST.external"
-	PortPayloadSubject     = "PORT_PAYLOAD.external"
-	KnobIdentifier         = "Knob"
-	MeterIdentifier        = "Meter"
+	PortRequestSubject     = PortRequestType + ".external.>"
+	PortPayloadSubject     = PortPayloadType + ".external"
 )
 
-// PortRequestHandler handles PORT_REQUEST commands
+// PortRequestHandler handles PORT_REQUEST messages
 type PortRequestHandler struct {
 	logger            *logging.Logger
 	nc                *nats.Conn
 	subscription      *nats.Subscription
 	instrumentHandler *instrument.Handler
 	config            *config.Config
-	nameMapping       map[string]*config.DeviceConnection
 }
 
 // NewPortRequestHandler creates a new handler
@@ -38,55 +39,35 @@ func NewPortRequestHandler(
 	instrumentHandler *instrument.Handler,
 	cfg *config.Config,
 ) *PortRequestHandler {
-	// Build name mapping once during initialization
-	nameMapping, err := config.BuildNameMapping(cfg.DeviceConfig, cfg.WireMap)
-	if err != nil {
-		logger.Error(
-			PortRequestHandlerName,
-			fmt.Sprintf("Failed to build name mapping: %v", err),
-		)
-		nameMapping = make(
-			map[string]*config.DeviceConnection,
-		) // Use empty mapping
-	}
 	return &PortRequestHandler{
 		logger:            logger,
 		instrumentHandler: instrumentHandler,
 		config:            cfg,
-		nameMapping:       nameMapping,
 	}
 }
 
-// Subscribe starts listening for PORT_REQUEST commands
+// Subscribe starts listening for PORT_REQUEST messages
 func (h *PortRequestHandler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 	var err error
-	h.subscription, err = nc.Subscribe(
-		PortRequestSubject+".>",
-		h.handleMessage,
-	)
+
+	h.subscription, err = nc.Subscribe(PortRequestSubject, h.handlePortRequest)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to subscribe to "+PortRequestSubject+": %w",
+			"failed to subscribe to %s: %w",
+			PortRequestSubject,
 			err,
 		)
 	}
 
-	h.logger.Info(
-		PortRequestHandlerName,
-		"Subscribed to "+PortRequestSubject+".>",
-	)
+	h.logger.Info(PortRequestHandlerName, "Subscribed to "+PortRequestSubject)
 	return nil
 }
 
-// Unsubscribe stops listening for commands
+// Unsubscribe stops listening for messages
 func (h *PortRequestHandler) Unsubscribe() error {
 	if h.subscription != nil {
 		if err := h.subscription.Unsubscribe(); err != nil {
-			h.logger.Error(
-				PortRequestHandlerName,
-				fmt.Sprintf("Failed to unsubscribe: %v", err),
-			)
 			return err
 		}
 		h.subscription = nil
@@ -99,180 +80,78 @@ func (h *PortRequestHandler) Unsubscribe() error {
 	return nil
 }
 
-// handleMessage processes incoming PORT_REQUEST commands
-func (h *PortRequestHandler) handleMessage(msg *nats.Msg) {
+// handlePortRequest processes incoming PORT_REQUEST messages
+func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	h.logger.Debug(
 		PortRequestHandlerName,
-		fmt.Sprintf("Received command: %s", string(msg.Data)),
+		fmt.Sprintf("Received %s : %s", PortRequestType, string(msg.Data)),
 	)
 
-	// Extract the name from the subject (PORT_REQUEST.external.<name>)
-	subjectParts := strings.Split(msg.Subject, ".")
-	if len(subjectParts) < 3 {
+	// Parse the request
+	var request api.PortRequest
+	if err := json.Unmarshal(msg.Data, &request); err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
-			fmt.Sprintf("Invalid subject format: %s", msg.Subject),
-		)
-		return
-	}
-	name := subjectParts[2]
-
-	// Parse the incoming message
-	var portRequest api.PortRequest
-	if err := json.Unmarshal(msg.Data, &portRequest); err != nil {
-		h.logger.Error(
-			PortRequestHandlerName,
-			fmt.Sprintf("Failed to unmarshal PORT_REQUEST: %v", err),
+			fmt.Sprintf("Failed to unmarshal %s : %v", PortRequestType, err),
 		)
 		return
 	}
 
-	// Get all active instruments and their port properties
+	// Collect port properties using the instrument handler's existing
+	// functionality
 	knobs, meters := h.instrumentHandler.CollectPortProperties()
 
-	// Marshal knobs and meters arrays to JSON strings
-	knobsJSON, err := json.Marshal(knobs)
+	// Create response
+	response := api.PortPayload{
+		Knobs:     fmt.Sprintf("[%s]", strings.Join(knobs, ",")),
+		Meters:    fmt.Sprintf("[%s]", strings.Join(meters, ",")),
+		Timestamp: request.Timestamp,
+	}
+
+	// Marshal response
+	responseData, err := json.Marshal(response)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
-			fmt.Sprintf("Failed to marshal knobs array: %v", err),
+			fmt.Sprintf("Failed to marshal %s : %v", PortPayloadType, err),
 		)
 		return
 	}
 
-	metersJSON, err := json.Marshal(meters)
-	if err != nil {
+	// Extract reply subject from original subject
+	replySubject := strings.Replace(
+		msg.Subject,
+		PortRequestType+".external",
+		PortPayloadType+".external",
+		1,
+	)
+
+	// Send response
+	if err := h.nc.Publish(replySubject, responseData); err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
-			fmt.Sprintf("Failed to marshal meters array: %v", err),
+			fmt.Sprintf("Failed to publish %s : %v", PortPayloadType, err),
 		)
 		return
 	}
 
-	// Create the response
-	portPayload := api.PortPayload{
-		Knobs:     string(knobsJSON),
-		Meters:    string(metersJSON),
-		Timestamp: time.Now().UnixMicro(),
-	}
-
-	// Marshal the response
-	payloadData, err := json.Marshal(portPayload)
-	if err != nil {
-		h.logger.Error(
-			PortRequestHandlerName,
-			fmt.Sprintf("Failed to marshal PORT_PAYLOAD: %v", err),
-		)
-		return
-	}
-
-	// Send response on PORT_PAYLOAD.external.<name>
-	responseSubject := fmt.Sprintf("%s.%s", PortPayloadSubject, name)
-	if err := h.nc.Publish(responseSubject, payloadData); err != nil {
-		h.logger.Error(
-			PortRequestHandlerName,
-			fmt.Sprintf(
-				"Failed to publish response to %s: %v",
-				responseSubject,
-				err,
-			),
-		)
-		return
-	}
-
-	h.logger.Info(
+	h.logger.Debug(
 		PortRequestHandlerName,
-		fmt.Sprintf(
-			"Sent PORT_PAYLOAD response to %s with %d knobs and %d meters",
-			responseSubject,
-			len(knobs),
-			len(meters),
-		),
+		fmt.Sprintf("Sent  %s : %s", PortPayloadType, string(responseData)),
 	)
 }
 
-// ProcessInstrumentPorts processes and augments ports for a specific instrument
-// This should be called immediately after an instrument is loaded
-func (h *PortRequestHandler) ProcessInstrumentPorts(
-	instrumentName string,
-) error {
-	instrument, exists := h.instrumentHandler.Instruments[instrumentName]
-	if !exists || instrument.Ports == nil {
-		return fmt.Errorf(
-			"instrument %s not found or has no ports",
-			instrumentName,
-		)
+// isOhmicConnection checks if a port JSON represents an Ohmic connection
+func (h *PortRequestHandler) isOhmicConnection(portJSON string) bool {
+	var portData map[string]any
+	if err := json.Unmarshal([]byte(portJSON), &portData); err != nil {
+		return false
 	}
 
-	// Augment the ports with device connection information using pre-built
-	// mapping
-	if err := config.ProcessInstrumentPorts(instrument.Ports, h.nameMapping, instrumentName); err != nil {
-		h.logger.Error(
-			PortRequestHandlerName,
-			fmt.Sprintf(
-				"Failed to augment ports for instrument %s: %v",
-				instrumentName,
-				err,
-			),
-		)
-		return err
+	// Check if connection_type is "Ohmic"
+	if connectionType, exists := portData["connection_type"]; exists {
+		return connectionType == "Ohmic"
 	}
 
-	h.logger.Debug(
-		PortRequestHandlerName,
-		fmt.Sprintf(
-			"Successfully processed ports for instrument %s",
-			instrumentName,
-		),
-	)
-
-	return nil
-}
-
-// collectPortProperties queries all instruments for their Port properties
-// and categorizes them into knobs and meters
-func (h *PortRequestHandler) collectPortProperties() (knobs, meters []string) {
-	// Get all active instruments
-	activeInstruments := h.instrumentHandler.GetActiveInstruments()
-
-	h.logger.Debug(
-		PortRequestHandlerName,
-		fmt.Sprintf("Collecting port properties from %d active instruments: %v",
-			len(activeInstruments), activeInstruments),
-	)
-
-	// Collect ports from all active instruments (processing should already be
-	// done)
-	for _, instrumentName := range activeInstruments {
-		// Get the instrument's ports directly from the handler
-		if instrument, exists := h.instrumentHandler.Instruments[instrumentName]; exists &&
-			instrument.Ports != nil {
-			for _, innerMap := range instrument.Ports {
-				// Type assert innerMap to map[int64]any or similar
-				if portMap, ok := innerMap.(map[int64]any); ok {
-					for _, value := range portMap {
-						if valueStr, ok := value.(string); ok {
-							if strings.Contains(valueStr, KnobIdentifier) {
-								knobs = append(knobs, valueStr)
-							}
-							if strings.Contains(valueStr, MeterIdentifier) {
-								meters = append(meters, valueStr)
-							}
-						}
-					}
-				}
-			}
-		}
-	}
-
-	h.logger.Debug(
-		PortRequestHandlerName,
-		fmt.Sprintf(
-			"Collected %d knobs and %d meters",
-			len(knobs),
-			len(meters),
-		),
-	)
-
-	return knobs, meters
+	return false
 }

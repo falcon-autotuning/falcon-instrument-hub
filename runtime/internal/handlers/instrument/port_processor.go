@@ -3,6 +3,7 @@ package instrument
 import (
 	"fmt"
 	"strings"
+	"sync"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -10,8 +11,11 @@ import (
 
 // PortProcessor handles processing and augmentation of instrument ports
 type PortProcessor struct {
-	logger      *logging.Logger
-	nameMapping map[string]*config.DeviceConnection
+	logger            *logging.Logger
+	nameMapping       map[string]*config.DeviceConnection
+	cachedPortConfigs map[string]any // Cache for port configurations
+	portConfigsCached bool           // Flag to track if cache is valid
+	cacheMutex        sync.RWMutex   // Mutex for cache access
 }
 
 // NewPortProcessor creates a new port processor
@@ -32,8 +36,10 @@ func NewPortProcessor(
 	}
 
 	return &PortProcessor{
-		logger:      logger,
-		nameMapping: nameMapping,
+		logger:            logger,
+		nameMapping:       nameMapping,
+		cachedPortConfigs: make(map[string]any),
+		portConfigsCached: false,
 	}, nil
 }
 
@@ -138,23 +144,45 @@ type PortConfiguration struct {
 // inverting port mappings
 func (pp *PortProcessor) BuildConfigurations(
 	instruments map[string]*InstrumentProcess,
-) (map[string]map[string]interface{}, error) {
-	// Step 1: Collect all ports organized by instrument → property → index
-	// → port data
-	instrumentPorts := make(map[string]map[string]map[int64]interface{})
+) (map[string]map[string]any, error) {
+	// Get cached port configurations (Step 1 + Step 2)
+	var portConfigurations map[string]any
+	if cached, exists := pp.getCachedPortConfigurations(); exists {
+		portConfigurations = cached
+	} else {
+		// Build and cache Steps 1 and 2 if not available
+		portConfigurations = pp.buildAndCachePortConfigurations(instruments)
+	}
+
+	// Step 3: Build final configuration mapping from port names to instrument
+	// configurations
+	finalConfigurations := pp.BuildFinalConfigurations(
+		portConfigurations,
+		instruments,
+	)
+
+	return finalConfigurations, nil
+}
+
+// CollectInstrumentPorts collects all ports organized by instrument →
+// property → index → port data
+func (pp *PortProcessor) CollectInstrumentPorts(
+	instruments map[string]*InstrumentProcess,
+) map[string]map[string]map[int64]any {
+	instrumentPorts := make(map[string]map[string]map[int64]any)
 
 	for instrumentName, instrumentProcess := range instruments {
 		if !instrumentProcess.Initialized || instrumentProcess.Ports == nil {
 			continue
 		}
 
-		instrumentPorts[instrumentName] = make(map[string]map[int64]interface{})
+		instrumentPorts[instrumentName] = make(map[string]map[int64]any)
 
 		// Copy the ports structure
 		for propertyName, propertyData := range instrumentProcess.Ports {
-			if portMap, ok := propertyData.(map[int64]interface{}); ok {
+			if portMap, ok := propertyData.(map[int64]any); ok {
 				instrumentPorts[instrumentName][propertyName] = make(
-					map[int64]interface{},
+					map[int64]any,
 				)
 				for index, portValue := range portMap {
 					instrumentPorts[instrumentName][propertyName][index] = portValue
@@ -163,12 +191,54 @@ func (pp *PortProcessor) BuildConfigurations(
 		}
 	}
 
-	// Step 2: Invert the mapping - index by port name, handling collisions
-	portConfigurations := make(map[string]interface{})
+	return instrumentPorts
+}
+
+// InvertPortMappings inverts the mapping to index by port name, handling
+// collisions
+func (pp *PortProcessor) InvertPortMappings(
+	instrumentPorts map[string]map[string]map[int64]any,
+) map[string]any {
+	portConfigurations := make(map[string]any)
+
+	pp.logger.Debug(
+		HandlerName,
+		fmt.Sprintf(
+			"Starting port mapping inversion with %d instruments",
+			len(instrumentPorts),
+		),
+	)
 
 	for instrumentName, properties := range instrumentPorts {
+		pp.logger.Debug(
+			HandlerName,
+			fmt.Sprintf(
+				"Processing instrument %s with %d properties",
+				instrumentName,
+				len(properties),
+			),
+		)
+
 		for propertyName, indices := range properties {
+			pp.logger.Debug(
+				HandlerName,
+				fmt.Sprintf(
+					"Processing property %s with %d indices",
+					propertyName,
+					len(indices),
+				),
+			)
+
 			for index, portValue := range indices {
+				pp.logger.Debug(
+					HandlerName,
+					fmt.Sprintf(
+						"Processing index %d with portValue: %v (type: %T)",
+						index,
+						portValue,
+						portValue,
+					),
+				)
 				if port, ok := portValue.(string); ok {
 					// Check if this port already exists
 					if existingValue, exists := portConfigurations[port]; exists {
@@ -193,10 +263,24 @@ func (pp *PortProcessor) BuildConfigurations(
 			}
 		}
 	}
+	pp.logger.Debug(
+		HandlerName,
+		fmt.Sprintf(
+			"Port mapping inversion complete. Found %d port configurations",
+			len(portConfigurations),
+		),
+	)
 
-	// Step 3: Build final configuration mapping from port names to instrument
-	// configurations
-	finalConfigurations := make(map[string]map[string]interface{})
+	return portConfigurations
+}
+
+// BuildFinalConfigurations builds final configuration mapping from port names
+// to instrument configurations
+func (pp *PortProcessor) BuildFinalConfigurations(
+	portConfigurations map[string]any,
+	instruments map[string]*InstrumentProcess,
+) map[string]map[string]any {
+	finalConfigurations := make(map[string]map[string]any)
 
 	for portName, portConfigValue := range portConfigurations {
 		if portConfig, ok := portConfigValue.(PortConfiguration); ok {
@@ -204,14 +288,14 @@ func (pp *PortProcessor) BuildConfigurations(
 			if instrumentProcess, exists := instruments[portConfig.Instrument]; exists &&
 				instrumentProcess.Configuration != nil {
 
-				finalConfigurations[portName] = make(map[string]interface{})
+				finalConfigurations[portName] = make(map[string]any)
 
 				// For each property in this port configuration
 				for _, propertyName := range portConfig.Properties {
 					// Get the configuration value for this property at the
 					// specific index
 					if propertyConfig, exists := instrumentProcess.Configuration[propertyName]; exists {
-						if propertyMap, ok := propertyConfig.(map[int64]interface{}); ok {
+						if propertyMap, ok := propertyConfig.(map[int64]any); ok {
 							if configValue, exists := propertyMap[portConfig.Index]; exists {
 								finalConfigurations[portName][propertyName] = configValue
 							}
@@ -222,5 +306,95 @@ func (pp *PortProcessor) BuildConfigurations(
 		}
 	}
 
-	return finalConfigurations, nil
+	return finalConfigurations
+}
+
+// BuildPortConfigurations builds the port configurations mapping (Step 1 + Step
+// 2)
+// Returns a mapping from port names to their configuration details
+func (pp *PortProcessor) BuildPortConfigurations(
+	instruments map[string]*InstrumentProcess,
+) (map[string]any, error) {
+	// Check cache first
+	if cached, exists := pp.getCachedPortConfigurations(); exists {
+		return cached, nil
+	}
+
+	// Build and cache if not available
+	portConfigurations := pp.buildAndCachePortConfigurations(instruments)
+	return portConfigurations, nil
+}
+
+// GetPortConfiguration finds the configuration for a specific port
+func (pp *PortProcessor) GetPortConfiguration(
+	portName string,
+	instruments map[string]*InstrumentProcess,
+) (*PortConfiguration, error) {
+	// Check cache first
+	var portConfigurations map[string]any
+	if cached, exists := pp.getCachedPortConfigurations(); exists {
+		portConfigurations = cached
+	} else {
+		// Build and cache if not available
+		portConfigurations = pp.buildAndCachePortConfigurations(instruments)
+	}
+
+	if portConfigValue, exists := portConfigurations[portName]; exists {
+		if portConfig, ok := portConfigValue.(PortConfiguration); ok {
+			return &portConfig, nil
+		}
+		return nil, fmt.Errorf(
+			"port %s has invalid configuration type",
+			portName,
+		)
+	}
+
+	return nil, fmt.Errorf("port %s not found in configurations", portName)
+}
+
+// InvalidatePortConfigCache invalidates the cached port configurations
+// This should be called when instruments are added, removed, or reconfigured
+func (pp *PortProcessor) InvalidatePortConfigCache() {
+	pp.cacheMutex.Lock()
+	defer pp.cacheMutex.Unlock()
+
+	pp.portConfigsCached = false
+	pp.cachedPortConfigs = make(map[string]any)
+}
+
+// buildAndCachePortConfigurations builds port configurations and caches them
+func (pp *PortProcessor) buildAndCachePortConfigurations(
+	instruments map[string]*InstrumentProcess,
+) map[string]any {
+	// Step 1: Collect all ports organized by instrument → property → index
+	// → port data
+	instrumentPorts := pp.CollectInstrumentPorts(instruments)
+
+	// Step 2: Invert the mapping - index by port name, handling collisions
+	portConfigurations := pp.InvertPortMappings(instrumentPorts)
+
+	// Cache the results
+	pp.cacheMutex.Lock()
+	pp.cachedPortConfigs = portConfigurations
+	pp.portConfigsCached = true
+	pp.cacheMutex.Unlock()
+
+	return portConfigurations
+}
+
+// getCachedPortConfigurations returns cached port configurations if available
+func (pp *PortProcessor) getCachedPortConfigurations() (map[string]any, bool) {
+	pp.cacheMutex.RLock()
+	defer pp.cacheMutex.RUnlock()
+
+	if pp.portConfigsCached {
+		// Return a copy to prevent external modification
+		result := make(map[string]any)
+		for k, v := range pp.cachedPortConfigs {
+			result[k] = v
+		}
+		return result, true
+	}
+
+	return nil, false
 }

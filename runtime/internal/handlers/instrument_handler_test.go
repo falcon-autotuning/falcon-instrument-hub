@@ -537,14 +537,20 @@ if __name__ == "__main__":
 
 	t.Run("invalid_initialization_subject", func(t *testing.T) {
 		// Send initialization with invalid subject format
+		initDataMap := map[string]interface{}{
+			"test": "data",
+		}
+		portDataMap := map[string]interface{}{
+			"test": "port",
+		}
+
+		initJSON, _ := json.Marshal(initDataMap)
+		portJSON, _ := json.Marshal(portDataMap)
+
 		invalidInitData := api.ConfirmInitialization{
-			Init: map[string]interface{}{
-				"test": "data",
-			},
-			Port: map[string]interface{}{
-				"test": "port",
-			},
-			Timestamp: time.Now().Unix(),
+			Init:      string(initJSON),
+			Port:      string(portJSON),
+			Timestamp: time.Now().UnixMicro(),
 		}
 
 		data, err := json.Marshal(invalidInitData)
@@ -563,14 +569,20 @@ if __name__ == "__main__":
 	t.Run("initialization_for_unknown_instrument", func(t *testing.T) {
 		// Send initialization for an instrument that wasn't started by the
 		// handler
+		unknownInitDataMap := map[string]interface{}{
+			"unknown": "data",
+		}
+		unknownPortDataMap := map[string]interface{}{
+			"unknown": "port",
+		}
+
+		unknownInitJSON, _ := json.Marshal(unknownInitDataMap)
+		unknownPortJSON, _ := json.Marshal(unknownPortDataMap)
+
 		unknownInitData := api.ConfirmInitialization{
-			Init: map[string]interface{}{
-				"unknown": "data",
-			},
-			Port: map[string]interface{}{
-				"unknown": "port",
-			},
-			Timestamp: time.Now().Unix(),
+			Init:      string(unknownInitJSON),
+			Port:      string(unknownPortJSON),
+			Timestamp: time.Now().UnixMicro(),
 		}
 
 		data, err := json.Marshal(unknownInitData)
@@ -715,21 +727,28 @@ if __name__ == "__main__":
 		require.Contains(t, activeInstruments, instrumentName)
 
 		// Now simulate initialization data for the running instrument
+		initDataMap := map[string]any{
+			"voltage": map[int64]any{
+				0: map[string]any{
+					"bounds": []float64{0, 100},
+					"unit":   "V",
+				},
+			},
+		}
+
+		portDataMap := map[string]any{
+			"voltage": map[int64]any{
+				0: "multimeter_voltage_ch1",
+			},
+		}
+
+		initJSON, _ := json.Marshal(initDataMap)
+		portJSON, _ := json.Marshal(portDataMap)
+
 		initResponse := api.ConfirmInitialization{
-			Init: map[string]any{
-				"voltage": map[int64]any{
-					0: map[string]any{
-						"bounds": []float64{0, 100},
-						"unit":   "V",
-					},
-				},
-			},
-			Port: map[string]any{
-				"voltage": map[int64]any{
-					0: "multimeter_voltage_ch1",
-				},
-			},
-			Timestamp: time.Now().Unix(),
+			Init:      string(initJSON),
+			Port:      string(portJSON),
+			Timestamp: time.Now().UnixMicro(),
 		}
 
 		initData, err := json.Marshal(initResponse)

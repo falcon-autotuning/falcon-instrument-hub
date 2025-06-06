@@ -209,6 +209,8 @@ class InterpreterDaemon:
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
+
+        # TODO: Needs to setup a jetstream to falcon to deposit the data.
         await self.send_command(
             channel=INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
             message=message,
@@ -507,7 +509,7 @@ class InterpreterDaemon:
             assert isinstance(instrument_data, dict)
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
-            entry = DataEntry(timestamp=timestamp, data=data)
+            entry = DataEntry(timestamp=timestamp, data=instrument_data)
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")

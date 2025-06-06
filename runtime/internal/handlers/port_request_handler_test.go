@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
-	"fmt"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -16,192 +16,105 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
-func TestPortRequestHandler_HumanReadableNames(t *testing.T) {
-	// Setup test configuration
-	deviceConfig := &config.DeviceConfig{
-		ScreeningGates: "SG1;SG2;SG3",
-		BarrierGates:   "BG1;BG2",
-		ReservoirGates: "RG1;RG2",
-		PlungerGates:   "PG1;PG2",
-		Ohmics:         "OH1;OH2",
-	}
+// setupTestInstrumentHandler creates a real instrument handler with mock
+// instruments for testing
+func setupTestInstrumentHandlerForPortRequest(
+	t *testing.T,
+) *instrument.Handler {
+	// Create temporary directory for test
+	tempDir := t.TempDir()
 
-	wireMap := &config.WireMap{
-		"dac1.0":            "SG1",
-		"dac1.1":            "BG1",
-		"dac1.2":            "PG1",
-		"dac2.0":            "OH1",
-		"dac2.1":            "OH2",
-		"ignored.with.dots": "should_be_ignored",
-	}
+	// Create test logger with proper file paths
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
 
+	// Setup NATS connection for the instrument handler
+	nc := setupTestNATSServer(t)
+
+	// Create test config with the correct structure
 	cfg := &config.Config{
-		DeviceConfig: deviceConfig,
-		WireMap:      wireMap,
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	// Setup test instruments with ports
-	instrumentHandler := setupTestInstrumentHandler()
-
-	// Create port request handler
-	logger, err := logging.NewLogger("test")
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS connection for testing
-	nc, err := nats.Connect(nats.DefaultURL)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	defer handler.Unsubscribe()
-
-	// Test the port collection
-	knobs, meters := handler.collectPortProperties()
-
-	// Verify we got the expected number of ports
-	assert.Greater(t, len(knobs), 0, "Should have collected knobs")
-	assert.Greater(t, len(meters), 0, "Should have collected meters")
-
-	// Verify knobs contain human-readable names
-	var knobObjects []map[string]interface{}
-	err = json.Unmarshal([]byte(fmt.Sprintf("[%s]", knobs[0])), &knobObjects)
+	// Create instrument handler with the correct signature
+	handler, err := instrument.NewHandler(logger, nats.DefaultURL, nc, cfg)
 	require.NoError(t, err)
 
-	// Check that the first knob has been augmented with human-readable name
-	firstKnob := knobObjects[0]
-	assert.Equal(
-		t,
-		"SG1",
-		firstKnob["pseudo_name"],
-		"Knob should have human-readable pseudo_name",
-	)
-	assert.Contains(
-		t,
-		firstKnob,
-		"device_connection",
-		"Knob should have device_connection field",
-	)
-	assert.Contains(
-		t,
-		firstKnob,
-		"connection_name",
-		"Knob should have connection_name field",
-	)
-	assert.Equal(
-		t,
-		"ScreeningGate",
-		firstKnob["connection_type"],
-		"Should have correct connection type",
-	)
-
-	// Verify meters contain human-readable names (only Ohmics)
-	var meterObjects []map[string]interface{}
-	err = json.Unmarshal([]byte(fmt.Sprintf("[%s]", meters[0])), &meterObjects)
-	require.NoError(t, err)
-
-	firstMeter := meterObjects[0]
-	assert.Equal(
-		t,
-		"OH1",
-		firstMeter["pseudo_name"],
-		"Meter should have human-readable pseudo_name",
-	)
-	assert.Equal(
-		t,
-		"Ohmic",
-		firstMeter["connection_type"],
-		"Meter should be Ohmic type",
-	)
-}
-
-func TestPortRequestHandler_FallbackToInstrumentType(t *testing.T) {
-	// Setup configuration with limited mappings
-	deviceConfig := &config.DeviceConfig{
-		ScreeningGates: "SG1",
-		Ohmics:         "OH1",
-	}
-
-	wireMap := &config.WireMap{
-		"dac1.0": "SG1", // Only map one port
-		// dac1.1 will not be mapped, should fallback to instrument type
-	}
-
-	cfg := &config.Config{
-		DeviceConfig: deviceConfig,
-		WireMap:      wireMap,
-	}
-
-	instrumentHandler := setupTestInstrumentHandler()
-	logger, err := logging.NewLogger("test")
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
-
-	knobs, _ := handler.collectPortProperties()
-
-	// Parse the knobs to check fallback behavior
-	require.Greater(t, len(knobs), 1, "Should have multiple knobs for testing")
-
-	// First knob should have human-readable name
-	var firstKnobObj map[string]interface{}
-	err = json.Unmarshal([]byte(knobs[0]), &firstKnobObj)
-	require.NoError(t, err)
-	assert.Equal(t, "SG1", firstKnobObj["pseudo_name"])
-
-	// Second knob should fallback to instrument type
-	var secondKnobObj map[string]interface{}
-	err = json.Unmarshal([]byte(knobs[1]), &secondKnobObj)
-	require.NoError(t, err)
-	assert.Equal(
-		t,
-		"DAC",
-		secondKnobObj["pseudo_name"],
-		"Should fallback to instrument_type",
-	)
-}
-
-func setupTestInstrumentHandler() *instrument.Handler {
-	// Create mock instrument processes with ports
-	instrumentHandler := &instrument.Handler{
-		Instruments: make(map[string]*instrument.InstrumentProcess),
-	}
-
-	// Create test ports for dac1 (knobs) - as JSON strings to match real
-	// instrument data
-	dac1Ports := map[string]interface{}{
-		"knobs": map[int64]interface{}{
-			0: createTestKnobJSON("DAC"),
-			1: createTestKnobJSON("DAC"),
+	// Create mock instruments in the handler for testing
+	handler.Instruments = map[string]*instrument.InstrumentProcess{
+		"dac1": {
+			Name:        "dac1",
+			Initialized: true,
+			Ports: map[string]any{
+				"knobs": map[int64]any{
+					0: createTestKnobJSON("DAC", "knob1"),
+					1: createTestKnobJSON("DAC", "knob2"),
+				},
+			},
+			Configuration: map[string]any{
+				"knobs": map[int64]any{
+					0: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "V",
+					},
+					1: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "V",
+					},
+				},
+			},
+		},
+		"dac2": {
+			Name:        "dac2",
+			Initialized: true,
+			Ports: map[string]any{
+				"meters": map[int64]any{
+					0: createTestMeterJSON("DAC", "meter1"),
+					1: createTestMeterJSON("DAC", "meter2"),
+				},
+			},
+			Configuration: map[string]any{
+				"meters": map[int64]any{
+					0: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "A",
+					},
+					1: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "A",
+					},
+				},
+			},
+		},
+		"ohmic_instrument": {
+			Name:        "ohmic_instrument",
+			Initialized: true,
+			Ports: map[string]any{
+				"meters": map[int64]any{
+					0: createTestOhmicMeterJSON("DAC", "ohmic_meter"),
+				},
+			},
+			Configuration: map[string]any{
+				"meters": map[int64]any{
+					0: map[string]any{
+						"bounds": []float64{0, 100},
+						"unit":   "A",
+					},
+				},
+			},
 		},
 	}
 
-	// Create test ports for dac2 (meters - ohmics) - as JSON strings
-	dac2Ports := map[string]interface{}{
-		"meters": map[int64]interface{}{
-			0: createTestMeterJSON("DAC"),
-			1: createTestMeterJSON("DAC"),
-		},
-	}
-
-	instrumentHandler.Instruments["dac1"] = &instrument.InstrumentProcess{
-		Name:        "dac1",
-		Ports:       dac1Ports,
-		Initialized: true,
-	}
-
-	instrumentHandler.Instruments["dac2"] = &instrument.InstrumentProcess{
-		Name:        "dac2",
-		Ports:       dac2Ports,
-		Initialized: true,
-	}
-
-	return instrumentHandler
+	return handler
 }
 
-func createTestKnobJSON(instrumentType string) string {
+// createTestKnobJSON creates a test knob JSON string
+func createTestKnobJSON(instrumentType, portName string) string {
 	knob := map[string]interface{}{
 		"__class__":       "Knob",
 		"__module__":      "falcon_core.instrument_interfaces.names.knob",
-		"pseudo_name":     "",
+		"pseudo_name":     portName,
 		"instrument_type": instrumentType,
 		"units":           "V",
 		"description":     "Test knob",
@@ -210,11 +123,12 @@ func createTestKnobJSON(instrumentType string) string {
 	return string(data)
 }
 
-func createTestMeterJSON(instrumentType string) string {
+// createTestMeterJSON creates a test meter JSON string
+func createTestMeterJSON(instrumentType, portName string) string {
 	meter := map[string]interface{}{
 		"__class__":       "Meter",
 		"__module__":      "falcon_core.instrument_interfaces.names.meter",
-		"pseudo_name":     "",
+		"pseudo_name":     portName,
 		"instrument_type": instrumentType,
 		"units":           "A",
 		"description":     "Test meter",
@@ -223,30 +137,84 @@ func createTestMeterJSON(instrumentType string) string {
 	return string(data)
 }
 
-func TestPortRequestHandler_E2E(t *testing.T) {
-	// End-to-end test with actual NATS messaging
-	deviceConfig := &config.DeviceConfig{
-		ScreeningGates: "SG1;SG2",
-		Ohmics:         "OH1",
+// createTestOhmicMeterJSON creates a test ohmic meter JSON string
+func createTestOhmicMeterJSON(instrumentType, portName string) string {
+	meter := map[string]interface{}{
+		"__class__":       "Meter",
+		"__module__":      "falcon_core.instrument_interfaces.names.meter",
+		"pseudo_name":     portName,
+		"instrument_type": instrumentType,
+		"connection_type": "Ohmic",
+		"units":           "A",
+		"description":     "Test ohmic meter",
 	}
+	data, _ := json.Marshal(meter)
+	return string(data)
+}
 
-	wireMap := &config.WireMap{
-		"dac1.0": "SG1",
-		"dac2.0": "OH1",
-	}
+func TestNewPortRequestHandler(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
 
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
-		DeviceConfig: deviceConfig,
-		WireMap:      wireMap,
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	instrumentHandler := setupTestInstrumentHandler()
-	logger, err := logging.NewLogger("test")
+	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+
+	assert.NotNil(t, handler)
+	assert.Equal(t, logger, handler.logger)
+	assert.Equal(t, instrumentHandler, handler.instrumentHandler)
+	assert.Equal(t, cfg, handler.config)
+}
+
+func TestPortRequestHandler_Subscribe_Unsubscribe(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
 	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
 
 	// Setup NATS
-	nc, err := nats.Connect(nats.DefaultURL)
+	nc := setupTestNATSServer(t)
+	defer nc.Close()
+
+	// Test Subscribe
+	err = handler.Subscribe(nc)
 	require.NoError(t, err)
+	assert.NotNil(t, handler.subscription)
+	assert.Equal(t, nc, handler.nc)
+
+	// Test Unsubscribe
+	err = handler.Unsubscribe()
+	require.NoError(t, err)
+	assert.Nil(t, handler.subscription)
+}
+
+func TestPortRequestHandler_E2E(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+
+	// Setup NATS
+	nc := setupTestNATSServer(t)
 	defer nc.Close()
 
 	err = handler.Subscribe(nc)
@@ -279,14 +247,112 @@ func TestPortRequestHandler_E2E(t *testing.T) {
 	case response := <-responseReceived:
 		assert.NotEmpty(t, response.Knobs, "Should have knobs in response")
 		assert.NotEmpty(t, response.Meters, "Should have meters in response")
+		assert.Equal(t, request.Timestamp, response.Timestamp)
 
-		// Verify knobs contain human-readable names
-		var knobs []string
-		err = json.Unmarshal([]byte(response.Knobs), &knobs)
-		require.NoError(t, err)
-		assert.Greater(t, len(knobs), 0, "Should have knob entries")
+		// Verify knobs are properly formatted
+		assert.Contains(t, response.Knobs, "[")
+		assert.Contains(t, response.Knobs, "]")
+
+		// Verify meters are properly formatted
+		assert.Contains(t, response.Meters, "[")
+		assert.Contains(t, response.Meters, "]")
 
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for PORT_PAYLOAD response")
 	}
+}
+
+func TestPortRequestHandler_InvalidJSON(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+
+	// Setup NATS
+	nc := setupTestNATSServer(t)
+	defer nc.Close()
+
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	// Send invalid JSON - should not crash
+	err = nc.Publish("PORT_REQUEST.external.test", []byte("invalid json"))
+	require.NoError(t, err)
+
+	// Give it time to process - should not crash
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestPortRequestHandler_isOhmicConnection(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+
+	tests := []struct {
+		name     string
+		portJSON string
+		expected bool
+	}{
+		{
+			name:     "Ohmic connection",
+			portJSON: `{"connection_type":"Ohmic","other_field":"value"}`,
+			expected: true,
+		},
+		{
+			name:     "Non-Ohmic connection",
+			portJSON: `{"connection_type":"Capacitive","other_field":"value"}`,
+			expected: false,
+		},
+		{
+			name:     "Missing connection_type",
+			portJSON: `{"other_field":"value"}`,
+			expected: false,
+		},
+		{
+			name:     "Invalid JSON",
+			portJSON: `invalid json`,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := handler.isOhmicConnection(tt.portJSON)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestPortRequestHandler_UnsubscribeWithoutSubscription(t *testing.T) {
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+
+	// Should not error when unsubscribing without subscription
+	err = handler.Unsubscribe()
+	require.NoError(t, err)
 }

@@ -207,6 +207,9 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 		fmt.Sprintf("Received %s: %s", UploadDataName, string(msg.Data)),
 	)
 
+	// TODO: Update the data stored in the database to have a copy of the real
+	// config.
+
 	// Parse the incoming UPLOAD_DATA
 	var uploadData api.UploadData
 	if err := json.Unmarshal(msg.Data, &uploadData); err != nil {
