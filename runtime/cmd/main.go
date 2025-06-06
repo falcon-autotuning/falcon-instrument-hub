@@ -41,8 +41,6 @@ var startCmd = &cobra.Command{
 	RunE:  runStart,
 }
 
-// TODO: make sure that falcon units wanting config unpack it correctly
-
 func init() {
 	startCmd.Flags().
 		StringSliceVar(&packages, "packages", []string{}, "python modules containing instrument templates (required)")
