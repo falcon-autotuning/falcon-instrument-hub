@@ -26,7 +26,6 @@ const (
 	MeasurementsDB = "measurements.db"
 )
 
-// TODO: the interpreter needs to setup a jetstream for data delivery
 var (
 	packages     []string
 	natsurl      string
@@ -172,6 +171,7 @@ func setupHandlers(services *coreServices) error {
 		services.logger,
 		services.natsManager.GetConnection(),
 		services.natsManager.GetNATSURL(),
+		services.measurementManager,
 	)
 
 	// subscribe all handlers using the handlers manager

@@ -28,6 +28,11 @@ const (
 	UploadDataName            = "UPLOAD_DATA"
 )
 
+// BusyManager interface allows the handler to manage busy state
+type BusyManager interface {
+	SetIsBusy(busy bool)
+}
+
 // PendingMeasurement tracks measurements waiting for UPLOAD_DATA
 type PendingMeasurement struct {
 	Hash         int64
@@ -43,6 +48,7 @@ type MeasureCommandHandler struct {
 	uploadSubscription  *nats.Subscription
 	measurementManager  *measurements.Manager
 	instrumentHandler   *instrument.Handler
+	busyManager         BusyManager
 	pendingMeasurements map[string]PendingMeasurement
 	mutex               sync.RWMutex
 }
@@ -52,11 +58,13 @@ func NewMeasureCommandHandler(
 	logger *logging.Logger,
 	measurementManager *measurements.Manager,
 	instrumentHandler *instrument.Handler,
+	busyManager BusyManager,
 ) *MeasureCommandHandler {
 	return &MeasureCommandHandler{
 		logger:              logger,
 		measurementManager:  measurementManager,
 		instrumentHandler:   instrumentHandler,
+		busyManager:         busyManager,
 		pendingMeasurements: make(map[string]PendingMeasurement),
 	}
 }
@@ -154,6 +162,13 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		return
 	}
 
+	// Set IsBusy flag to true when starting measurement
+	h.busyManager.SetIsBusy(true)
+	h.logger.Debug(
+		MeasureCommandHandlerName,
+		"Set IsBusy flag to true - measurement started",
+	)
+
 	// Allocate measurement ID and get expected path
 	timestamp := time.Now()
 	uniqueID, expectedPath, err := h.measurementManager.AllocateMeasurementID(
@@ -164,6 +179,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			MeasureCommandHandlerName,
 			fmt.Sprintf("Failed to allocate measurement ID: %v", err),
 		)
+		// Reset IsBusy flag on error
+		h.busyManager.SetIsBusy(false)
 		return
 	}
 
@@ -192,10 +209,11 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			MeasureCommandHandlerName,
 			fmt.Sprintf("Failed to send PROCESS_REQUEST: %v", err),
 		)
-		// Clean up pending measurement on error
+		// Clean up pending measurement and reset IsBusy flag on error
 		h.mutex.Lock()
 		delete(h.pendingMeasurements, processId)
 		h.mutex.Unlock()
+		h.busyManager.SetIsBusy(false)
 		return
 	}
 }
@@ -278,6 +296,13 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 		)
 		return
 	}
+
+	// Reset IsBusy flag to false when measurement response is sent
+	h.busyManager.SetIsBusy(false)
+	h.logger.Debug(
+		MeasureCommandHandlerName,
+		"Set IsBusy flag to false - measurement completed",
+	)
 
 	h.logger.Info(
 		MeasureCommandHandlerName,

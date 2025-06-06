@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +17,24 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 )
+
+// MockBusyManager implements BusyManager interface for testing
+type MockBusyManager struct {
+	isBusy bool
+	mutex  sync.RWMutex
+}
+
+func (m *MockBusyManager) SetIsBusy(busy bool) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+	m.isBusy = busy
+}
+
+func (m *MockBusyManager) IsBusy() bool {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	return m.isBusy
+}
 
 func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 	// Start NATS server for testing
@@ -54,11 +73,15 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
 	// Create measure command handler
 	handler := NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
+		mockBusyManager,
 	)
 
 	// Subscribe to handler
@@ -309,11 +332,15 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	// Add to handler (note: this is direct access for testing)
 	instrumentHandler.Instruments["dac1"] = mockInstrument
 
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
 	// Create measure command handler
 	handler := NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
+		mockBusyManager,
 	)
 
 	// Subscribe to handler
@@ -420,11 +447,15 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
 	// Create handler
 	handler := NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
+		mockBusyManager,
 	)
 
 	t.Run("subscribe_and_unsubscribe", func(t *testing.T) {
@@ -503,11 +534,15 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Create measure command handler
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
+	// Create handler
 	handler := NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
+		mockBusyManager,
 	)
 
 	// Subscribe to handler
@@ -745,6 +780,252 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 	})
 }
 
+func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
+	// Start NATS server for testing
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	// Connect to NATS
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	// Create temporary directory
+	tempDir := t.TempDir()
+
+	// Create logger
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	// Create mock measurements manager
+	measurementManager, err := measurements.NewManager(
+		tempDir+"/data",
+		tempDir+"/test.db",
+	)
+	require.NoError(t, err)
+
+	// Create instrument handler with test config
+	cfg := &config.Config{
+		DeviceConfig: &config.DeviceConfig{},
+		WireMap:      &config.WireMap{},
+	}
+	instrumentHandler, err := instrument.NewHandler(
+		logger,
+		server.ClientURL(),
+		nc,
+		cfg,
+	)
+	require.NoError(t, err)
+
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
+	// Create handler
+	handler := NewMeasureCommandHandler(
+		logger,
+		measurementManager,
+		instrumentHandler,
+		mockBusyManager,
+	)
+
+	// Subscribe to handler
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	t.Run("isBusy_flag_lifecycle", func(t *testing.T) {
+		// Initially, IsBusy should be false
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should initially be false",
+		)
+
+		// Set up response subscriptions
+		responseChan := make(chan api.MeasureResponse, 1)
+
+		// Subscribe to MEASURE_RESPONSE
+		responseSub, err := nc.Subscribe(
+			"MEASURE_RESPONSE.external.busy-test",
+			func(msg *nats.Msg) {
+				var receivedResponse api.MeasureResponse
+				if err := json.Unmarshal(msg.Data, &receivedResponse); err == nil {
+					select {
+					case responseChan <- receivedResponse:
+					default:
+					}
+				}
+			},
+		)
+		require.NoError(t, err)
+		defer responseSub.Unsubscribe()
+
+		// Send MEASURE_COMMAND
+		measureCommand := api.MeasureCommand{
+			Timestamp: time.Now().UnixMicro(),
+			Hash:      123456,
+			Request:   "test_busy_flag",
+		}
+
+		commandData, err := json.Marshal(measureCommand)
+		require.NoError(t, err)
+
+		err = nc.Publish("MEASURE_COMMAND.external.busy-test", commandData)
+		require.NoError(t, err)
+
+		// Wait for command to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// IsBusy should now be true
+		assert.True(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should be true after MEASURE_COMMAND",
+		)
+
+		// Send UPLOAD_DATA to complete the measurement
+		uploadData := api.UploadData{
+			Data: "test busy flag data",
+		}
+
+		uploadDataBytes, err := json.Marshal(uploadData)
+		require.NoError(t, err)
+
+		err = nc.Publish("UPLOAD_DATA", uploadDataBytes)
+		require.NoError(t, err)
+
+		// Wait for MEASURE_RESPONSE
+		select {
+		case receivedResponse := <-responseChan:
+			assert.Equal(t, measureCommand.Hash, receivedResponse.Hash)
+			assert.Equal(t, uploadData.Data, receivedResponse.Response)
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive MEASURE_RESPONSE within timeout")
+		}
+
+		// Brief wait to ensure IsBusy flag is reset
+		time.Sleep(50 * time.Millisecond)
+
+		// IsBusy should now be false again
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should be false after MEASURE_RESPONSE",
+		)
+	})
+
+	t.Run("isBusy_flag_reset_on_error", func(t *testing.T) {
+		// Initially, IsBusy should be false
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should initially be false",
+		)
+
+		// Send invalid JSON to trigger error path
+		err = nc.Publish(
+			"MEASURE_COMMAND.external.error-test",
+			[]byte("invalid json"),
+		)
+		require.NoError(t, err)
+
+		// Wait for processing
+		time.Sleep(100 * time.Millisecond)
+
+		// IsBusy should remain false since the command failed to parse
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should remain false on JSON parse error",
+		)
+
+		// Test allocation error by using an invalid measurementManager
+		// (This is harder to test without modifying the manager, so we'll test
+		// the happy path above)
+	})
+
+	t.Run("isBusy_flag_multiple_commands", func(t *testing.T) {
+		// Initially, IsBusy should be false
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should initially be false",
+		)
+
+		// Send first MEASURE_COMMAND
+		measureCommand1 := api.MeasureCommand{
+			Timestamp: time.Now().UnixMicro(),
+			Hash:      111111,
+			Request:   "first_command",
+		}
+
+		commandData1, err := json.Marshal(measureCommand1)
+		require.NoError(t, err)
+
+		err = nc.Publish("MEASURE_COMMAND.external.multi-test", commandData1)
+		require.NoError(t, err)
+
+		// Wait for first command to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// IsBusy should be true
+		assert.True(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should be true after first command",
+		)
+
+		// Send second MEASURE_COMMAND while first is still busy
+		measureCommand2 := api.MeasureCommand{
+			Timestamp: time.Now().UnixMicro(),
+			Hash:      222222,
+			Request:   "second_command",
+		}
+
+		commandData2, err := json.Marshal(measureCommand2)
+		require.NoError(t, err)
+
+		err = nc.Publish("MEASURE_COMMAND.external.multi-test", commandData2)
+		require.NoError(t, err)
+
+		// Wait for second command to be processed
+		time.Sleep(100 * time.Millisecond)
+
+		// IsBusy should still be true (second command should also set it to
+		// true)
+		assert.True(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should remain true with multiple commands",
+		)
+
+		// Complete measurements by sending UPLOAD_DATA twice
+		for i := 0; i < 2; i++ {
+			uploadData := api.UploadData{
+				Data: fmt.Sprintf("upload_data_%d", i),
+			}
+
+			uploadDataBytes, err := json.Marshal(uploadData)
+			require.NoError(t, err)
+
+			err = nc.Publish("UPLOAD_DATA", uploadDataBytes)
+			require.NoError(t, err)
+
+			time.Sleep(50 * time.Millisecond)
+		}
+
+		// Wait for all processing to complete
+		time.Sleep(200 * time.Millisecond)
+
+		// IsBusy should be false after the last response is sent
+		assert.False(
+			t,
+			mockBusyManager.IsBusy(),
+			"IsBusy should be false after all measurements complete",
+		)
+	})
+}
+
 func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 	// Start NATS server for testing
 	server := runNATSServer(t)
@@ -782,11 +1063,15 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Create mock busy manager
+	mockBusyManager := &MockBusyManager{}
+
 	// Create measure command handler
 	handler := NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
+		mockBusyManager,
 	)
 
 	// Subscribe to handler
