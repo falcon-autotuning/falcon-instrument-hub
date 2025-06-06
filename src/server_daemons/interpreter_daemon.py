@@ -2,6 +2,9 @@
 
 from typing import TYPE_CHECKING
 
+import nats
+from nats.js.api import RetentionPolicy, StorageType, StreamConfig
+
 from .api.interpreter import RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS
 from .data_queue import DataEntry, DataQueue
 from .dependancies import (
@@ -75,6 +78,7 @@ class InterpreterDaemon:
         """Starts the measurement interpreter."""
         self._nc = await nats.connect(self._url)
         await self.setup_subscriptions()
+        await self.setup_jetstream()
         self._loop.create_task(self.publish_status())
 
         forever = asyncio.Future()
@@ -87,6 +91,34 @@ class InterpreterDaemon:
         finally:
             # Properly drain the connection when exiting
             await self._nc.drain()
+
+    async def setup_jetstream(self):
+        """Set up JetStream stream for large data transfers."""
+        try:
+            self.js = self._nc.jetstream()
+
+            # Create or update stream
+            stream_config = StreamConfig(
+                name="MEASUREMENT_DATA",
+                subjects=["measurement.data.>"],
+                retention=RetentionPolicy.LIMITS,
+                max_age=24 * 60 * 60,  # 24 hours in seconds
+                max_msgs=10000,
+                max_bytes=1024 * 1024 * 1024,  # 1GB
+                storage=StorageType.FILE,
+            )
+
+            try:
+                await self.js.add_stream(stream_config)
+            except Exception as e:
+                if "stream name already in use" in str(e).lower():
+                    # Update existing stream
+                    await self.js.update_stream(stream_config)
+                else:
+                    raise
+
+        except Exception:
+            raise
 
     async def publish_status(self, refresh: float = 0.5) -> None:
         """Publishes the status of the daemon every refresh."""
@@ -197,11 +229,13 @@ class InterpreterDaemon:
     async def upload_data(
         self,
         response: "MeasurementResponse",
+        id: "ID",
     ) -> None:
         """Sends the measurement response to the server.
 
         Args:
             response: The measurement response to send.
+            id: The ID of the measurement.
         """
         message = json.dumps(
             {
@@ -209,11 +243,21 @@ class InterpreterDaemon:
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
+        await self.js.publish(
+            INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
+            message.encode(),
+        )
+        notification = json.dumps(
+            {
+                "data_channel": "measurement." + id,
+                "stream_name": "MEASUREMENT_DATA",
+                "timestamp": Time().time,
+            }
+        )
 
-        # TODO: Needs to setup a jetstream to falcon to deposit the data.
         await self.send_command(
             channel=INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
-            message=message,
+            message=notification,
         )
 
     async def setup_subscriptions(self):
@@ -560,7 +604,7 @@ class InterpreterDaemon:
             id=id,
             data_path=data_path,
         )
-        await self.upload_data(response=response)
+        await self.upload_data(response=response, id=id)
 
     def store_in_database(
         self,
