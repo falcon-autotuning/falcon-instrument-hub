@@ -100,6 +100,16 @@ class RETURN_DATA:
         """The measured data collected on the instrument"""
         return "data"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
 
@@ -118,6 +128,16 @@ class RETURN_GET:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
 
@@ -125,6 +145,11 @@ class SET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "SET"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
 
     @property
     def INDEX(self) -> str:
@@ -135,11 +160,6 @@ class SET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""

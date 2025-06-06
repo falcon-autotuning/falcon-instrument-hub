@@ -269,7 +269,7 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 		},
 		WireMap: &config.WireMap{
 			"dac1.0": "SG1",
-			"dac2.0": "OH1",
+			"dac1.1": "OH1",
 		},
 	}
 
@@ -283,7 +283,31 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set up mock instruments with ports and configurations
-	setupMockInstruments(instrumentHandler)
+	mockInstrument := &instrument.InstrumentProcess{
+		Name:        "dac1",
+		Initialized: true,
+		Ports: map[string]interface{}{
+			"knobs": map[int64]interface{}{
+				0: createTestKnobJSON("DAC", "SG1"),
+				1: createTestKnobJSON("DAC", "OH1"),
+			},
+		},
+		Configuration: map[string]interface{}{
+			"knobs": map[int64]interface{}{
+				0: map[string]interface{}{
+					"bounds": []float64{-10, 10},
+					"unit":   "V",
+				},
+				1: map[string]interface{}{
+					"bounds": []float64{-5, 5},
+					"unit":   "V",
+				},
+			},
+		},
+	}
+
+	// Add to handler (note: this is direct access for testing)
+	instrumentHandler.Instruments["dac1"] = mockInstrument
 
 	// Create measure command handler
 	handler := NewMeasureCommandHandler(
@@ -357,36 +381,6 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
 		}
 	})
-}
-
-// setupMockInstruments creates mock instruments with ports and configurations
-func setupMockInstruments(handler *instrument.Handler) {
-	// Create mock instrument with ports and configuration
-	mockInstrument := &instrument.InstrumentProcess{
-		Name:        "dac1",
-		Initialized: true,
-		Ports: map[string]interface{}{
-			"knobs": map[int64]interface{}{
-				0: createTestKnobJSON("DAC"),
-				1: createTestKnobJSON("DAC"),
-			},
-		},
-		Configuration: map[string]interface{}{
-			"knobs": map[int64]interface{}{
-				0: map[string]interface{}{
-					"bounds": []float64{-10, 10},
-					"unit":   "V",
-				},
-				1: map[string]interface{}{
-					"bounds": []float64{-5, 5},
-					"unit":   "V",
-				},
-			},
-		},
-	}
-
-	// Add to handler (note: this is direct access for testing)
-	handler.Instruments["dac1"] = mockInstrument
 }
 
 func TestMeasureCommandHandler_EdgeCases(t *testing.T) {

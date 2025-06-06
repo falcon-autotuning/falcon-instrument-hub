@@ -60,6 +60,11 @@ class PROCESS_DATA:
         return "PROCESS_DATA"
 
     @property
+    def DATA(self) -> str:
+        """the data taken from the instruments for interpretation"""
+        return "data"
+
+    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
@@ -68,11 +73,6 @@ class PROCESS_DATA:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def DATA(self) -> str:
-        """the data taken from the instruments for interpretation"""
-        return "data"
 
 class PROCESS_REQUEST:
     """The substrings necessary for a request to the interpreter to process an incoming measurement."""
@@ -111,14 +111,14 @@ class STATUS:
         return "STATUS"
 
     @property
-    def STATUS(self) -> str:
-        """At compilation of this message the state of the process"""
-        return "status"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def STATUS(self) -> str:
+        """At compilation of this message the state of the process"""
+        return "status"
 
 class UPDATE_DAEMON_PROPERTY:
     """The substrings necessary for issued to selectively update an instruments property in a daemon."""
@@ -127,16 +127,6 @@ class UPDATE_DAEMON_PROPERTY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "UPDATE_DAEMON_PROPERTY"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The main subclass of property"""
-        return "property"
-
-    @property
-    def NAME(self) -> str:
-        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
-        return "name"
 
     @property
     def VALUE(self) -> str:
@@ -148,6 +138,16 @@ class UPDATE_DAEMON_PROPERTY:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The main subclass of property"""
+        return "property"
+
+    @property
+    def NAME(self) -> str:
+        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
+        return "name"
+
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
 
@@ -157,14 +157,14 @@ class UPLOAD_DATA:
         return "UPLOAD_DATA"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def DATA(self) -> str:
         """the jsonable measurement request for the FAlCon to unpack and use"""
         return "data"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 
 class RUNTIME_COMMANDS:

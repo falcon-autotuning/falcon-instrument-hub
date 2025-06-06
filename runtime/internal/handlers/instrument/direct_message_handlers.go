@@ -146,8 +146,27 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		return
 	}
 
-	process.Ports = resp.Port
-	process.Configuration = resp.Init
+	// Unmarshal the JSON strings into proper data structures
+	var ports map[string]any
+	if err := json.Unmarshal([]byte(resp.Port), &ports); err != nil {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf("Failed to unmarshal ports JSON: %v", err),
+		)
+		return
+	}
+
+	var configuration map[string]any
+	if err := json.Unmarshal([]byte(resp.Init), &configuration); err != nil {
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf("Failed to unmarshal configuration JSON: %v", err),
+		)
+		return
+	}
+
+	process.Ports = ports
+	process.Configuration = configuration
 	process.Initialized = true
 
 	h.logger.Info(

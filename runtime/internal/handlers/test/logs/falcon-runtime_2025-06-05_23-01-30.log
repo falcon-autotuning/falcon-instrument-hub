@@ -1,0 +1,6 @@
+[2025-06-05 23:01:30.257] [INFO] [SYSTEM] Logger initialized
+[2025-06-05 23:01:30.258] [INFO] [SYSTEM] Log file: test/logs/falcon-runtime_2025-06-05_23-01-30.log
+[2025-06-05 23:01:30.259] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-05 23:01:30.260] [DEBUG] [PORT_REQUEST_HANDLER] Received command: {"timestamp":1749182490260342}
+[2025-06-05 23:01:30.261] [INFO] [PORT_REQUEST_HANDLER] Sent PORT_PAYLOAD response to PORT_PAYLOAD.external.test with 0 knobs and 0 meters
+[2025-06-05 23:01:30.261] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external

@@ -42,7 +42,7 @@ var startCmd = &cobra.Command{
 	RunE:  runStart,
 }
 
-// TODO: make sure that flacon units wanting config unpack it correctly
+// TODO: make sure that falcon units wanting config unpack it correctly
 
 func init() {
 	startCmd.Flags().
