@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import numpy as np
@@ -27,9 +26,6 @@ from server_daemons.instructions import (
 )
 from server_daemons.interpreter_daemon import InterpreterDaemon
 
-if TYPE_CHECKING:
-    from collections.abc import Generator
-
 
 class MockMsg:
     """Mock implementation of NATS message."""
@@ -49,10 +45,19 @@ class TestInterpreterDaemon:
             mock_client.subscribe = AsyncMock()
             mock_client.drain = AsyncMock()
 
+            # Create a mock jetstream context
+            mock_jetstream = AsyncMock()
+            mock_jetstream.add_stream = AsyncMock()
+            mock_jetstream.update_stream = AsyncMock()
+            mock_jetstream.publish = AsyncMock()
+
+            # Make jetstream() return the mock jetstream context
+            mock_client.jetstream = MagicMock(return_value=mock_jetstream)
+
             # Make connect return the mock client
             mock_nats.connect.return_value = mock_client
 
-            yield mock_nats, mock_client
+            yield mock_nats, mock_client, mock_jetstream
 
     @pytest.fixture
     def port(self):
@@ -65,10 +70,10 @@ class TestInterpreterDaemon:
     @pytest.fixture
     def interpreter_daemon(
         self,
-        mock_nats: "Generator[tuple[MagicMock | AsyncMock, AsyncMock], Any]",
+        mock_nats,
     ):
         """Create an instance of InterpreterDaemon with a mock loop."""
-        _, _ = mock_nats
+        _, _, _ = mock_nats
         loop = asyncio.new_event_loop()
         return InterpreterDaemon(url="nats://localhost:4222", loop=loop)
 
@@ -92,7 +97,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_start(self, interpreter_daemon, mock_nats):
         """Test the start method."""
-        mock_nats_module, mock_client = mock_nats
+        mock_nats_module, mock_client, mock_jetstream = mock_nats
 
         # Configure mock_nats.connect to return an awaitable that resolves to mock_client
         mock_nats_module.connect = AsyncMock(return_value=mock_client)
@@ -120,12 +125,12 @@ class TestInterpreterDaemon:
         # Verify that the daemon connected to NATS
         mock_nats_module.connect.assert_called_once_with("nats://localhost:4222")
 
+        # Verify that jetstream was set up
+        mock_client.jetstream.assert_called_once()
+        mock_jetstream.add_stream.assert_called_once()
+
         # Verify that setup_subscriptions was called
         interpreter_daemon.setup_subscriptions.assert_called_once()
-
-        # Verify that publish_status was called
-        # We can check that it was created but we can't easily verify it was scheduled
-        # without more complex mocking of the event loop
 
         # Verify that drain was called during shutdown (it's in a finally block)
         mock_client.drain.assert_called_once()
@@ -137,7 +142,7 @@ class TestInterpreterDaemon:
         mock_nats,
     ):
         """Test the publish_status method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
 
@@ -187,7 +192,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_send_command(self, interpreter_daemon, mock_nats):
         """Test the send_command method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         await interpreter_daemon.send_command("test_channel", "test_message")
@@ -197,7 +202,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_log(self, interpreter_daemon, mock_nats):
         """Test the log method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         await interpreter_daemon.log("test_log_message")
@@ -217,7 +222,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_update_daemon_property(self, interpreter_daemon, mock_nats):
         """Test the update_daemon_property method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         await interpreter_daemon.update_daemon_property(
@@ -253,14 +258,14 @@ class TestInterpreterDaemon:
         mock_nats,
     ):
         """Test the deploy_measurement method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         port = InstrumentPort(
             default_name="device1",
             pseudo_name=Ohmic("test_port"),
         )
-        await interpreter_daemon.deploy_measurement(id="test_id", getters=[port])
+        await interpreter_daemon.deploy_measurement(id=345, getters=[port])
 
         # Verify the correct message format
         mock_client.publish.assert_called_once()
@@ -271,7 +276,7 @@ class TestInterpreterDaemon:
         message_data = json.loads(args[1].decode())
         assert (
             message_data[INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.PROCESS_ID]
-            == "test_id"
+            == 345
         )
         assert message_data[INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS] == [
             port.to_json()
@@ -280,7 +285,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_setup_subscriptions(self, interpreter_daemon, mock_nats):
         """Test that subscriptions are set up correctly."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         await interpreter_daemon.setup_subscriptions()
@@ -313,7 +318,7 @@ class TestInterpreterDaemon:
         mock_nats,
     ):
         """Test the handle_request method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
 
@@ -371,7 +376,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_handle_request_with_exception(self, interpreter_daemon, mock_nats):
         """Test the handle_request method when an exception occurs."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
 
@@ -389,16 +394,16 @@ class TestInterpreterDaemon:
         assert "Error processing request" in interpreter_daemon.log.call_args[0][0]
 
     @pytest.mark.asyncio
-    async def test_handle_data(self, interpreter_daemon, mock_nats):
+    async def test_handle_data(self, interpreter_daemon: InterpreterDaemon, mock_nats):
         """Test the handle_data method with a mock message."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon.log = AsyncMock()
 
         # Create a mock message with test data
         test_data = {
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: "test_id",
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: "12345.67",
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: {
                 "device1": [1.0, 2.0, 3.0]
@@ -407,14 +412,15 @@ class TestInterpreterDaemon:
         mock_msg = MockMsg(json.dumps(test_data))
 
         # Call handle_data with the mock message
-        await interpreter_daemon.handle_data(mock_msg)
+        await interpreter_daemon.handle_data(mock_msg)  # type: ignore[no-untyped-call]
 
         # Verify the data was added to the queue
-        assert "test_id" in interpreter_daemon.data_queue
-        assert len(interpreter_daemon.data_queue["test_id"]) == 1
+        assert 345 in interpreter_daemon.data_queue
+
+        assert len(interpreter_daemon.data_queue[345]) == 1
 
         # Verify the message content
-        entry = interpreter_daemon.data_queue["test_id"][0]
+        entry = interpreter_daemon.data_queue[345][0]
         assert entry.timestamp == "12345.67"
         assert entry.data == test_data
 
@@ -424,7 +430,7 @@ class TestInterpreterDaemon:
     @pytest.mark.asyncio
     async def test_handle_data_with_exception(self, interpreter_daemon, mock_nats):
         """Test the handle_data method when an exception occurs."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
 
@@ -451,7 +457,7 @@ class TestInterpreterDaemon:
         port: InstrumentPort,
     ):
         """Test the deploy_measurements method."""
-        _, mock_client = mock_nats
+        _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
 
@@ -514,13 +520,14 @@ class TestInterpreterDaemon:
     async def test_upload_data(
         self,
         mock_hdf5,
-        interpreter_daemon,
+        interpreter_daemon: InterpreterDaemon,
         mock_nats,
     ):
         """Test the upload_data method."""
-        _, mock_client = mock_nats
+        _, mock_client, jetstream_client = mock_nats
 
         interpreter_daemon._nc = mock_client
+        interpreter_daemon._js = jetstream_client
 
         # Create a mock response with a to_json method for serialization
         response = MagicMock(spec=MeasurementResponse)
@@ -533,7 +540,7 @@ class TestInterpreterDaemon:
             )
 
             # Call upload_data
-            await interpreter_daemon.upload_data(response)
+            await interpreter_daemon.upload_data(response, id=1)
 
             # Verify the correct message was published
             mock_client.publish.assert_called_once()
@@ -569,13 +576,13 @@ class TestInterpreterDaemon:
             request=mock_request,
             shape=(3,),
             data_path=Path("/tmp/test_data"),
-            id="test_id",
+            id=345,
             data_count=2,
         )
 
         # Verify the methods were called with correct arguments
         interpreter_daemon.confirm_data_exists.assert_called_once_with(
-            id="test_id", data_count=2
+            id=345, data_count=2
         )
 
         interpreter_daemon.get_data_point_counter_per_queue.assert_called_once_with(
@@ -583,11 +590,11 @@ class TestInterpreterDaemon:
         )
 
         interpreter_daemon.preprocess_voltage_states.assert_called_once_with(
-            id="test_id"
+            id=345,
         )
 
         interpreter_daemon.average_shapeless_data.assert_called_once_with(
-            id="test_id",
+            id=345,
             number_of_bins=5,
             request=mock_request,
             voltage_state_array=[{"device1": 1.0}],
@@ -600,11 +607,14 @@ class TestInterpreterDaemon:
         interpreter_daemon.store_in_database.assert_called_once_with(
             response=mock_response,
             request=mock_request,
-            id="test_id",
+            id=345,
             data_path=Path("/tmp/test_data"),
         )
 
-        interpreter_daemon.upload_data.assert_called_once_with(response=mock_response)
+        interpreter_daemon.upload_data.assert_called_once_with(
+            response=mock_response,
+            id=345,
+        )
 
     @pytest.mark.asyncio
     async def test_chunk_instructions_non_buffered(
@@ -754,7 +764,7 @@ class TestInterpreterDaemon:
     ):
         """Test the confirm_data_exists method."""
         # Setup a mock data queue
-        test_id = "test_id"
+        test_id = 4524
         interpreter_daemon._data_queue[test_id] = DataQueue()
 
         # Create a mock DataEntry with timestamp and data

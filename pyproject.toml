@@ -31,6 +31,7 @@ dependencies = [
   "pytest-asyncio>=1.0.0",
   "falcon_core",
   "instrument_templates",
+  "instrument_test_suite",
 ]
 
 [project.readme]
@@ -66,21 +67,6 @@ filterwarnings = [
 "docs/*" = ["TID253"]
 "tests/*" = ["TID253"]
 
-# [tool.versioningit]
-# default-version = "0.0"
-#
-# [tool.versioningit.format]
-# distance = "{next_version}.dev{distance}+{branch}.{vcs}{rev}"
-# dirty = "{next_version}.dev{distance}+{branch}.{vcs}{rev}.dirty"
-# distance-dirty = "{next_version}.dev{distance}+{branch}.{vcs}{rev}.dirty"
-#
-# [tool.versioningit.vcs]
-# method = "git"
-# match = ["v*"]
-#
-# [tool.versioningit.onbuild]
-# source-file = "src/falcon/_version.py"
-# build-file = "falcon/_version.py"
 
 [tool.setuptools.packages.find]
 # All the following settings are optional:

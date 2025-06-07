@@ -2,7 +2,6 @@
 
 from typing import TYPE_CHECKING
 
-import nats
 from nats.js.api import RetentionPolicy, StorageType, StreamConfig
 
 from .api.interpreter import RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS
@@ -25,6 +24,8 @@ from .dependancies import (
 from .instructions import Instruction, MeasurementInstructions
 
 if TYPE_CHECKING:
+    from nats.js import JetStreamContext
+
     from .typing import (
         ID,
         Any,
@@ -46,6 +47,7 @@ class InterpreterDaemon:
 
     _url: str
     _nc: "Client"
+    _js: "JetStreamContext"
     _loop: asyncio.AbstractEventLoop
     _data_queue: dict["ID", "DataQueue"]
     _measurement_groups: dict[
@@ -95,7 +97,7 @@ class InterpreterDaemon:
     async def setup_jetstream(self):
         """Set up JetStream stream for large data transfers."""
         try:
-            self.js = self._nc.jetstream()
+            self._js = self._nc.jetstream()
 
             # Create or update stream
             stream_config = StreamConfig(
@@ -109,11 +111,11 @@ class InterpreterDaemon:
             )
 
             try:
-                await self.js.add_stream(stream_config)
+                await self._js.add_stream(stream_config)
             except Exception as e:
                 if "stream name already in use" in str(e).lower():
                     # Update existing stream
-                    await self.js.update_stream(stream_config)
+                    await self._js.update_stream(stream_config)
                 else:
                     raise
 
@@ -243,13 +245,13 @@ class InterpreterDaemon:
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
-        await self.js.publish(
+        await self._js.publish(
             INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
             message.encode(),
         )
         notification = json.dumps(
             {
-                "data_channel": "measurement." + id,
+                "data_channel": "measurement." + str(id),
                 "stream_name": "MEASUREMENT_DATA",
                 "timestamp": Time().time,
             }
@@ -546,14 +548,14 @@ class InterpreterDaemon:
         try:
             data = json.loads(msg.data.decode())
             instrument_data = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
-            id = str(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
+            id = int(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
             timestamp = str(
                 data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
             )
             assert isinstance(instrument_data, dict)
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
-            entry = DataEntry(timestamp=timestamp, data=instrument_data)
+            entry = DataEntry(timestamp=timestamp, data=data)
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")
