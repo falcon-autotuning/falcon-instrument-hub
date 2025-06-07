@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 from .api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
 from .dependancies import (
-    InstrumentSyncSender,
     Time,
     asyncio,
     json,
@@ -30,36 +29,32 @@ class InstrumentDaemon:
         self,
         url: str,
         instrument_driver: type["BaseInstrumentDriver"],
-        loop: asyncio.AbstractEventLoop,
     ):
         """Initialize the InstrumentDaemon.
 
         Args:
             url: The URL of the NATS server.
             instrument_class: The class of the instrument to be controlled.
-            loop: The event loop to use for synchronous operations.
         """
         self._url = url
-        self._loop = loop
         self._instrument_name = instrument_driver.__name__
-        sync_sender = InstrumentSyncSender(self.send_command, loop=loop)
-        self._instrument = instrument_driver(
-            sync_sender=sync_sender,
-        )
+        self._instrument = instrument_driver()
         self._shutdown_event = asyncio.Event()
 
     async def start(self):
         """The main loop for the daemon."""
-        print(f"Starting daemon for {self._instrument_name}")
+        print(f"Starting daemon for {self._instrument_name!s}", flush=True)
+        self._loop = asyncio.get_running_loop()
 
         try:
             # Try to connect to NATS with timeout
-            print(f"Attempting to connect to NATS at {self._url}...")
-            self._nc = await asyncio.wait_for(nats.connect(self._url), timeout=5.0)
-            print("Connected to NATS successfully")
+            print(f"Attempting to connect to NATS at {self._url}...", flush=True)
+            self._nc = await nats.connect(self._url)
+            print("Connected to NATS successfully", flush=True)
             await self.confirm_initialization()
             await self.setup_subscriptions()
             self._loop.create_task(self.publish_status())
+            self._loop.create_task(self.message_consumer())
         except asyncio.TimeoutError:
             print(f"Failed to connect to NATS at {self._url} within timeout")
         except Exception as e:
@@ -168,6 +163,7 @@ class InstrumentDaemon:
                 ),
                 cb=handle,
             )
+            print(f"Handled setting up subscription {channel}", flush=True)
 
     async def send_command(
         self,
@@ -206,12 +202,9 @@ class InstrumentDaemon:
 
     async def confirm_initialization(self):
         """Confirms the initialization of the daemon."""
-        init_config = self._instrument.to_json_config()
-        init = init_config["properties"]
-        ports = init_config["ports_index"]
+        init, ports = self._instrument.to_json_config()
         init_message = json.dumps(
             {
-                DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: init_config,
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.TIMESTAMP: Time().time,
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.INIT: json.dumps(init),
                 DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.PORT: json.dumps(ports),
@@ -246,6 +239,25 @@ class InstrumentDaemon:
         except asyncio.CancelledError:
             print("Status publishing cancelled")
             raise
+
+    async def message_consumer(self):
+        """Consume messages from the sync sender queue and send them async."""
+        try:
+            while (
+                not self._shutdown_event.is_set()
+                and hasattr(self._instrument, "_sync_sender")
+                and self._instrument._sync_sender._running
+            ):
+                messages = self._instrument._sync_sender.get_queued_messages()
+                for channel, message in messages:
+                    await self.send_command(channel, message)
+                await asyncio.sleep(0.01)  # Small delay to prevent busy waiting
+            print("Message consumer stopped")
+        except asyncio.CancelledError:
+            print("Message consumer cancelled")
+            raise
+        except Exception as e:
+            await self.log(f"Error in message consumer: {e}")
 
     async def handle_arbitration(
         self,

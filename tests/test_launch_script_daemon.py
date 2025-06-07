@@ -6,16 +6,15 @@ import json
 import os
 import subprocess
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import nats
 import pytest
 import pytest_asyncio
 from instrument_templates.constants import SUPPORTED_PROPERTIES
+from instrument_test_suite.simple_instrument import SimpleInstrument
 
 from server_daemons.api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
-from tests.test_launch import TestInstrumentDriver
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -26,6 +25,7 @@ if TYPE_CHECKING:
 
 # Configure pytest to always show output
 def pytest_configure(config):
+    """Configure pytest to always show output."""
     config.option.capture = "no"
 
 
@@ -39,7 +39,6 @@ async def nats_client():
     except Exception as e:
         print(f"NATS connection error: {e}", flush=True)
         pytest.fail(f"Failed to connect to NATS: {e}")
-        return
 
     yield nc
 
@@ -51,9 +50,6 @@ async def nats_client():
 @pytest.fixture
 def daemon_process():
     """Fixture that manages a daemon process."""
-    env = os.environ.copy()
-    env["PYTHONPATH"] = f"{Path.cwd()}:{env.get('PYTHONPATH', '')}"
-
     process = None
 
     def start_process():
@@ -62,14 +58,13 @@ def daemon_process():
         process = subprocess.Popen(
             [
                 "python3",
-                "tests/test_launch.py",
-                TestInstrumentDriver.__name__,
+                "./scripts/launch_instrument_daemon.py",
+                SimpleInstrument.__name__,
                 "nats://localhost:4222",
             ],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
             text=True,
-            env=env,
         )
         print(f"Subprocess started with PID: {process.pid}", flush=True)
         return process
@@ -99,21 +94,19 @@ def print_process_output(process):
     print("\n=== PROCESS OUTPUT ===", flush=True)
 
     try:
-        # Make stdout non-blocking
+        # Since we combined stderr with stdout, only read stdout
         if process.stdout:
             fd = process.stdout.fileno()
             fl = fcntl.fcntl(fd, fcntl.F_GETFL)
             fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-            stdout_data = process.stdout.read() or ""
-            print(f"STDOUT: {stdout_data}", flush=True)
-
-        # Make stderr non-blocking
-        if process.stderr:
-            fd = process.stderr.fileno()
-            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
-            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-            stderr_data = process.stderr.read() or ""
-            print(f"STDERR: {stderr_data}", flush=True)
+            try:
+                stdout_data = process.stdout.read()
+                if stdout_data:
+                    print(f"STDOUT: {stdout_data}", flush=True)
+                else:
+                    print("No stdout data available", flush=True)
+            except (OSError, TypeError):
+                print("No stdout data available", flush=True)
     except Exception as e:
         print(f"Error reading process output: {e}", flush=True)
 
@@ -162,14 +155,16 @@ async def test_initialization(nats_client, daemon_process, capfd):
     init_msgs = []
 
     # Subscribe to initialization channel
-    init_channel = (
-        DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL
-        + f".{TestInstrumentDriver.__name__}"
-    )
+    init_channel = DRIVER_RUNTIME_COMMANDS.CONFIRM_INITIALIZATION.COMM_CHANNEL + ".*"
     await subscribe_and_collect(nats_client, init_channel, init_msgs)
 
     # Start the daemon process
-    daemon_process()
+    process = daemon_process()
+
+    # Check if process is still running
+    if process.poll() is not None:
+        print_process_output(process)
+        pytest.fail(f"Daemon process exited early with code {process.returncode}")
 
     # Wait for initialization message
     received = await wait_for_messages(init_msgs)
@@ -182,6 +177,7 @@ async def test_initialization(nats_client, daemon_process, capfd):
         )
         assert len(init_msgs) > 0, "No initialization messages received"
     else:
+        print_process_output(process)
         print(
             "❌ No initialization messages received within timeout period", flush=True
         )
@@ -204,7 +200,7 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
 
     # Subscribe to log messages
     log_channel = (
-        DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+        DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{SimpleInstrument.__name__}"
     )
 
     async def log_handler(msg):
@@ -215,7 +211,7 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
     # Subscribe to get response
     get_response_channel = (
         DRIVER_RUNTIME_COMMANDS.RETURN_GET.COMM_CHANNEL
-        + f".{TestInstrumentDriver.__name__}"
+        + f".{SimpleInstrument.__name__}"
     )
 
     async def get_response_handler(msg):
@@ -233,7 +229,7 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
 
     # Send SET command to set VOLTAGE_STATE index 1 to 3
     set_channel = (
-        DRIVER_RUNTIME_COMMANDS.SET.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+        DRIVER_RUNTIME_COMMANDS.SET.COMM_CHANNEL + f".{SimpleInstrument.__name__}"
     )
     set_data = {
         DRIVER_RUNTIME_COMMANDS.SET.PROPERTY: SUPPORTED_PROPERTIES.VOLTAGE_STATE,
@@ -254,7 +250,7 @@ async def test_set_and_get_properties(nats_client, daemon_process, capfd):
 
     # Send GET command to retrieve VOLTAGE_STATE index 1
     get_channel = (
-        DRIVER_RUNTIME_COMMANDS.GET.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+        DRIVER_RUNTIME_COMMANDS.GET.COMM_CHANNEL + f".{SimpleInstrument.__name__}"
     )
     get_data = {
         DRIVER_RUNTIME_COMMANDS.GET.PROPERTY: SUPPORTED_PROPERTIES.VOLTAGE_STATE,
@@ -291,7 +287,7 @@ async def test_perform_arbitrary_method(nats_client, daemon_process, capfd):
 
     # Subscribe to log messages
     log_channel = (
-        DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{TestInstrumentDriver.__name__}"
+        DRIVER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + f".{SimpleInstrument.__name__}"
     )
 
     async def log_handler(msg):
@@ -308,7 +304,7 @@ async def test_perform_arbitrary_method(nats_client, daemon_process, capfd):
     # Send PERFORM_ARBITRARY_METHOD command
     arbitration_channel = (
         DRIVER_RUNTIME_COMMANDS.PERFORM_ARBITRARY_METHOD.COMM_CHANNEL
-        + f".{TestInstrumentDriver.__name__}"
+        + f".{SimpleInstrument.__name__}"
     )
 
     # Create a method that sets a property value

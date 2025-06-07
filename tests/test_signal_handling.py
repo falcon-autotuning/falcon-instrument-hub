@@ -209,7 +209,7 @@ if __name__ == "__main__":
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            preexec_fn=os.setsid,
+            preexec_fn=os.setsid,  # Create new process group
         )
 
         # Give it time to start up

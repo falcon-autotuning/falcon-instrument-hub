@@ -25,8 +25,8 @@ from instrument_templates.base_instrument_driver import BaseInstrumentDriver
 
 class TestDriver(BaseInstrumentDriver):
     """Minimal test driver."""
-    def __init__(self, sync_sender=None):
-        super().__init__(sync_sender=sync_sender)
+    def __init__(self ):
+        super().__init__()
         print("TestDriver initialized", flush=True)
 
     def to_json_config(self):

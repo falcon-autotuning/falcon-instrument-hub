@@ -1,7 +1,7 @@
 """Test instrument daemon signal handling and graceful shutdown."""
 
+import fcntl
 import os
-import shutil
 import signal
 import subprocess
 import sys
@@ -10,6 +10,7 @@ import time
 from pathlib import Path
 
 import pytest
+from instrument_test_suite.simple_instrument import SimpleInstrument
 
 
 class TestInstrumentDaemonShutdown:
@@ -21,98 +22,73 @@ class TestInstrumentDaemonShutdown:
         # Create a working test script instead of relying on the complex launch script
         self.daemon_script = Path(__file__).parent / "test_launch.py"
 
-    def create_working_daemon_script(self):
-        """Create a daemon script that actually works for testing."""
-        script_content = '''#!/usr/bin/env python3
-"""A minimal daemon script for testing signal handling."""
+    @pytest.fixture
+    def daemon_process(self):
+        """Fixture that manages a daemon process."""
+        process = None
 
-import asyncio
-import signal
-import sys
+        def start_process():
+            nonlocal process
+            print("Starting daemon subprocess...", flush=True)
+            process = subprocess.Popen(
+                [
+                    "python3",
+                    "./scripts/launch_instrument_daemon.py",
+                    SimpleInstrument.__name__,
+                    "nats://localhost:4222",
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+            )
+            print(f"Subprocess started with PID: {process.pid}", flush=True)
+            return process
 
-shutdown_event = asyncio.Event()
+        yield start_process
 
-def signal_handler(signum, frame):
-    print(f"Received signal {signum}, initiating graceful shutdown...", flush=True)
-    try:
-        loop = asyncio.get_running_loop()
-        loop.call_soon_threadsafe(shutdown_event.set)
-    except RuntimeError:
-        # If no loop is running, exit immediately
-        sys.exit(0)
+        # Cleanup
+        if process:
+            try:
+                # Print output
+                self.print_process_output(process)
 
-async def main():
-    print("Daemon started, waiting for shutdown signal...", flush=True)
+                # Terminate the process
+                print("Terminating process...", flush=True)
+                process.terminate()
+                try:
+                    process.wait(timeout=2)
+                except subprocess.TimeoutExpired:
+                    print(
+                        "Process didn't terminate gracefully, forcing kill", flush=True
+                    )
+                    process.kill()
+            except Exception as e:
+                print(f"Error during process cleanup: {e}", flush=True)
 
-    # Set up signal handlers
-    signal.signal(signal.SIGTERM, signal_handler)
-    signal.signal(signal.SIGINT, signal_handler)
+    def print_process_output(self, process):
+        """Helper function to print process output."""
+        print("\n=== PROCESS OUTPUT ===", flush=True)
 
-    # Simple background task
-    async def background_work():
-        count = 0
-        while not shutdown_event.is_set():
-            count += 1
-            await asyncio.sleep(0.1)
-        print("Background work stopped", flush=True)
-
-    task = asyncio.create_task(background_work())
-
-    try:
-        await shutdown_event.wait()
-        print("Shutdown event received", flush=True)
-    finally:
-        task.cancel()
         try:
-            await asyncio.wait_for(task, timeout=1.0)
-        except (asyncio.CancelledError, asyncio.TimeoutExpired):
-            pass
-        print("Daemon exited normally", flush=True)
+            # Since we combined stderr with stdout, only read stdout
+            if process.stdout:
+                fd = process.stdout.fileno()
+                fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+                fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+                try:
+                    stdout_data = process.stdout.read()
+                    if stdout_data:
+                        print(f"STDOUT: {stdout_data}", flush=True)
+                    else:
+                        print("No stdout data available", flush=True)
+                except (OSError, TypeError):
+                    print("No stdout data available", flush=True)
+        except Exception as e:
+            print(f"Error reading process output: {e}", flush=True)
 
-if __name__ == "__main__":
-    asyncio.run(main())
-'''
-        script_path = Path(self.temp_dir) / "minimal_daemon.py"
-        script_path.write_text(script_content)
-        script_path.chmod(0o755)
-        return script_path
-
-    def _start_daemon_process(self):
-        """Helper to start daemon process using the same pattern as working test."""
-        env = os.environ.copy()
-        env["PYTHONPATH"] = f"{Path.cwd()}:{env.get('PYTHONPATH', '')}"
-
-        return subprocess.Popen(
-            [
-                sys.executable,
-                str(self.daemon_script),
-                "TestInstrumentDriver",
-                "nats://localhost:4222",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-
-    def test_daemon_can_start_and_terminate(self):
+    def test_daemon_can_start_and_terminate(self, daemon_process):
         """Test that daemon starts and can be terminated (same pattern as working test)."""
-        env = os.environ.copy()
-        env["PYTHONPATH"] = f"{Path.cwd()}:{env.get('PYTHONPATH', '')}"
-
-        process = subprocess.Popen(
-            [
-                sys.executable,
-                "tests/test_launch.py",
-                "TestInstrumentDriver",
-                "nats://localhost:4222",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            env=env,
-        )
-
+        process = daemon_process()
         try:
             # Give it time to start up
             time.sleep(1.0)
@@ -137,13 +113,9 @@ if __name__ == "__main__":
             if process.poll() is None:
                 process.kill()
 
-    def teardown_method(self):
-        """Clean up test environment."""
-        shutil.rmtree(self.temp_dir, ignore_errors=True)
-
-    def test_daemon_startup_debug(self):
+    def test_daemon_startup_debug(self, daemon_process):
         """Debug test to see what happens during daemon startup."""
-        process = self._start_daemon_process()
+        process = daemon_process()
 
         # Let it run for a bit and see what output we get
         time.sleep(2.0)
@@ -176,9 +148,9 @@ if __name__ == "__main__":
         else:
             print("Got some output - daemon is starting properly")
 
-    def test_sigterm_graceful_shutdown(self):
+    def test_sigterm_graceful_shutdown(self, daemon_process):
         """Test that SIGTERM causes graceful shutdown using the working daemon."""
-        process = self._start_daemon_process()
+        process = daemon_process()
 
         # Give it time to start up (same as working test)
         time.sleep(1.0)
@@ -229,83 +201,6 @@ if __name__ == "__main__":
             process.kill()
             process.wait()
             pytest.fail("Process did not terminate within timeout")
-
-    def test_real_daemon_startup_only(self):
-        """Test that the real daemon can at least start up without hanging."""
-        # Create a script that uses the real daemon but exits quickly
-        real_daemon_script = """#!/usr/bin/env python3
-import asyncio
-import sys
-from pathlib import Path
-
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from instrument_templates.base_instrument_driver import BaseInstrumentDriver
-from instrument_templates.constants import SUPPORTED_PROPERTIES
-from instrument_templates.registry_controls import add_driver
-from server_daemons.instrument_daemon import InstrumentDaemon
-
-class TestDriver(BaseInstrumentDriver):
-    _instrument_type = "Test"
-    _description = "Test driver"
-
-    def __init__(self, sync_sender):
-        super().__init__(sync_sender)
-
-add_driver(cls=TestDriver)
-
-async def test_daemon():
-    loop = asyncio.get_running_loop()
-    daemon = InstrumentDaemon(
-        url="nats://localhost:4222",
-        instrument_driver=TestDriver,
-        loop=loop,
-    )
-
-    # Test that we can create the daemon and set up signal handlers
-    print("Daemon created successfully", flush=True)
-
-    # Don't actually start it, just test creation and signal setup
-    daemon._setup_signal_handlers()
-    print("Signal handlers set up", flush=True)
-
-    return True
-
-if __name__ == "__main__":
-    result = asyncio.run(test_daemon())
-    if result:
-        print("Test passed", flush=True)
-        sys.exit(0)
-    else:
-        print("Test failed", flush=True)
-        sys.exit(1)
-"""
-
-        script_path = Path(self.temp_dir) / "real_daemon_test.py"
-        script_path.write_text(real_daemon_script)
-        script_path.chmod(0o755)
-
-        process = subprocess.Popen(
-            [sys.executable, str(script_path)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-
-        try:
-            stdout, stderr = process.communicate(timeout=5)
-            print(f"Real daemon test stdout: {stdout}")
-            print(f"Real daemon test stderr: {stderr}")
-
-            assert process.returncode == 0, f"Real daemon test failed: {stderr}"
-            assert "Test passed" in stdout, "Real daemon test didn't complete properly"
-
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            pytest.fail("Real daemon creation test timed out")
 
     def test_force_kill_after_timeout(self):
         """Test behavior when process doesn't respond to SIGTERM."""
