@@ -63,7 +63,7 @@ def daemon_process():
         process = subprocess.Popen(
             [
                 "python3",
-                "scripts/launch_interpreter.py",
+                "./scripts/launch_interpreter.py",
                 "nats://localhost:4222",
             ],
             stdout=subprocess.PIPE,
@@ -168,7 +168,10 @@ async def test_interpreter_status(nats_client, daemon_process, capfd):
         print(f"Received status message: {msg.data.decode()}", flush=True)
 
     await subscribe_and_collect(
-        nats_client, status_channel, status_msgs, status_handler
+        nats_client,
+        status_channel,
+        status_msgs,
+        status_handler,
     )
 
     # Start the daemon process
@@ -325,7 +328,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     # Now send process data
     process_data_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.COMM_CHANNEL
     process_data = {
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: "test_id",
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: str(time.time()),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: {"device1": [1.0, 2.0, 3.0]},
     }

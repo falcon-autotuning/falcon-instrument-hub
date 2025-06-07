@@ -54,15 +54,16 @@ class InterpreterDaemon:
         "ID",
         "MeasurementInstructions",
     ]
+    _debug: bool
 
     def __init__(
         self,
         url: str,
-        loop: asyncio.AbstractEventLoop,
+        debug: bool = True,
     ):
         """Initializes the MeasurementInterpreter and stores communication information."""
         self._url = url
-        self._loop = loop
+        self._debug = debug
         self._data_queue = {}
         self._measurement_groups = {}
 
@@ -79,6 +80,8 @@ class InterpreterDaemon:
     async def start(self):
         """Starts the measurement interpreter."""
         self._nc = await nats.connect(self._url)
+        print(f"Connected to NATS server at {self._url}", flush=self._debug)
+        self._loop = asyncio.get_running_loop()
         await self.setup_subscriptions()
         await self.setup_jetstream()
         self._loop.create_task(self.publish_status())
@@ -96,6 +99,7 @@ class InterpreterDaemon:
 
     async def setup_jetstream(self):
         """Set up JetStream stream for large data transfers."""
+        print("Settting up Jetstream...", flush=self._debug)
         try:
             self._js = self._nc.jetstream()
 
@@ -110,8 +114,11 @@ class InterpreterDaemon:
                 storage=StorageType.FILE,
             )
 
+            print("Created my stream-config", flush=self._debug)
+
             try:
                 await self._js.add_stream(stream_config)
+                print("Stream created successfully", flush=self._debug)
             except Exception as e:
                 if "stream name already in use" in str(e).lower():
                     # Update existing stream
@@ -279,6 +286,7 @@ class InterpreterDaemon:
                 channel,
                 cb=handle,
             )
+            print("Subscribed to channel:", channel, flush=self._debug)
 
     async def handle_request(
         self,

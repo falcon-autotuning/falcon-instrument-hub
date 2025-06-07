@@ -24,11 +24,13 @@ class InstrumentDaemon:
     _url: str
     _instrument_name: str
     _instrument: "BaseInstrumentDriver"
+    _debug: bool
 
     def __init__(
         self,
         url: str,
         instrument_driver: type["BaseInstrumentDriver"],
+        debug: bool = False,
     ):
         """Initialize the InstrumentDaemon.
 
@@ -37,20 +39,21 @@ class InstrumentDaemon:
             instrument_class: The class of the instrument to be controlled.
         """
         self._url = url
+        self._debug = debug
         self._instrument_name = instrument_driver.__name__
         self._instrument = instrument_driver()
         self._shutdown_event = asyncio.Event()
 
     async def start(self):
         """The main loop for the daemon."""
-        print(f"Starting daemon for {self._instrument_name!s}", flush=True)
+        print(f"Starting daemon for {self._instrument_name!s}", flush=self._debug)
         self._loop = asyncio.get_running_loop()
 
         try:
             # Try to connect to NATS with timeout
-            print(f"Attempting to connect to NATS at {self._url}...", flush=True)
+            print(f"Attempting to connect to NATS at {self._url}...", flush=self._debug)
             self._nc = await nats.connect(self._url)
-            print("Connected to NATS successfully", flush=True)
+            print("Connected to NATS successfully", flush=self._debug)
             await self.confirm_initialization()
             await self.setup_subscriptions()
             self._loop.create_task(self.publish_status())
@@ -84,22 +87,25 @@ class InstrumentDaemon:
 
     def _setup_signal_handlers(self):
         """Set up signal handlers for graceful shutdown."""
-        print("Setting up signal handlers for SIGTERM and SIGINT", flush=True)
+        print("Setting up signal handlers for SIGTERM and SIGINT", flush=self._debug)
         for sig in (signal.SIGTERM, signal.SIGINT):
             signal.signal(sig, self._signal_handler)
-            print(f"Signal handler set for signal {sig}", flush=True)
+            print(f"Signal handler set for signal {sig}", flush=self._debug)
 
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals."""
-        print(f"Received signal {signum}, initiating graceful shutdown...", flush=True)
+        print(
+            f"Received signal {signum}, initiating graceful shutdown...",
+            flush=self._debug,
+        )
 
         # Instead of using call_soon_threadsafe, directly set the event
         # asyncio.Event.set() is thread-safe on its own
         try:
             self._shutdown_event.set()
-            print(f"Signal {signum} handler completed", flush=True)
+            print(f"Signal {signum} handler completed", flush=self._debug)
         except Exception as e:
-            print(f"Error in signal handler: {e}", flush=True)
+            print(f"Error in signal handler: {e}", flush=self._debug)
             # Force exit if we can't set the event
             import os
 
@@ -163,7 +169,7 @@ class InstrumentDaemon:
                 ),
                 cb=handle,
             )
-            print(f"Handled setting up subscription {channel}", flush=True)
+            print(f"Handled setting up subscription {channel}", flush=self._debug)
 
     async def send_command(
         self,
