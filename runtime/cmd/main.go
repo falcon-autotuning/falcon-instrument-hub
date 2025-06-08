@@ -25,6 +25,10 @@ const (
 
 	// Database file name
 	MeasurementsDB = "measurements.db"
+
+	// defualt packages
+	templatesPackage   = "instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev"
+	interpreterPackage = "server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev"
 )
 
 var (
@@ -88,6 +92,8 @@ type coreServices struct {
 	measurementManager *measurements.Manager
 	logger             *logging.Logger
 	handlerManager     *handlers.Manager
+	instrumentVenvMgr  *manageVenv.Manager
+	interpreterVenvMgr *manageVenv.Manager
 }
 
 func (s *coreServices) cleanup() {
@@ -148,6 +154,17 @@ func setupCoreServices() (*coreServices, error) {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 	services.logger = logger
+	// create instrument virtual environment manager
+	services.instrumentVenvMgr = manageVenv.NewManager(
+		logger,
+		filepath.Join(workingdir, "instrument_env"),
+	)
+
+	// create interpreter virtual environment manager
+	services.interpreterVenvMgr = manageVenv.NewManager(
+		logger,
+		filepath.Join(workingdir, "interpreter_env"),
+	)
 
 	return services, nil
 }
@@ -163,9 +180,14 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.Groups),
 		len(cfg.DeviceConfig.WiringDC),
 	)
-	venvMgr := manageVenv.NewManager(services.logger, workingdir)
-	if err := venvMgr.SetupEnvironment(packages); err != nil {
-		return err
+	// setup instrument virtual environment
+	instrumentPackages := append(packages, templatesPackage)
+	if err := services.instrumentVenvMgr.SetupEnvironment(instrumentPackages); err != nil {
+		return fmt.Errorf("failed to setup instrument environment: %w", err)
+	}
+	interpreterPackages := []string{interpreterPackage}
+	if err := services.interpreterVenvMgr.SetupEnvironment(interpreterPackages); err != nil {
+		return fmt.Errorf("failed to setup interpreter environment: %w", err)
 	}
 
 	// create handler manager from handlers package
@@ -175,7 +197,8 @@ func setupHandlers(services *coreServices) error {
 		services.natsManager.GetConnection(),
 		services.natsManager.GetNATSURL(),
 		services.measurementManager,
-		venvMgr,
+		services.instrumentVenvMgr,
+		services.interpreterVenvMgr,
 	)
 
 	// subscribe all handlers using the handlers manager

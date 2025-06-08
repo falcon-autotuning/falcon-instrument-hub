@@ -43,19 +43,22 @@ type InterpreterProcess struct {
 
 // InterpreterHandler handles interpreter setup and destruction
 type InterpreterHandler struct {
-	logger      *logging.Logger
-	natsURL     string
-	interpreter *InterpreterProcess
+	logger            *logging.Logger
+	natsURL           string
+	interpreter       *InterpreterProcess
+	pythonInterpreter string
 }
 
 // NewInterpreterHandler creates a new interpreter handler
 func NewInterpreterHandler(
 	logger *logging.Logger,
 	natsURL string,
+	pythonInterpreter string,
 ) *InterpreterHandler {
 	return &InterpreterHandler{
-		logger:  logger,
-		natsURL: natsURL,
+		logger:            logger,
+		natsURL:           natsURL,
+		pythonInterpreter: pythonInterpreter,
 	}
 }
 
@@ -141,7 +144,12 @@ func (h *InterpreterHandler) startInterpreter() error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create command
-	cmd := exec.CommandContext(ctx, "python3", scriptPath, h.natsURL)
+	cmd := exec.CommandContext(
+		ctx,
+		h.pythonInterpreter,
+		scriptPath,
+		h.natsURL,
+	)
 
 	// Set up process group for clean shutdown
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

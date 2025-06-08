@@ -14,6 +14,7 @@ func NewHandler(
 	natsURL string,
 	nc *nats.Conn,
 	cfg *config.Config,
+	pythonInterpreter string,
 ) (*Handler, error) {
 	portProcessor, err := NewPortProcessor(logger, cfg)
 	if err != nil {
@@ -21,12 +22,13 @@ func NewHandler(
 	}
 
 	return &Handler{
-		logger:        logger,
-		natsURL:       natsURL,
-		nc:            nc,
-		Instruments:   make(map[string]*InstrumentProcess),
-		subscriptions: make([]*nats.Subscription, 0),
-		portProcessor: portProcessor,
+		logger:            logger,
+		natsURL:           natsURL,
+		nc:                nc,
+		Instruments:       make(map[string]*InstrumentProcess),
+		subscriptions:     make([]*nats.Subscription, 0),
+		portProcessor:     portProcessor,
+		pythonInterpreter: pythonInterpreter,
 	}, nil
 }
 

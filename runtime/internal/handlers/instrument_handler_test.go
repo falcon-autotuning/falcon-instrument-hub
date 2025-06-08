@@ -94,6 +94,7 @@ if __name__ == "__main__":
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -289,6 +290,7 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -362,6 +364,7 @@ while True:
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -496,6 +499,7 @@ if __name__ == "__main__":
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -642,6 +646,7 @@ func TestInstrumentHandlerUpdateDaemonProperty(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
