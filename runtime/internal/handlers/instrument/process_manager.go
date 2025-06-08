@@ -1,11 +1,12 @@
 package instrument
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 )
 
@@ -24,74 +25,113 @@ func (h *Handler) startInstrument(name string) error {
 		h.natsURL,
 	)
 
-	// Set up process group for clean shutdown
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Add detailed logging
+	h.Log.Info(
+		"Starting instrument daemon \n instrument %s \n python interpreter %s \n script path %s \n nats URL %s",
+		name,
+		h.pythonInterpreter,
+		scriptPath,
+		h.natsURL,
+	)
+
+	// Set up pipes to capture output
+	cmd.Stdout = &bytes.Buffer{}
+	cmd.Stderr = &bytes.Buffer{}
+
+	// Copy current environment and add any needed variables
+	cmd.Env = os.Environ()
 
 	// Start the process
-	if err := cmd.Start(); err != nil {
+	err := cmd.Start()
+	if err != nil {
 		cancel()
-		return fmt.Errorf("failed to start instrument daemon: %w", err)
+		h.Log.Error(
+			"Failed to start instrument daemon \n instrument %s \n error %w",
+			name,
+			err,
+		)
+		return fmt.Errorf("failed to start instrument %s: %w", name, err)
 	}
+
+	h.Log.Info(
+		"Instrument daemon started successfully \n instrument %s \n pid %v",
+		name,
+		cmd.Process.Pid,
+	)
 
 	// Store the process info
 	h.mutex.Lock()
 	h.Instruments[name] = &InstrumentProcess{
-		Name:          name,
-		Process:       cmd.Process,
-		Cmd:           cmd,
-		Cancel:        cancel,
-		Ports:         nil,
-		Configuration: nil,
-		Initialized:   false,
+		Name:      name,
+		Cmd:       cmd,
+		Cancel:    cancel,
+		StartTime: time.Now(),
 	}
 	h.mutex.Unlock()
 
-	h.logger.Info(
-		HandlerName,
-		fmt.Sprintf("Started instrument %s with PID %d", name, cmd.Process.Pid),
-	)
+	// Start a goroutine to monitor the process
+	go h.monitorProcess(h.Instruments[name])
+
 	return nil
 }
 
-// stopInstrument terminates an instrument daemon
-func (h *Handler) stopInstrument(process *InstrumentProcess) {
-	if process.Cancel != nil {
-		process.Cancel()
-	}
-
-	if process.Process != nil {
-		// Send SIGTERM first
-		if err := process.Process.Signal(syscall.SIGTERM); err != nil {
-			h.logger.Error(
-				HandlerName,
-				fmt.Sprintf(
-					"Failed to send SIGTERM to %s: %v",
-					process.Name,
-					err,
-				),
+// monitorProcess monitors a running instrument process and logs any issues
+func (h *Handler) monitorProcess(process *InstrumentProcess) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.Log.Error(
+				"Process monitor panic \n instrument %s \n panic %v",
+				process.Name,
+				r,
 			)
 		}
+	}()
 
-		// Wait a bit for graceful shutdown
-		done := make(chan error, 1)
-		go func() {
-			_, err := process.Process.Wait()
-			done <- err
-		}()
+	// Wait for the process to complete
+	err := process.Cmd.Wait()
 
-		select {
-		case <-done:
-			h.logger.Info(
-				HandlerName,
-				fmt.Sprintf("Instrument %s stopped gracefully", process.Name),
-			)
-		case <-time.After(time.Duration(GracefulShutdownTimeout) * time.Second):
-			// Force kill if it doesn't stop gracefully
-			h.logger.Error(
-				HandlerName,
-				fmt.Sprintf("Force killing instrument %s", process.Name),
-			)
-			process.Process.Kill()
-		}
+	// Get output
+	stdout := ""
+	stderr := ""
+	if process.Stdout != nil {
+		stdout = process.Stdout.String()
 	}
+	if process.Stderr != nil {
+		stderr = process.Stderr.String()
+	}
+
+	duration := time.Since(process.StartTime)
+
+	// Log the process completion
+	if err != nil {
+		h.Log.Error(
+			"Instrument daemon process exited with error \n instrument %s \n pid %v \n error %v \n exit code %v \n runtime %v \n stdout %s \n stderr %s",
+			process.Name,
+			process.Cmd.Process.Pid,
+			err,
+			process.Cmd.ProcessState.ExitCode(),
+			duration.Seconds(),
+			stdout,
+			stderr,
+		)
+	} else {
+		h.Log.Info(
+			"Instrument daemon process exited normally \n instrument %s \n pid %v \n runtime %v \n stdout %s \n stderr %s",
+			process.Name,
+			process.Cmd.Process.Pid,
+			duration.Seconds(),
+			stdout,
+			stderr,
+		)
+	}
+
+	// Remove from active processes
+	h.mutex.Lock()
+	if proc, exists := h.Instruments[process.Name]; exists && proc == process {
+		// Mark as completed so other operations know it's dead
+		process.Completed = true
+		process.CompletedAt = time.Now()
+		process.ExitError = err
+	}
+	h.mutex.Unlock()
 }
