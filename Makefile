@@ -40,7 +40,7 @@ test-unit: start-nats setup-python
 	$(PYTHON_ENV)/bin/pytest tests/test_interpreter_daemon.py -v
 
 .PHONY: test-launch
-test-unit: start-nats setup-python
+test-launch: start-nats setup-python
 	$(PYTHON_ENV)/bin/pytest tests/test_launch_script_interpreter.py -v
 	$(PYTHON_ENV)/bin/pytest tests/test_launch_script_daemon.py -v
 

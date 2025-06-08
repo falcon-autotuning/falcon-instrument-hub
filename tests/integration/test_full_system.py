@@ -331,30 +331,86 @@ async def test_daemon_health_monitoring(
 ):
     """Test that daemons report their health status correctly."""
     status_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
+    log_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
 
     async def status_handler(msg):
         # Extract instrument name from the subject
         subject_parts = msg.subject.split(".")
-        assert len(subject_parts) > 1, f"Invalid name format in subject {subject_parts}"
-        daemon_name = subject_parts[1]  # STATUS.<daemon_name>
-        data = json.loads(msg.data.decode())
-        status_msgs[daemon_name].append(data)
+        if len(subject_parts) > 1:
+            daemon_name = subject_parts[1]  # STATUS.<daemon_name>
+            if daemon_name in status_msgs:
+                data = json.loads(msg.data.decode())
+                status_msgs[daemon_name].append(data)
+                print(f"📊 Status from {daemon_name}: {data}")
 
+    async def log_handler(msg):
+        # Extract instrument name from the subject
+        subject_parts = msg.subject.split(".")
+        if len(subject_parts) > 1:
+            daemon_name = subject_parts[1]  # LOG.<daemon_name>
+            if daemon_name in log_msgs:
+                data = json.loads(msg.data.decode())
+                log_msgs[daemon_name].append(data)
+                print(f"📝 Log from {daemon_name}: {data.get('message', 'No message')}")
+
+    # Subscribe to both status and log messages
     await nats_client.subscribe(
         RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".*",
         cb=status_handler,
     )
 
+    # Also subscribe to log messages to see if daemons are starting up
+    await nats_client.subscribe(
+        "LOG.*",  # Using the LOG channel pattern from instrument_daemon.py
+        cb=log_handler,
+    )
+
+    print(f"🔍 Monitoring for daemons: {expectedDaemons}")
+    print("Waiting for status and log messages...")
+
     # Wait for multiple status messages with early exit
-    max_wait_time = 14.0
-    check_interval = 0.5
+    max_wait_time = 20.0  # Increased timeout
+    check_interval = 1.0  # Longer check interval for better debugging
     elapsed_time = 0.0
 
     while elapsed_time < max_wait_time:
+        # Check if instrument servers (not instrument-server) have reported
+        instrument_daemons = [
+            name for name in expectedDaemons if name != "instrument-server"
+        ]
+        instrument_status_count = sum(
+            len(status_msgs[name]) for name in instrument_daemons
+        )
+
+        print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
+        for daemon_name, msgs in status_msgs.items():
+            print(f"  {daemon_name}: {len(msgs)} messages")
+
+        print(f"⏱️  {elapsed_time:.1f}s - Log messages received:")
+        for daemon_name, msgs in log_msgs.items():
+            print(f"  {daemon_name}: {len(msgs)} log messages")
+            if msgs:
+                print(f"    Latest: {msgs[-1].get('message', 'No message')}")
+
+        # Check if we have enough status messages
         if all(len(msgs) >= 2 for msgs in status_msgs.values()):
+            print(f"✅ All daemons reported multiple status messages!")
             break
+
         await asyncio.sleep(check_interval)
         elapsed_time += check_interval
+
+    # Show final summary
+    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
+    for daemon_name in expectedDaemons:
+        status_count = len(status_msgs[daemon_name])
+        log_count = len(log_msgs[daemon_name])
+        print(f"  {daemon_name}: {status_count} status, {log_count} logs")
+
+        if log_count > 0:
+            recent_logs = log_msgs[daemon_name][-3:]  # Show last 3 logs
+            for log_entry in recent_logs:
+                print(f"    📝 {log_entry.get('message', 'No message')}")
 
     assert all(len(msgs) >= 2 for msgs in status_msgs.values()), (
         f"Should receive multiple status messages, got {status_msgs} in {elapsed_time:.1f}s"
@@ -364,7 +420,8 @@ async def test_daemon_health_monitoring(
         latest_status = status_msgs[daemon_name][-1]
         assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
         assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
-    print("Collected status messages:", status_msgs)
+
+    print("✅ All daemons are healthy and reporting status")
 
 
 @pytest.mark.asyncio

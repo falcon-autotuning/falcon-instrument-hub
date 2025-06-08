@@ -20,6 +20,7 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 
 	// Configure all subscriptions
 	subscriptions := h.getSubscriptionConfigs()
+	go h.cleanupLoop()
 
 	// Subscribe to each configured subscription
 	for _, config := range subscriptions {
@@ -78,6 +79,9 @@ func (h *Handler) Unsubscribe() error {
 		h.stopInstrument(process)
 	}
 	h.Instruments = make(map[string]*InstrumentProcess)
+	if h.cleanupStop != nil {
+		close(h.cleanupStop)
+	}
 
 	return nil
 }

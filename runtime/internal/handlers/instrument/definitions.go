@@ -1,12 +1,13 @@
 package instrument
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
-	"os"
 	"os/exec"
 	"sync"
+	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -52,17 +53,23 @@ var (
 // InstrumentProcess represents a running instrument daemon
 type InstrumentProcess struct {
 	Name          string
-	Process       *os.Process
 	Cmd           *exec.Cmd
 	Cancel        context.CancelFunc
 	Ports         map[string]any
 	Configuration map[string]any
 	Initialized   bool
+	StartTime     time.Time
+	Stdout        *bytes.Buffer
+	Stderr        *bytes.Buffer
+	Completed     bool
+	CompletedAt   time.Time
+	ExitError     error
 }
 
 // Handler handles instrument setup and destruction
 type Handler struct {
 	logger            *logging.Logger
+	Log               *LogWrapper
 	natsURL           string
 	nc                *nats.Conn
 	Instruments       map[string]*InstrumentProcess
@@ -70,6 +77,7 @@ type Handler struct {
 	subscriptions     []*nats.Subscription
 	portProcessor     *PortProcessor
 	pythonInterpreter string
+	cleanupStop       chan struct{}
 }
 
 // subscriptionConfig represents a subscription configuration
@@ -217,4 +225,43 @@ func (h *Handler) SetInstrumentInitialized(name string, initialized bool) {
 			h.portProcessor.InvalidatePortConfigCache()
 		}
 	}
+}
+
+// LogWrapper provides convenient logging with automatic handler name and
+// sprintf formatting
+type LogWrapper struct {
+	logger      *logging.Logger
+	handlerName string
+}
+
+// NewLogWrapper creates a new log wrapper for the given handler
+func NewLogWrapper(logger *logging.Logger, handlerName string) *LogWrapper {
+	return &LogWrapper{
+		logger:      logger,
+		handlerName: handlerName,
+	}
+}
+
+// Info logs an info message with sprintf formatting
+func (l *LogWrapper) Info(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Info(l.handlerName, msg)
+}
+
+// Warn logs a warning message with sprintf formatting
+func (l *LogWrapper) Warn(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Warn(l.handlerName, msg)
+}
+
+// Error logs an error message with sprintf formatting
+func (l *LogWrapper) Error(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Error(l.handlerName, msg)
+}
+
+// Debug logs a debug message with sprintf formatting
+func (l *LogWrapper) Debug(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Debug(l.handlerName, msg)
 }
