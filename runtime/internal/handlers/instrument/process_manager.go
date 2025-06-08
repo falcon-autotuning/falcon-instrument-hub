@@ -16,11 +16,9 @@ func (h *Handler) startInstrument(name string) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create command
-	//
-	// TODO: setup the venv
 	cmd := exec.CommandContext(
 		ctx,
-		"python3",
+		h.PythonInterpreter,
 		scriptPath,
 		name,
 		h.natsURL,

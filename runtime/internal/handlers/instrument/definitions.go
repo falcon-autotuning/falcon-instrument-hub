@@ -22,6 +22,7 @@ const (
 const (
 	ScriptsDir                 = "./"
 	LaunchInstrumentScriptName = "launch_instrument_daemon.py"
+	defaultPythonInterpreter   = "/home/daniel/work/wisc/playground/falcon/.venv/bin/python3"
 )
 
 // Process Management
@@ -61,13 +62,14 @@ type InstrumentProcess struct {
 
 // Handler handles instrument setup and destruction
 type Handler struct {
-	logger        *logging.Logger
-	natsURL       string
-	nc            *nats.Conn
-	Instruments   map[string]*InstrumentProcess
-	mutex         sync.RWMutex
-	subscriptions []*nats.Subscription
-	portProcessor *PortProcessor
+	logger            *logging.Logger
+	natsURL           string
+	nc                *nats.Conn
+	Instruments       map[string]*InstrumentProcess
+	mutex             sync.RWMutex
+	subscriptions     []*nats.Subscription
+	portProcessor     *PortProcessor
+	PythonInterpreter string
 }
 
 // subscriptionConfig represents a subscription configuration

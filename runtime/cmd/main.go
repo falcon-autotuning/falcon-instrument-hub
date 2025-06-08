@@ -11,6 +11,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/manageVenv"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
 	"github.com/spf13/cobra"
@@ -162,6 +163,10 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.Groups),
 		len(cfg.DeviceConfig.WiringDC),
 	)
+	venvMgr := manageVenv.NewManager(services.logger, workingdir)
+	if err := venvMgr.SetupEnvironment(packages); err != nil {
+		return err
+	}
 
 	// create handler manager from handlers package
 	services.handlerManager = handlers.NewManager(
@@ -170,6 +175,7 @@ func setupHandlers(services *coreServices) error {
 		services.natsManager.GetConnection(),
 		services.natsManager.GetNATSURL(),
 		services.measurementManager,
+		venvMgr,
 	)
 
 	// subscribe all handlers using the handlers manager

@@ -3,10 +3,12 @@ package handlers
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/manageVenv"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/nats-io/nats.go"
 )
@@ -27,6 +29,8 @@ type Manager struct {
 	config                         *config.Config
 	logger                         *logging.Logger
 	nc                             *nats.Conn
+	mu                             sync.RWMutex
+	venvMgr                        *manageVenv.Manager
 	logHandler                     *LogHandler
 	deviceConfigHandler            *DeviceConfigHandler
 	instrumentHandler              *instrument.Handler
@@ -47,6 +51,7 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 	measurementManager *measurements.Manager,
+	venvMgr *manageVenv.Manager,
 ) *Manager {
 	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg)
 	if err != nil {
@@ -57,7 +62,8 @@ func NewManager(
 		// For now, return a basic handler - you might want to return an error
 		// instead
 		instrumentHandler = &instrument.Handler{
-			Instruments: make(map[string]*instrument.InstrumentProcess),
+			Instruments:       make(map[string]*instrument.InstrumentProcess),
+			PythonInterpreter: venvMgr.GetPythonInterpreter(),
 		}
 	}
 
@@ -66,6 +72,7 @@ func NewManager(
 		logger:              logger,
 		nc:                  nc,
 		natsURL:             natsURL,
+		venvMgr:             venvMgr,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
