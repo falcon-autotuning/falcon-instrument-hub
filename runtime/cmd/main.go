@@ -29,6 +29,7 @@ const (
 	// defualt packages
 	templatesPackage   = "instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev"
 	interpreterPackage = "server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev"
+	corePackage        = "falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev"
 )
 
 var (
@@ -181,11 +182,17 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.WiringDC),
 	)
 	// setup instrument virtual environment
-	instrumentPackages := append(packages, templatesPackage)
+	instrumentPackages := append(append(
+		[]string{corePackage},
+		templatesPackage),
+		packages...)
 	if err := services.instrumentVenvMgr.SetupEnvironment(instrumentPackages); err != nil {
 		return fmt.Errorf("failed to setup instrument environment: %w", err)
 	}
-	interpreterPackages := []string{interpreterPackage}
+	interpreterPackages := append(append(
+		[]string{corePackage},
+		templatesPackage),
+		[]string{interpreterPackage}...)
 	if err := services.interpreterVenvMgr.SetupEnvironment(interpreterPackages); err != nil {
 		return fmt.Errorf("failed to setup interpreter environment: %w", err)
 	}

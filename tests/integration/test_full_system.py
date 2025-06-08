@@ -25,7 +25,7 @@ def test_config_files():
         temp_path = Path(temp_dir)
 
         device_config = {
-            "ScreeningGates": "S1;S2:S3",
+            "ScreeningGates": "S1;S2;S3",
             "PlungerGates": "P1;P2;P3;P4",
             "Ohmics": "O1;O2;O3;O4",
             "BarrierGates": "B1;B2;B3;B4;B5;B6",
@@ -144,27 +144,27 @@ def test_config_files():
             yaml.dump(device_config, f)
 
         # Create wiremap
-        wiremap = """
-LargeMultiChannelDac.0: S1
-LargeMultiChannelDac.1: S2
-LargeMultiChannelDac.2: S3
-LargeMultiChannelDac.3: B1
-LargeMultiChannelDac.4: B2
-LargeMultiChannelDac.5: B3
-LargeMultiChannelDac.6: B4
-LargeMultiChannelDac.7: B5
-LargeMultiChannelDac.8: B6
-LargeMultiChannelDac.9: P1
-LargeMultiChannelDac.10: P2
-LargeMultiChannelDac.11: P3
-LargeMultiChannelDac.12: P4
-LargeMultiChannelDac.13: R1
-LargeMultiChannelDac.14: R2
-LargeMultiChannelDac.15: R3
-LargeMultiChannelDac.16: R4
-MultiChannelAmnmeter.1: O2
-MultiChannelAmnmeter.2: O4
-"""
+        wiremap = {
+            "LargeMultiChannelDac.0": "S1",
+            "LargeMultiChannelDac.1": "S2",
+            "LargeMultiChannelDac.2": "S3",
+            "LargeMultiChannelDac.3": "B1",
+            "LargeMultiChannelDac.4": "B2",
+            "LargeMultiChannelDac.5": "B3",
+            "LargeMultiChannelDac.6": "B4",
+            "LargeMultiChannelDac.7": "B5",
+            "LargeMultiChannelDac.8": "B6",
+            "LargeMultiChannelDac.9": "P1",
+            "LargeMultiChannelDac.10": "P2",
+            "LargeMultiChannelDac.11": "P3",
+            "LargeMultiChannelDac.12": "P4",
+            "LargeMultiChannelDac.13": "R1",
+            "LargeMultiChannelDac.14": "R2",
+            "LargeMultiChannelDac.15": "R3",
+            "LargeMultiChannelDac.16": "R4",
+            "MultiChannelAmnmeter.1": "O2",
+            "MultiChannelAmnmeter.2": "O4",
+        }
 
         wiremap_path = temp_path / "wiremap.yaml"
         with Path.open(wiremap_path, "w", encoding="utf-8") as f:
@@ -190,7 +190,7 @@ def go_runtime_process(test_config_files):
             str(binary_path),
             "start",
             "--packages",
-            "instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@dev",
+            "instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main",
             "--device-config",
             test_config_files["device_config"],
             "--wiremap",
@@ -207,9 +207,52 @@ def go_runtime_process(test_config_files):
     )
 
     # Give it time to start
-    time.sleep(3)
+    time.sleep(5)  # Increased from 3 to 5 seconds
+
+    # Check if process started successfully and show logs if it failed
+    if process.poll() is not None:
+        # Process has already terminated, safe to get output
+        try:
+            stdout, stderr = process.communicate(timeout=1)
+        except subprocess.TimeoutExpired:
+            stdout, stderr = "", ""
+
+        print(f"Go process failed to start. Exit code: {process.returncode}")
+        print(f"STDOUT:\n{stdout}")
+        print(f"STDERR:\n{stderr}")
+
+        # Check for Go application logs
+        log_dir = Path(test_config_files["working_dir"]) / "log"
+        print(f"Checking for logs in: {log_dir}")
+        if log_dir.exists():
+            print(f"Log directory contents: {list(log_dir.iterdir())}")
+            for log_file in log_dir.glob("*.log"):
+                print(f"Log file: {log_file}")
+                try:
+                    content = log_file.read_text()
+                    print(f"Contents of {log_file.name}:\n{content}")
+                except Exception as e:
+                    print(f"Could not read {log_file}: {e}")
+        else:
+            print("Log directory does not exist")
+
+        pytest.fail(
+            f"Go runtime process failed to start with exit code {process.returncode}"
+        )
 
     yield process
+
+    # Cleanup - show logs if process died unexpectedly
+    if process.poll() is not None and process.returncode != 0:
+        print(f"Go process died unexpectedly. Exit code: {process.returncode}")
+        log_dir = Path(test_config_files["working_dir"]) / "log"
+        if log_dir.exists():
+            for log_file in log_dir.glob("*.log"):
+                print(f"Log file: {log_file}")
+                try:
+                    print(f"Contents of {log_file.name}:\n{log_file.read_text()}")
+                except Exception as e:
+                    print(f"Could not read {log_file}: {e}")
 
     # Cleanup
     process.terminate()
@@ -251,7 +294,9 @@ def interpreter_daemon_process():
 
 
 @pytest.mark.asyncio
-async def test_full_measurement_flow(go_runtime_process, interpreter_daemon_process):
+async def test_full_measurement_flow(
+    go_runtime_process, interpreter_daemon_process, test_config_files
+):
     """Test a complete measurement flow from request to data upload."""
     # Connect to NATS
     nc = await nats.connect("nats://localhost:4222")
@@ -303,6 +348,32 @@ async def test_full_measurement_flow(go_runtime_process, interpreter_daemon_proc
         await asyncio.sleep(2)
 
         # Verify processes are still running
+        if go_runtime_process.poll() is not None:
+            print(f"Go process died. Exit code: {go_runtime_process.returncode}")
+            try:
+                stdout, stderr = go_runtime_process.communicate(timeout=1)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+
+            print(f"STDOUT:\n{stdout}")
+            print(f"STDERR:\n{stderr}")
+
+            # Show Go application logs
+            log_dir = Path(test_config_files["working_dir"]) / "log"
+            print(f"Checking for logs in: {log_dir}")
+            print(f"Log dir exists: {log_dir.exists()}")
+            if log_dir.exists():
+                print(f"Log directory contents: {list(log_dir.iterdir())}")
+                for log_file in log_dir.glob("*.log"):
+                    print(f"Log file: {log_file}")
+                    try:
+                        content = log_file.read_text()
+                        print(f"Contents of {log_file.name}:\n{content}")
+                    except Exception as e:
+                        print(f"Could not read {log_file}: {e}")
+            else:
+                print("Log directory does not exist")
+
         assert go_runtime_process.poll() is None, "Go runtime process died"
         assert interpreter_daemon_process.poll() is None, "Interpreter daemon died"
 

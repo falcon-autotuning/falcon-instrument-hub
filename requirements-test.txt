@@ -1,0 +1,3 @@
+pytest==8.2.1
+pytest-asyncio==1.0.0
+instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
