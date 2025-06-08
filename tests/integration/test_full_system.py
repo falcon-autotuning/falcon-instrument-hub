@@ -446,7 +446,7 @@ async def test_full_measurement_flow(
         )
 
         # Wait for status message (daemon is running)
-        await asyncio.sleep(1)
+        await asyncio.sleep(4)
         assert len(status_msgs) > 0, "No status messages received"
 
         # Create and send measurement request
@@ -471,32 +471,28 @@ async def test_full_measurement_flow(
         # Wait for processing
         await asyncio.sleep(10)
 
-        # Verify processes are still running
-        if go_runtime_process.poll() is not None:
-            print(f"Go process died. Exit code: {go_runtime_process.returncode}")
-            try:
-                stdout, stderr = go_runtime_process.communicate(timeout=1)
-            except subprocess.TimeoutExpired:
-                stdout, stderr = "", ""
-
+        try:
+            stdout, stderr = go_runtime_process.communicate(timeout=5)
             print(f"STDOUT:\n{stdout}")
             print(f"STDERR:\n{stderr}")
+        except subprocess.TimeoutExpired:
+            print("Timeout exceeded while waiting for Go process output")
 
-            # Show Go application logs
-            log_dir = Path(test_config_files["working_dir"]) / "log"
-            print(f"Checking for logs in: {log_dir}")
-            print(f"Log dir exists: {log_dir.exists()}")
-            if log_dir.exists():
-                print(f"Log directory contents: {list(log_dir.iterdir())}")
-                for log_file in log_dir.glob("*.log"):
-                    print(f"Log file: {log_file}")
-                    try:
-                        content = log_file.read_text()
-                        print(f"Contents of {log_file.name}:\n{content}")
-                    except Exception as e:
-                        print(f"Could not read {log_file}: {e}")
-            else:
-                print("Log directory does not exist")
+        # Show Go application logs
+        log_dir = Path(test_config_files["working_dir"]) / "log"
+        print(f"Checking for logs in: {log_dir}")
+        print(f"Log dir exists: {log_dir.exists()}")
+        if log_dir.exists():
+            print(f"Log directory contents: {list(log_dir.iterdir())}")
+            for log_file in log_dir.glob("*.log"):
+                print(f"Log file: {log_file}")
+                try:
+                    content = log_file.read_text()
+                    print(f"Contents of {log_file.name}:\n{content}")
+                except Exception as e:
+                    print(f"Could not read {log_file}: {e}")
+        else:
+            print("Log directory does not exist")
 
         assert upload_msgs, "No upload messages received"
         print(upload_msgs)

@@ -101,5 +101,7 @@ tests/__pycache__/test_launch.cpython-313.pyc
 tests/__pycache__/test_launch_script_daemon.cpython-313-pytest-8.2.1.pyc
 tests/__pycache__/test_launch_script_interpreter.cpython-313-pytest-8.2.1.pyc
 tests/__pycache__/test_signal_handling.cpython-313-pytest-8.2.1.pyc
+tests/integration/__init__.py
+tests/integration/server_api.py
 tests/integration/test_full_system.py
 tests/integration/__pycache__/test_full_system.cpython-313-pytest-8.2.1.pyc
