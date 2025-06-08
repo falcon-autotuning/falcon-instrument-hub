@@ -48,7 +48,13 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 	}
 
 	// Create instrument handler with the correct signature
-	handler, err := instrument.NewHandler(logger, nats.DefaultURL, nc, cfg)
+	handler, err := instrument.NewHandler(
+		logger,
+		nats.DefaultURL,
+		nc,
+		cfg,
+		"python",
+	)
 	require.NoError(t, err)
 
 	// Create mock instruments in the handler for testing

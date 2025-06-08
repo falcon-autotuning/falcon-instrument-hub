@@ -19,7 +19,7 @@ func TestNewManager(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 	assert.NotNil(t, manager)
 	assert.Equal(t, logger, manager.logger)
 	assert.Empty(t, manager.venvPath)
@@ -31,8 +31,8 @@ func TestManager_SetupEnvironment_EmptyPackages(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
-	err = manager.SetupEnvironment(tempDir, []string{})
+	manager := NewManager(logger, tempDir)
+	err = manager.SetupEnvironment([]string{})
 	assert.NoError(t, err, "Should not error when no packages are provided")
 }
 
@@ -47,12 +47,12 @@ func TestManager_SetupEnvironment_Success(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	// Use a simple package that should install quickly
 	packages := []string{"six"} // six is a small, commonly available package
 
-	err = manager.SetupEnvironment(tempDir, packages)
+	err = manager.SetupEnvironment(packages)
 	require.NoError(t, err, "Failed to setup virtual environment")
 
 	// Verify venv path is set
@@ -96,7 +96,7 @@ func TestManager_GetPythonInterpreter_NoVenv(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	// No venv setup, should return system python
 	pythonPath := manager.GetPythonInterpreter()
@@ -109,7 +109,7 @@ func TestManager_GetPythonInterpreter_InvalidVenv(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	// Set an invalid venv path
 	manager.venvPath = "/nonexistent/path"
@@ -125,7 +125,7 @@ func TestManager_resolvePackageURL(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	tests := []struct {
 		name     string
@@ -175,7 +175,7 @@ func TestManager_createVirtualEnvironment(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 	venvPath := filepath.Join(tempDir, "test_venv")
 
 	err = manager.createVirtualEnvironment(venvPath)
@@ -195,7 +195,7 @@ func TestManager_getPipPath_NotFound(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	// Use a non-existent directory
 	nonExistentPath := filepath.Join(tempDir, "nonexistent")
@@ -222,12 +222,12 @@ func TestManager_InstallPackagesIntegration(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	manager := NewManager(logger)
+	manager := NewManager(logger, tempDir)
 
 	// Test with a very simple, fast-installing package
 	packages := []string{"six==1.16.0"} // Pin version for predictability
 
-	err = manager.SetupEnvironment(tempDir, packages)
+	err = manager.SetupEnvironment(packages)
 	if err != nil {
 		// If this fails due to network issues, skip rather than fail
 		if strings.Contains(err.Error(), "network") ||

@@ -70,6 +70,7 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -302,6 +303,7 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -444,6 +446,7 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -531,6 +534,7 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -814,6 +818,7 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -1060,6 +1065,7 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
+		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 

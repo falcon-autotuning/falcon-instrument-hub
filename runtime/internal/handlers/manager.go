@@ -30,7 +30,8 @@ type Manager struct {
 	logger                         *logging.Logger
 	nc                             *nats.Conn
 	mu                             sync.RWMutex
-	venvMgr                        *manageVenv.Manager
+	instrumentVenvMgr              *manageVenv.Manager
+	interpreterVenvMgr             *manageVenv.Manager
 	logHandler                     *LogHandler
 	deviceConfigHandler            *DeviceConfigHandler
 	instrumentHandler              *instrument.Handler
@@ -51,9 +52,16 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 	measurementManager *measurements.Manager,
-	venvMgr *manageVenv.Manager,
+	instrumentVenvMgr *manageVenv.Manager,
+	interpreterVenvMgr *manageVenv.Manager,
 ) *Manager {
-	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg)
+	instrumentHandler, err := instrument.NewHandler(
+		logger,
+		natsURL,
+		nc,
+		cfg,
+		instrumentVenvMgr.GetPythonInterpreter(),
+	)
 	if err != nil {
 		logger.Error(
 			HandlerManagerName,
@@ -62,8 +70,7 @@ func NewManager(
 		// For now, return a basic handler - you might want to return an error
 		// instead
 		instrumentHandler = &instrument.Handler{
-			Instruments:       make(map[string]*instrument.InstrumentProcess),
-			PythonInterpreter: venvMgr.GetPythonInterpreter(),
+			Instruments: make(map[string]*instrument.InstrumentProcess),
 		}
 	}
 
@@ -72,11 +79,16 @@ func NewManager(
 		logger:              logger,
 		nc:                  nc,
 		natsURL:             natsURL,
-		venvMgr:             venvMgr,
+		instrumentVenvMgr:   instrumentVenvMgr,
+		interpreterVenvMgr:  interpreterVenvMgr,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
-		interpreterHandler:  NewInterpreterHandler(logger, natsURL),
+		interpreterHandler: NewInterpreterHandler(
+			logger,
+			natsURL,
+			interpreterVenvMgr.GetPythonInterpreter(),
+		),
 		performInstrumentMethodHandler: NewPerformInstrumentMethodHandler(
 			logger,
 			instrumentHandler,

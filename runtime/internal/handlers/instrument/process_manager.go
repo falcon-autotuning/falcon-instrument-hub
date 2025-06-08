@@ -18,7 +18,7 @@ func (h *Handler) startInstrument(name string) error {
 	// Create command
 	cmd := exec.CommandContext(
 		ctx,
-		h.PythonInterpreter,
+		h.pythonInterpreter,
 		scriptPath,
 		name,
 		h.natsURL,

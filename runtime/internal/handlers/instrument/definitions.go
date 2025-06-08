@@ -69,7 +69,7 @@ type Handler struct {
 	mutex             sync.RWMutex
 	subscriptions     []*nats.Subscription
 	portProcessor     *PortProcessor
-	PythonInterpreter string
+	pythonInterpreter string
 }
 
 // subscriptionConfig represents a subscription configuration
