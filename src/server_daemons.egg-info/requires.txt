@@ -5,3 +5,4 @@ nats.py==2.10.0
 pytest-asyncio>=1.0.0
 falcon_core
 instrument_templates
+instrument_test_suite
