@@ -11,17 +11,17 @@ class LOG:
 
     @property
     def MESSAGE(self) -> str:
-        """The contents of the log message"""
+        """The contents of the log message."""
         return "message"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def HASH(self) -> str:
-        """the hash for the requesting unit"""
+        """The hash for the requesting unit."""
         return "hash"
 
 
@@ -35,22 +35,22 @@ class MEASUREMENT_READY:
 
     @property
     def GETTERS(self) -> str:
-        """the connections that are ready to be measured"""
+        """The connections that are ready to be measured."""
         return "getters"
 
     @property
     def SETTERS(self) -> str:
-        """the connections that are to be set when buffered"""
+        """The connections that are to be set when buffered."""
         return "setters"
 
     @property
     def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
+        """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -64,17 +64,17 @@ class PROCESS_DATA:
 
     @property
     def DATA(self) -> str:
-        """the data taken from the instruments for interpretation"""
+        """The data taken from the instruments for interpretation."""
         return "data"
 
     @property
     def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
+        """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -88,22 +88,22 @@ class PROCESS_REQUEST:
 
     @property
     def REQUEST(self) -> str:
-        """The measurement request from FAlCon"""
+        """The measurement request from FAlCon."""
         return "request"
 
     @property
     def CONFIGURATIONS(self) -> str:
-        """The configurations of the instruments loaded into the instrument server"""
+        """The configurations of the instruments loaded into the instrument server."""
         return "configurations"
 
     @property
     def DATA_PATH(self) -> str:
-        """The filepath to the spot in the HDF5 database to store the collected data at"""
+        """The filepath to the spot in the HDF5 database to store the collected data at."""
         return "data_path"
 
     @property
     def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
+        """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
 
 
@@ -117,12 +117,12 @@ class STATUS:
 
     @property
     def STATUS(self) -> str:
-        """At compilation of this message the state of the process"""
+        """At compilation of this message the state of the process."""
         return "status"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -136,22 +136,22 @@ class UPDATE_DAEMON_PROPERTY:
 
     @property
     def PROPERTY(self) -> str:
-        """The main subclass of property"""
+        """The main subclass of property."""
         return "property"
 
     @property
     def NAME(self) -> str:
-        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
+        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique."""
         return "name"
 
     @property
     def VALUE(self) -> str:
-        """The quantity"""
+        """The quantity."""
         return "value"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -165,12 +165,12 @@ class UPLOAD_DATA:
 
     @property
     def DATA(self) -> str:
-        """the jsonable measurement request for the FAlCon to unpack and use"""
+        """The jsonable measurement request for the FAlCon to unpack and use."""
         return "data"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -184,17 +184,17 @@ class CONFIRM_INITIALIZATION:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def INIT(self) -> str:
-        """the configuration of the daemon, property_name and index indexed"""
+        """The configuration of the daemon, property_name and index indexed."""
         return "init"
 
     @property
     def PORT(self) -> str:
-        """the configuration of the instrument ports"""
+        """The configuration of the instrument ports."""
         return "port"
 
 
@@ -208,12 +208,12 @@ class GET:
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
 
@@ -227,17 +227,17 @@ class PERFORM_ARBITRARY_METHOD:
 
     @property
     def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
+        """The name of the method that is to be performed."""
         return "method"
 
     @property
     def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
+        """Arbitrary keyword arguments to be passes to the method."""
         return "keyword_args"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -251,17 +251,17 @@ class RETURN_DATA:
 
     @property
     def DATA(self) -> str:
-        """The measured data collected on the instrument"""
+        """The measured data collected on the instrument."""
         return "data"
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
 
@@ -275,22 +275,22 @@ class RETURN_GET:
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
     @property
     def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
+        """The argument to be set inside the instrument."""
         return "value"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
 
@@ -304,17 +304,17 @@ class SET:
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
     @property
     def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
+        """The argument to be set inside the instrument."""
         return "value"
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
 
@@ -328,12 +328,12 @@ class TRIGGER:
 
     @property
     def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
+        """The particular index of a instrument that is to be set."""
         return "index"
 
     @property
     def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
+        """The name of the property that is to be set."""
         return "property"
 
 
@@ -347,12 +347,12 @@ class SETUP_INSTRUMENT:
 
     @property
     def NAME(self) -> str:
-        """the name of the instrument to startup"""
+        """The name of the instrument to startup."""
         return "name"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -366,12 +366,12 @@ class DESTROY_INSTRUMENT:
 
     @property
     def NAME(self) -> str:
-        """the name of the instrument to stop"""
+        """The name of the instrument to stop."""
         return "name"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -390,17 +390,17 @@ class PERFORM_INSTRUMENT_METHOD:
 
     @property
     def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
+        """The name of the method that is to be performed."""
         return "method"
 
     @property
     def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
+        """Arbitrary keyword arguments to be passes to the method."""
         return "keyword_args"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -414,7 +414,7 @@ class BUSY:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -428,7 +428,7 @@ class PORT_REQUEST:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -442,17 +442,17 @@ class PORT_PAYLOAD:
 
     @property
     def KNOBS(self) -> str:
-        """All of the knobs attached to the instrument server"""
+        """All of the knobs attached to the instrument server."""
         return "knobs"
 
     @property
     def METERS(self) -> str:
-        """All of the meters attached to the instrument server"""
+        """All of the meters attached to the instrument server."""
         return "meters"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -466,7 +466,7 @@ class DEVICE_CONFIG_REQUEST:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
 
@@ -480,12 +480,12 @@ class DEVICE_CONFIG_RESPONSE:
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def RESPONSE(self) -> str:
-        """The device config for use understanding the device layout"""
+        """The device config for use understanding the device layout."""
         return "response"
 
 
@@ -499,17 +499,17 @@ class MEASURE_COMMAND:
 
     @property
     def REQUEST(self) -> str:
-        """the measurement request to be taken"""
+        """The measurement request to be taken."""
         return "request"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def HASH(self) -> str:
-        """the hash for the requesting unit"""
+        """The hash for the requesting unit."""
         return "hash"
 
 
@@ -523,17 +523,17 @@ class MEASURE_RESPONSE:
 
     @property
     def RESPONSE(self) -> str:
-        """the measurement response containing the information from the server"""
+        """The measurement response containing the information from the server."""
         return "response"
 
     @property
     def TIMESTAMP(self) -> str:
-        """When the response was completed"""
+        """When the response was completed."""
         return "timestamp"
 
     @property
     def HASH(self) -> str:
-        """the hash for the requesting unit"""
+        """The hash for the requesting unit."""
         return "hash"
 
 

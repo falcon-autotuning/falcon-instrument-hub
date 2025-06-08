@@ -53,9 +53,11 @@ class InstrumentDaemon:
             # Try to connect to NATS with timeout
             print(f"Attempting to connect to NATS at {self._url}...", flush=self._debug)
             self._nc = await nats.connect(self._url)
-            print("Connected to NATS successfully", flush=self._debug)
+            await self.log("Connected to NATS successfully")
             await self.confirm_initialization()
+            await self.log(f"Instrument config released for {self._instrument_name}")
             await self.setup_subscriptions()
+            await self.log(f"Setup all subscriptions for {self._instrument_name}")
             self._loop.create_task(self.publish_status())
             self._loop.create_task(self.message_consumer())
         except asyncio.TimeoutError:
@@ -65,7 +67,7 @@ class InstrumentDaemon:
 
         try:
             # Wait for shutdown signal or until the program is interrupted
-            print(
+            await self.log(
                 f"Daemon {self._instrument_name} running, waiting for shutdown signal..."
             )
             # Just wait forever - let SIGTERM kill the process naturally
@@ -74,11 +76,11 @@ class InstrumentDaemon:
 
         except (KeyboardInterrupt, asyncio.CancelledError):
             # Handle Ctrl+C or process termination
-            print(
+            await self.log(
                 f"Daemon serving {self._instrument_name} interrupted, shutting down..."
             )
         finally:
-            print(f"Cleaning up {self._instrument_name}")
+            await self.log(f"Cleaning up {self._instrument_name}")
             # Simple cleanup without waiting for complex shutdown events
             if hasattr(self, "_nc") and self._nc:
                 with contextlib.suppress(asyncio.TimeoutError, Exception):
@@ -193,6 +195,7 @@ class InstrumentDaemon:
         Args:
             message: The message to log.
         """
+        print(f"Logging message: {message}", flush=self._debug)
         message = json.dumps(
             {
                 DRIVER_RUNTIME_COMMANDS.LOG.MESSAGE: message,
@@ -241,7 +244,9 @@ class InstrumentDaemon:
                     message=message,
                 )
                 await asyncio.sleep(refresh)
-            print("Status publishing stopped due to shutdown event")
+            await self.log(
+                f"Status publishing stopped due to shutdown event for {self._instrument_name}"
+            )
         except asyncio.CancelledError:
             print("Status publishing cancelled")
             raise
@@ -258,9 +263,9 @@ class InstrumentDaemon:
                 for channel, message in messages:
                     await self.send_command(channel, message)
                 await asyncio.sleep(0.01)  # Small delay to prevent busy waiting
-            print("Message consumer stopped")
+            await self.log(f"Message consumer stopped for {self._instrument_name}")
         except asyncio.CancelledError:
-            print("Message consumer cancelled")
+            await self.log(f"Message consumer cancelled for {self._instrument_name}")
             raise
         except Exception as e:
             await self.log(f"Error in message consumer: {e}")
