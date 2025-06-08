@@ -74,14 +74,13 @@ class TestInterpreterDaemon:
     ):
         """Create an instance of InterpreterDaemon with a mock loop."""
         _, _, _ = mock_nats
-        loop = asyncio.new_event_loop()
-        return InterpreterDaemon(url="nats://localhost:4222", loop=loop)
+        asyncio.new_event_loop()
+        return InterpreterDaemon(url="nats://localhost:4222")
 
     @pytest.mark.asyncio
     async def test_initialization(self, interpreter_daemon):
         """Test that the interpreter daemon initializes correctly."""
         assert interpreter_daemon._url == "nats://localhost:4222"
-        assert isinstance(interpreter_daemon._loop, asyncio.AbstractEventLoop)
         assert interpreter_daemon._data_queue == {}
         assert interpreter_daemon._measurement_groups == {}
 

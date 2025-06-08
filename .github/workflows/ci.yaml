@@ -1,0 +1,133 @@
+name: Cross-Platform Integration Tests
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-linux:
+    runs-on: ubuntu-latest
+    services:
+      nats:
+        image: nats:latest
+        ports:
+          - 4222:4222
+          - 8222:8222
+        options: --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8222/varz || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
+        args: --http_port 8222 -js
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -r requirements-dev.txt
+
+      - name: Build Go binary
+        run: |
+          cd runtime
+          go build -o bin/instrument-server cmd/main.go
+
+      - name: Wait for NATS
+        run: |
+          timeout 30 bash -c 'until curl -f http://localhost:8222/jsz; do sleep 1; done'
+
+      - name: Run unit tests
+        run: pytest tests/test_interpreter_daemon.py -v
+
+      - name: Run integration tests
+        run: pytest tests/test_launch_script_interpreter.py -v
+
+      - name: Run full system tests
+        run: pytest tests/integration/ -v
+
+  test-windows:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Start NATS with JetStream
+        run: |
+          go install github.com/nats-io/nats-server/v2@latest
+          Start-Process -FilePath "$env:GOPATH\bin\nats-server.exe" -ArgumentList "--jetstream", "--port", "4222", "--http_port", "8222" -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -r requirements-dev.txt
+
+      - name: Build Go binary
+        run: |
+          cd runtime
+          go build -o bin/instrument-server.exe cmd/main.go
+
+      - name: Run unit tests
+        run: pytest tests/test_interpreter_daemon.py -v
+
+      - name: Run integration tests
+        run: pytest tests/test_launch_script_interpreter.py -v
+
+  test-macos:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.11"
+
+      - name: Install NATS server
+        run: |
+          brew install nats-server
+          nats-server --jetstream --port 4222 --http_port 8222 &
+          sleep 3
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+          pip install -r requirements-dev.txt
+
+      - name: Build Go binary
+        run: |
+          cd runtime
+          go build -o bin/instrument-server cmd/main.go
+
+      - name: Run tests
+        run: |
+          pytest tests/test_interpreter_daemon.py -v
+          pytest tests/test_launch_script_interpreter.py -v
