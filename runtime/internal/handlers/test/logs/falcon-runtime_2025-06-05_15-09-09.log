@@ -1,6 +1,0 @@
-[2025-06-05 15:09:09.317] [INFO] [SYSTEM] Logger initialized
-[2025-06-05 15:09:09.318] [INFO] [SYSTEM] Log file: test/logs/falcon-runtime_2025-06-05_15-09-09.log
-[2025-06-05 15:09:09.320] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
-[2025-06-05 15:09:09.321] [DEBUG] [PORT_REQUEST_HANDLER] Collecting port properties from 2 active instruments: [dac1 dac2]
-[2025-06-05 15:09:09.322] [DEBUG] [PORT_REQUEST_HANDLER] Collected 2 knobs and 2 meters
-[2025-06-05 15:09:09.323] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external
