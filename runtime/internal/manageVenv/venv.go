@@ -1,4 +1,4 @@
-package venv
+package manageVenv
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
@@ -17,22 +18,25 @@ const (
 
 // Manager handles Python virtual environment creation and management
 type Manager struct {
-	logger   *logging.Logger
-	venvPath string
+	logger     *logging.Logger
+	workingDir string       // Working directory for the virtual environment
+	mu         sync.RWMutex // Mutex for thread-safe access
+	venvPath   string
 }
 
 // NewManager creates a new virtual environment manager
-func NewManager(logger *logging.Logger) *Manager {
+func NewManager(logger *logging.Logger, workingDir string) *Manager {
 	return &Manager{
-		logger: logger,
+		logger:     logger,
+		workingDir: workingDir,
 	}
 }
 
 // SetupEnvironment creates a Python virtual environment with the specified
 // packages
-func (m *Manager) SetupEnvironment(outputPath string, packages []string) error {
+func (m *Manager) SetupEnvironment(packages []string) error {
 	// Create venv directory in the output path
-	venvDir := filepath.Join(outputPath, "venv")
+	venvDir := filepath.Join(m.workingDir, "venv")
 	m.venvPath = venvDir
 
 	m.logger.Info(
@@ -203,4 +207,28 @@ func (m *Manager) resolvePackageURL(pkg string) string {
 
 	// Otherwise, treat it as a regular PyPI package
 	return pkg
+}
+
+// getPythonInterpreter returns the appropriate Python interpreter path
+func (m *Manager) getPythonInterpreter() string {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if m.venvPath != "" {
+		// Try to find python in the virtual environment
+		if _, err := os.Stat(filepath.Join(m.venvPath, "bin", "python")); err == nil {
+			return filepath.Join(m.venvPath, "bin", "python")
+		} else if _, err := os.Stat(filepath.Join(m.venvPath, "Scripts", "python.exe")); err == nil {
+			return filepath.Join(m.venvPath, "Scripts", "python.exe")
+		}
+		m.logger.Warn(
+			logSource,
+			fmt.Sprintf(
+				"Could not find python in virtual environment %s, falling back to default",
+				m.venvPath,
+			),
+		)
+	}
+
+	return m.workingDir
 }

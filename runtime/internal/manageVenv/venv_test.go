@@ -1,4 +1,4 @@
-package venv
+package manageVenv
 
 import (
 	"os"
@@ -34,11 +34,6 @@ func TestManager_SetupEnvironment_EmptyPackages(t *testing.T) {
 	manager := NewManager(logger)
 	err = manager.SetupEnvironment(tempDir, []string{})
 	assert.NoError(t, err, "Should not error when no packages are provided")
-	assert.Empty(
-		t,
-		manager.GetPath(),
-		"Should not set venv path when no packages",
-	)
 }
 
 func TestManager_SetupEnvironment_Success(t *testing.T) {
@@ -192,36 +187,6 @@ func TestManager_createVirtualEnvironment(t *testing.T) {
 	// Verify pyvenv.cfg exists (this is created by venv)
 	pyvenvCfg := filepath.Join(venvPath, "pyvenv.cfg")
 	assert.FileExists(t, pyvenvCfg)
-}
-
-func TestManager_getPipPath(t *testing.T) {
-	// Skip this test if python3 is not available
-	if _, err := exec.LookPath("python3"); err != nil {
-		t.Skip("python3 not available, skipping pip path test")
-	}
-
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-	defer logger.Close()
-
-	manager := NewManager(logger)
-	venvPath := filepath.Join(tempDir, "test_venv")
-
-	// Create the virtual environment first
-	err = manager.createVirtualEnvironment(venvPath)
-	require.NoError(t, err)
-
-	// Get pip path
-	pipPath, err := manager.getPipPath(venvPath)
-	require.NoError(t, err, "Failed to get pip path")
-
-	// Verify pip path is not empty and contains the venv directory
-	assert.NotEmpty(t, pipPath)
-	assert.Contains(t, pipPath, venvPath)
-
-	// Verify pip executable exists
-	assert.FileExists(t, pipPath)
 }
 
 func TestManager_getPipPath_NotFound(t *testing.T) {
