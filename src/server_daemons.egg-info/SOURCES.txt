@@ -3,6 +3,7 @@ Makefile
 README.md
 api-update.sh
 pyproject.toml
+requirements-test.txt
 requirements.txt
 ruff.toml
 uv.lock
