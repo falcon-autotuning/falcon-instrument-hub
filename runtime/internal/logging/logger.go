@@ -26,16 +26,10 @@ type LogEntry struct {
 
 // NewLogger creates a new logger instance
 func NewLogger(outputPath string) (*Logger, error) {
-	// Create logs directory if it doesn't exist
-	logsDir := filepath.Join(outputPath, "logs")
-	if err := os.MkdirAll(logsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create logs directory: %w", err)
-	}
-
 	// Create log file with timestamp
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	filename := fmt.Sprintf("falcon-runtime_%s.log", timestamp)
-	filePath := filepath.Join(logsDir, filename)
+	filePath := filepath.Join(outputPath, filename)
 
 	file, err := os.Create(filePath)
 	if err != nil {
@@ -145,7 +139,8 @@ func (l *Logger) Close() error {
 	defer l.mu.Unlock()
 
 	if l.file != nil {
-		// Write shutdown message directly without using the logger methods to avoid recursion
+		// Write shutdown message directly without using the logger methods to
+		// avoid recursion
 		shutdownMsg := fmt.Sprintf("[%s] [%s] [%s] %s\n",
 			time.Now().Format("2006-01-02 15:04:05.000"),
 			"INFO",

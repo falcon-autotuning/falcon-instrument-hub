@@ -360,6 +360,12 @@ func (h *MeasureCommandHandler) sendProcessRequest(
 			len(configurations),
 		),
 	)
+	if len(configurations) == 0 {
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			"0 port configurations. Did you set up your instruments correctly?",
+		)
+	}
 
 	return nil
 }
