@@ -11,11 +11,14 @@ from pathlib import Path
 import nats
 import pytest
 import yaml
+from falcon_core.communications import Time
 from falcon_core.communications.messages import MeasurementRequest
 
 from server_daemons.api.interpreter import (
     RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
 )
+
+from .server_api import RUNTIME_COMMANDS
 
 
 @pytest.fixture(scope="module")
@@ -420,6 +423,7 @@ async def test_full_measurement_flow(
     """Test a complete measurement flow from request to data upload."""
     # Connect to NATS
     nc = await nats.connect("nats://localhost:4222")
+    processName = "Test"
 
     try:
         # Collect messages
@@ -434,10 +438,11 @@ async def test_full_measurement_flow(
 
         # Subscribe to channels
         await nc.subscribe(
-            INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL, cb=status_handler
+            RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".instrument-server",
+            cb=status_handler,
         )
         await nc.subscribe(
-            INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL, cb=upload_handler
+            RUNTIME_COMMANDS.MEASURE_RESPONSE.COMM_CHANNEL, cb=upload_handler
         )
 
         # Wait for status message (daemon is running)
@@ -453,18 +458,18 @@ async def test_full_measurement_flow(
         )
 
         process_request = {
-            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: request.to_json(),
-            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: "integration_test_001",
-            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: json.dumps({}),
+            RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: request.to_json(),
+            RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: 692,
+            RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: Time().time,
         }
 
         await nc.publish(
-            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL,
+            RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL + ".external." + processName,
             json.dumps(process_request).encode(),
         )
 
         # Wait for processing
-        await asyncio.sleep(2)
+        await asyncio.sleep(10)
 
         # Verify processes are still running
         if go_runtime_process.poll() is not None:
@@ -493,8 +498,7 @@ async def test_full_measurement_flow(
             else:
                 print("Log directory does not exist")
 
-        assert go_runtime_process.poll() is None, "Go runtime process died"
-        assert interpreter_daemon_process.poll() is None, "Interpreter daemon died"
-
+        assert upload_msgs, "No upload messages received"
+        print(upload_msgs)
     finally:
         await nc.close()

@@ -1,5 +1,6 @@
 """Constants for the daemons contained for the instrument server."""
 
+
 class LOG:
     """The substrings necessary for contains the necessary substrings for a logging style command."""
 
@@ -22,6 +23,7 @@ class LOG:
     def HASH(self) -> str:
         """the hash for the requesting unit"""
         return "hash"
+
 
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
@@ -51,6 +53,7 @@ class MEASUREMENT_READY:
         """When the response was completed"""
         return "timestamp"
 
+
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
 
@@ -73,6 +76,7 @@ class PROCESS_DATA:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class PROCESS_REQUEST:
     """The substrings necessary for a request to the interpreter to process an incoming measurement."""
@@ -102,6 +106,7 @@ class PROCESS_REQUEST:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
 
+
 class STATUS:
     """The substrings necessary for provide the status of the process."""
 
@@ -119,6 +124,7 @@ class STATUS:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class UPDATE_DAEMON_PROPERTY:
     """The substrings necessary for issued to selectively update an instruments property in a daemon."""
@@ -148,6 +154,7 @@ class UPDATE_DAEMON_PROPERTY:
         """When the response was completed"""
         return "timestamp"
 
+
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
 
@@ -165,6 +172,7 @@ class UPLOAD_DATA:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class CONFIRM_INITIALIZATION:
     """The substrings necessary for confirm initialization of a daemon and provide configuration."""
@@ -189,6 +197,7 @@ class CONFIRM_INITIALIZATION:
         """the configuration of the instrument ports"""
         return "port"
 
+
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
 
@@ -206,6 +215,7 @@ class GET:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
 
 class PERFORM_ARBITRARY_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -230,6 +240,7 @@ class PERFORM_ARBITRARY_METHOD:
         """When the response was completed"""
         return "timestamp"
 
+
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
 
@@ -252,6 +263,7 @@ class RETURN_DATA:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
 
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
@@ -281,6 +293,7 @@ class RETURN_GET:
         """The name of the property that is to be set"""
         return "property"
 
+
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
 
@@ -304,6 +317,7 @@ class SET:
         """The name of the property that is to be set"""
         return "property"
 
+
 class TRIGGER:
     """The substrings necessary for execute a trigger/arm on a buffered instrument."""
 
@@ -321,6 +335,7 @@ class TRIGGER:
     def PROPERTY(self) -> str:
         """The name of the property that is to be set"""
         return "property"
+
 
 class SETUP_INSTRUMENT:
     """The substrings necessary for sets up an instrument on a instrument server."""
@@ -340,6 +355,7 @@ class SETUP_INSTRUMENT:
         """When the response was completed"""
         return "timestamp"
 
+
 class DESTROY_INSTRUMENT:
     """The substrings necessary for shuts down an instrument on a instrument server."""
 
@@ -357,6 +373,7 @@ class DESTROY_INSTRUMENT:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class PERFORM_INSTRUMENT_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -386,6 +403,7 @@ class PERFORM_INSTRUMENT_METHOD:
         """When the response was completed"""
         return "timestamp"
 
+
 class BUSY:
     """The substrings necessary for if a process is currently running an action right now."""
 
@@ -399,6 +417,7 @@ class BUSY:
         """When the response was completed"""
         return "timestamp"
 
+
 class PORT_REQUEST:
     """The substrings necessary for request all current instrument ports."""
 
@@ -411,6 +430,7 @@ class PORT_REQUEST:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class PORT_PAYLOAD:
     """The substrings necessary for all of the current instrument ports."""
@@ -435,6 +455,7 @@ class PORT_PAYLOAD:
         """When the response was completed"""
         return "timestamp"
 
+
 class DEVICE_CONFIG_REQUEST:
     """The substrings necessary for a request for the device configuration."""
 
@@ -447,6 +468,7 @@ class DEVICE_CONFIG_REQUEST:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
 
 class DEVICE_CONFIG_RESPONSE:
     """The substrings necessary for a response containing the device configuration."""
@@ -465,6 +487,7 @@ class DEVICE_CONFIG_RESPONSE:
     def RESPONSE(self) -> str:
         """The device config for use understanding the device layout"""
         return "response"
+
 
 class MEASURE_COMMAND:
     """The substrings necessary for issued to runtime to request a measurement from the instrument server."""
@@ -488,6 +511,7 @@ class MEASURE_COMMAND:
     def HASH(self) -> str:
         """the hash for the requesting unit"""
         return "hash"
+
 
 class MEASURE_RESPONSE:
     """The substrings necessary for recieve a response from the runtime as to the measurement performed."""
