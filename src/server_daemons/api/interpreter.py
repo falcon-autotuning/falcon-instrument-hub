@@ -9,6 +9,11 @@ class LOG:
         return "LOG"
 
     @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
+
+    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -17,11 +22,6 @@ class LOG:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
 
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
@@ -83,16 +83,6 @@ class PROCESS_REQUEST:
         return "PROCESS_REQUEST"
 
     @property
-    def REQUEST(self) -> str:
-        """The measurement request from FAlCon"""
-        return "request"
-
-    @property
-    def CONFIGURATIONS(self) -> str:
-        """The configurations of the instruments loaded into the instrument server"""
-        return "configurations"
-
-    @property
     def DATA_PATH(self) -> str:
         """The filepath to the spot in the HDF5 database to store the collected data at"""
         return "data_path"
@@ -101,6 +91,16 @@ class PROCESS_REQUEST:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
+
+    @property
+    def REQUEST(self) -> str:
+        """The measurement request from FAlCon"""
+        return "request"
+
+    @property
+    def CONFIGURATIONS(self) -> str:
+        """The configurations of the instruments loaded into the instrument server"""
+        return "configurations"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""
@@ -129,16 +129,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def VALUE(self) -> str:
-        """The quantity"""
-        return "value"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROPERTY(self) -> str:
         """The main subclass of property"""
         return "property"
@@ -147,6 +137,16 @@ class UPDATE_DAEMON_PROPERTY:
     def NAME(self) -> str:
         """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
         return "name"
+
+    @property
+    def VALUE(self) -> str:
+        """The quantity"""
+        return "value"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""

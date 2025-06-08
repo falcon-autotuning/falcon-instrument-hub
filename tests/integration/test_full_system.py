@@ -294,7 +294,7 @@ def interpreter_daemon_process():
 
 
 @pytest.mark.asyncio
-async def test_full_measurement_flow(
+async def test_interpreter_flow(
     go_runtime_process, interpreter_daemon_process, test_config_files
 ):
     """Test a complete measurement flow from request to data upload."""
@@ -406,6 +406,95 @@ async def test_daemon_health_monitoring():
         latest_status = status_msgs[-1]
         assert INTERPRETER_RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
         assert INTERPRETER_RUNTIME_COMMANDS.STATUS.STATUS in latest_status
+
+    finally:
+        await nc.close()
+
+
+@pytest.mark.asyncio
+async def test_full_measurement_flow(
+    go_runtime_process,
+    interpreter_daemon_process,
+    test_config_files,
+):
+    """Test a complete measurement flow from request to data upload."""
+    # Connect to NATS
+    nc = await nats.connect("nats://localhost:4222")
+
+    try:
+        # Collect messages
+        status_msgs = []
+        upload_msgs = []
+
+        async def status_handler(msg):
+            status_msgs.append(json.loads(msg.data.decode()))
+
+        async def upload_handler(msg):
+            upload_msgs.append(json.loads(msg.data.decode()))
+
+        # Subscribe to channels
+        await nc.subscribe(
+            INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL, cb=status_handler
+        )
+        await nc.subscribe(
+            INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL, cb=upload_handler
+        )
+
+        # Wait for status message (daemon is running)
+        await asyncio.sleep(1)
+        assert len(status_msgs) > 0, "No status messages received"
+
+        # Create and send measurement request
+        request = MeasurementRequest(
+            message="test measurement",
+            measurement_name="integration_test",
+            waveforms=[],
+            meter_transforms=[],
+        )
+
+        process_request = {
+            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: request.to_json(),
+            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: "integration_test_001",
+            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: json.dumps({}),
+        }
+
+        await nc.publish(
+            INTERPRETER_RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL,
+            json.dumps(process_request).encode(),
+        )
+
+        # Wait for processing
+        await asyncio.sleep(2)
+
+        # Verify processes are still running
+        if go_runtime_process.poll() is not None:
+            print(f"Go process died. Exit code: {go_runtime_process.returncode}")
+            try:
+                stdout, stderr = go_runtime_process.communicate(timeout=1)
+            except subprocess.TimeoutExpired:
+                stdout, stderr = "", ""
+
+            print(f"STDOUT:\n{stdout}")
+            print(f"STDERR:\n{stderr}")
+
+            # Show Go application logs
+            log_dir = Path(test_config_files["working_dir"]) / "log"
+            print(f"Checking for logs in: {log_dir}")
+            print(f"Log dir exists: {log_dir.exists()}")
+            if log_dir.exists():
+                print(f"Log directory contents: {list(log_dir.iterdir())}")
+                for log_file in log_dir.glob("*.log"):
+                    print(f"Log file: {log_file}")
+                    try:
+                        content = log_file.read_text()
+                        print(f"Contents of {log_file.name}:\n{content}")
+                    except Exception as e:
+                        print(f"Could not read {log_file}: {e}")
+            else:
+                print("Log directory does not exist")
+
+        assert go_runtime_process.poll() is None, "Go runtime process died"
+        assert interpreter_daemon_process.poll() is None, "Interpreter daemon died"
 
     finally:
         await nc.close()
