@@ -13,13 +13,10 @@ Classifier: Topic :: Scientific/Engineering
 Requires-Python: >=3.13
 Description-Content-Type: text/x-rst
 Requires-Dist: numpy>=2.0.0
-Requires-Dist: pytest==8.2.1
 Requires-Dist: setuptools-scm==8.1.0
 Requires-Dist: nats.py==2.10.0
-Requires-Dist: pytest-asyncio>=1.0.0
 Requires-Dist: falcon_core
 Requires-Dist: instrument_templates
-Requires-Dist: instrument_test_suite
 
 # instrument-server
 

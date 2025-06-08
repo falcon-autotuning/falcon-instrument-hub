@@ -10,3 +10,4 @@ py-api-loader --repo=server-interpreter --output=./src/server_daemons/api/interp
 py-api-loader --repo=instrument-templates --output=./src/server_daemons/api/instrument.py
 
 go-api-loader --repo=instrument-server --output=./runtime/internal/api/api.go
+py-api-loader --repo=instrument-server --output=./tests/integration/server_api.py
