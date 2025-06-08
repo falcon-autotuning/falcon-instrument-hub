@@ -33,16 +33,23 @@ stop-nats:
 	docker rm $(NATS_CONTAINER) || true
 
 .PHONY: test-unit
-test-unit: setup-python
+test-unit: start-nats setup-python
+	$(PYTHON_ENV)/bin/pytest tests/test_daemon_simple.py -v
+	$(PYTHON_ENV)/bin/pytest tests/test_signal_handling.py -v
+	$(PYTHON_ENV)/bin/pytest tests/test_instrument_daemon_shutdown.py -v
 	$(PYTHON_ENV)/bin/pytest tests/test_interpreter_daemon.py -v
+
+.PHONY: test-launch
+test-unit: start-nats setup-python
+	$(PYTHON_ENV)/bin/pytest tests/test_launch_script_interpreter.py -v
+	$(PYTHON_ENV)/bin/pytest tests/test_launch_script_daemon.py -v
 
 .PHONY: test-integration
 test-integration: start-nats setup-python build-go
-	$(PYTHON_ENV)/bin/pytest tests/test_launch_script_interpreter.py -v
 	$(PYTHON_ENV)/bin/pytest tests/integration/ -v
 
 .PHONY: test
-test: test-unit test-integration
+test: test-unit test-launch test-integration
 
 .PHONY: clean
 clean: stop-nats

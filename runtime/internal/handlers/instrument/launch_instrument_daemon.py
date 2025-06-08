@@ -5,28 +5,25 @@ import argparse
 import asyncio
 import importlib
 import importlib.metadata
-from typing import TYPE_CHECKING, Any
 
 from instrument_templates.registry_controls import find_driver
 
 from server_daemons.instrument_daemon import InstrumentDaemon
 
-if TYPE_CHECKING:
-    from instrument_templates.base_instrument_driver import (
-        BaseInstrumentDriver,
-    )
-
 # Load all driver plugins
+print("Before drivers", flush=True)
 for entry_point in importlib.metadata.entry_points(group="driver.plugins"):
     importlib.import_module(entry_point.value)
+    print(f"Found entry point: {entry_point.name} -> {entry_point.value}", flush=True)
 
 
-def get_driver_config_from_args() -> dict[str, Any]:
+def unpack_args() -> tuple[type, str]:
     """Unpacks arguments from the command line and returns a dictionary of the arguments.
 
     Returns:
         A dictionary containing the configuration parameters.
     """
+    print("Parsing command line arguments...", flush=True)
     parser = argparse.ArgumentParser(
         description="Launch a BaseInstrument.",
     )
@@ -42,48 +39,43 @@ def get_driver_config_from_args() -> dict[str, Any]:
     )
 
     args = parser.parse_args()
+    print(f"Parsed args: {args}", flush=True)
 
-    return {
-        "instrument_driver": args.instrument_driver,
-        "url": args.url,
-    }
+    instrument_driver = args.instrument_driver
+    assert isinstance(instrument_driver, str), (
+        f"Invalid driver name {instrument_driver!s}"
+    )
+    print(f"Looking for driver: {instrument_driver}", flush=True)
 
+    selected_driver = find_driver(instrument_driver)
+    print(f"Found driver: {selected_driver}", flush=True)
 
-def build_instrument_driver(config: dict[str, Any]) -> type["BaseInstrumentDriver"]:
-    """Builds the instrument driver from its name.
+    url = args.url
+    assert isinstance(url, str), f"Invalid url {url!s}"
+    print(f"Using URL: {url}", flush=True)
 
-    Args:
-        config: The configuration dictionary containing the driver name.
-
-    Returns:
-        The driver class.
-    """
-    instrument_name = config["instrument_driver"]
-    assert instrument_name is not None, "instrument cannot be None"
-    selected_driver = find_driver(driver_name=instrument_name)
-    assert selected_driver is not None, f"daemon {instrument_name} not found"
-    return selected_driver
+    return selected_driver, url
 
 
 if __name__ == "__main__":
-    config = get_driver_config_from_args()
-    daemon_class = build_instrument_driver(config)
-    print("Found daemon class:", daemon_class)
-
-    # Create the event loop that will be shared with SyncSender
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    url = config["url"]
-    daemon = InstrumentDaemon(
-        url=url,
-        instrument_driver=daemon_class,
-        loop=loop,
-    )
+    print("Starting main execution...", flush=True)
     try:
-        # Run the main function in the loop
-        loop.run_until_complete(
-            daemon.start(),
+        driver, url = unpack_args()
+        print(f"Found driver class: {driver.__name__}", flush=True)
+        print(f"Using NATS URL: {url}", flush=True)
+
+        daemon = InstrumentDaemon(
+            url=url,
+            instrument_driver=driver,
         )
-    finally:
-        # Ensure the loop is closed when we're done
-        loop.close()
+        print("Created daemon instance", flush=True)
+
+        print("Starting daemon...", flush=True)
+        asyncio.run(daemon.start())
+        print("Daemon completed", flush=True)
+    except Exception as e:
+        print(f"Error in main: {e}", flush=True)
+        import traceback
+
+        traceback.print_exc()
+        raise
