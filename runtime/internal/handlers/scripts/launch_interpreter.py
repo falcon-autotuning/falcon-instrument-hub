@@ -3,8 +3,13 @@
 
 import argparse
 import asyncio
+import importlib
+import importlib.metadata
 
 from server_daemons.interpreter_daemon import InterpreterDaemon
+
+for entry_point in importlib.metadata.entry_points(group="core_messaging.plugins"):
+    importlib.import_module(entry_point.value)
 
 
 def get_url() -> str:
