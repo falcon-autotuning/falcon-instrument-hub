@@ -182,17 +182,16 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.WiringDC),
 	)
 	// setup instrument virtual environment
-	instrumentPackages := append(append(
-		[]string{corePackage},
-		templatesPackage),
-		packages...)
-	if err := services.instrumentVenvMgr.SetupEnvironment(instrumentPackages); err != nil {
-		return fmt.Errorf("failed to setup instrument environment: %w", err)
-	}
 	interpreterPackages := append(append(
 		[]string{corePackage},
 		templatesPackage),
 		[]string{interpreterPackage}...)
+	instrumentPackages := append(
+		interpreterPackages,
+		packages...)
+	if err := services.instrumentVenvMgr.SetupEnvironment(instrumentPackages); err != nil {
+		return fmt.Errorf("failed to setup instrument environment: %w", err)
+	}
 	if err := services.interpreterVenvMgr.SetupEnvironment(interpreterPackages); err != nil {
 		return fmt.Errorf("failed to setup interpreter environment: %w", err)
 	}

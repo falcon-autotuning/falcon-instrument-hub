@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 import subprocess
-import tempfile
 import time
 from pathlib import Path
 
@@ -21,22 +20,23 @@ from .server_api import RUNTIME_COMMANDS
 @pytest.fixture(scope="module")
 def temp_dir():
     """Yields a temporary directory for test files."""
-    with tempfile.TemporaryDirectory() as temp_dir:
-        yield temp_dir
-        # Check for Go application logs
-        log_dir = Path(temp_dir) / "log"
-        print(f"Checking for logs in: {log_dir}")
-        if log_dir.exists():
-            print(f"Log directory contents: {list(log_dir.iterdir())}")
-            for log_file in log_dir.glob("*.log"):
-                print(f"Log file: {log_file}")
-                try:
-                    content = log_file.read_text()
-                    print(f"Contents of {log_file.name}:\n{content}")
-                except Exception as e:
-                    print(f"Could not read {log_file}: {e}")
-        else:
-            print("Log directory does not exist")
+    return str(Path("~/Documents/instrument-server/test-outs").expanduser())
+    # with tempfile.TemporaryDirectory() as temp_dir:
+    #     yield temp_dir
+    #     # Check for Go application logs
+    #     log_dir = Path(temp_dir) / "log"
+    #     print(f"Checking for logs in: {log_dir}")
+    #     if log_dir.exists():
+    #         print(f"Log directory contents: {list(log_dir.iterdir())}")
+    #         for log_file in log_dir.glob("*.log"):
+    #             print(f"Log file: {log_file}")
+    #             try:
+    #                 content = log_file.read_text()
+    #                 print(f"Contents of {log_file.name}:\n{content}")
+    #             except Exception as e:
+    #                 print(f"Could not read {log_file}: {e}")
+    #     else:
+    #         print("Log directory does not exist")
 
 
 @pytest.fixture
@@ -48,7 +48,7 @@ def externalProcessName():
 @pytest.fixture
 def expectedInstruments():
     """Returns a list of instruments that should be running."""
-    return ["LargeMultiChannelDac", "MultiChannelAmnmeter"]
+    return ["LargeMultiChannelDAC", "MultiChannelAmnmeter"]
 
 
 @pytest.fixture
@@ -378,9 +378,7 @@ async def test_daemon_health_monitoring(
         instrument_daemons = [
             name for name in expectedDaemons if name != "instrument-server"
         ]
-        instrument_status_count = sum(
-            len(status_msgs[name]) for name in instrument_daemons
-        )
+        sum(len(status_msgs[name]) for name in instrument_daemons)
 
         print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
         for daemon_name, msgs in status_msgs.items():
@@ -394,7 +392,7 @@ async def test_daemon_health_monitoring(
 
         # Check if we have enough status messages
         if all(len(msgs) >= 2 for msgs in status_msgs.values()):
-            print(f"✅ All daemons reported multiple status messages!")
+            print("✅ All daemons reported multiple status messages!")
             break
 
         await asyncio.sleep(check_interval)
@@ -457,6 +455,7 @@ async def test_interpreter_flow(
         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
+    await asyncio.sleep(10)  # Ensure server is ready
 
     await nats_client.publish(
         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,
