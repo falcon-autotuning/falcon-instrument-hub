@@ -13,6 +13,15 @@ import pytest_asyncio
 import yaml
 from falcon_core.communications import Time
 from falcon_core.communications.messages import MeasurementRequest
+from falcon_core.instrument_interfaces.names import Knob, Meter
+from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
+    CartesianWaveform,
+)
+from falcon_core.math.axes import Axes
+from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
+from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
+from falcon_core.math.spaces import CartesianSpace
+from falcon_core.physics.device_structures import BarrierGate, Ohmic
 
 from .server_api import RUNTIME_COMMANDS
 
@@ -425,18 +434,86 @@ async def test_daemon_health_monitoring(
     print("✅ All daemons are healthy and reporting status")
 
 
+@pytest.fixture
+def knobs():
+    """Returns a list of active knobs."""
+    return [
+        Knob(
+            default_name="test_knob",
+            pseudo_name=BarrierGate("B3"),
+        )
+    ]
+
+
+@pytest.fixture
+def meters():
+    """Returns a list of active meters."""
+    return [
+        Meter(
+            default_name="test_meter",
+            pseudo_name=Ohmic("O2"),
+        )
+    ]
+
+
+@pytest.fixture
+def measurement_request(knobs):
+    """Returns a measurement request for testing deployment."""
+    space = CartesianSpace(deltas=[0.1])
+    ckd = CoupledKnobDomain(
+        [
+            KnobDomain.from_knob(
+                bounds=(0, 0.5),
+                knob=knobs[0],
+            )
+        ]
+    )
+    sweep_axes = Axes([ckd])
+    space = CartesianDiscreteSpace(space=space, axes=sweep_axes)
+    waveform = CartesianWaveform(space=space, transforms=[])
+
+    return MeasurementRequest(
+        message="test measurement",
+        measurement_name="integration_test",
+        waveforms=[waveform],
+        meter_transforms=[],  # TODO: use meter
+    )
+
+
+def all_ports_in_ports(
+    subset: list[Meter] | list[Knob],
+    fullset: list[Meter] | list[Knob],
+):
+    """Finds if all the subset are in the fullset."""
+    fullnames = set([port.pseudo_name for port in fullset])
+    subnames = set([port.pseudo_name for port in subset])
+    return subnames.issubset(fullnames)
+
+
 @pytest.mark.asyncio
 async def test_interpreter_flow(
     go_runtime_process,
     nats_client,
     setup_instruments,
+    measurement_request,
+    knobs: list[Knob],
+    meters: list[Meter],
 ):
     """Test a complete interpreter flow from request to data upload."""
     # Collect messages
     upload_msgs = []
+    active_knobs: list[list[Knob]] = []
+    active_meters: list[list[Meter]] = []
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
+
+    async def port_handler(msg):
+        main_contents = json.loads(msg.data.decode())
+        active_knobs.append([Knob.from_json(knob) for knob in main_contents["Knobs"]])
+        active_meters.append(
+            [Meter.from_json(meter) for meter in main_contents["Meters"]]
+        )
 
     # Subscribe to channels
     await nats_client.subscribe(
@@ -444,21 +521,47 @@ async def test_interpreter_flow(
         cb=upload_handler,
     )
 
-    # Create and send measurement request
-    request = MeasurementRequest(
-        message="test measurement",
-        measurement_name="integration_test",
-        waveforms=[],
-        meter_transforms=[],
+    await nats_client.subscribe(
+        RUNTIME_COMMANDS.PORT_PAYLOAD.COMM_CHANNEL + ".external.*",
+        cb=port_handler,
     )
+    port_request = {
+        RUNTIME_COMMANDS.PORT_REQUEST.TIMESTAMP: Time().time,
+    }
 
     process_request = {
-        RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: request.to_json(),
-        RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: "integration_test_001",
+        RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: measurement_request.to_json(),
+        RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 1,
         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
-    await asyncio.sleep(12)  # Ensure server is ready
+    # Wait for multiple status messages with early exit
+    max_wait_time = 30.0
+    check_interval = 4
+    elapsed_time = 0.0
+
+    while elapsed_time < max_wait_time:
+        if (
+            active_knobs
+            and active_meters
+            and all_ports_in_ports(
+                knobs,
+                active_knobs[-1],
+            )
+            and all_ports_in_ports(
+                meters,
+                active_meters[-1],
+            )
+        ):
+            break
+        await asyncio.sleep(check_interval)
+        await nats_client.publish(
+            RUNTIME_COMMANDS.PORT_REQUEST.COMM_CHANNEL + ".external.instrument-server",
+            json.dumps(port_request).encode(),
+        )
+        elapsed_time += check_interval
+    if elapsed_time >= max_wait_time:
+        pytest.fail("Ran out of time")
 
     await nats_client.publish(
         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,

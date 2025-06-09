@@ -284,9 +284,7 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 	setData, err := json.Marshal(setCommand)
 	if err != nil {
 		h.Log.Error(
-			"Failed to marshal %s command: %v",
-			SetCommand,
-			err,
+			"Failed to marshal %s command: %v", SetCommand, err,
 		)
 		return
 	}
@@ -295,21 +293,27 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 	setSubject := fmt.Sprintf("%s.%s", SetCommand, targetInstrument)
 
 	if err := h.nc.Publish(setSubject, setData); err != nil {
-		h.Log.Error(
-			"Failed to publish %s command to %s: %v",
-			SetCommand,
-			setSubject,
-			err,
+		h.logger.Error(
+			HandlerName,
+			fmt.Sprintf(
+				"Failed to publish %s command to %s: %v",
+				SetCommand,
+				setSubject,
+				err,
+			),
 		)
 		return
 	}
 
-	h.Log.Info(
-		"Successfully sent %s command to %s: property=%s, index=%d, value=%v",
-		SetCommand,
-		setSubject,
-		req.Property,
-		targetIndex,
-		req.Value,
+	h.logger.Info(
+		HandlerName,
+		fmt.Sprintf(
+			"Successfully sent %s command to %s: property=%s, index=%d, value=%v",
+			SetCommand,
+			setSubject,
+			req.Property,
+			targetIndex,
+			req.Value,
+		),
 	)
 }

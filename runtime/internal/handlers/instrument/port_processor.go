@@ -2,6 +2,7 @@ package instrument
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -12,6 +13,7 @@ import (
 // PortProcessor handles processing and augmentation of instrument ports
 type PortProcessor struct {
 	logger            *logging.Logger
+	Log               *LogWrapper // Log wrapper for structured logging
 	nameMapping       map[string]*config.DeviceConnection
 	cachedPortConfigs map[string]any // Cache for port configurations
 	portConfigsCached bool           // Flag to track if cache is valid
@@ -21,6 +23,7 @@ type PortProcessor struct {
 // NewPortProcessor creates a new port processor
 func NewPortProcessor(
 	logger *logging.Logger,
+	log *LogWrapper,
 	cfg *config.Config,
 ) (*PortProcessor, error) {
 	// Build name mapping once during initialization
@@ -37,6 +40,7 @@ func NewPortProcessor(
 
 	return &PortProcessor{
 		logger:            logger,
+		Log:               log,
 		nameMapping:       nameMapping,
 		cachedPortConfigs: make(map[string]any),
 		portConfigsCached: false,
@@ -57,23 +61,17 @@ func (pp *PortProcessor) ProcessInstrumentPorts(
 	// Augment the ports with device connection information using pre-built
 	// mapping
 	if err := config.ProcessInstrumentPorts(instrumentPorts, pp.nameMapping, instrumentName); err != nil {
-		pp.logger.Error(
-			HandlerName,
-			fmt.Sprintf(
-				"Failed to augment ports for instrument %s: %v",
-				instrumentName,
-				err,
-			),
+		pp.Log.Error(
+			"Failed to augment ports for instrument %s: %v",
+			instrumentName,
+			err,
 		)
 		return err
 	}
 
-	pp.logger.Debug(
-		HandlerName,
-		fmt.Sprintf(
-			"Successfully processed ports for instrument %s",
-			instrumentName,
-		),
+	pp.Log.Debug(
+		"Successfully processed ports for instrument %s",
+		instrumentName,
 	)
 
 	return nil
@@ -89,12 +87,9 @@ func (pp *PortProcessor) CollectPortProperties(
 		MeterIdentifier = "Meter"
 	)
 
-	pp.logger.Debug(
-		HandlerName,
-		fmt.Sprintf(
-			"Collecting port properties from %d instruments",
-			len(instruments),
-		),
+	pp.Log.Debug(
+		"Collecting port properties from %d instruments",
+		len(instruments),
 	)
 
 	// Collect ports from all active instruments (processing should already be
@@ -106,9 +101,22 @@ func (pp *PortProcessor) CollectPortProperties(
 
 		for _, innerMap := range instrument.Ports {
 			// Type assert innerMap to map[int64]any or similar
-			if portMap, ok := innerMap.(map[int64]any); ok {
+			pp.Log.Debug(
+				"currently checking a range of port value %v",
+				innerMap,
+			)
+			if portMap, ok := innerMap.(map[string]any); ok {
+				pp.Log.Debug(
+					"indeed it is a map string any %v",
+					portMap,
+				)
 				for _, value := range portMap {
 					if valueStr, ok := value.(string); ok {
+						pp.Log.Debug(
+							"currently checking a possible port value %s",
+							valueStr,
+						)
+
 						if strings.Contains(valueStr, KnobIdentifier) {
 							knobs = append(knobs, valueStr)
 						}
@@ -180,12 +188,28 @@ func (pp *PortProcessor) CollectInstrumentPorts(
 
 		// Copy the ports structure
 		for propertyName, propertyData := range instrumentProcess.Ports {
-			if portMap, ok := propertyData.(map[int64]any); ok {
+			if portMap, ok := propertyData.(map[string]any); ok {
 				instrumentPorts[instrumentName][propertyName] = make(
 					map[int64]any,
 				)
 				for index, portValue := range portMap {
-					instrumentPorts[instrumentName][propertyName][index] = portValue
+					countIndex, err := strconv.ParseInt(index, 10, 64)
+					if err != nil {
+						pp.Log.Error(
+							"Could not convert index %s to int64: %v",
+							index,
+							err,
+						)
+					} else {
+						pp.Log.Debug(
+							"Storing port value for instrument %s, property %s, index %d: %v",
+							instrumentName,
+							propertyName,
+							countIndex,
+							portValue,
+						)
+						instrumentPorts[instrumentName][propertyName][countIndex] = portValue
+					}
 				}
 			}
 		}
@@ -201,32 +225,27 @@ func (pp *PortProcessor) InvertPortMappings(
 ) map[string]any {
 	portConfigurations := make(map[string]any)
 
-	pp.logger.Debug(
-		HandlerName,
-		fmt.Sprintf(
-			"Starting port mapping inversion with %d instruments",
-			len(instrumentPorts),
-		),
+	pp.Log.Debug(
+		"Starting port mapping inversion with %d instruments",
+		len(instrumentPorts),
 	)
 
 	for instrumentName, properties := range instrumentPorts {
-		pp.logger.Debug(
-			HandlerName,
-			fmt.Sprintf(
-				"Processing instrument %s with %d properties",
-				instrumentName,
-				len(properties),
-			),
+		pp.Log.Debug(
+			"Processing instrument %s with %d properties",
+			instrumentName,
+			len(properties),
+		)
+		pp.Log.Debug(
+			"The properties are %v",
+			properties,
 		)
 
 		for propertyName, indices := range properties {
-			pp.logger.Debug(
-				HandlerName,
-				fmt.Sprintf(
-					"Processing property %s with %d indices",
-					propertyName,
-					len(indices),
-				),
+			pp.Log.Debug(
+				"Processing property %s with %d indices",
+				propertyName,
+				len(indices),
 			)
 
 			for index, portValue := range indices {

@@ -18,13 +18,14 @@ func NewHandler(
 	cfg *config.Config,
 	pythonInterpreter string,
 ) (*Handler, error) {
-	portProcessor, err := NewPortProcessor(logger, cfg)
+	Log := NewLogWrapper(logger, HandlerName)
+	portProcessor, err := NewPortProcessor(logger, Log, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create port processor: %w", err)
 	}
 	h := &Handler{
 		logger:            logger,
-		Log:               NewLogWrapper(logger, HandlerName),
+		Log:               Log,
 		natsURL:           natsURL,
 		nc:                nc,
 		Instruments:       make(map[string]*InstrumentProcess),
