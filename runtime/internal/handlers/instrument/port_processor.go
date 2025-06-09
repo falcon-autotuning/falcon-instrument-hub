@@ -101,21 +101,9 @@ func (pp *PortProcessor) CollectPortProperties(
 
 		for _, innerMap := range instrument.Ports {
 			// Type assert innerMap to map[int64]any or similar
-			pp.Log.Debug(
-				"currently checking a range of port value %v",
-				innerMap,
-			)
 			if portMap, ok := innerMap.(map[string]any); ok {
-				pp.Log.Debug(
-					"indeed it is a map string any %v",
-					portMap,
-				)
 				for _, value := range portMap {
 					if valueStr, ok := value.(string); ok {
-						pp.Log.Debug(
-							"currently checking a possible port value %s",
-							valueStr,
-						)
 
 						if strings.Contains(valueStr, KnobIdentifier) {
 							knobs = append(knobs, valueStr)
@@ -129,15 +117,17 @@ func (pp *PortProcessor) CollectPortProperties(
 		}
 	}
 
-	pp.logger.Debug(
-		HandlerName,
-		fmt.Sprintf(
-			"Collected %d knobs and %d meters",
-			len(knobs),
-			len(meters),
-		),
+	pp.Log.Debug(
+		"Collected %d knobs and %d meters",
+		len(knobs),
+		len(meters),
 	)
-
+	// pp.Log.Debug(
+	// 	"The collections are knobs: %v and meters: %v",
+	// 	knobs,
+	// 	meters,
+	// )
+	//
 	return knobs, meters
 }
 
