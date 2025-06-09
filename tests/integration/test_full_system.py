@@ -458,7 +458,7 @@ async def test_interpreter_flow(
         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
-    await asyncio.sleep(10)  # Ensure server is ready
+    await asyncio.sleep(12)  # Ensure server is ready
 
     await nats_client.publish(
         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,

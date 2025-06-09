@@ -42,7 +42,6 @@ func (h *Handler) startInstrument(name string) error {
 		h.natsURL,
 	)
 
-	// Add detailed logging
 	h.Log.Info(
 		"Starting instrument daemon \n instrument %s \n python interpreter %s \n script path %s \n nats URL %s",
 		name,
