@@ -140,7 +140,8 @@ class InterpreterDaemon:
                 }
             )
             await self.send_command(
-                channel=INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL,
+                channel=INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL
+                + ".interpreter",
                 message=message,
             )
             await asyncio.sleep(refresh)
