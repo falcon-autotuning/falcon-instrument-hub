@@ -80,7 +80,7 @@ func (h *Handler) startInstrument(name string) error {
 	if err != nil {
 		cancel()
 		h.Log.Error(
-			"Failed to start instrument daemon \n instrument %s \n error %w",
+			"Failed to start instrument daemon \n instrument %s \n error %v",
 			name,
 			err,
 		)

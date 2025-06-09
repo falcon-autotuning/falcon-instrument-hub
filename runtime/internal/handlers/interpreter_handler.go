@@ -3,6 +3,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"fmt"
@@ -36,14 +37,18 @@ var embeddedInterpreterScript embed.FS
 
 // InterpreterProcess represents a running interpreter daemon
 type InterpreterProcess struct {
-	Process *os.Process
-	Cmd     *exec.Cmd
-	Cancel  context.CancelFunc
+	Process   *os.Process
+	Cmd       *exec.Cmd
+	Cancel    context.CancelFunc
+	Stdout    *bytes.Buffer
+	Stderr    *bytes.Buffer
+	StartTime time.Time
 }
 
 // InterpreterHandler handles interpreter setup and destruction
 type InterpreterHandler struct {
 	logger            *logging.Logger
+	Log               *LogWrapper
 	natsURL           string
 	interpreter       *InterpreterProcess
 	pythonInterpreter string
@@ -57,6 +62,7 @@ func NewInterpreterHandler(
 ) *InterpreterHandler {
 	return &InterpreterHandler{
 		logger:            logger,
+		Log:               NewLogWrapper(logger, InterpreterHandlerName),
 		natsURL:           natsURL,
 		pythonInterpreter: pythonInterpreter,
 	}
@@ -64,8 +70,7 @@ func NewInterpreterHandler(
 
 // Start sets up and starts the interpreter
 func (h *InterpreterHandler) Start() error {
-	h.logger.Info(
-		InterpreterHandlerName,
+	h.Log.Info(
 		"Starting interpreter handler",
 	)
 
@@ -79,8 +84,7 @@ func (h *InterpreterHandler) Start() error {
 		return fmt.Errorf("failed to start interpreter: %w", err)
 	}
 
-	h.logger.Info(
-		InterpreterHandlerName,
+	h.Log.Info(
 		"Interpreter handler started successfully",
 	)
 	return nil
@@ -88,15 +92,13 @@ func (h *InterpreterHandler) Start() error {
 
 // Stop removes NATS subscriptions and stops the interpreter
 func (h *InterpreterHandler) Stop() error {
-	h.logger.Info(
-		InterpreterHandlerName,
+	h.Log.Info(
 		"Stopping interpreter handler",
 	)
 
 	// Clean up running interpreter
 	if h.interpreter != nil {
-		h.logger.Info(
-			InterpreterHandlerName,
+		h.Log.Info(
 			"Stopping interpreter during cleanup",
 		)
 		h.stopInterpreter(h.interpreter)
@@ -129,9 +131,9 @@ func (h *InterpreterHandler) ensureScriptExists() error {
 		return fmt.Errorf("failed to write interpreter script file: %w", err)
 	}
 
-	h.logger.Info(
-		InterpreterHandlerName,
-		fmt.Sprintf("Interpreter script updated at %s", scriptPath),
+	h.Log.Info(
+		"Interpreter script updated at %s",
+		scriptPath,
 	)
 	return nil
 }
@@ -150,14 +152,25 @@ func (h *InterpreterHandler) startInterpreter() error {
 		LaunchInterpreterScriptName,
 	)
 
-	h.logger.Debug(
-		InterpreterHandlerName,
-		fmt.Sprintf("Using script path: %s", scriptPath),
+	h.Log.Debug(
+		"Using script path: %s", scriptPath,
 	)
 
 	// Verify script exists
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		h.Log.Error("Script file does not exist: %s", scriptPath)
 		return fmt.Errorf("script file not found at %s", scriptPath)
+	}
+	// Check if python interpreter exists
+	if _, err := os.Stat(h.pythonInterpreter); os.IsNotExist(err) {
+		h.Log.Error(
+			"Python interpreter does not exist: %s",
+			h.pythonInterpreter,
+		)
+		return fmt.Errorf(
+			"python interpreter does not exist: %s",
+			h.pythonInterpreter,
+		)
 	}
 
 	// Create context for cancellation
@@ -174,24 +187,83 @@ func (h *InterpreterHandler) startInterpreter() error {
 	// Set up process group for clean shutdown
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 
+	// Set up pipes to capture output
+	cmd.Stdout = &bytes.Buffer{}
+	cmd.Stderr = &bytes.Buffer{}
+
+	// Copy current environment and add any needed variables
+	cmd.Env = os.Environ()
+
 	// Start the process
 	if err := cmd.Start(); err != nil {
 		cancel()
+		h.Log.Error(
+			"Failed to start interpreter daemon: %v", err,
+		)
 		return fmt.Errorf("failed to start interpreter daemon: %w", err)
 	}
-
 	// Store the process info
 	h.interpreter = &InterpreterProcess{
-		Process: cmd.Process,
-		Cmd:     cmd,
-		Cancel:  cancel,
+		Process:   cmd.Process,
+		Cmd:       cmd,
+		Cancel:    cancel,
+		StartTime: time.Now(),
 	}
 
-	h.logger.Info(
-		InterpreterHandlerName,
-		fmt.Sprintf("Started interpreter with PID %d", cmd.Process.Pid),
+	h.Log.Info(
+		"Started interpreter with PID %d", cmd.Process.Pid,
 	)
+	// Start a goroutine to monitor the process
+	go h.monitorProcess(h.interpreter)
 	return nil
+}
+
+// monitorProcess monitors a running instrument process and logs any issues
+func (h *InterpreterHandler) monitorProcess(process *InterpreterProcess) {
+	defer func() {
+		if r := recover(); r != nil {
+			h.Log.Error(
+				"Process monitor panic \n panic %v",
+				r,
+			)
+		}
+	}()
+
+	// Wait for the process to complete
+	err := process.Cmd.Wait()
+
+	// Get output
+	stdout := ""
+	stderr := ""
+	if process.Stdout != nil {
+		stdout = process.Stdout.String()
+	}
+	if process.Stderr != nil {
+		stderr = process.Stderr.String()
+	}
+
+	duration := time.Since(process.StartTime)
+
+	// Log the process completion
+	if err != nil {
+		h.Log.Error(
+			"Interpreter daemon process exited with error \n pid %v \n error %v \n exit code %v \n runtime %v \n stdout %s \n stderr %s",
+			process.Cmd.Process.Pid,
+			err,
+			process.Cmd.ProcessState.ExitCode(),
+			duration.Seconds(),
+			stdout,
+			stderr,
+		)
+	} else {
+		h.Log.Info(
+			"Interpreter daemon process exited normally \n pid %v \n runtime %v \n stdout %s \n stderr %s",
+			process.Cmd.Process.Pid,
+			duration.Seconds(),
+			stdout,
+			stderr,
+		)
+	}
 }
 
 // stopInterpreter terminates the interpreter daemon
@@ -203,9 +275,8 @@ func (h *InterpreterHandler) stopInterpreter(process *InterpreterProcess) {
 	if process.Process != nil {
 		// Send SIGTERM first
 		if err := process.Process.Signal(syscall.SIGTERM); err != nil {
-			h.logger.Error(
-				InterpreterHandlerName,
-				fmt.Sprintf("Failed to send SIGTERM to interpreter: %v", err),
+			h.Log.Error(
+				"Failed to send SIGTERM to interpreter: %v", err,
 			)
 		}
 
@@ -218,14 +289,12 @@ func (h *InterpreterHandler) stopInterpreter(process *InterpreterProcess) {
 
 		select {
 		case <-done:
-			h.logger.Info(
-				InterpreterHandlerName,
+			h.Log.Info(
 				"Interpreter stopped gracefully",
 			)
 		case <-time.After(time.Duration(InterpreterGracefulShutdownTimeout) * time.Second):
 			// Force kill if it doesn't stop gracefully
-			h.logger.Error(
-				InterpreterHandlerName,
+			h.Log.Error(
 				"Force killing interpreter",
 			)
 			process.Process.Kill()
@@ -236,4 +305,43 @@ func (h *InterpreterHandler) stopInterpreter(process *InterpreterProcess) {
 // IsRunning checks if the interpreter is currently running
 func (h *InterpreterHandler) IsRunning() bool {
 	return h.interpreter != nil && h.interpreter.Process != nil
+}
+
+// LogWrapper provides convenient logging with automatic handler name and
+// sprintf formatting
+type LogWrapper struct {
+	logger      *logging.Logger
+	handlerName string
+}
+
+// NewLogWrapper creates a new log wrapper for the given handler
+func NewLogWrapper(logger *logging.Logger, handlerName string) *LogWrapper {
+	return &LogWrapper{
+		logger:      logger,
+		handlerName: handlerName,
+	}
+}
+
+// Info logs an info message with sprintf formatting
+func (l *LogWrapper) Info(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Info(l.handlerName, msg)
+}
+
+// Warn logs a warning message with sprintf formatting
+func (l *LogWrapper) Warn(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Warn(l.handlerName, msg)
+}
+
+// Error logs an error message with sprintf formatting
+func (l *LogWrapper) Error(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Error(l.handlerName, msg)
+}
+
+// Debug logs a debug message with sprintf formatting
+func (l *LogWrapper) Debug(format string, args ...interface{}) {
+	msg := fmt.Sprintf(format, args...)
+	l.logger.Debug(l.handlerName, msg)
 }
