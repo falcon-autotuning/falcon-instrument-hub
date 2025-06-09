@@ -175,7 +175,7 @@ class InterpreterDaemon:
             }
         )
         await self.send_command(
-            channel=INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL,
+            channel=INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + ".interpreter",
             message=message,
         )
 
