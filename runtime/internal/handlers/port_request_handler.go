@@ -118,16 +118,11 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		return
 	}
 
-	// Extract reply subject from original subject
-	replySubject := strings.Replace(
-		msg.Subject,
-		PortRequestType+".external",
-		PortPayloadType+".external",
-		1,
-	)
+	parts := strings.Split(msg.Subject, ".")
+	externalServerName := parts[len(parts)-1] // Get last part
 
 	// Send response
-	if err := h.nc.Publish(replySubject, responseData); err != nil {
+	if err := h.nc.Publish(PortPayloadType+".external."+externalServerName, responseData); err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
 			fmt.Sprintf("Failed to publish %s : %v", PortPayloadType, err),
