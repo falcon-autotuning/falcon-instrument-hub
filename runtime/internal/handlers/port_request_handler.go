@@ -109,7 +109,9 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	}
 
 	// Marshal response
+	h.logger.Debug(PortRequestHandlerName, "Marshalling response")
 	responseData, err := json.Marshal(response)
+	h.logger.Debug(PortRequestHandlerName, "Finished marshalling response")
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,

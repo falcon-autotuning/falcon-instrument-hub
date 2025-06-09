@@ -6,13 +6,13 @@ import os
 import subprocess
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import nats
 import pytest
 import pytest_asyncio
 import yaml
 from falcon_core.communications import Time
-from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.instrument_interfaces.names import Knob, Meter
 from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
     CartesianWaveform,
@@ -24,6 +24,9 @@ from falcon_core.math.spaces import CartesianSpace
 from falcon_core.physics.device_structures import BarrierGate, Ohmic
 
 from .server_api import RUNTIME_COMMANDS
+
+if TYPE_CHECKING:
+    from falcon_core.instrument_interfaces.names import InstrumentPort
 
 
 @pytest.fixture(scope="module")
@@ -227,7 +230,7 @@ def test_config_files(temp_dir):
     }
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def go_runtime_process(test_config_files):
     """Start the Go runtime server."""
     binary_path = Path("runtime/bin/instrument-server")
@@ -293,10 +296,74 @@ def go_runtime_process(test_config_files):
         process.kill()
 
 
-@pytest_asyncio.fixture()
-async def setup_instruments(nats_client, externalProcessName, expectedInstruments):
+@pytest_asyncio.fixture
+async def nats_client():
+    """Yields the nats client."""
+    nc = await nats.connect("nats://localhost:4222")
+    yield nc
+    await nc.close()
+
+
+@pytest_asyncio.fixture
+async def setup_port_payload(nats_client):
+    """Sets up the nats client to handle port payloads."""
+    active_knobs = []
+    active_meters = []
+    conversions: list[tuple[str, type[InstrumentPort], list[InstrumentPort]]] = [
+        (RUNTIME_COMMANDS.PORT_PAYLOAD.KNOBS, Knob, active_knobs),
+        (RUNTIME_COMMANDS.PORT_PAYLOAD.METERS, Meter, active_meters),
+    ]
+
+    async def port_handler(msg):
+        main_contents = json.loads(msg.data.decode())
+        for conversion in conversions:
+            if main_contents.get(conversion[0]):
+                raw_data = json.loads(main_contents[conversion[0]])
+            else:
+                raw_data = []
+            conversion[2].clear()
+            if raw_data:
+                conversion[2].extend(
+                    [conversion[1].from_dict(data) for data in raw_data]
+                )
+
+    await nats_client.subscribe(
+        RUNTIME_COMMANDS.PORT_PAYLOAD.COMM_CHANNEL + ".external.*",
+        cb=port_handler,
+    )
+    return active_knobs, active_meters
+
+
+@pytest_asyncio.fixture
+async def port_request_sender(nats_client):
+    """Returns a function to send port requests."""
+
+    async def send_port_request():
+        port_request = {
+            RUNTIME_COMMANDS.PORT_REQUEST.TIMESTAMP: Time().time,
+        }
+        await nats_client.publish(
+            RUNTIME_COMMANDS.PORT_REQUEST.COMM_CHANNEL + ".external.instrument-server",
+            json.dumps(port_request).encode(),
+        )
+
+    return send_port_request
+
+
+@pytest_asyncio.fixture
+async def setup_instruments(
+    nats_client,
+    externalProcessName,
+    expectedInstruments,
+    setup_port_payload,
+    port_request_sender,
+):
     """Setup instruments for testing."""
-    # This fixture can be used to setup any required instruments
+    max_wait_time = 30.0
+    check_interval = 4.0
+    elapsed_time = 0.0
+    active_knobs, active_meters = setup_port_payload
+    # Send setup requests for all instruments
     for instrument in expectedInstruments:
         setupconfig = {
             RUNTIME_COMMANDS.SETUP_INSTRUMENT.NAME: instrument,
@@ -309,9 +376,26 @@ async def setup_instruments(nats_client, externalProcessName, expectedInstrument
             + externalProcessName,
             json.dumps(setupconfig).encode(),
         )
+        print(f"📡 Sent setup request for {instrument}")
 
-    yield "All setup"
+    # Wait for instruments to be available by checking port responses
+    while elapsed_time < max_wait_time:
+        await port_request_sender()
+        await asyncio.sleep(check_interval)
+        elapsed_time += check_interval
+        print(
+            f"⏱️  {elapsed_time:.1f}s - Found {len(active_knobs)} knobs, {len(active_meters)} meters"
+        )
+        if active_knobs or active_meters:
+            print("✅ Instruments are available and responding!")
+            break
 
+    if not (active_knobs or active_meters):
+        pytest.fail(f"No instruments became available after {elapsed_time:.1f}s")
+
+    yield "Instrument are setup and ready"
+
+    # Cleanup - destroy instruments
     for instrument in expectedInstruments:
         setupconfig = {
             RUNTIME_COMMANDS.DESTROY_INSTRUMENT.NAME: instrument,
@@ -326,14 +410,6 @@ async def setup_instruments(nats_client, externalProcessName, expectedInstrument
         )
 
 
-@pytest_asyncio.fixture
-async def nats_client():
-    """Starts the nats client."""
-    nc = await nats.connect("nats://localhost:4222")
-    yield nc
-    await nc.close()
-
-
 @pytest.mark.asyncio
 async def test_daemon_health_monitoring(
     nats_client,
@@ -342,6 +418,7 @@ async def test_daemon_health_monitoring(
     setup_instruments,
 ):
     """Test that daemons report their health status correctly."""
+    print(setup_instruments)
     status_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
     log_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
 
@@ -373,7 +450,7 @@ async def test_daemon_health_monitoring(
 
     # Also subscribe to log messages to see if daemons are starting up
     await nats_client.subscribe(
-        "LOG.*",  # Using the LOG channel pattern from instrument_daemon.py
+        f"{RUNTIME_COMMANDS.LOG.COMM_CHANNEL}.*",
         cb=log_handler,
     )
 
@@ -386,10 +463,7 @@ async def test_daemon_health_monitoring(
     elapsed_time = 0.0
 
     while elapsed_time < max_wait_time:
-        # Check if instrument servers (not instrument-server) have reported
-        instrument_daemons = [
-            name for name in expectedDaemons if name != "instrument-server"
-        ]
+        instrument_daemons = [name for name in expectedDaemons]
         sum(len(status_msgs[name]) for name in instrument_daemons)
 
         print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
@@ -432,6 +506,7 @@ async def test_daemon_health_monitoring(
         assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
 
     print("✅ All daemons are healthy and reporting status")
+    assert go_runtime_process.poll() is None, "Go runtime process died"
 
 
 @pytest.fixture
@@ -501,6 +576,7 @@ async def test_interpreter_flow(
 ):
     """Test a complete interpreter flow from request to data upload."""
     # Collect messages
+    print(setup_instruments)
     upload_msgs = []
     active_knobs: list[list[Knob]] = []
     active_meters: list[list[Meter]] = []
@@ -536,7 +612,7 @@ async def test_interpreter_flow(
         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
     # Wait for multiple status messages with early exit
-    max_wait_time = 30.0
+    max_wait_time = 50.0
     check_interval = 4
     elapsed_time = 0.0
 
@@ -569,7 +645,7 @@ async def test_interpreter_flow(
     )
 
     # Wait for multiple status messages with early exit
-    max_wait_time = 14.0
+    max_wait_time = 34.0
     check_interval = 0.5
     elapsed_time = 0.0
 

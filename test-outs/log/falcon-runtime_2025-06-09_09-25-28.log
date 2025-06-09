@@ -1,0 +1,182 @@
+[2025-06-09 09:25:28.682] [INFO] [SYSTEM] Logger initialized
+[2025-06-09 09:25:28.683] [INFO] [SYSTEM] Log file: /home/tylerk/Documents/instrument-server/test-outs/log/falcon-runtime_2025-06-09_09-25-28.log
+[2025-06-09 09:25:28.684] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-09 09:25:28.740] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-09 09:25:28.741] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-09 09:25:29.497] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+Output: Using Python 3.13.3 environment at: instrument_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/falcon-core.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/falcon-core.git (030f2566e8bb3ba4216047734c28da61f91fc11a)
+Resolved 14 packages in 712ms
+Installed 14 packages in 24ms
+ + dill==0.3.9
+ + execnet==2.1.1
+ + falcon-core==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/falcon-core.git@030f2566e8bb3ba4216047734c28da61f91fc11a)
+ + h5py==3.13.0
+ + iniconfig==2.1.0
+ + numpy==2.3.0
+ + packaging==25.0
+ + pluggy==1.6.0
+ + pytest==8.2.1
+ + pytest-xdist==3.6.1
+ + pyyaml==6.0.2
+ + scipy==1.15.3
+ + setuptools==80.9.0
+ + setuptools-scm==8.1.0
+
+[2025-06-09 09:25:29.499] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-09 09:25:29.499] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-09 09:25:30.222] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+Output: Using Python 3.13.3 environment at: instrument_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-templates.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-templates.git (a3ad2791feea3c94f590df3cc63e6900d0e58774)
+Resolved 15 packages in 702ms
+Installed 1 package in 8ms
+ + instrument-templates==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@a3ad2791feea3c94f590df3cc63e6900d0e58774)
+
+[2025-06-09 09:25:30.223] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-09 09:25:30.223] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-09 09:25:31.085] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+Output: Using Python 3.13.3 environment at: instrument_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-server.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-server.git (70f7ed86a499714cec7a612c4cff747c0d72e52c)
+Resolved 17 packages in 827ms
+Installed 2 packages in 9ms
+ + nats-py==2.10.0
+ + server-daemons==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/instrument-server.git@70f7ed86a499714cec7a612c4cff747c0d72e52c)
+
+[2025-06-09 09:25:31.085] [INFO] [VENV] Installing package with uv: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-09 09:25:31.086] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main'"
+[2025-06-09 09:25:31.924] [INFO] [VENV] Successfully installed package: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+Output: Using Python 3.13.3 environment at: instrument_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-test-suite.git (main)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-test-suite.git (78f7a43f47ae3fa22ff6aa958c203fa562eeee23)
+Resolved 16 packages in 817ms
+Installed 1 package in 8ms
+ + instrument-test-suite==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@78f7a43f47ae3fa22ff6aa958c203fa562eeee23)
+
+[2025-06-09 09:25:31.925] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-09 09:25:31.925] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-09 09:25:32.570] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+Output: Using Python 3.13.3 environment at: instrument_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-templates.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-templates.git (a3ad2791feea3c94f590df3cc63e6900d0e58774)
+Resolved 15 packages in 633ms
+Audited 15 packages in 0.05ms
+
+[2025-06-09 09:25:32.579] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-09 09:25:32.579] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-09 09:25:32.632] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-09 09:25:32.634] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-09 09:25:33.317] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+Output: Using Python 3.13.3 environment at: interpreter_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/falcon-core.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/falcon-core.git (030f2566e8bb3ba4216047734c28da61f91fc11a)
+Resolved 14 packages in 651ms
+Installed 14 packages in 17ms
+ + dill==0.3.9
+ + execnet==2.1.1
+ + falcon-core==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/falcon-core.git@030f2566e8bb3ba4216047734c28da61f91fc11a)
+ + h5py==3.13.0
+ + iniconfig==2.1.0
+ + numpy==2.3.0
+ + packaging==25.0
+ + pluggy==1.6.0
+ + pytest==8.2.1
+ + pytest-xdist==3.6.1
+ + pyyaml==6.0.2
+ + scipy==1.15.3
+ + setuptools==80.9.0
+ + setuptools-scm==8.1.0
+
+[2025-06-09 09:25:33.319] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-09 09:25:33.319] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-09 09:25:34.000] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+Output: Using Python 3.13.3 environment at: interpreter_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-templates.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-templates.git (a3ad2791feea3c94f590df3cc63e6900d0e58774)
+Resolved 15 packages in 660ms
+Installed 1 package in 7ms
+ + instrument-templates==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@a3ad2791feea3c94f590df3cc63e6900d0e58774)
+
+[2025-06-09 09:25:34.005] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-09 09:25:34.006] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-09 09:25:34.703] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+Output: Using Python 3.13.3 environment at: interpreter_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-server.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-server.git (70f7ed86a499714cec7a612c4cff747c0d72e52c)
+Resolved 17 packages in 675ms
+Installed 2 packages in 8ms
+ + nats-py==2.10.0
+ + server-daemons==0.0.0 (from git+ssh://git@github.com/falcon-autotuning/instrument-server.git@70f7ed86a499714cec7a612c4cff747c0d72e52c)
+
+[2025-06-09 09:25:34.703] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-09 09:25:34.704] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-09 09:25:35.353] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+Output: Using Python 3.13.3 environment at: interpreter_env/venv
+   Updating ssh://git@github.com/falcon-autotuning/instrument-templates.git (dev)
+    Updated ssh://git@github.com/falcon-autotuning/instrument-templates.git (a3ad2791feea3c94f590df3cc63e6900d0e58774)
+Resolved 15 packages in 634ms
+Audited 15 packages in 0.03ms
+
+[2025-06-09 09:25:35.360] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-09 09:25:35.361] [INFO] [HANDLER_MANAGER] Starting handler manager
+[2025-06-09 09:25:35.362] [INFO] [LOG_HANDLER] Subscribed to LOG.> channels
+[2025-06-09 09:25:35.362] [INFO] [DEVICE_CONFIG_HANDLER] Subscribed to DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-09 09:25:35.363] [INFO] [INSTRUMENT_HANDLER] Setting up instrument handler subscriptions
+[2025-06-09 09:25:35.363] [INFO] [INSTRUMENT_HANDLER] Script updated at scripts/launch_instrument_daemon.py
+[2025-06-09 09:25:35.364] [INFO] [INSTRUMENT_HANDLER] Subscribed to SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.*
+[2025-06-09 09:25:35.364] [INFO] [INSTRUMENT_HANDLER] Subscribed to DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.*
+[2025-06-09 09:25:35.365] [INFO] [INSTRUMENT_HANDLER] Subscribed to CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.*
+[2025-06-09 09:25:35.365] [INFO] [INSTRUMENT_HANDLER] Subscribed to UPDATE_DAEMON_PROPERTY on subject: UPDATE_DAEMON_PROPERTY.instrument-server
+[2025-06-09 09:25:35.366] [INFO] [INSTRUMENT_HANDLER] Instrument handler subscriptions ready
+[2025-06-09 09:25:35.366] [INFO] [INTERPRETER_HANDLER] Starting interpreter handler
+[2025-06-09 09:25:35.367] [INFO] [INTERPRETER_HANDLER] Interpreter script updated at scripts/launch_interpreter.py
+[2025-06-09 09:25:35.368] [DEBUG] [INTERPRETER_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py
+[2025-06-09 09:25:35.368] [INFO] [INTERPRETER_HANDLER] Starting interpreter daemon 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py 
+ nats URL nats://localhost:4222
+[2025-06-09 09:25:35.369] [INFO] [INTERPRETER_HANDLER] Started interpreter with PID 7302
+[2025-06-09 09:25:35.369] [INFO] [INTERPRETER_HANDLER] Interpreter handler started successfully
+[2025-06-09 09:25:35.370] [INFO] [BUSY_HANDLER] Subscribed to BUSY.external.* channels
+[2025-06-09 09:25:35.370] [INFO] [MEASURE_COMMAND_HANDLER] Subscribed to MEASURE_COMMAND.external.> and UPLOAD_DATA
+[2025-06-09 09:25:35.371] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Subscribed to PERFORM_INSTRUMENT_METHOD.external.instrument-server
+[2025-06-09 09:25:35.371] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-09 09:25:35.372] [INFO] [STATUS_HANDLER] Started publishing status messages every 4 seconds
+[2025-06-09 09:25:35.372] [INFO] [HANDLER_MANAGER] All handlers started successfully
+[2025-06-09 09:25:35.373] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-09 09:25:36.086] [DEBUG] [LOG_HANDLER] Received message on LOG.interpreter: {"message": "Connected to NATS server at nats://localhost:4222", "timestamp": 1749479136084948}
+[2025-06-09 09:25:36.087] [DEBUG] [LOG_HANDLER] Handling structured log
+[2025-06-09 09:25:36.084] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Connected to NATS server at nats://localhost:4222
+[2025-06-09 09:25:36.088] [NATS] [MESSAGE] [LOG.interpreter] JSON: Connected to NATS server at nats://localhost:4222
+[2025-06-09 09:25:36.089] [DEBUG] [LOG_HANDLER] Received message on LOG.interpreter: {"message": "Subscribed to channel: PROCESS_REQUEST", "timestamp": 1749479136085114}
+[2025-06-09 09:25:36.089] [DEBUG] [LOG_HANDLER] Handling structured log
+[2025-06-09 09:25:36.085] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_REQUEST
+[2025-06-09 09:25:36.090] [NATS] [MESSAGE] [LOG.interpreter] JSON: Subscribed to channel: PROCESS_REQUEST
+[2025-06-09 09:25:36.091] [DEBUG] [LOG_HANDLER] Received message on LOG.interpreter: {"message": "Subscribed to channel: PROCESS_DATA", "timestamp": 1749479136085197}
+[2025-06-09 09:25:36.091] [DEBUG] [LOG_HANDLER] Handling structured log
+[2025-06-09 09:25:36.085] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_DATA
+[2025-06-09 09:25:36.092] [NATS] [MESSAGE] [LOG.interpreter] JSON: Subscribed to channel: PROCESS_DATA
+[2025-06-09 09:25:38.663] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-09 09:25:38.673] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-09 09:25:38.673] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument LargeMultiChannelDAC 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-09 09:25:38.674] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument LargeMultiChannelDAC 
+ pid 7349
+[2025-06-09 09:25:38.675] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: LargeMultiChannelDAC
+[2025-06-09 09:25:38.675] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-09 09:25:38.676] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-09 09:25:38.676] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument MultiChannelAmnmeter 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-09 09:25:38.677] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument MultiChannelAmnmeter 
+ pid 7350
+[2025-06-09 09:25:38.678] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: MultiChannelAmnmeter
