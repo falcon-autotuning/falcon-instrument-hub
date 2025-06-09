@@ -57,7 +57,7 @@ def expectedInstruments():
 @pytest.fixture
 def expectedDaemons(expectedInstruments):
     """Returns a list of daemons that should be running."""
-    return expectedInstruments + ["instrument-server"]
+    return expectedInstruments + ["instrument-server", "interpreter"]
 
 
 @pytest.fixture(scope="module")

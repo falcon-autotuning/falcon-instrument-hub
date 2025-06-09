@@ -183,6 +183,12 @@ func (h *InterpreterHandler) startInterpreter() error {
 		scriptPath,
 		h.natsURL,
 	)
+	h.Log.Info(
+		"Starting interpreter daemon \n python interpreter %s \n script path %s \n nats URL %s",
+		h.pythonInterpreter,
+		scriptPath,
+		h.natsURL,
+	)
 
 	// Set up process group for clean shutdown
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
