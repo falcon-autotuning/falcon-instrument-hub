@@ -138,7 +138,27 @@ func (h *InterpreterHandler) ensureScriptExists() error {
 
 // startInterpreter launches the interpreter daemon
 func (h *InterpreterHandler) startInterpreter() error {
-	scriptPath := filepath.Join(ScriptsDir, LaunchInterpreterScriptName)
+	// Get absolute path to script (relative to where Go binary is running)
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	scriptPath := filepath.Join(
+		currentDir,
+		"scripts",
+		LaunchInterpreterScriptName,
+	)
+
+	h.logger.Debug(
+		InterpreterHandlerName,
+		fmt.Sprintf("Using script path: %s", scriptPath),
+	)
+
+	// Verify script exists
+	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
+		return fmt.Errorf("script file not found at %s", scriptPath)
+	}
 
 	// Create context for cancellation
 	ctx, cancel := context.WithCancel(context.Background())

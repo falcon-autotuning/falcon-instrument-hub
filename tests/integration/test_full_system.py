@@ -20,7 +20,10 @@ from .server_api import RUNTIME_COMMANDS
 @pytest.fixture(scope="module")
 def temp_dir():
     """Yields a temporary directory for test files."""
-    return str(Path("~/Documents/instrument-server/test-outs").expanduser())
+    temp_path = Path("~/Documents/instrument-server/test-outs").expanduser()
+    temp_path.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
+    return str(temp_path)
+
     # with tempfile.TemporaryDirectory() as temp_dir:
     #     yield temp_dir
     #     # Check for Go application logs
