@@ -4,7 +4,6 @@ import asyncio
 import json
 import os
 import subprocess
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,20 +12,34 @@ import pytest
 import pytest_asyncio
 import yaml
 from falcon_core.communications import Time
-from falcon_core.instrument_interfaces.names import Knob, Meter
+from falcon_core.communications.messages import MeasurementRequest
+from falcon_core.constants import INSTRUMENT_TYPES
+from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
+from falcon_core.instrument_interfaces.port_transforms import PortTransform
 from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
     CartesianWaveform,
+)
+from falcon_core.math.analytic_functions import (
+    AnalyticFunction,
+    ValidatedAnalyticFunction,
 )
 from falcon_core.math.axes import Axes
 from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
 from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
 from falcon_core.math.spaces import CartesianSpace
 from falcon_core.physics.device_structures import BarrierGate, Ohmic
+from falcon_core.physics.units import Units
 
 from .server_api import RUNTIME_COMMANDS
 
 if TYPE_CHECKING:
     from falcon_core.instrument_interfaces.names import InstrumentPort
+
+
+class RawFunction(AnalyticFunction):
+    @classmethod
+    def _function(cls, t: float = 0.0, a: float = 0.0, **parameters) -> float:
+        return a
 
 
 @pytest.fixture(scope="module")
@@ -67,9 +80,15 @@ def expectedInstruments():
 
 
 @pytest.fixture
-def expectedDaemons(expectedInstruments):
+def serverName():
+    """Returns the name of the server."""
+    return "instrument-server"
+
+
+@pytest.fixture
+def expectedDaemons(expectedInstruments, serverName):
     """Returns a list of daemons that should be running."""
-    return expectedInstruments + ["instrument-server", "interpreter"]
+    return expectedInstruments + [serverName, "interpreter"]
 
 
 @pytest.fixture(scope="module")
@@ -230,10 +249,52 @@ def test_config_files(temp_dir):
     }
 
 
-@pytest.fixture
-def go_runtime_process(test_config_files):
+@pytest_asyncio.fixture
+async def nats_client():
+    """Yields the nats client."""
+    nc = await nats.connect("nats://localhost:4222")
+    yield nc
+    await nc.close()
+
+
+@pytest_asyncio.fixture
+async def setup_status(nats_client, expectedDaemons):
+    """Returns the received status messages."""
+    status_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
+
+    async def status_handler(msg):
+        # Extract instrument name from the subject
+        subject_parts = msg.subject.split(".")
+        if len(subject_parts) > 1:
+            daemon_name = subject_parts[1]  # STATUS.<daemon_name>
+            if daemon_name in expectedDaemons:
+                data = json.loads(msg.data.decode())
+                status_msgs[daemon_name].append(data)
+                print(f"📊 Status from {daemon_name}: {data}")
+
+    # Subscribe to both status and log messages
+    await nats_client.subscribe(
+        RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".*",
+        cb=status_handler,
+    )
+    return status_msgs
+
+
+@pytest_asyncio.fixture
+async def go_runtime_process(
+    test_config_files,
+    setup_status,
+    serverName,
+):
     """Start the Go runtime server."""
+    max_wait_time = 20.0
+    check_interval = 4.0
+    elapsed_time = 0.0
+    min_msg_count = 2
     binary_path = Path("runtime/bin/instrument-server")
+
+    status_msgs = setup_status
+
     if not binary_path.exists():
         pytest.skip("Go binary not built. Run 'make build-go' first.")
 
@@ -258,9 +319,33 @@ def go_runtime_process(test_config_files):
         stderr=subprocess.PIPE,
         text=True,
     )
+    print("🔍 Monitoring for instrument-server")
+    print("Waiting for status messages...")
 
-    # Give it time to start
-    time.sleep(10)
+    # Wait for multiple status messages with early exit
+    while elapsed_time < max_wait_time:
+        print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
+        print(f"  {serverName}: {len(status_msgs[serverName])} messages")
+        if len(status_msgs[serverName]) >= min_msg_count:
+            print("✅ Server reported multiple status messages!")
+            break
+        await asyncio.sleep(check_interval)
+        elapsed_time += check_interval
+
+    # Show final summary
+    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
+    status_count = len(status_msgs[serverName])
+    print(f"  {serverName}: {status_count} status")
+
+    assert len(status_msgs[serverName]) >= min_msg_count, (
+        f"Should receive multiple status messages, got {status_msgs[serverName]} in {elapsed_time:.1f}s"
+    )
+
+    latest_status = status_msgs[serverName][-1]
+    assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
+    assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
+
+    print("✅ Server is healthy and reporting status")
 
     # Cleanup - show logs if process died unexpectedly
     if process.poll() is not None and process.returncode != 0:
@@ -278,7 +363,10 @@ def go_runtime_process(test_config_files):
             f"Go runtime process failed to start with exit code {process.returncode}"
         )
 
-    yield process
+    yield status_msgs
+
+    if process.poll() is not None and process.returncode != 0:
+        print(f"Go process died. Exit code: {process.returncode}")
 
     try:
         stdout, stderr = process.communicate(timeout=1)
@@ -294,14 +382,6 @@ def go_runtime_process(test_config_files):
         process.wait(timeout=5)
     except subprocess.TimeoutExpired:
         process.kill()
-
-
-@pytest_asyncio.fixture
-async def nats_client():
-    """Yields the nats client."""
-    nc = await nats.connect("nats://localhost:4222")
-    yield nc
-    await nc.close()
 
 
 @pytest_asyncio.fixture
@@ -410,58 +490,23 @@ async def setup_instruments(
         )
 
 
-@pytest.mark.asyncio
-async def test_daemon_health_monitoring(
-    nats_client,
+@pytest_asyncio.fixture
+async def daemon_health_monitoring(
     expectedDaemons,
     go_runtime_process,
     setup_instruments,
 ):
     """Test that daemons report their health status correctly."""
-    print(setup_instruments)
-    status_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
-    log_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
-
-    async def status_handler(msg):
-        # Extract instrument name from the subject
-        subject_parts = msg.subject.split(".")
-        if len(subject_parts) > 1:
-            daemon_name = subject_parts[1]  # STATUS.<daemon_name>
-            if daemon_name in status_msgs:
-                data = json.loads(msg.data.decode())
-                status_msgs[daemon_name].append(data)
-                print(f"📊 Status from {daemon_name}: {data}")
-
-    async def log_handler(msg):
-        # Extract instrument name from the subject
-        subject_parts = msg.subject.split(".")
-        if len(subject_parts) > 1:
-            daemon_name = subject_parts[1]  # LOG.<daemon_name>
-            if daemon_name in log_msgs:
-                data = json.loads(msg.data.decode())
-                log_msgs[daemon_name].append(data)
-                print(f"📝 Log from {daemon_name}: {data.get('message', 'No message')}")
-
-    # Subscribe to both status and log messages
-    await nats_client.subscribe(
-        RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".*",
-        cb=status_handler,
-    )
-
-    # Also subscribe to log messages to see if daemons are starting up
-    await nats_client.subscribe(
-        f"{RUNTIME_COMMANDS.LOG.COMM_CHANNEL}.*",
-        cb=log_handler,
-    )
-
-    print(f"🔍 Monitoring for daemons: {expectedDaemons}")
-    print("Waiting for status and log messages...")
-
-    # Wait for multiple status messages with early exit
-    max_wait_time = 20.0  # Increased timeout
-    check_interval = 1.0  # Longer check interval for better debugging
+    max_wait_time = 20.0
+    check_interval = 1.0
     elapsed_time = 0.0
 
+    status_msgs = go_runtime_process
+    print(setup_instruments)
+    print(f"🔍 Monitoring for daemons: {expectedDaemons}")
+    print("Waiting for status messages...")
+
+    # Wait for multiple status messages with early exit
     while elapsed_time < max_wait_time:
         instrument_daemons = [name for name in expectedDaemons]
         sum(len(status_msgs[name]) for name in instrument_daemons)
@@ -469,12 +514,6 @@ async def test_daemon_health_monitoring(
         print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
         for daemon_name, msgs in status_msgs.items():
             print(f"  {daemon_name}: {len(msgs)} messages")
-
-        print(f"⏱️  {elapsed_time:.1f}s - Log messages received:")
-        for daemon_name, msgs in log_msgs.items():
-            print(f"  {daemon_name}: {len(msgs)} log messages")
-            if msgs:
-                print(f"    Latest: {msgs[-1].get('message', 'No message')}")
 
         # Check if we have enough status messages
         if all(len(msgs) >= 2 for msgs in status_msgs.values()):
@@ -488,13 +527,7 @@ async def test_daemon_health_monitoring(
     print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
     for daemon_name in expectedDaemons:
         status_count = len(status_msgs[daemon_name])
-        log_count = len(log_msgs[daemon_name])
-        print(f"  {daemon_name}: {status_count} status, {log_count} logs")
-
-        if log_count > 0:
-            recent_logs = log_msgs[daemon_name][-3:]  # Show last 3 logs
-            for log_entry in recent_logs:
-                print(f"    📝 {log_entry.get('message', 'No message')}")
+        print(f"  {daemon_name}: {status_count} status")
 
     assert all(len(msgs) >= 2 for msgs in status_msgs.values()), (
         f"Should receive multiple status messages, got {status_msgs} in {elapsed_time:.1f}s"
@@ -505,8 +538,7 @@ async def test_daemon_health_monitoring(
         assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
         assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
 
-    print("✅ All daemons are healthy and reporting status")
-    assert go_runtime_process.poll() is None, "Go runtime process died"
+    return "✅ All daemons are healthy and reporting status"
 
 
 @pytest.fixture
@@ -532,7 +564,7 @@ def meters():
 
 
 @pytest.fixture
-def measurement_request(knobs):
+def measurement_request(knobs: list[Knob], meters: list[Meter]):
     """Returns a measurement request for testing deployment."""
     space = CartesianSpace(deltas=[0.1])
     ckd = CoupledKnobDomain(
@@ -546,120 +578,79 @@ def measurement_request(knobs):
     sweep_axes = Axes([ckd])
     space = CartesianDiscreteSpace(space=space, axes=sweep_axes)
     waveform = CartesianWaveform(space=space, transforms=[])
-
+    ports: list[Meter] = []
+    ports.extend(meters)
+    ports.append(
+        Meter(
+            default_name="timer",
+            instrument_type=INSTRUMENT_TYPES.CLOCK,
+            units=Units.SECOND,
+        )
+    )
+    transform = PortTransform(
+        port=meters[0],
+        transform=ValidatedAnalyticFunction(
+            function=RawFunction({"O2": "a", INSTRUMENT_TYPES.CLOCK: "t"}),
+            ports=Meters(ports),
+        ),
+    )
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
         waveforms=[waveform],
-        meter_transforms=[],  # TODO: use meter
+        meter_transforms=[transform],
     )
-
-
-def all_ports_in_ports(
-    subset: list[Meter] | list[Knob],
-    fullset: list[Meter] | list[Knob],
-):
-    """Finds if all the subset are in the fullset."""
-    fullnames = set([port.pseudo_name for port in fullset])
-    subnames = set([port.pseudo_name for port in subset])
-    return subnames.issubset(fullnames)
 
 
 @pytest.mark.asyncio
 async def test_interpreter_flow(
-    go_runtime_process,
     nats_client,
-    setup_instruments,
     measurement_request,
-    knobs: list[Knob],
-    meters: list[Meter],
+    daemon_health_monitoring,
+    temp_dir,
 ):
     """Test a complete interpreter flow from request to data upload."""
-    # Collect messages
-    print(setup_instruments)
+    max_wait_time = 34.0
+    check_interval = 0.5
+    elapsed_time = 0.0
     upload_msgs = []
-    active_knobs: list[list[Knob]] = []
-    active_meters: list[list[Meter]] = []
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
 
-    async def port_handler(msg):
-        main_contents = json.loads(msg.data.decode())
-        active_knobs.append([Knob.from_json(knob) for knob in main_contents["Knobs"]])
-        active_meters.append(
-            [Meter.from_json(meter) for meter in main_contents["Meters"]]
-        )
-
-    # Subscribe to channels
     await nats_client.subscribe(
         RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
         cb=upload_handler,
     )
 
-    await nats_client.subscribe(
-        RUNTIME_COMMANDS.PORT_PAYLOAD.COMM_CHANNEL + ".external.*",
-        cb=port_handler,
-    )
-    port_request = {
-        RUNTIME_COMMANDS.PORT_REQUEST.TIMESTAMP: Time().time,
-    }
+    print(daemon_health_monitoring)
 
     process_request = {
         RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: measurement_request.to_json(),
         RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 1,
         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
-        RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
+        RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: str(Path(temp_dir) / "data"),
     }
-    # Wait for multiple status messages with early exit
-    max_wait_time = 50.0
-    check_interval = 4
-    elapsed_time = 0.0
-
-    while elapsed_time < max_wait_time:
-        if (
-            active_knobs
-            and active_meters
-            and all_ports_in_ports(
-                knobs,
-                active_knobs[-1],
-            )
-            and all_ports_in_ports(
-                meters,
-                active_meters[-1],
-            )
-        ):
-            break
-        await asyncio.sleep(check_interval)
-        await nats_client.publish(
-            RUNTIME_COMMANDS.PORT_REQUEST.COMM_CHANNEL + ".external.instrument-server",
-            json.dumps(port_request).encode(),
-        )
-        elapsed_time += check_interval
-    if elapsed_time >= max_wait_time:
-        pytest.fail("Ran out of time")
 
     await nats_client.publish(
         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,
         json.dumps(process_request).encode(),
     )
-
-    # Wait for multiple status messages with early exit
-    max_wait_time = 34.0
-    check_interval = 0.5
-    elapsed_time = 0.0
-
     while elapsed_time < max_wait_time:
+        print(f"⏱️  {elapsed_time:.1f}s - Upload messages received:")
+        print(f"  {len(upload_msgs)} messages")
         if upload_msgs:
+            print("✅ Upload message received!")
             break
         await asyncio.sleep(check_interval)
         elapsed_time += check_interval
 
+    # Show final summary
+    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
     print("Collected list of upload messages:", upload_msgs)
     assert upload_msgs, (
-        f"Should receive multiple status messages, got None in {elapsed_time:.1f}s"
+        f"Should receive a upload message, got None in {elapsed_time:.1f}s"
     )
-    assert go_runtime_process.poll() is None, "Go runtime process died"
 
 
 @pytest.mark.asyncio

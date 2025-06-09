@@ -72,28 +72,25 @@ func (m *Manager) SetupEnvironment(packages []string) error {
 		m.logger.Info("VENV", fmt.Sprintf("Executing: sh -c \"%s\"", cmdStr))
 		cmd := exec.Command("sh", "-c", cmdStr)
 		// cmd.Dir = workingDirectory // Optional: Set working directory if
-		// necessary
-
-		output, err := cmd.CombinedOutput()
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		err := cmd.Run()
 		if err != nil {
 			m.logger.Error(
 				"VENV",
 				fmt.Sprintf("Failed to install package %s: %v", pkg, err),
 			)
-			m.logger.Error("VENV", fmt.Sprintf("Output: %s", string(output)))
 			return fmt.Errorf(
-				"failed to install package %s: %v. Output: %s",
+				"failed to install package %s: %v",
 				pkg,
 				err,
-				string(output),
 			)
 		}
 		m.logger.Info(
 			"VENV",
 			fmt.Sprintf(
-				"Successfully installed package: %s\nOutput: %s",
+				"Successfully installed package: %s",
 				pkg,
-				string(output),
 			),
 		)
 	}
