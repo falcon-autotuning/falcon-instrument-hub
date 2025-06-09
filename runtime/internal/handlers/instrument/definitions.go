@@ -21,9 +21,8 @@ const (
 
 // File Paths
 const (
-	ScriptsDir                 = "./"
+	ScriptsDir                 = "scripts"
 	LaunchInstrumentScriptName = "launch_instrument_daemon.py"
-	defaultPythonInterpreter   = "/home/daniel/work/wisc/playground/falcon/.venv/bin/python3"
 )
 
 // Process Management

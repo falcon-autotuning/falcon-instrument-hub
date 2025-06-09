@@ -80,7 +80,7 @@ class InterpreterDaemon:
     async def start(self):
         """Starts the measurement interpreter."""
         self._nc = await nats.connect(self._url)
-        print(f"Connected to NATS server at {self._url}", flush=self._debug)
+        await self.log(f"Connected to NATS server at {self._url}")
         self._loop = asyncio.get_running_loop()
         await self.setup_subscriptions()
         await self.setup_jetstream()
@@ -167,6 +167,7 @@ class InterpreterDaemon:
         Args:
             message: The message to log.
         """
+        print(f"Logging message: {message}", flush=self._debug)
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.LOG.MESSAGE: message,
@@ -286,7 +287,7 @@ class InterpreterDaemon:
                 channel,
                 cb=handle,
             )
-            print("Subscribed to channel:", channel, flush=self._debug)
+            await self.log(f"Subscribed to channel: {channel}")
 
     async def handle_request(
         self,

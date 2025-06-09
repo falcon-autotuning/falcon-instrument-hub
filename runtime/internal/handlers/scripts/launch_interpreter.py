@@ -7,11 +7,11 @@ import asyncio
 from server_daemons.interpreter_daemon import InterpreterDaemon
 
 
-def get_driver_config_from_args() -> dict[str, str]:
+def get_url() -> str:
     """Unpacks arguments from the command line and returns a dictionary of the arguments.
 
     Returns:
-        A dictionary containing the configuration parameters.
+        the url for the NATS server connection.
     """
     parser = argparse.ArgumentParser(
         description="Launch a measurement interpreter.",
@@ -22,23 +22,15 @@ def get_driver_config_from_args() -> dict[str, str]:
         help="URL for NATS server connection",
     )
     args = parser.parse_args()
+    url = args.url
 
-    return {
-        "url": args.url,
-    }
+    assert isinstance(url, str), f"Invalid url {args.url!s}"
+    return url
 
 
 if __name__ == "__main__":
-    config = get_driver_config_from_args()
-    url = config["url"]
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    interpreter = InterpreterDaemon(url=url, loop=loop)
-    try:
-        # Run the main function in the loop
-        loop.run_until_complete(
-            interpreter.start(),
-        )
-    finally:
-        # Ensure the loop is closed when we're done
-        loop.close()
+    url = get_url()
+    interpreter = InterpreterDaemon(url=url)
+    asyncio.run(
+        interpreter.start(),
+    )
