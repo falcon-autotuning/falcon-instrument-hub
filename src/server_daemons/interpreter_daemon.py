@@ -313,7 +313,7 @@ class InterpreterDaemon:
             assert isinstance(unpacked_configuration, dict)
             measurement_request = MeasurementRequest.from_json(request)
             await self.log("Measurement unpacked, processing ....")
-            data_count, shape = self.process_request(
+            data_count, shape = await self.process_request(
                 request=measurement_request,
                 configuration=unpacked_configuration,
                 id=id,
@@ -331,7 +331,7 @@ class InterpreterDaemon:
         except Exception as e:
             await self.log(f"Error processing request: {e}")
 
-    def process_request(
+    async def process_request(
         self,
         request: "MeasurementRequest",
         configuration: dict["InstrumentPort", "PropertyJson"],
@@ -354,7 +354,9 @@ class InterpreterDaemon:
             RuntimeError: If no valid waveform is found in the request.
         """
         # TODO: add in knob_transforms parsing, this only supports cartesian type waveforms
+        await self.log("Compiling waveform ...")
         [waveform._space._space.compile() for waveform in request.waveforms]
+        await self.log("Waveform compiled successfully.")
 
         valid_waveform = next(
             (
@@ -367,6 +369,7 @@ class InterpreterDaemon:
         )
         if valid_waveform is None:
             msg = "No valid waveform found."
+            await self.log(msg)
             raise RuntimeError(msg)
 
         # Prioritize buffered whenever possible
@@ -379,15 +382,20 @@ class InterpreterDaemon:
                 for knob in domain.knobs
             ]
         )
+        if buffered:
+            await self.log("Buffered measurements enabled.")
         raw_time_trace = valid_waveform._space._space._space
         unit_domain = valid_waveform._space._space.domain
         axes_domains = valid_waveform._space._axes
         instructions = []
+        await self.log("Chunking instructions ...")
         chunks = self.chunk_instructions(
             raw_time_trace=raw_time_trace,
             buffered=buffered,
         )
+        await self.log("Chunks completed")
         getters = [transform.port for transform in request.meter_transforms]
+        await self.log("Selected getters for the measurement.")
 
         for chunk in chunks:
             instruction = Instruction(
