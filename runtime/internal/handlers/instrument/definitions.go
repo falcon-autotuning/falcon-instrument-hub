@@ -54,7 +54,7 @@ type InstrumentProcess struct {
 	Name          string
 	Cmd           *exec.Cmd
 	Cancel        context.CancelFunc
-	Ports         map[string]any
+	Ports         map[string]map[string]string
 	Configuration map[string]any
 	Initialized   bool
 	StartTime     time.Time
@@ -173,21 +173,6 @@ func (h *Handler) RemoveInstrument(name string) {
 	// Invalidate cache when instruments are modified
 	if h.portProcessor != nil {
 		h.portProcessor.InvalidatePortConfigCache()
-	}
-}
-
-// UpdateInstrumentPorts updates an instrument's ports and invalidates cache
-func (h *Handler) UpdateInstrumentPorts(name string, ports map[string]any) {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	if instrument, exists := h.Instruments[name]; exists {
-		instrument.Ports = ports
-
-		// Invalidate cache when instrument ports are modified
-		if h.portProcessor != nil {
-			h.portProcessor.InvalidatePortConfigCache()
-		}
 	}
 }
 
