@@ -13,6 +13,7 @@ const (
 	// Port class identifiers
 	KnobClass  = "Knob"
 	MeterClass = "Meter"
+	PortClass  = "InstrumentPort"
 
 	// Module path template
 	FalconCoreModuleTemplate = "falcon_core.physics.device_structures.%s"
@@ -52,7 +53,7 @@ type DeviceConnection struct {
 }
 
 // ToJSON returns the JSON representation for falcon_core
-func (dc *DeviceConnection) ToJSON() map[string]string {
+func (dc *DeviceConnection) toMap() map[string]string {
 	return map[string]string{
 		"__class__": string(dc.ConnectionType),
 		"__module__": fmt.Sprintf(
@@ -132,18 +133,13 @@ func parseConnections(connectionString string) []string {
 
 // PortObject represents a generic port (knob or meter)
 type PortObject struct {
-	Class          string `json:"__class__"`
-	Module         string `json:"__module__"`
-	DefaultName    string `json:"default_name,omitempty"`
-	PseudoName     string `json:"pseudo_name"`
-	InstrumentType string `json:"instrument_type"`
-	Units          string `json:"units,omitempty"`
-	Description    string `json:"description,omitempty"`
-
-	// Additional fields added during augmentation
-	DeviceConnection map[string]string `json:"device_connection,omitempty"`
-	ConnectionName   string            `json:"connection_name,omitempty"`
-	ConnectionType   string            `json:"connection_type,omitempty"`
+	Class          string            `json:"__class__"`
+	Module         string            `json:"__module__"`
+	DefaultName    string            `json:"default_name"`
+	PseudoName     map[string]string `json:"pseudo_name"`
+	InstrumentType string            `json:"instrument_type"`
+	Units          map[string]any    `json:"units"`
+	Description    string            `json:"description"`
 }
 
 // IsKnob returns true if this port is a knob
@@ -156,18 +152,14 @@ func (p *PortObject) IsMeter() bool {
 	return p.Class == MeterClass
 }
 
+// IsPort return true if this port is a port
+func (p *PortObject) IsPort() bool {
+	return p.Class == KnobClass
+}
+
 // FromInterface unmarshals from interface{} (string or map) into PortObject
-func (p *PortObject) FromInterface(portValue interface{}) error {
-	if portStr, ok := portValue.(string); ok {
-		return json.Unmarshal([]byte(portStr), p)
-	} else if portMap, ok := portValue.(map[string]interface{}); ok {
-		portBytes, err := json.Marshal(portMap)
-		if err != nil {
-			return err
-		}
-		return json.Unmarshal(portBytes, p)
-	}
-	return fmt.Errorf("unsupported port value type")
+func (p *PortObject) FromInterface(portValue string) error {
+	return json.Unmarshal([]byte(portValue), p)
 }
 
 // ToInterface converts PortObject back to interface{} (matching original
@@ -218,16 +210,18 @@ func processPortProperty(
 
 	for index, portValue := range properties {
 		wiremapKey := fmt.Sprintf("%s.%s", instrumentName, index)
-		err := processIndividualPort(
+		deviceConn, exists := nameMapping[wiremapKey]
+		if !exists {
+			continue
+		}
+		updatePort, err := updatePortPsuedoName(
 			portValue,
-			index,
-			nameMapping,
-			wiremapKey,
-			properties,
+			deviceConn,
 		)
 		if err != nil {
 			errors = append(errors, fmt.Sprintf("index %s: %v", index, err))
 		}
+		properties[index] = updatePort
 	}
 
 	if len(errors) > 0 {
@@ -240,50 +234,25 @@ func processPortProperty(
 	return nil
 }
 
-// processIndividualPort processes a single port at a specific index
-func processIndividualPort(
+// updatePortPsuedoName processes a single port and upgrades it
+func updatePortPsuedoName(
 	portValue string,
-	index string,
-	nameMapping map[string]*DeviceConnection,
-	wiremapKey string,
-	properties map[string]string,
-) error {
+	deviceConn *DeviceConnection,
+) (string, error) {
 	var portObj PortObject
 	if err := portObj.FromInterface(portValue); err != nil {
-		return fmt.Errorf("failed to unmarshal port: %w", err)
+		return "", fmt.Errorf("failed to unmarshal port: %w", err)
 	}
-	updatePortWithDeviceInfo(&portObj, wiremapKey, nameMapping)
+	if portObj.IsMeter() && deviceConn.ConnectionType != Ohmic {
+		return "", fmt.Errorf("found non-ohmic meter: %s", portObj.PseudoName)
+	}
+	portObj.PseudoName = deviceConn.toMap()
 	updatedPort, err := portObj.ToInterface()
-
-	properties[index] = updatedPort
 	if err != nil {
-		return fmt.Errorf("failed to convert port back to interface: %w", err)
+		return updatedPort, fmt.Errorf(
+			"failed to convert port back to interface: %w",
+			err,
+		)
 	}
-	return nil
-}
-
-// updatePortWithDeviceInfo updates the port object with device connection info
-// or fallback
-func updatePortWithDeviceInfo(
-	portObj *PortObject,
-	lookupKey string,
-	nameMapping map[string]*DeviceConnection,
-) {
-	if deviceConn, exists := nameMapping[lookupKey]; exists {
-		// Check if this should be a meter (only Ohmics can be meters)
-		if portObj.IsMeter() && deviceConn.ConnectionType != Ohmic {
-			return // Skip non-ohmic meters
-		}
-
-		// Replace pseudo_name with the human-readable name
-		portObj.PseudoName = deviceConn.Name
-
-		// Add device connection information
-		portObj.DeviceConnection = deviceConn.ToJSON()
-		portObj.ConnectionName = deviceConn.Name
-		portObj.ConnectionType = string(deviceConn.ConnectionType)
-	} else {
-		// No matching name found, use InstrumentType
-		portObj.PseudoName = portObj.InstrumentType
-	}
+	return updatedPort, nil
 }
