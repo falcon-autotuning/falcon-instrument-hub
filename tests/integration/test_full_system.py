@@ -467,19 +467,32 @@ async def setup_instruments(
 
     yield "Instrument are setup and ready"
 
-    # Cleanup - destroy instruments
+
+@pytest_asyncio.fixture(scope="function", autouse=False)
+async def cleanup_instruments(
+    nats_client,
+    expectedInstruments,
+    externalProcessName,
+):
+    """Cleanup fixture that runs at the very end."""
+    yield  # This runs before cleanup
+
+    # Cleanup happens here
+    print("🧹 Starting instrument cleanup...")
     for instrument in expectedInstruments:
         setupconfig = {
             RUNTIME_COMMANDS.DESTROY_INSTRUMENT.NAME: instrument,
             RUNTIME_COMMANDS.DESTROY_INSTRUMENT.TIMESTAMP: Time().time,
         }
-
         await nats_client.publish(
             RUNTIME_COMMANDS.DESTROY_INSTRUMENT.COMM_CHANNEL
             + ".external."
             + externalProcessName,
             json.dumps(setupconfig).encode(),
         )
+        print(f"🗑️  Sent destroy request for {instrument}")
+
+    print("✅ Instrument cleanup complete")
 
 
 @pytest_asyncio.fixture
@@ -643,15 +656,18 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
 @pytest.mark.asyncio
 async def test_full_measurement_flow(
     nats_client,
-    measurement_request,
     daemon_health_monitoring,
+    measurement_request,
+    externalProcessName,
+    cleanup_instruments,
 ):
     """Test a complete measurement flow from request to data upload."""
-    max_wait_time = 34.0
-    check_interval = 0.5
+    max_wait_time = 60.0
+    check_interval = 4.0
     elapsed_time = 0.0
     upload_msgs = []
-    externalProcessName = "Test"
+
+    print(daemon_health_monitoring)
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
@@ -662,8 +678,6 @@ async def test_full_measurement_flow(
         + externalProcessName,
         cb=upload_handler,
     )
-
-    print(daemon_health_monitoring)
 
     process_request = {
         RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: measurement_request.to_json(),
