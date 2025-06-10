@@ -219,10 +219,6 @@ func (pp *PortProcessor) InvertPortMappings(
 			instrumentName,
 			len(properties),
 		)
-		pp.Log.Debug(
-			"The properties are %v",
-			properties,
-		)
 
 		for propertyName, indices := range properties {
 			for index, portValue := range indices {
