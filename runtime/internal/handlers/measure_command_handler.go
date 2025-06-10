@@ -20,7 +20,7 @@ const (
 	MeasureCommandHandlerName = "MEASURE_COMMAND_HANDLER"
 	MeasureCommandSubject     = "MEASURE_COMMAND.external"
 	MeasureResponseSubject    = "MEASURE_RESPONSE.external"
-	ProcessRequestSubject     = "PROCESS_REQUEST.interpreter"
+	ProcessRequestSubject     = "PROCESS_REQUEST"
 	UploadDataSubject         = "UPLOAD_DATA"
 	MeasureCommandName        = "MEASURE_COMMAND"
 	MeasureResponseName       = "MEASURE_RESPONSE"
@@ -344,18 +344,27 @@ func (h *MeasureCommandHandler) sendProcessRequest(
 	// Marshal the request
 	requestData, err := json.Marshal(processRequest)
 	if err != nil {
-		return fmt.Errorf("failed to marshal PROCESS_REQUEST: %w", err)
+		return fmt.Errorf(
+			"failed to marshal %s : %w",
+			ProcessRequestSubject,
+			err,
+		)
 	}
 
 	// Send to interpreter
 	if err := h.nc.Publish(ProcessRequestSubject, requestData); err != nil {
-		return fmt.Errorf("failed to publish PROCESS_REQUEST: %w", err)
+		return fmt.Errorf(
+			"failed to publish %s : %w",
+			ProcessRequestSubject,
+			err,
+		)
 	}
 
 	h.logger.Info(
 		MeasureCommandHandlerName,
 		fmt.Sprintf(
-			"Sent PROCESS_REQUEST to interpreter for measurement ID %d with %d port configurations",
+			"Sent %s to interpreter for measurement ID %d with %d port configurations",
+			ProcessRequestSubject,
 			uniqueID,
 			len(configurations),
 		),
