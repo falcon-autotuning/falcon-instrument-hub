@@ -91,6 +91,7 @@ test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-06-09_18-47-46.log
 test-outs/log/falcon-runtime_2025-06-09_18-48-42.log
 test-outs/log/falcon-runtime_2025-06-09_19-12-18.log
+test-outs/log/falcon-runtime_2025-06-09_19-18-05.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py

@@ -134,7 +134,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 
 	h.logger.Debug(
 		PortRequestHandlerName,
-		fmt.Sprintf("Sent  %s : %s", PortPayloadType, string(responseData)),
+		fmt.Sprintf("Sent  %s ", PortPayloadType),
 	)
 }
 
