@@ -15,8 +15,8 @@ Description-Content-Type: text/x-rst
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: setuptools-scm==8.1.0
 Requires-Dist: nats.py==2.10.0
-Requires-Dist: falcon_core
-Requires-Dist: instrument_templates
+Requires-Dist: falcon_core@ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+Requires-Dist: instrument_templates@ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
 
 # instrument-server
 
