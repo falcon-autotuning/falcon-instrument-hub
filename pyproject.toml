@@ -27,8 +27,8 @@ dependencies = [
   "numpy>=2.0.0",
   "setuptools-scm==8.1.0",
   "nats.py==2.10.0",
-  "falcon_core",
-  "instrument_templates",
+  "falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev",
+  "instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev",
 ]
 
 [project.readme]
