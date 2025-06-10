@@ -209,23 +209,23 @@ def test_config_files(temp_dir):
 
     # Create wiremap
     wiremap = {
-        "LargeMultiChannelDac.0": "S1",
-        "LargeMultiChannelDac.1": "S2",
-        "LargeMultiChannelDac.2": "S3",
-        "LargeMultiChannelDac.3": "B1",
-        "LargeMultiChannelDac.4": "B2",
-        "LargeMultiChannelDac.5": "B3",
-        "LargeMultiChannelDac.6": "B4",
-        "LargeMultiChannelDac.7": "B5",
-        "LargeMultiChannelDac.8": "B6",
-        "LargeMultiChannelDac.9": "P1",
-        "LargeMultiChannelDac.10": "P2",
-        "LargeMultiChannelDac.11": "P3",
-        "LargeMultiChannelDac.12": "P4",
-        "LargeMultiChannelDac.13": "R1",
-        "LargeMultiChannelDac.14": "R2",
-        "LargeMultiChannelDac.15": "R3",
-        "LargeMultiChannelDac.16": "R4",
+        "LargeMultiChannelDAC.0": "S1",
+        "LargeMultiChannelDAC.1": "S2",
+        "LargeMultiChannelDAC.2": "S3",
+        "LargeMultiChannelDAC.3": "B1",
+        "LargeMultiChannelDAC.4": "B2",
+        "LargeMultiChannelDAC.5": "B3",
+        "LargeMultiChannelDAC.6": "B4",
+        "LargeMultiChannelDAC.7": "B5",
+        "LargeMultiChannelDAC.8": "B6",
+        "LargeMultiChannelDAC.9": "P1",
+        "LargeMultiChannelDAC.10": "P2",
+        "LargeMultiChannelDAC.11": "P3",
+        "LargeMultiChannelDAC.12": "P4",
+        "LargeMultiChannelDAC.13": "R1",
+        "LargeMultiChannelDAC.14": "R2",
+        "LargeMultiChannelDAC.15": "R3",
+        "LargeMultiChannelDAC.16": "R4",
         "MultiChannelAmnmeter.1": "O2",
         "MultiChannelAmnmeter.2": "O4",
     }
@@ -674,7 +674,6 @@ async def test_full_measurement_flow(
         if knob.instrument_facing_name() == "B3":
             selected_knobs.append(knob)
     print(f"Selected knobs for measurement: {selected_knobs}")
-    print(active_knobs, active_meters)
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))

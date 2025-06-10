@@ -167,7 +167,6 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		instrumentName,
 	)
 	// Process the instrument ports to make them human-readable
-	// This should be done after the instrument is initialized and ports are set
 	if h.portProcessor != nil {
 		if err := h.portProcessor.ProcessInstrumentPorts(instrumentName, process.Ports); err != nil {
 			h.Log.Error(
