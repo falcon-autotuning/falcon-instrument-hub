@@ -225,22 +225,7 @@ func (pp *PortProcessor) InvertPortMappings(
 		)
 
 		for propertyName, indices := range properties {
-			pp.Log.Debug(
-				"Processing property %s with %d indices",
-				propertyName,
-				len(indices),
-			)
-
 			for index, portValue := range indices {
-				pp.logger.Debug(
-					HandlerName,
-					fmt.Sprintf(
-						"Processing index %d with portValue: %v (type: %T)",
-						index,
-						portValue,
-						portValue,
-					),
-				)
 				if port, ok := portValue.(string); ok {
 					// Check if this port already exists
 					if existingValue, exists := portConfigurations[port]; exists {
