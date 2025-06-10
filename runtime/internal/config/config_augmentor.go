@@ -108,7 +108,6 @@ func BuildNameMapping(
 			}
 		}
 	}
-	println("Built name mapping:", nameMapping)
 
 	return nameMapping, nil
 }
@@ -133,18 +132,18 @@ func parseConnections(connectionString string) []string {
 
 // PortObject represents a generic port (knob or meter)
 type PortObject struct {
-	Class          string      `json:"__class__"`
-	Module         string      `json:"__module__"`
-	DefaultName    interface{} `json:"default_name,omitempty"`
-	PseudoName     string      `json:"pseudo_name"`
-	InstrumentType string      `json:"instrument_type"`
-	Units          interface{} `json:"units,omitempty"`
-	Description    interface{} `json:"description,omitempty"`
+	Class          string `json:"__class__"`
+	Module         string `json:"__module__"`
+	DefaultName    string `json:"default_name,omitempty"`
+	PseudoName     string `json:"pseudo_name"`
+	InstrumentType string `json:"instrument_type"`
+	Units          string `json:"units,omitempty"`
+	Description    string `json:"description,omitempty"`
 
 	// Additional fields added during augmentation
-	DeviceConnection map[string]interface{} `json:"device_connection,omitempty"`
-	ConnectionName   string                 `json:"connection_name,omitempty"`
-	ConnectionType   string                 `json:"connection_type,omitempty"`
+	DeviceConnection map[string]string `json:"device_connection,omitempty"`
+	ConnectionName   string            `json:"connection_name,omitempty"`
+	ConnectionType   string            `json:"connection_type,omitempty"`
 }
 
 // IsKnob returns true if this port is a knob
@@ -173,21 +172,9 @@ func (p *PortObject) FromInterface(portValue interface{}) error {
 
 // ToInterface converts PortObject back to interface{} (matching original
 // format)
-func (p *PortObject) ToInterface(originalWasString bool) (any, error) {
+func (p *PortObject) ToInterface() (string, error) {
 	portBytes, err := json.Marshal(p)
-	if err != nil {
-		return nil, err
-	}
-
-	if originalWasString {
-		return string(portBytes), nil
-	} else {
-		var portMap map[string]any
-		if err := json.Unmarshal(portBytes, &portMap); err != nil {
-			return nil, err
-		}
-		return portMap, nil
-	}
+	return string(portBytes), err
 }
 
 // ProcessInstrumentPorts processes all ports for an instrument process and
@@ -202,7 +189,7 @@ func (p *PortObject) ToInterface(originalWasString bool) (any, error) {
 // Example: For instrument "dac1" with port index 0, it looks up "dac1.0" in
 // nameMapping.
 func ProcessInstrumentPorts(
-	instrumentPorts map[string]any,
+	instrumentPorts map[string]map[string]string,
 	nameMapping map[string]*DeviceConnection,
 	instrumentName string,
 ) error {
@@ -223,69 +210,55 @@ func ProcessInstrumentPorts(
 // processPortProperty processes a single port property (like "knobs" or
 // "meters")
 func processPortProperty(
-	properties any,
+	properties map[string]string,
 	nameMapping map[string]*DeviceConnection,
 	instrumentName string,
 ) error {
-	propertiesMap, ok := properties.(map[int64]any)
-	if !ok {
-		return nil // Skip non-map properties
-	}
+	var errors []string
 
-	for index, portValue := range propertiesMap {
-		if err := processIndividualPort(portValue, index, nameMapping, instrumentName, propertiesMap); err != nil {
-			// Log error but continue processing other ports
-			continue
+	for index, portValue := range properties {
+		wiremapKey := fmt.Sprintf("%s.%s", instrumentName, index)
+		err := processIndividualPort(
+			portValue,
+			index,
+			nameMapping,
+			wiremapKey,
+			properties,
+		)
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("index %s: %v", index, err))
 		}
 	}
+
+	if len(errors) > 0 {
+		return fmt.Errorf(
+			"failed to process ports: %s",
+			strings.Join(errors, "; "),
+		)
+	}
+
 	return nil
 }
 
 // processIndividualPort processes a single port at a specific index
 func processIndividualPort(
-	portValue any,
-	index int64,
+	portValue string,
+	index string,
 	nameMapping map[string]*DeviceConnection,
-	instrumentName string,
-	propertiesMap map[int64]any,
+	wiremapKey string,
+	properties map[string]string,
 ) error {
-	// Create and unmarshal port object
 	var portObj PortObject
 	if err := portObj.FromInterface(portValue); err != nil {
 		return fmt.Errorf("failed to unmarshal port: %w", err)
 	}
+	updatePortWithDeviceInfo(&portObj, wiremapKey, nameMapping)
+	updatedPort, err := portObj.ToInterface()
 
-	// Construct the lookup key: instrument_name.index
-	lookupKey := fmt.Sprintf("%s.%d", instrumentName, index)
-
-	// Update port with device connection or fallback name
-	updatePortWithDeviceInfo(&portObj, lookupKey, nameMapping)
-
-	// Convert back to original format and store
-	return updatePortInMap(&portObj, portValue, index, propertiesMap)
-}
-
-// updatePortInMap converts the updated port object back to its original format
-// and stores it
-func updatePortInMap(
-	portObj *PortObject,
-	originalPortValue any,
-	index int64,
-	propertiesMap map[int64]any,
-) error {
-	// Determine if original was string format
-	originalWasString := false
-	if _, ok := originalPortValue.(string); ok {
-		originalWasString = true
-	}
-
-	// Convert back to original format and store
-	updatedPort, err := portObj.ToInterface(originalWasString)
+	properties[index] = updatedPort
 	if err != nil {
 		return fmt.Errorf("failed to convert port back to interface: %w", err)
 	}
-
-	propertiesMap[index] = updatedPort
 	return nil
 }
 

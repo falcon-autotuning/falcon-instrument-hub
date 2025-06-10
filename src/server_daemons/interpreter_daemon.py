@@ -384,6 +384,7 @@ class InterpreterDaemon:
         )
         if buffered:
             await self.log("Buffered measurements enabled.")
+        await self.log("Standard measurement selected.")
         raw_time_trace = valid_waveform._space._space._space
         unit_domain = valid_waveform._space._space.domain
         axes_domains = valid_waveform._space._axes

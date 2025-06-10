@@ -52,29 +52,16 @@ func NewPortProcessor(
 // initialized
 func (pp *PortProcessor) ProcessInstrumentPorts(
 	instrumentName string,
-	instrumentPorts map[string]any,
+	instrumentPorts map[string]map[string]string,
 ) error {
 	if instrumentPorts == nil {
 		return fmt.Errorf("instrument %s has no ports", instrumentName)
 	}
-
-	// Augment the ports with device connection information using pre-built
-	// mapping
-	if err := config.ProcessInstrumentPorts(instrumentPorts, pp.nameMapping, instrumentName); err != nil {
-		pp.Log.Error(
-			"Failed to augment ports for instrument %s: %v",
-			instrumentName,
-			err,
-		)
-		return err
-	}
-
-	pp.Log.Debug(
-		"Successfully processed ports for instrument %s",
+	return config.ProcessInstrumentPorts(
+		instrumentPorts,
+		pp.nameMapping,
 		instrumentName,
 	)
-
-	return nil
 }
 
 // CollectPortProperties queries instrument ports and categorizes them into
@@ -99,19 +86,14 @@ func (pp *PortProcessor) CollectPortProperties(
 			continue
 		}
 
-		for _, innerMap := range instrument.Ports {
-			// Type assert innerMap to map[int64]any or similar
-			if portMap, ok := innerMap.(map[string]any); ok {
-				for _, value := range portMap {
-					if valueStr, ok := value.(string); ok {
+		for _, portMap := range instrument.Ports {
+			for _, value := range portMap {
 
-						if strings.Contains(valueStr, KnobIdentifier) {
-							knobs = append(knobs, valueStr)
-						}
-						if strings.Contains(valueStr, MeterIdentifier) {
-							meters = append(meters, valueStr)
-						}
-					}
+				if strings.Contains(value, KnobIdentifier) {
+					knobs = append(knobs, value)
+				}
+				if strings.Contains(value, MeterIdentifier) {
+					meters = append(meters, value)
 				}
 			}
 		}
@@ -177,22 +159,20 @@ func (pp *PortProcessor) CollectInstrumentPorts(
 		instrumentPorts[instrumentName] = make(map[string]map[int64]any)
 
 		// Copy the ports structure
-		for propertyName, propertyData := range instrumentProcess.Ports {
-			if portMap, ok := propertyData.(map[string]any); ok {
-				instrumentPorts[instrumentName][propertyName] = make(
-					map[int64]any,
-				)
-				for index, portValue := range portMap {
-					countIndex, err := strconv.ParseInt(index, 10, 64)
-					if err != nil {
-						pp.Log.Error(
-							"Could not convert index %s to int64: %v",
-							index,
-							err,
-						)
-					} else {
-						instrumentPorts[instrumentName][propertyName][countIndex] = portValue
-					}
+		for propertyName, propertyContents := range instrumentProcess.Ports {
+			instrumentPorts[instrumentName][propertyName] = make(
+				map[int64]any,
+			)
+			for index, portValue := range propertyContents {
+				countIndex, err := strconv.ParseInt(index, 10, 64)
+				if err != nil {
+					pp.Log.Error(
+						"Could not convert index %s to int64: %v",
+						index,
+						err,
+					)
+				} else {
+					instrumentPorts[instrumentName][propertyName][countIndex] = portValue
 				}
 			}
 		}

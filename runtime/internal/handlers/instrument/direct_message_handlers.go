@@ -140,7 +140,7 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 	}
 
 	// Unmarshal the JSON strings into proper data structures
-	var ports map[string]any
+	var ports map[string]map[string]string
 	if err := json.Unmarshal([]byte(resp.Port), &ports); err != nil {
 		h.Log.Error(
 			"Failed to unmarshal ports JSON: %v",
@@ -223,39 +223,13 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 				propertyData,
 				exists,
 			)
-			// Try map[int64]any first (direct assignment)
-			if propertyMap, ok := propertyData.(map[int64]any); ok {
-				h.Log.Info(
-					"Found property map with int64 keys: %v",
-					propertyMap,
-				)
-				// Search through the index map to find the matching port name
-				for index, portValue := range propertyMap {
-					if portName, ok := portValue.(string); ok &&
-						portName == req.Name {
-						targetInstrument = instrumentName
-						targetIndex = index
-						found = true
-						break
-					}
-				}
-			} else if propertyMapStr, ok := propertyData.(map[string]any); ok {
-				// Handle case where JSON unmarshaling converts int64 keys to
-				// strings
-				h.Log.Info(
-					"Found property map with string keys: %v",
-					propertyMapStr,
-				)
-				for indexStr, portValue := range propertyMapStr {
-					if portName, ok := portValue.(string); ok && portName == req.Name {
-						// Convert string key back to int64
-						if index, err := strconv.ParseInt(indexStr, 10, 64); err == nil {
-							targetInstrument = instrumentName
-							targetIndex = index
-							found = true
-							break
-						}
-					}
+			for rawIndex, portName := range propertyData {
+				index, err := strconv.ParseInt(rawIndex, 10, 64)
+				if portName == req.Name && err == nil {
+					targetInstrument = instrumentName
+					targetIndex = index
+					found = true
+					break
 				}
 			}
 			if found {
