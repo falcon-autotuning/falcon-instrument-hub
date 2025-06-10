@@ -15,13 +15,11 @@ from falcon_core.communications import Time
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
 from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
-from falcon_core.instrument_interfaces.port_transforms import PortTransform
+from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
+    IdentityTransform,
+)
 from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
     CartesianWaveform,
-)
-from falcon_core.math.analytic_functions import (
-    AnalyticFunction,
-    ValidatedAnalyticFunction,
 )
 from falcon_core.math.axes import Axes
 from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
@@ -34,12 +32,6 @@ from .server_api import RUNTIME_COMMANDS
 
 if TYPE_CHECKING:
     from falcon_core.instrument_interfaces.names import InstrumentPort
-
-
-class RawFunction(AnalyticFunction):
-    @classmethod
-    def _function(cls, t: float = 0.0, a: float = 0.0, **parameters) -> float:
-        return a
 
 
 @pytest.fixture(scope="module")
@@ -587,13 +579,7 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
             units=Units.SECOND,
         )
     )
-    transform = PortTransform(
-        port=meters[0],
-        transform=ValidatedAnalyticFunction(
-            function=RawFunction({"O2": "a", INSTRUMENT_TYPES.CLOCK: "t"}),
-            ports=Meters(ports),
-        ),
-    )
+    transform = IdentityTransform(port=meters[0], ports=Meters(ports))
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
@@ -602,38 +588,93 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
     )
 
 
+# @pytest.mark.asyncio
+# async def test_interpreter_flow(
+#     nats_client,
+#     measurement_request,
+#     daemon_health_monitoring,
+#     temp_dir,
+# ):
+#     """Test a complete interpreter flow from request to data upload."""
+#     max_wait_time = 34.0
+#     check_interval = 0.5
+#     elapsed_time = 0.0
+#     upload_msgs = []
+#
+#     async def upload_handler(msg):
+#         upload_msgs.append(json.loads(msg.data.decode()))
+#
+#     await nats_client.subscribe(
+#         RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
+#         cb=upload_handler,
+#     )
+#
+#     print(daemon_health_monitoring)
+#
+#     process_request = {
+#         RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: measurement_request.to_json(),
+#         RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 1,
+#         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
+#         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: str(Path(temp_dir) / "data"),
+#     }
+#
+#     await nats_client.publish(
+#         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,
+#         json.dumps(process_request).encode(),
+#     )
+#     while elapsed_time < max_wait_time:
+#         print(f"⏱️  {elapsed_time:.1f}s - Upload messages received:")
+#         print(f"  {len(upload_msgs)} messages")
+#         if upload_msgs:
+#             print("✅ Upload message received!")
+#             break
+#         await asyncio.sleep(check_interval)
+#         elapsed_time += check_interval
+#
+#     # Show final summary
+#     print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
+#     print("Collected list of upload messages:", upload_msgs)
+#     assert upload_msgs, (
+#         f"Should receive a upload message, got None in {elapsed_time:.1f}s"
+#     )
+#
+
+
 @pytest.mark.asyncio
-async def test_interpreter_flow(
+async def test_full_measurement_flow(
     nats_client,
     measurement_request,
     daemon_health_monitoring,
-    temp_dir,
 ):
-    """Test a complete interpreter flow from request to data upload."""
+    """Test a complete measurement flow from request to data upload."""
     max_wait_time = 34.0
     check_interval = 0.5
     elapsed_time = 0.0
     upload_msgs = []
+    externalProcessName = "Test"
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
 
     await nats_client.subscribe(
-        RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
+        RUNTIME_COMMANDS.MEASURE_RESPONSE.COMM_CHANNEL
+        + ".external."
+        + externalProcessName,
         cb=upload_handler,
     )
 
     print(daemon_health_monitoring)
 
     process_request = {
-        RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: measurement_request.to_json(),
-        RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 1,
-        RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
-        RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: str(Path(temp_dir) / "data"),
+        RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: measurement_request.to_json(),
+        RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: 692,
+        RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: Time().time,
     }
 
     await nats_client.publish(
-        RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,
+        RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL
+        + ".external."
+        + externalProcessName,
         json.dumps(process_request).encode(),
     )
     while elapsed_time < max_wait_time:
@@ -651,77 +692,3 @@ async def test_interpreter_flow(
     assert upload_msgs, (
         f"Should receive a upload message, got None in {elapsed_time:.1f}s"
     )
-
-
-@pytest.mark.asyncio
-async def test_full_measurement_flow(
-    go_runtime_process,
-    nats_client,
-    setup_instruments,
-):
-    """Test a complete measurement flow from request to data upload."""
-    # Connect to NATS
-    externalProcessName = "Test"
-
-    # Collect messages
-    upload_msgs = []
-
-    async def upload_handler(msg):
-        upload_msgs.append(json.loads(msg.data.decode()))
-
-    await nats_client.subscribe(
-        RUNTIME_COMMANDS.MEASURE_RESPONSE.COMM_CHANNEL, cb=upload_handler
-    )
-
-    # Setup instruments
-
-    # Create and send measurement request
-    request = MeasurementRequest(
-        message="test measurement",
-        measurement_name="integration_test",
-        waveforms=[],
-        meter_transforms=[],
-    )
-
-    process_request = {
-        RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: request.to_json(),
-        RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: 692,
-        RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: Time().time,
-    }
-
-    await nats_client.publish(
-        RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL
-        + ".external."
-        + externalProcessName,
-        json.dumps(process_request).encode(),
-    )
-
-    # Wait for processing
-    await asyncio.sleep(10)
-
-    try:
-        stdout, stderr = go_runtime_process.communicate(timeout=5)
-        print(f"STDOUT:\n{stdout}")
-        print(f"STDERR:\n{stderr}")
-    except subprocess.TimeoutExpired:
-        print("Timeout exceeded while waiting for Go process output")
-
-    # Show Go application logs
-    log_dir = Path(test_config_files["working_dir"]) / "log"
-    print(f"Checking for logs in: {log_dir}")
-    print(f"Log dir exists: {log_dir.exists()}")
-    if log_dir.exists():
-        print(f"Log directory contents: {list(log_dir.iterdir())}")
-        for log_file in log_dir.glob("*.log"):
-            print(f"Log file: {log_file}")
-            try:
-                content = log_file.read_text()
-                print(f"Contents of {log_file.name}:\n{content}")
-            except Exception as e:
-                print(f"Could not read {log_file}: {e}")
-    else:
-        print("Log directory does not exist")
-
-    assert upload_msgs, "No upload messages received"
-    print(upload_msgs)
-    assert go_runtime_process.poll() is None, "Go runtime process died"

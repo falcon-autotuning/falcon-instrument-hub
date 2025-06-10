@@ -162,7 +162,7 @@ async def test_interpreter_status(nats_client, daemon_process, capfd):
     status_msgs = []
 
     # Subscribe to status channel
-    status_channel = INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL
+    status_channel = INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".interpreter"
 
     async def status_handler(msg):
         print(f"Received status message: {msg.data.decode()}", flush=True)
@@ -203,7 +203,7 @@ async def test_interpreter_log(nats_client, daemon_process, capfd):
     log_msgs = []
 
     # Subscribe to log channel
-    log_channel = INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL
+    log_channel = INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + ".interpreter"
 
     async def log_handler(msg):
         print(f"Received log message: {msg.data.decode()}", flush=True)

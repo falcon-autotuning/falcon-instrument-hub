@@ -180,7 +180,10 @@ class TestInterpreterDaemon:
             # Verify publish was called with the correct status
             assert mock_client.publish.call_count >= 1
             args = mock_client.publish.call_args_list[0][0]  # Get the first call args
-            assert args[0] == INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL
+            assert (
+                args[0]
+                == INTERPRETER_RUNTIME_COMMANDS.STATUS.COMM_CHANNEL + ".interpreter"
+            )
 
             # Parse the message and verify content
             message_data = json.loads(args[1].decode())
@@ -209,7 +212,7 @@ class TestInterpreterDaemon:
         # Verify the correct message format is published to the log channel
         mock_client.publish.assert_called_once()
         args = mock_client.publish.call_args[0]
-        assert args[0] == INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL
+        assert args[0] == INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + ".interpreter"
 
         # Parse the message to verify content
         message_data = json.loads(args[1].decode())

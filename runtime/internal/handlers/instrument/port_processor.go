@@ -191,13 +191,6 @@ func (pp *PortProcessor) CollectInstrumentPorts(
 							err,
 						)
 					} else {
-						pp.Log.Debug(
-							"Storing port value for instrument %s, property %s, index %d: %v",
-							instrumentName,
-							propertyName,
-							countIndex,
-							portValue,
-						)
 						instrumentPorts[instrumentName][propertyName][countIndex] = portValue
 					}
 				}
