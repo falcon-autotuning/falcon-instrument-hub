@@ -11,10 +11,8 @@ from instrument_templates.registry_controls import find_driver
 from server_daemons.instrument_daemon import InstrumentDaemon
 
 # Load all driver plugins
-print("Before drivers", flush=True)
 for entry_point in importlib.metadata.entry_points(group="driver.plugins"):
     importlib.import_module(entry_point.value)
-    print(f"Found entry point: {entry_point.name} -> {entry_point.value}", flush=True)
 
 
 def unpack_args() -> tuple[type, str]:

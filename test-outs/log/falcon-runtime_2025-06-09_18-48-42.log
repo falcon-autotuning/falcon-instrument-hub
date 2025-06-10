@@ -1,0 +1,5 @@
+[2025-06-09 18:48:42.047] [INFO] [SYSTEM] Logger initialized
+[2025-06-09 18:48:42.048] [INFO] [SYSTEM] Log file: /home/tylerk/Documents/instrument-server/test-outs/log/falcon-runtime_2025-06-09_18-48-42.log
+[2025-06-09 18:48:42.050] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-09 18:48:42.174] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-09 18:48:42.186] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"

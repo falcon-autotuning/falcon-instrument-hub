@@ -182,10 +182,13 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.WiringDC),
 	)
 	// setup instrument virtual environment
-	interpreterPackages := append(append(
-		[]string{corePackage},
-		templatesPackage),
-		[]string{interpreterPackage}...)
+	interpreterPackages := append(
+		append(
+			[]string{corePackage},
+			templatesPackage),
+		[]string{
+			interpreterPackage,
+		}...) // TODO: include all falcon packages for the interpreter too
 	instrumentPackages := append(
 		interpreterPackages,
 		packages...)
