@@ -20,10 +20,8 @@ setup-python:
 	uv venv $(PYTHON_ENV)
 	uv pip install -e .
 	uv pip install -r requirements.txt
+	uv pip install -r requirements-test.txt
 
-	# python3 -m venv $(PYTHON_ENV)
-	# $(PYTHON_ENV)/bin/pip install -e .
-	# $(PYTHON_ENV)/bin/pip install -r requirements.txt
 
 # Test infrastructure
 .PHONY: start-nats
