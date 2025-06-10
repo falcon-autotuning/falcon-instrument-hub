@@ -52,8 +52,8 @@ type DeviceConnection struct {
 }
 
 // ToJSON returns the JSON representation for falcon_core
-func (dc *DeviceConnection) ToJSON() map[string]interface{} {
-	return map[string]interface{}{
+func (dc *DeviceConnection) ToJSON() map[string]string {
+	return map[string]string{
 		"__class__": string(dc.ConnectionType),
 		"__module__": fmt.Sprintf(
 			FalconCoreModuleTemplate,
@@ -108,6 +108,7 @@ func BuildNameMapping(
 			}
 		}
 	}
+	println("Built name mapping:", nameMapping)
 
 	return nameMapping, nil
 }

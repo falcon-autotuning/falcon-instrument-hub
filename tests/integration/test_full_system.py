@@ -465,7 +465,7 @@ async def setup_instruments(
     if not (active_knobs or active_meters):
         pytest.fail(f"No instruments became available after {elapsed_time:.1f}s")
 
-    yield "Instrument are setup and ready"
+    return active_knobs, active_meters
 
 
 @pytest_asyncio.fixture(scope="function", autouse=False)
@@ -507,7 +507,7 @@ async def daemon_health_monitoring(
     elapsed_time = 0.0
 
     status_msgs = go_runtime_process
-    print(setup_instruments)
+    active_knobs, active_meters = setup_instruments
     print(f"🔍 Monitoring for daemons: {expectedDaemons}")
     print("Waiting for status messages...")
 
@@ -543,7 +543,8 @@ async def daemon_health_monitoring(
         assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
         assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
 
-    return "✅ All daemons are healthy and reporting status"
+    print("✅ All daemons are healthy and reporting status")
+    return active_knobs, active_meters
 
 
 @pytest.fixture
@@ -656,7 +657,7 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
 @pytest.mark.asyncio
 async def test_full_measurement_flow(
     nats_client,
-    daemon_health_monitoring,
+    daemon_health_monitoring: tuple[list[Knob], list[Meter]],
     measurement_request,
     externalProcessName,
     cleanup_instruments,
@@ -667,7 +668,13 @@ async def test_full_measurement_flow(
     elapsed_time = 0.0
     upload_msgs = []
 
-    print(daemon_health_monitoring)
+    selected_knobs = []
+    active_knobs, active_meters = daemon_health_monitoring
+    for knob in active_knobs:
+        if knob.instrument_facing_name() == "B3":
+            selected_knobs.append(knob)
+    print(f"Selected knobs for measurement: {selected_knobs}")
+    print(active_knobs, active_meters)
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
