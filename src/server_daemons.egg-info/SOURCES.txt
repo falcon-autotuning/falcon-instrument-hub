@@ -16,7 +16,6 @@ runtime/cmd/main.go
 runtime/internal/api/api.go
 runtime/internal/api/helpers.go
 runtime/internal/api/timestamp-extensions.go
-runtime/internal/config/config_augmentor.go
 runtime/internal/config/loader.go
 runtime/internal/config/loader_test.go
 runtime/internal/config/types.go

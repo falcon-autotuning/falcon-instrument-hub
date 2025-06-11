@@ -338,9 +338,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     process_request = {
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: request.to_json(),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 42,
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps(
-            {knobs[0]: {}}
-        ),
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
 
@@ -364,8 +362,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
                 for keyword in [
                     "Error processing request",
                     "Processing request",
-                    "request",
-                    "Request",
+                    "successfully",
                 ]
             ):
                 return True
