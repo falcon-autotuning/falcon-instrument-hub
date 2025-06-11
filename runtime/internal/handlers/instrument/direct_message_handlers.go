@@ -149,7 +149,7 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		return
 	}
 
-	var configuration map[string]any
+	var configuration map[string]map[string]map[string]any
 	if err := json.Unmarshal([]byte(resp.Init), &configuration); err != nil {
 		h.Log.Error(
 			"Failed to unmarshal configuration JSON: %v",

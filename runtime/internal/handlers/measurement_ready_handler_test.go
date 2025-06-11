@@ -62,14 +62,14 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 		"instrument1": {
 			Name:        "instrument1",
 			Initialized: true,
-			Ports: map[string]any{
-				"knobs": map[int64]any{
-					1: createTestPortJSON("port1", "knobs"),
+			Ports: map[string]map[string]string{
+				"knobs": {
+					"1": createTestPortJSON("port1", "knobs"),
 				},
 			},
-			Configuration: map[string]any{
-				"knobs": map[int64]any{
-					1: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"knobs": {
+					"1": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},
@@ -79,14 +79,14 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 		"instrument2": {
 			Name:        "instrument2",
 			Initialized: true,
-			Ports: map[string]any{
-				"knobs": map[int64]any{
-					2: createTestPortJSON("port2", "knobs"),
+			Ports: map[string]map[string]string{
+				"knobs": {
+					"2": createTestPortJSON("port2", "knobs"),
 				},
 			},
-			Configuration: map[string]any{
-				"knobs": map[int64]any{
-					2: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"knobs": {
+					"2": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},
@@ -96,14 +96,14 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 		"getter_instrument": {
 			Name:        "getter_instrument",
 			Initialized: true,
-			Ports: map[string]any{
-				"knobs": map[int64]any{
-					10: createTestPortJSON("getter_port", "knobs"),
+			Ports: map[string]map[string]string{
+				"knobs": {
+					"10": createTestPortJSON("getter_port", "knobs"),
 				},
 			},
-			Configuration: map[string]any{
-				"knobs": map[int64]any{
-					10: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"knobs": {
+					"10": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},
@@ -113,14 +113,14 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 		"setter_instrument": {
 			Name:        "setter_instrument",
 			Initialized: true,
-			Ports: map[string]any{
-				"knobs": map[int64]any{
-					20: createTestPortJSON("setter_port", "knobs"),
+			Ports: map[string]map[string]string{
+				"knobs": {
+					"20": createTestPortJSON("setter_port", "knobs"),
 				},
 			},
-			Configuration: map[string]any{
-				"knobs": map[int64]any{
-					20: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"knobs": {
+					"20": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},

@@ -311,19 +311,19 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	mockInstrument := &instrument.InstrumentProcess{
 		Name:        "dac1",
 		Initialized: true,
-		Ports: map[string]interface{}{
-			"knobs": map[int64]interface{}{
-				0: createTestKnobJSON("DAC", "SG1"),
-				1: createTestKnobJSON("DAC", "OH1"),
+		Ports: map[string]map[string]string{
+			"knobs": {
+				"0": createTestKnobJSON("DAC", "SG1"),
+				"1": createTestKnobJSON("DAC", "OH1"),
 			},
 		},
-		Configuration: map[string]interface{}{
-			"knobs": map[int64]interface{}{
-				0: map[string]interface{}{
+		Configuration: map[string]map[string]map[string]any{
+			"knobs": {
+				"0": map[string]any{
 					"bounds": []float64{-10, 10},
 					"unit":   "V",
 				},
-				1: map[string]interface{}{
+				"1": map[string]any{
 					"bounds": []float64{-5, 5},
 					"unit":   "V",
 				},

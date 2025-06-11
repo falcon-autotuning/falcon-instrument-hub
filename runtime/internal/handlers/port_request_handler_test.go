@@ -52,19 +52,19 @@ func setupTestInstrumentHandlerForPortRequest(
 		"dac1": {
 			Name:        "dac1",
 			Initialized: true,
-			Ports: map[string]any{
-				"knobs": map[int64]any{
-					0: createTestKnobJSON("DAC", "knob1"),
-					1: createTestKnobJSON("DAC", "knob2"),
+			Ports: map[string]map[string]string{
+				"knobs": {
+					"0": createTestKnobJSON("DAC", "knob1"),
+					"1": createTestKnobJSON("DAC", "knob2"),
 				},
 			},
-			Configuration: map[string]any{
-				"knobs": map[int64]any{
-					0: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"knobs": {
+					"0": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},
-					1: map[string]any{
+					"1": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
 					},
@@ -74,19 +74,19 @@ func setupTestInstrumentHandlerForPortRequest(
 		"dac2": {
 			Name:        "dac2",
 			Initialized: true,
-			Ports: map[string]any{
-				"meters": map[int64]any{
-					0: createTestMeterJSON("DAC", "meter1"),
-					1: createTestMeterJSON("DAC", "meter2"),
+			Ports: map[string]map[string]string{
+				"meters": {
+					"0": createTestMeterJSON("DAC", "meter1"),
+					"1": createTestMeterJSON("DAC", "meter2"),
 				},
 			},
-			Configuration: map[string]any{
-				"meters": map[int64]any{
-					0: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"meters": {
+					"0": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "A",
 					},
-					1: map[string]any{
+					"1": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "A",
 					},
@@ -96,14 +96,14 @@ func setupTestInstrumentHandlerForPortRequest(
 		"ohmic_instrument": {
 			Name:        "ohmic_instrument",
 			Initialized: true,
-			Ports: map[string]any{
-				"meters": map[int64]any{
-					0: createTestOhmicMeterJSON("DAC", "ohmic_meter"),
+			Ports: map[string]map[string]string{
+				"meters": {
+					"0": createTestOhmicMeterJSON("DAC", "ohmic_meter"),
 				},
 			},
-			Configuration: map[string]any{
-				"meters": map[int64]any{
-					0: map[string]any{
+			Configuration: map[string]map[string]map[string]any{
+				"meters": {
+					"0": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "A",
 					},
