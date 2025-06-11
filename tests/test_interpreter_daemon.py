@@ -572,12 +572,12 @@ class TestInterpreterDaemon:
         mock_request = MagicMock(spec=MeasurementRequest)
         mock_response = MagicMock(spec=MeasurementResponse)
         interpreter_daemon.make_response.return_value = mock_response
-        interpreter_daemon._shape = (3,)
 
         # Call load_and_export_data
         await interpreter_daemon.load_and_export_data(
             request=mock_request,
             data_path=Path("/tmp/test_data"),
+            shape=(3,),
             id=345,
             data_count=2,
         )
