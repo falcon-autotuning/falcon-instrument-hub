@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -16,6 +17,26 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Add this helper function at the top of your test files
+func detectPython() string {
+	// Try common Python paths
+	pythonPaths := []string{
+		"/usr/bin/python3",
+		"/usr/local/bin/python3",
+		"/opt/homebrew/bin/python3", // macOS with Homebrew
+		"python3",
+		"python",
+	}
+
+	for _, path := range pythonPaths {
+		if _, err := exec.LookPath(path); err == nil {
+			return path
+		}
+	}
+
+	return "python3" // fallback
+}
 
 // setupTestConfig creates a basic config for testing
 func setupTestConfig() *config.Config {
@@ -94,7 +115,7 @@ if __name__ == "__main__":
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
-		"python3", // Use system python for tests
+		detectPython(), // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -120,14 +141,22 @@ if __name__ == "__main__":
 
 		// Verify the process is actually running
 		activeInstruments := handler.GetActiveInstruments()
-		require.Contains(t, activeInstruments, "test-instrument")
+		require.Contains(
+			t,
+			activeInstruments,
+			instrument.Name("test-instrument"),
+		)
 		assert.Len(t, activeInstruments, 1)
 	})
 
 	t.Run("destroy existing instrument", func(t *testing.T) {
 		// Ensure we have an instrument to destroy
 		activeInstruments := handler.GetActiveInstruments()
-		require.Contains(t, activeInstruments, "test-instrument")
+		require.Contains(
+			t,
+			activeInstruments,
+			instrument.Name("test-instrument"),
+		)
 
 		// Create destroy request
 		request := api.DestroyInstrument{
@@ -163,7 +192,7 @@ if __name__ == "__main__":
 
 		// Verify first instrument is running
 		activeInstruments := handler.GetActiveInstruments()
-		assert.Contains(t, activeInstruments, "duplicate-test")
+		assert.Contains(t, activeInstruments, instrument.Name("duplicate-test"))
 
 		// Try to setup same instrument again
 		err = nc.Publish("SETUP_INSTRUMENT.external.test", requestData)
@@ -290,7 +319,7 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
-		"python3", // Use system python for tests
+		detectPython(), // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -298,7 +327,7 @@ func TestInstrumentHandlerScriptEnsure(t *testing.T) {
 		// This should create the scripts directory and extract the embedded
 		// script - we'll test this indirectly by checking if the script file
 		// exists
-		scriptPath := filepath.Join("./", "launch_instrument_daemon.py")
+		scriptPath := filepath.Join("scripts/", "launch_instrument_daemon.py")
 
 		// First ensure the handler can start (which calls ensureScriptExists
 		// internally)
@@ -364,7 +393,7 @@ while True:
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
-		"python3", // Use system python for tests
+		detectPython(), // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -385,7 +414,7 @@ while True:
 
 	// Verify it's running
 	activeInstruments := handler.GetActiveInstruments()
-	assert.Contains(t, activeInstruments, "cleanup-test")
+	assert.Contains(t, activeInstruments, instrument.Name("cleanup-test"))
 
 	// Test cleanup via Unsubscribe
 	err = handler.Unsubscribe()
@@ -499,7 +528,7 @@ if __name__ == "__main__":
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
-		"python3", // Use system python for tests
+		detectPython(), // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -524,7 +553,11 @@ if __name__ == "__main__":
 
 		// Verify the instrument is listed as active
 		activeInstruments := handler.GetActiveInstruments()
-		require.Contains(t, activeInstruments, "test-init-instrument")
+		require.Contains(
+			t,
+			activeInstruments,
+			instrument.Name("test-init-instrument"),
+		)
 
 		// The mock script should have sent initialization data
 		// We can't directly access the internal state, but we can verify
@@ -536,7 +569,11 @@ if __name__ == "__main__":
 
 		// Verify instrument is still active (initialization was successful)
 		activeInstruments = handler.GetActiveInstruments()
-		assert.Contains(t, activeInstruments, "test-init-instrument")
+		assert.Contains(
+			t,
+			activeInstruments,
+			instrument.Name("test-init-instrument"),
+		)
 	})
 
 	t.Run("invalid_initialization_subject", func(t *testing.T) {
@@ -646,7 +683,7 @@ func TestInstrumentHandlerUpdateDaemonProperty(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		setupTestConfig(),
-		"python3", // Use system python for tests
+		detectPython(), // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -729,7 +766,7 @@ if __name__ == "__main__":
 
 		// Verify the instrument is running
 		activeInstruments := handler.GetActiveInstruments()
-		require.Contains(t, activeInstruments, instrumentName)
+		require.Contains(t, activeInstruments, instrument.Name(instrumentName))
 
 		// Now simulate initialization data for the running instrument
 		initDataMap := map[string]any{

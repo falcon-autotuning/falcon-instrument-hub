@@ -78,7 +78,7 @@ func (h *Handler) Unsubscribe() error {
 		)
 		h.stopInstrument(process)
 	}
-	h.Instruments = make(map[string]*InstrumentProcess)
+	h.Instruments = make(map[Name]*InstrumentProcess)
 	if h.cleanupStop != nil {
 		close(h.cleanupStop)
 	}

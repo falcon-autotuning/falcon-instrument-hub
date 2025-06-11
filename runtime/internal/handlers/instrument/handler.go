@@ -28,7 +28,7 @@ func NewHandler(
 		Log:               Log,
 		natsURL:           natsURL,
 		nc:                nc,
-		Instruments:       make(map[string]*InstrumentProcess),
+		Instruments:       make(map[Name]*InstrumentProcess),
 		subscriptions:     make([]*nats.Subscription, 0),
 		portProcessor:     portProcessor,
 		pythonInterpreter: pythonInterpreter,
@@ -38,11 +38,11 @@ func NewHandler(
 }
 
 // GetActiveInstruments returns a list of currently running instruments
-func (h *Handler) GetActiveInstruments() []string {
+func (h *Handler) GetActiveInstruments() []Name {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
-	names := make([]string, 0, len(h.Instruments))
+	names := make([]Name, 0, len(h.Instruments))
 	for name := range h.Instruments {
 		names = append(names, name)
 	}
@@ -71,7 +71,7 @@ func (h *Handler) CleanupCompletedProcesses() {
 
 // GetProcessStatus returns the current status of a process
 func (h *Handler) GetProcessStatus(
-	name string,
+	name Name,
 ) (status string, exists bool) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()

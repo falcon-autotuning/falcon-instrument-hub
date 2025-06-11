@@ -4,30 +4,38 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 )
 
-// Handler Names
 const (
-	HandlerName = "INSTRUMENT_HANDLER"
-)
-
-// File Paths
-const (
-	ScriptsDir                 = "scripts"
-	LaunchInstrumentScriptName = "launch_instrument_daemon.py"
-)
-
-// Process Management
-const (
-	GracefulShutdownTimeout = 5 // seconds
+	HandlerName                string         = "INSTRUMENT_HANDLER"
+	Knob                       port           = "Knob"
+	Meter                      port           = "Meter"
+	Port                       port           = "InstrumentPort"
+	ScriptsDir                 string         = "scripts"
+	LaunchInstrumentScriptName string         = "launch_instrument_daemon.py"
+	GracefulShutdownTimeout    int64          = 5 // seconds
+	ScreeningGate              connectionType = "ScreeningGate"
+	BarrierGate                connectionType = "BarrierGate"
+	ReservoirGate              connectionType = "ReservoirGate"
+	PlungerGate                connectionType = "PlungerGate"
+	Ohmic                      connectionType = "Ohmic"
+	screeningModule            string         = "screening_gate"
+	barrierModule              string         = "barrier_gate"
+	reservoirModule            string         = "reservoir_gate"
+	plungerModule              string         = "plunger_gate"
+	ohmicModule                string         = "ohmic"
+	falconCoreModuleTemplate   string         = "falcon_core.physics.device_structures."
 )
 
 //go:embed launch_instrument_daemon.py
@@ -49,13 +57,21 @@ var (
 	UpdateDaemonPropertySubject  = UpdateDaemonPropertyCommand + ".instrument-server"
 )
 
+var connectionToModule = map[connectionType]module{
+	ScreeningGate: module(falconCoreModuleTemplate + screeningModule),
+	PlungerGate:   module(falconCoreModuleTemplate + plungerModule),
+	BarrierGate:   module(falconCoreModuleTemplate + barrierModule),
+	ReservoirGate: module(falconCoreModuleTemplate + reservoirModule),
+	Ohmic:         module(falconCoreModuleTemplate + ohmicModule),
+}
+
 // InstrumentProcess represents a running instrument daemon
 type InstrumentProcess struct {
-	Name          string
+	Name          Name
 	Cmd           *exec.Cmd
 	Cancel        context.CancelFunc
-	Ports         map[string]map[string]string
-	Configuration map[string]map[string]map[string]any
+	Ports         propertyIndexedPorts
+	Configuration map[PropertyName]map[Index]PortConfiguration
 	Initialized   bool
 	StartTime     time.Time
 	Stdout        *bytes.Buffer
@@ -71,7 +87,7 @@ type Handler struct {
 	Log               *LogWrapper
 	natsURL           string
 	nc                *nats.Conn
-	Instruments       map[string]*InstrumentProcess
+	Instruments       map[Name]*InstrumentProcess
 	mutex             sync.RWMutex
 	subscriptions     []*nats.Subscription
 	portProcessor     *PortProcessor
@@ -86,8 +102,84 @@ type subscriptionConfig struct {
 	name    string
 }
 
+// a name for an insturment
+type Name string
+
+// ConnectionType represents the type of connection
+type (
+	connectionType         string
+	module                 string
+	port                   string
+	PropertyName           string
+	Index                  string
+	propertyIndexedPorts   map[PropertyName]map[Index]JsonPort
+	instrumentIndexedPorts map[Name]propertyIndexedPorts
+	JsonPort               string
+	PortConfiguration      map[string]any
+)
+
+// psuedoName represents a pythonic name that falcon understands
+type psuedoName struct {
+	Class  connectionType              `json:"__class__"`
+	Module module                      `json:"__module__"`
+	Name   config.InstrumentConnection `json:"name"`
+}
+
+// units represents the pythonic units for a port
+type (
+	units       map[string]any
+	defaultName string
+)
+
+// PortObject represents a generic port (knob or meter)
+type PortObject struct {
+	Class          port        `json:"__class__"`
+	Module         module      `json:"__module__"`
+	DefaultName    defaultName `json:"default_name"`
+	PseudoName     psuedoName  `json:"pseudo_name"`
+	InstrumentType string      `json:"instrument_type"`
+	Units          units       `json:"units"`
+	Description    string      `json:"description"`
+}
+
+// IsKnob returns true if this port is a knob
+func (p *PortObject) IsKnob() bool {
+	return p.Class == Knob
+}
+
+// IsMeter returns true if this port is a meter
+func (p *PortObject) IsMeter() bool {
+	return p.Class == Meter
+}
+
+// IsPort return true if this port is a port
+func (p *PortObject) IsPort() bool {
+	return p.Class == Knob
+}
+
+// FromInterface unmarshals from interface{} (string or map) into PortObject
+func (p *PortObject) FromInterface(portValue JsonPort) error {
+	return json.Unmarshal([]byte(portValue), p)
+}
+
+// ToInterface converts PortObject back to interface{} (matching original
+// format)
+func (p *PortObject) ToInterface() (JsonPort, error) {
+	portBytes, err := json.Marshal(p)
+	return JsonPort(string(portBytes)), err
+}
+
+func (jp JsonPort) Contains(other string) bool {
+	// Check if the JsonPort contains the other string
+	return strings.Contains(jp.String(), other)
+}
+
+func (jp JsonPort) String() string {
+	return string(jp)
+}
+
 // CollectPortProperties collects port properties from all active instruments
-func (h *Handler) CollectPortProperties() (knobs, meters []string) {
+func (h *Handler) CollectPortProperties() (knobs, meters []JsonPort) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -99,7 +191,7 @@ func (h *Handler) CollectPortProperties() (knobs, meters []string) {
 
 // BuildConfigurations creates the configuration mapping by collecting and
 // inverting port mappings
-func (h *Handler) BuildConfigurations() (map[string]map[string]any, error) {
+func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]map[string]any, error) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -108,12 +200,12 @@ func (h *Handler) BuildConfigurations() (map[string]map[string]any, error) {
 	}
 
 	// Return empty map if no port processor available
-	return make(map[string]map[string]any), nil
+	return make(map[JsonPort]map[PropertyName]map[string]any), nil
 }
 
 // BuildPortConfigurations builds the port configurations mapping
 // Returns a mapping from port names to their configuration details
-func (h *Handler) BuildPortConfigurations() (map[string]PortConfiguration, error) {
+func (h *Handler) BuildPortConfigurations() (map[JsonPort]PortOptions, error) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -122,18 +214,18 @@ func (h *Handler) BuildPortConfigurations() (map[string]PortConfiguration, error
 	}
 
 	// Return empty map if no port processor available
-	return make(map[string]PortConfiguration), nil
+	return make(map[JsonPort]PortOptions), nil
 }
 
 // GetPortConfiguration finds the configuration for a specific port
-func (h *Handler) GetPortConfiguration(
-	portName string,
-) (*PortConfiguration, error) {
+func (h *Handler) GetPortOptions(
+	name JsonPort,
+) (*PortOptions, error) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
 	if h.portProcessor != nil {
-		return h.portProcessor.GetPortConfiguration(portName, h.Instruments)
+		return h.portProcessor.GetPortConfiguration(name, h.Instruments)
 	}
 
 	return nil, fmt.Errorf("no port processor available")
@@ -151,7 +243,10 @@ func (h *Handler) InvalidatePortConfigCache() {
 }
 
 // AddInstrument adds an instrument and invalidates port cache
-func (h *Handler) AddInstrument(name string, instrument *InstrumentProcess) {
+func (h *Handler) AddInstrument(
+	name Name,
+	instrument *InstrumentProcess,
+) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -164,7 +259,7 @@ func (h *Handler) AddInstrument(name string, instrument *InstrumentProcess) {
 }
 
 // RemoveInstrument removes an instrument and invalidates port cache
-func (h *Handler) RemoveInstrument(name string) {
+func (h *Handler) RemoveInstrument(name Name) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -179,8 +274,8 @@ func (h *Handler) RemoveInstrument(name string) {
 // UpdateInstrumentConfiguration updates an instrument's configuration and
 // invalidates cache
 func (h *Handler) UpdateInstrumentConfiguration(
-	name string,
-	config map[string]map[string]map[string]any,
+	name Name,
+	config map[PropertyName]map[Index]PortConfiguration,
 ) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
@@ -197,7 +292,10 @@ func (h *Handler) UpdateInstrumentConfiguration(
 
 // SetInstrumentInitialized marks an instrument as initialized and invalidates
 // cache
-func (h *Handler) SetInstrumentInitialized(name string, initialized bool) {
+func (h *Handler) SetInstrumentInitialized(
+	name Name,
+	initialized bool,
+) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 

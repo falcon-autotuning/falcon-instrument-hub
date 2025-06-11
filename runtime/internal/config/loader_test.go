@@ -120,8 +120,8 @@ keithley1.ch2: O1
 
 	// Verify wiremap content
 	assert.Len(t, *cfg.WireMap, 4)
-	assert.Equal(t, "S1", (*cfg.WireMap)["dac1.0"])
-	assert.Equal(t, "P1", (*cfg.WireMap)["dac1.1"])
+	assert.Equal(t, InstrumentConnection("S1"), (*cfg.WireMap)["dac1.0"])
+	assert.Equal(t, InstrumentConnection("P1"), (*cfg.WireMap)["dac1.1"])
 }
 
 func TestLoadConfig_NonexistentFiles(t *testing.T) {
@@ -239,11 +239,19 @@ multimeter.ch1: dac3.0
 		wireMap, err := loadWireMap(wiremapPath)
 		require.NoError(t, err)
 		assert.Len(t, *wireMap, 5)
-		assert.Equal(t, "S1", (*wireMap)["dac1.0"])
-		assert.Equal(t, "P1", (*wireMap)["dac1.1"])
-		assert.Equal(t, "keithley1.ch1", (*wireMap)["dac2.0"])
-		assert.Equal(t, "O1", (*wireMap)["keithley1.ch2"])
-		assert.Equal(t, "dac3.0", (*wireMap)["multimeter.ch1"])
+		assert.Equal(t, InstrumentConnection("S1"), (*wireMap)["dac1.0"])
+		assert.Equal(t, InstrumentConnection("P1"), (*wireMap)["dac1.1"])
+		assert.Equal(
+			t,
+			InstrumentConnection("keithley1.ch1"),
+			(*wireMap)["dac2.0"],
+		)
+		assert.Equal(t, InstrumentConnection("O1"), (*wireMap)["keithley1.ch2"])
+		assert.Equal(
+			t,
+			InstrumentConnection("dac3.0"),
+			(*wireMap)["multimeter.ch1"],
+		)
 	})
 
 	t.Run("empty wiremap", func(t *testing.T) {

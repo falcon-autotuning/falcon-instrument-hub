@@ -113,7 +113,7 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 
 		// Subscribe to PROCESS_REQUEST
 		processRequestSub, err := nc.Subscribe(
-			"PROCESS_REQUEST.interpreter",
+			"PROCESS_REQUEST",
 			func(msg *nats.Msg) {
 				var receivedProcessRequest api.ProcessRequest
 				if err := json.Unmarshal(msg.Data, &receivedProcessRequest); err == nil {
@@ -311,13 +311,13 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	mockInstrument := &instrument.InstrumentProcess{
 		Name:        "dac1",
 		Initialized: true,
-		Ports: map[string]map[string]string{
+		Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 			"knobs": {
 				"0": createTestKnobJSON("DAC", "SG1"),
 				"1": createTestKnobJSON("DAC", "OH1"),
 			},
 		},
-		Configuration: map[string]map[string]map[string]any{
+		Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 			"knobs": {
 				"0": map[string]any{
 					"bounds": []float64{-10, 10},
@@ -355,7 +355,7 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 
 		// Subscribe to PROCESS_REQUEST to verify configurations
 		processRequestSub, err := nc.Subscribe(
-			"PROCESS_REQUEST.interpreter",
+			"PROCESS_REQUEST",
 			func(msg *nats.Msg) {
 				var receivedProcessRequest api.ProcessRequest
 				if err := json.Unmarshal(msg.Data, &receivedProcessRequest); err == nil {

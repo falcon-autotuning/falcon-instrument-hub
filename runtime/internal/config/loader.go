@@ -50,9 +50,10 @@ func loadDeviceConfig(path string) (*DeviceConfig, error) {
 
 	return &config, nil
 }
+
 func validateWiringDC(config *DeviceConfig) error {
 	// Collect all device connections that should have wiring specifications
-	deviceConnections := make(map[string]bool)
+	deviceConnections := make(map[InstrumentConnection]bool)
 
 	// Add all gate types from Region 1
 	addConnections(deviceConnections, config.ScreeningGates)
@@ -64,15 +65,22 @@ func validateWiringDC(config *DeviceConfig) error {
 	// Check that all device connections have wiring specifications
 	for connection := range deviceConnections {
 		if _, exists := config.WiringDC[connection]; !exists {
-			return fmt.Errorf("device connection '%s' missing wiring specification in wiringDC section", connection)
+			return fmt.Errorf(
+				"device connection '%s' missing wiring specification in wiringDC section",
+				connection,
+			)
 		}
 	}
 
 	return nil
 }
 
-// addConnections parses semicolon-delimited strings and adds each connection to the map
-func addConnections(connections map[string]bool, gateString string) {
+// addConnections parses semicolon-delimited strings and adds each connection to
+// the map
+func addConnections(
+	connections map[InstrumentConnection]bool,
+	gateString string,
+) {
 	if gateString == "" {
 		return
 	}
@@ -81,7 +89,7 @@ func addConnections(connections map[string]bool, gateString string) {
 	for _, gate := range gates {
 		gate = strings.TrimSpace(gate)
 		if gate != "" {
-			connections[gate] = true
+			connections[InstrumentConnection(gate)] = true
 		}
 	}
 }
@@ -98,4 +106,22 @@ func loadWireMap(path string) (*WireMap, error) {
 	}
 
 	return &wireMap, nil
+}
+
+// parseConnections parses semicolon-delimited strings into a slice of
+// connections
+func ParseConnections(connectionString string) []InstrumentConnection {
+	if connectionString == "" {
+		return nil
+	}
+
+	connections := strings.Split(connectionString, ";")
+	var result []InstrumentConnection
+	for _, conn := range connections {
+		conn = strings.TrimSpace(conn)
+		if conn != "" {
+			result = append(result, InstrumentConnection(conn))
+		}
+	}
+	return result
 }

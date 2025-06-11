@@ -25,7 +25,7 @@ func (h *Handler) handleSetupInstrument(msg *nats.Msg) {
 
 	// Check if instrument is already running
 	h.mutex.RLock()
-	if _, exists := h.Instruments[req.Name]; exists {
+	if _, exists := h.Instruments[Name(req.Name)]; exists {
 		h.mutex.RUnlock()
 		h.Log.Error(
 			"Instrument %s is already running",
@@ -36,7 +36,7 @@ func (h *Handler) handleSetupInstrument(msg *nats.Msg) {
 	h.mutex.RUnlock()
 
 	// Start the instrument
-	if err := h.startInstrument(req.Name); err != nil {
+	if err := h.startInstrument(Name(req.Name)); err != nil {
 		h.Log.Error(
 			"Failed to start instrument %s: %v",
 			req.Name,
@@ -66,7 +66,7 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 
 	// Find and stop the instrument
 	h.mutex.Lock()
-	process, exists := h.Instruments[req.Name]
+	process, exists := h.Instruments[Name(req.Name)]
 	if !exists {
 		h.mutex.Unlock()
 		h.Log.Warn(
@@ -87,7 +87,7 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 
 		// Remove from map since it's already dead
 		h.mutex.Lock()
-		delete(h.Instruments, req.Name)
+		delete(h.Instruments, Name(req.Name))
 		h.mutex.Unlock()
 
 		return
@@ -124,23 +124,23 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		)
 		return
 	}
-	instrumentName := parts[len(parts)-1]
+	name := parts[len(parts)-1]
 
 	// Update the instrument process with initialization data
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	process, exists := h.Instruments[instrumentName]
+	process, exists := h.Instruments[Name(name)]
 	if !exists {
 		h.Log.Error(
 			"Received initialization for unknown instrument: %s",
-			instrumentName,
+			name,
 		)
 		return
 	}
 
 	// Unmarshal the JSON strings into proper data structures
-	var ports map[string]map[string]string
+	var ports propertyIndexedPorts
 	if err := json.Unmarshal([]byte(resp.Port), &ports); err != nil {
 		h.Log.Error(
 			"Failed to unmarshal ports JSON: %v",
@@ -149,7 +149,7 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		return
 	}
 
-	var configuration map[string]map[string]map[string]any
+	var configuration map[PropertyName]map[Index]PortConfiguration
 	if err := json.Unmarshal([]byte(resp.Init), &configuration); err != nil {
 		h.Log.Error(
 			"Failed to unmarshal configuration JSON: %v",
@@ -164,20 +164,20 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 
 	h.Log.Info(
 		"Successfully initialized instrument: %s",
-		instrumentName,
+		name,
 	)
 	// Process the instrument ports to make them human-readable
 	if h.portProcessor != nil {
-		if err := h.portProcessor.ProcessInstrumentPorts(instrumentName, process.Ports); err != nil {
+		if err := h.portProcessor.ProcessInstrumentPorts(process.Ports, Name(name)); err != nil {
 			h.Log.Error(
 				"Failed to process ports for instrument %s: %v",
-				instrumentName,
+				name,
 				err,
 			)
 		} else {
 			h.Log.Debug(
 				"Successfully processed ports for instrument %s",
-				instrumentName,
+				name,
 			)
 		}
 	}
@@ -205,7 +205,7 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 	}
 
 	// Find the instrument and index by searching through all instrument ports
-	var targetInstrument string
+	var targetInstrument Name
 	var targetIndex int64
 	found := false
 	h.mutex.RLock()
@@ -216,15 +216,15 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 		}
 
 		// Check if this instrument has the requested property
-		if propertyData, exists := process.Ports[req.Property]; exists {
+		if propertyData, exists := process.Ports[PropertyName(req.Property)]; exists {
 			h.Log.Info(
 				"Received %s end it exists %v",
 				propertyData,
 				exists,
 			)
 			for rawIndex, portName := range propertyData {
-				index, err := strconv.ParseInt(rawIndex, 10, 64)
-				if portName == req.Name && err == nil {
+				index, err := strconv.ParseInt(string(rawIndex), 10, 64)
+				if portName == JsonPort(req.Name) && err == nil {
 					targetInstrument = instrumentName
 					targetIndex = index
 					found = true

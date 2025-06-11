@@ -33,24 +33,24 @@ const (
 
 // PendingGet tracks GET commands waiting for RETURN_GET responses
 type PendingGet struct {
-	Port      string
+	Port      instrument.JsonPort // Port for the GET command
 	ProcessId string
-	GetId     string // Unique identifier for this GET operation
-	Property  string // Property used in the GET command
-	Index     string // Index used in the GET command
+	GetId     string                  // Unique identifier for this GET operation
+	Property  instrument.PropertyName // Property used in the GET command
+	Index     instrument.Index        // Index used in the GET command
 }
 
 // PendingBufferedMeasurement tracks buffered measurements waiting for
 // RETURN_DATA
 type PendingBufferedMeasurement struct {
 	ProcessId         string
-	GetterPorts       []string               // Original getter ports
-	GetterInstruments []string               // Instruments that need to be armed
-	SetterPort        string                 // The single setter port
-	ExpectedReturns   int                    // Number of RETURN_DATA messages expected
-	ReceivedReturns   int                    // Number of RETURN_DATA messages received
-	Results           map[string]interface{} // Port -> Data mapping
-	ArmedCount        int                    // Number of instruments successfully armed
+	GetterPorts       []instrument.JsonPort       // Original getter ports
+	GetterInstruments []instrument.Name           // Instruments that need to be armed
+	SetterPort        instrument.JsonPort         // The single setter port
+	ExpectedReturns   int                         // Number of RETURN_DATA messages expected
+	ReceivedReturns   int                         // Number of RETURN_DATA messages received
+	Results           map[instrument.JsonPort]any // Port -> Data mapping
+	ArmedCount        int                         // Number of instruments successfully armed
 }
 
 // MeasurementReadyHandler handles MEASUREMENT_READY requests
@@ -62,10 +62,10 @@ type MeasurementReadyHandler struct {
 	returnDataSub               *nats.Subscription
 	instrumentHandler           *instrument.Handler
 	config                      *config.Config
-	pendingGets                 map[string]*PendingGet                   // GetId -> PendingGet
-	getResults                  map[string]map[string]interface{}        // ProcessId -> Port -> Value
-	pendingBufferedMeasurements map[string]*PendingBufferedMeasurement   // ProcessId -> PendingBufferedMeasurement
-	portConfigCache             map[string]*instrument.PortConfiguration // Cache port configs locally
+	pendingGets                 map[string]*PendingGet                          // GetId -> PendingGet
+	getResults                  map[string]map[instrument.JsonPort]any          // ProcessId -> Port -> Value
+	pendingBufferedMeasurements map[string]*PendingBufferedMeasurement          // ProcessId -> PendingBufferedMeasurement
+	portConfigCache             map[instrument.JsonPort]*instrument.PortOptions // Cache port configs locally
 	mutex                       sync.RWMutex
 }
 
@@ -80,12 +80,12 @@ func NewMeasurementReadyHandler(
 		instrumentHandler: instrumentHandler,
 		config:            cfg,
 		pendingGets:       make(map[string]*PendingGet),
-		getResults:        make(map[string]map[string]interface{}),
+		getResults:        make(map[string]map[instrument.JsonPort]any),
 		pendingBufferedMeasurements: make(
 			map[string]*PendingBufferedMeasurement,
 		),
 		portConfigCache: make(
-			map[string]*instrument.PortConfiguration,
+			map[instrument.JsonPort]*instrument.PortOptions,
 		),
 	}
 }
@@ -232,12 +232,14 @@ func (h *MeasurementReadyHandler) handleUnbufferedMeasurement(
 
 	// Initialize result map for this process
 	h.mutex.Lock()
-	h.getResults[measurementReady.ProcessId] = make(map[string]interface{})
+	h.getResults[measurementReady.ProcessId] = make(
+		map[instrument.JsonPort]any,
+	)
 	h.mutex.Unlock()
 
 	// Send GET commands for each getter
 	for _, port := range measurementReady.Getters {
-		if err := h.sendGetCommand(port, measurementReady.ProcessId); err != nil {
+		if err := h.sendGetCommand(instrument.JsonPort(port), measurementReady.ProcessId); err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
@@ -280,7 +282,9 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 	setterPort := measurementReady.Setters[0]
 
 	// Get unique instruments from getters
-	uniqueInstruments := h.getUniqueInstruments(measurementReady.Getters)
+	uniqueInstruments := h.getUniqueInstruments(
+		convertToJsonPorts(measurementReady.Getters),
+	)
 	if len(uniqueInstruments) == 0 {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
@@ -296,14 +300,14 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 	h.mutex.Lock()
 	h.pendingBufferedMeasurements[measurementReady.ProcessId] = &PendingBufferedMeasurement{
 		ProcessId:         measurementReady.ProcessId,
-		GetterPorts:       measurementReady.Getters,
+		GetterPorts:       convertToJsonPorts(measurementReady.Getters),
 		GetterInstruments: uniqueInstruments,
-		SetterPort:        setterPort,
+		SetterPort:        instrument.JsonPort(setterPort),
 		ExpectedReturns: len(
 			measurementReady.Getters,
 		), // One return per getter port
 		ReceivedReturns: 0,
-		Results:         make(map[string]interface{}),
+		Results:         make(map[instrument.JsonPort]any),
 		ArmedCount:      0,
 	}
 	h.mutex.Unlock()
@@ -319,13 +323,16 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 	)
 
 	// Step 1: Arm all getter instruments
-	h.armGetterInstruments(measurementReady.ProcessId, measurementReady.Getters)
+	h.armGetterInstruments(
+		measurementReady.ProcessId,
+		convertToJsonPorts(measurementReady.Getters),
+	)
 }
 
 // getCachedPortConfiguration gets a port configuration with local caching
 func (h *MeasurementReadyHandler) getCachedPortConfiguration(
-	port string,
-) (*instrument.PortConfiguration, error) {
+	port instrument.JsonPort,
+) (*instrument.PortOptions, error) {
 	h.mutex.RLock()
 	if cached, exists := h.portConfigCache[port]; exists {
 		h.mutex.RUnlock()
@@ -346,7 +353,7 @@ func (h *MeasurementReadyHandler) getCachedPortConfiguration(
 	)
 
 	// Not in local cache, get from instrument handler
-	portConfig, err := h.instrumentHandler.GetPortConfiguration(port)
+	portConfig, err := h.instrumentHandler.GetPortOptions(port)
 	if err != nil {
 		h.logger.Debug(
 			MeasurementReadyHandlerName,
@@ -362,7 +369,7 @@ func (h *MeasurementReadyHandler) getCachedPortConfiguration(
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Successfully retrieved port configuration for %s: instrument=%s, index=%d, properties=%v",
+			"Successfully retrieved port configuration for %s: instrument=%s, index=%s, properties=%v",
 			port,
 			portConfig.Instrument,
 			portConfig.Index,
@@ -378,15 +385,11 @@ func (h *MeasurementReadyHandler) getCachedPortConfiguration(
 	return portConfig, nil
 }
 
-// invalidatePortConfigCache clears the local port configuration cache
-func (h *MeasurementReadyHandler) invalidatePortConfigCache() {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-	h.portConfigCache = make(map[string]*instrument.PortConfiguration)
-}
-
 // sendGetCommand sends a GET command for a specific port
-func (h *MeasurementReadyHandler) sendGetCommand(port, processId string) error {
+func (h *MeasurementReadyHandler) sendGetCommand(
+	port instrument.JsonPort,
+	processId string,
+) error {
 	// Get port configuration using cached version
 	portConfig, err := h.getCachedPortConfiguration(port)
 	if err != nil {
@@ -423,13 +426,13 @@ func (h *MeasurementReadyHandler) sendGetCommand(port, processId string) error {
 	}
 
 	// Create GET command using the port configuration
-	indexNumber, err := strconv.ParseInt(portConfig.Index, 10, 64)
+	indexNumber, err := strconv.ParseInt(string(portConfig.Index), 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
 	}
 	getCommand := api.Get{
 		Index:    indexNumber,
-		Property: portConfig.Properties[0], // Use first property
+		Property: string(portConfig.Properties[0]), // Use first property
 	}
 
 	// Marshal the command
@@ -455,7 +458,7 @@ func (h *MeasurementReadyHandler) sendGetCommand(port, processId string) error {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+GetMessage+" command for port %s to %s (Property: %s, Index: %d, GetId: %s)",
+			"Sent "+GetMessage+" command for port %s to %s (Property: %s, Index: %s, GetId: %s)",
 			port,
 			portConfig.Instrument,
 			portConfig.Properties[0],
@@ -493,8 +496,10 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 
 	// Find the GET that matches this RETURN_GET by Index and Property
 	for getId, pendingGet := range h.pendingGets {
-		if pendingGet.Index == string(returnGet.Index) &&
-			pendingGet.Property == returnGet.Property {
+		if pendingGet.Index == instrument.Index(
+			strconv.FormatInt(returnGet.Index, 10),
+		) &&
+			pendingGet.Property == instrument.PropertyName(returnGet.Property) {
 			matchingGet = pendingGet
 			matchingGetId = getId
 			break
@@ -515,7 +520,9 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 
 	// Store the result
 	if h.getResults[matchingGet.ProcessId] == nil {
-		h.getResults[matchingGet.ProcessId] = make(map[string]interface{})
+		h.getResults[matchingGet.ProcessId] = make(
+			map[instrument.JsonPort]any,
+		)
 	}
 	h.getResults[matchingGet.ProcessId][matchingGet.Port] = returnGet.Value
 
@@ -538,10 +545,10 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 
 // getUniqueInstruments extracts unique instrument names from a list of ports
 func (h *MeasurementReadyHandler) getUniqueInstruments(
-	ports []string,
-) []string {
-	instrumentSet := make(map[string]bool)
-	var uniqueInstruments []string
+	ports []instrument.JsonPort,
+) []instrument.Name {
+	instrumentSet := make(map[instrument.Name]bool)
+	var uniqueInstruments []instrument.Name
 
 	for _, port := range ports {
 		portConfig, err := h.getCachedPortConfiguration(port)
@@ -569,11 +576,11 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 // armGetterInstruments sends TRIGGER commands to arm all getter instruments
 func (h *MeasurementReadyHandler) armGetterInstruments(
 	processId string,
-	getterPorts []string,
+	getterPorts []instrument.JsonPort,
 ) {
 	// Get the first port for each unique instrument to use for trigger
 	// configuration
-	instrumentFirstPort := make(map[string]string)
+	out := make(map[instrument.Name]instrument.JsonPort)
 
 	for _, port := range getterPorts {
 		portConfig, err := h.getCachedPortConfiguration(port)
@@ -590,13 +597,13 @@ func (h *MeasurementReadyHandler) armGetterInstruments(
 		}
 
 		// Use the first port we encounter for each instrument
-		if _, exists := instrumentFirstPort[portConfig.Instrument]; !exists {
-			instrumentFirstPort[portConfig.Instrument] = port
+		if _, exists := out[portConfig.Instrument]; !exists {
+			out[portConfig.Instrument] = port
 		}
 	}
 
 	// Send TRIGGER command for each unique instrument
-	for instrumentName, firstPort := range instrumentFirstPort {
+	for instrumentName, firstPort := range out {
 		if err := h.sendTriggerCommand(instrumentName, firstPort, processId, true); err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
@@ -614,7 +621,9 @@ func (h *MeasurementReadyHandler) armGetterInstruments(
 
 // sendTriggerCommand sends a TRIGGER command to an instrument
 func (h *MeasurementReadyHandler) sendTriggerCommand(
-	instrumentName, port, processId string,
+	instrumentName instrument.Name,
+	port instrument.JsonPort,
+	processId string,
 	isGetter bool,
 ) error {
 	portConfig, err := h.getCachedPortConfiguration(port)
@@ -632,12 +641,12 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 	}
 
 	// Create TRIGGER command
-	indexNumber, err := strconv.ParseInt(portConfig.Index, 10, 64)
+	indexNumber, err := strconv.ParseInt(string(portConfig.Index), 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
 	}
 	triggerCommand := api.Trigger{
-		Property: portConfig.Properties[0], // Use first property
+		Property: string(portConfig.Properties[0]), // Use first property
 		Index:    indexNumber,
 	}
 
@@ -667,7 +676,7 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+TriggerMessage+" command to %s instrument %s (Property: %s, Index: %d, ProcessId: %s)",
+			"Sent "+TriggerMessage+" command to %s instrument %s (Property: %s, Index: %s, ProcessId: %s)",
 			action,
 			instrumentName,
 			portConfig.Properties[0],
@@ -790,8 +799,8 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 
 	// Find the corresponding port using property and index
 	port, err := h.findPortByPropertyAndIndex(
-		returnData.Property,
-		string(returnData.Index),
+		instrument.PropertyName(returnData.Property),
+		instrument.Index(strconv.FormatInt(returnData.Index, 10)),
 	)
 	if err != nil {
 		h.logger.Error(
@@ -818,9 +827,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"About to acquire mutex lock to search for pending buffered measurements",
-		),
+		"About to acquire mutex lock to search for pending buffered measurements",
 	)
 
 	// Find which pending buffered measurement this belongs to
@@ -932,13 +939,13 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 
 // findPortByPropertyAndIndex finds a port name given property and index
 func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
-	property string,
-	index string,
-) (string, error) {
+	property instrument.PropertyName,
+	index instrument.Index,
+) (instrument.JsonPort, error) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Looking for port with property=%s, index=%d",
+			"Looking for port with property=%s, index=%s",
 			property,
 			index,
 		),
@@ -975,7 +982,7 @@ func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
 	}
 
 	return "", fmt.Errorf(
-		"no port found for property %s, index %d",
+		"no port found for property %s, index %s",
 		property,
 		index,
 	)
@@ -984,15 +991,10 @@ func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
 // portInGetters checks if a port was part of the getters for a specific
 // measurement
 func (h *MeasurementReadyHandler) portInGetters(
-	port string,
-	getterPorts []string,
+	port instrument.JsonPort,
+	getterPorts []instrument.JsonPort,
 ) bool {
-	for _, getterPort := range getterPorts {
-		if getterPort == port {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(getterPorts, port)
 }
 
 // sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
@@ -1147,4 +1149,12 @@ func (h *MeasurementReadyHandler) sendProcessData(processId string) error {
 	delete(h.getResults, processId)
 
 	return nil
+}
+
+func convertToJsonPorts(strings []string) []instrument.JsonPort {
+	result := make([]instrument.JsonPort, len(strings))
+	for i, s := range strings {
+		result[i] = instrument.JsonPort(s)
+	}
+	return result
 }
