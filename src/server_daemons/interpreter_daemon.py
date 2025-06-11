@@ -22,6 +22,9 @@ from .dependancies import (
     np,
 )
 from .instructions import Instruction, MeasurementInstructions
+from .typing import (
+    InstrumentPort,
+)
 
 if TYPE_CHECKING:
     from nats.js import JetStreamContext
@@ -32,7 +35,6 @@ if TYPE_CHECKING:
         BaseArray,
         Client,
         Getters,
-        InstrumentPort,
         Msg,
         NDArray,
         PropertyJson,
@@ -311,11 +313,12 @@ class InterpreterDaemon:
             )
             unpacked_configuration = json.loads(configuration)
             assert isinstance(unpacked_configuration, dict)
+            expanded_config = await self.readConfigurationPorts(unpacked_configuration)
             measurement_request = MeasurementRequest.from_json(request)
             await self.log("Measurement unpacked, processing ....")
             data_count, shape = await self.process_request(
                 request=measurement_request,
-                configuration=unpacked_configuration,
+                configuration=expanded_config,
                 id=id,
             )
             await self.deploy_measurements(measurement_id=id)
@@ -330,6 +333,15 @@ class InterpreterDaemon:
 
         except Exception as e:
             await self.log(f"Error processing request: {e}")
+
+    async def readConfigurationPorts(
+        self,
+        configuration: dict[str, "PropertyJson"],
+    ) -> dict["InstrumentPort", "PropertyJson"]:
+        """Returns unjsoned Instrumentport configurations."""
+        return {
+            InstrumentPort.from_json(key): value for key, value in configuration.items()
+        }
 
     async def process_request(
         self,

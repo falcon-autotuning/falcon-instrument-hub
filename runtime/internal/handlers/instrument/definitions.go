@@ -191,7 +191,7 @@ func (h *Handler) CollectPortProperties() (knobs, meters []JsonPort) {
 
 // BuildConfigurations creates the configuration mapping by collecting and
 // inverting port mappings
-func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]map[string]any, error) {
+func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]PortConfiguration, error) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -200,7 +200,7 @@ func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]map[strin
 	}
 
 	// Return empty map if no port processor available
-	return make(map[JsonPort]map[PropertyName]map[string]any), nil
+	return make(map[JsonPort]map[PropertyName]PortConfiguration), nil
 }
 
 // BuildPortConfigurations builds the port configurations mapping

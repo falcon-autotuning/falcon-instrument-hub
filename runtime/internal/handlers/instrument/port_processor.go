@@ -245,7 +245,7 @@ type PortOptions struct {
 // inverting port mappings
 func (pp *PortProcessor) BuildConfigurations(
 	instruments map[Name]*InstrumentProcess,
-) (map[JsonPort]map[PropertyName]map[string]any, error) {
+) (map[JsonPort]map[PropertyName]PortConfiguration, error) {
 	// Get cached port configurations (Step 1 + Step 2)
 	var portConfigurations map[JsonPort]PortOptions
 	if cached, exists := pp.getCachedPortConfigurations(); exists {
@@ -342,15 +342,15 @@ func (pp *PortProcessor) InvertPortMappings(
 func (pp *PortProcessor) BuildFinalConfigurations(
 	portConfigurations map[JsonPort]PortOptions,
 	instruments map[Name]*InstrumentProcess,
-) map[JsonPort]map[PropertyName]map[string]any {
-	outs := make(map[JsonPort]map[PropertyName]map[string]any)
+) map[JsonPort]map[PropertyName]PortConfiguration {
+	outs := make(map[JsonPort]map[PropertyName]PortConfiguration)
 
 	for portName, portConfig := range portConfigurations {
 		// Get the instrument process to access its configuration
 		if instrumentProcess, exists := instruments[portConfig.Instrument]; exists &&
 			instrumentProcess.Configuration != nil {
 
-			outs[portName] = make(map[PropertyName]map[string]any)
+			outs[portName] = make(map[PropertyName]PortConfiguration)
 
 			// For each property in this port configuration
 			for _, property := range portConfig.Properties {
