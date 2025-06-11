@@ -101,7 +101,7 @@ class InterpreterDaemon:
 
     async def setup_jetstream(self):
         """Set up JetStream stream for large data transfers."""
-        print("Settting up Jetstream...", flush=self._debug)
+        print("Setting up Jetstream...", flush=self._debug)
         try:
             self._js = self._nc.jetstream()
 
@@ -198,7 +198,7 @@ class InterpreterDaemon:
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.PROPERTY: property,
-                INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.NAME: name,
+                INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.NAME: name.to_json(),
                 INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.VALUE: value,
             }
         )
@@ -321,6 +321,7 @@ class InterpreterDaemon:
                 configuration=expanded_config,
                 id=id,
             )
+            await self.log("Request successfully processed and chunked...")
             await self.deploy_measurements(measurement_id=id)
             await self.log("Measurement successfully deployed ....")
             await self.load_and_export_data(
