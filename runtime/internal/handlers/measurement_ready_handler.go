@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,7 +37,7 @@ type PendingGet struct {
 	ProcessId string
 	GetId     string // Unique identifier for this GET operation
 	Property  string // Property used in the GET command
-	Index     int64  // Index used in the GET command
+	Index     string // Index used in the GET command
 }
 
 // PendingBufferedMeasurement tracks buffered measurements waiting for
@@ -422,8 +423,12 @@ func (h *MeasurementReadyHandler) sendGetCommand(port, processId string) error {
 	}
 
 	// Create GET command using the port configuration
+	indexNumber, err := strconv.ParseInt(portConfig.Index, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
+	}
 	getCommand := api.Get{
-		Index:    portConfig.Index,
+		Index:    indexNumber,
 		Property: portConfig.Properties[0], // Use first property
 	}
 
@@ -488,7 +493,7 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 
 	// Find the GET that matches this RETURN_GET by Index and Property
 	for getId, pendingGet := range h.pendingGets {
-		if pendingGet.Index == returnGet.Index &&
+		if pendingGet.Index == string(returnGet.Index) &&
 			pendingGet.Property == returnGet.Property {
 			matchingGet = pendingGet
 			matchingGetId = getId
@@ -627,9 +632,13 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 	}
 
 	// Create TRIGGER command
+	indexNumber, err := strconv.ParseInt(portConfig.Index, 10, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
+	}
 	triggerCommand := api.Trigger{
 		Property: portConfig.Properties[0], // Use first property
-		Index:    portConfig.Index,
+		Index:    indexNumber,
 	}
 
 	// Marshal the command
@@ -782,7 +791,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	// Find the corresponding port using property and index
 	port, err := h.findPortByPropertyAndIndex(
 		returnData.Property,
-		returnData.Index,
+		string(returnData.Index),
 	)
 	if err != nil {
 		h.logger.Error(
@@ -924,7 +933,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 // findPortByPropertyAndIndex finds a port name given property and index
 func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
 	property string,
-	index int64,
+	index string,
 ) (string, error) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
@@ -947,22 +956,20 @@ func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
 	)
 
 	// Search for matching port
-	for portName, configValue := range portConfigurations {
+	for portName, portConfig := range portConfigurations {
 		h.logger.Debug(
 			MeasurementReadyHandlerName,
-			fmt.Sprintf("Checking port %s: %+v", portName, configValue),
+			fmt.Sprintf("Checking port %s: %+v", portName, portConfig),
 		)
 
-		if portConfig, ok := configValue.(instrument.PortConfiguration); ok {
-			if portConfig.Index == index {
-				// Check if any of the properties match
-				if slices.Contains(portConfig.Properties, property) {
-					h.logger.Debug(
-						MeasurementReadyHandlerName,
-						fmt.Sprintf("Found matching port: %s", portName),
-					)
-					return portName, nil
-				}
+		if portConfig.Index == index {
+			// Check if any of the properties match
+			if slices.Contains(portConfig.Properties, property) {
+				h.logger.Debug(
+					MeasurementReadyHandlerName,
+					fmt.Sprintf("Found matching port: %s", portName),
+				)
+				return portName, nil
 			}
 		}
 	}

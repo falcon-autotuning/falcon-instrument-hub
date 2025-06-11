@@ -55,7 +55,7 @@ type InstrumentProcess struct {
 	Cmd           *exec.Cmd
 	Cancel        context.CancelFunc
 	Ports         map[string]map[string]string
-	Configuration map[string]any
+	Configuration map[string]map[string]map[string]any
 	Initialized   bool
 	StartTime     time.Time
 	Stdout        *bytes.Buffer
@@ -113,7 +113,7 @@ func (h *Handler) BuildConfigurations() (map[string]map[string]any, error) {
 
 // BuildPortConfigurations builds the port configurations mapping
 // Returns a mapping from port names to their configuration details
-func (h *Handler) BuildPortConfigurations() (map[string]any, error) {
+func (h *Handler) BuildPortConfigurations() (map[string]PortConfiguration, error) {
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -122,7 +122,7 @@ func (h *Handler) BuildPortConfigurations() (map[string]any, error) {
 	}
 
 	// Return empty map if no port processor available
-	return make(map[string]any), nil
+	return make(map[string]PortConfiguration), nil
 }
 
 // GetPortConfiguration finds the configuration for a specific port
@@ -180,7 +180,7 @@ func (h *Handler) RemoveInstrument(name string) {
 // invalidates cache
 func (h *Handler) UpdateInstrumentConfiguration(
 	name string,
-	config map[string]any,
+	config map[string]map[string]map[string]any,
 ) {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()

@@ -13,6 +13,20 @@ import nats
 import pytest
 import pytest_asyncio
 from falcon_core.communications.messages import MeasurementRequest
+from falcon_core.constants import INSTRUMENT_TYPES
+from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
+from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
+    IdentityTransform,
+)
+from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
+    CartesianWaveform,
+)
+from falcon_core.math.axes import Axes
+from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
+from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
+from falcon_core.math.spaces import CartesianSpace
+from falcon_core.physics.device_structures import BarrierGate, Ohmic
+from falcon_core.physics.units import Units
 
 from server_daemons.api.interpreter import (
     RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
@@ -40,7 +54,6 @@ async def nats_client():
     except Exception as e:
         print(f"NATS connection error: {e}", flush=True)
         pytest.fail(f"Failed to connect to NATS: {e}")
-        return
 
     yield nc
 
@@ -279,19 +292,55 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     await asyncio.sleep(2.0)  # Increased wait time
 
     # Create a simplified MeasurementRequest
+    knobs = [
+        Knob(
+            default_name="test_knob",
+            pseudo_name=BarrierGate("B3"),
+        )
+    ]
+    meters = [
+        Meter(
+            default_name="test_meter",
+            pseudo_name=Ohmic("O2"),
+        )
+    ]
+    space = CartesianSpace(deltas=[0.1])
+    ckd = CoupledKnobDomain(
+        [
+            KnobDomain.from_knob(
+                bounds=(0, 0.5),
+                knob=knobs[0],
+            )
+        ]
+    )
+    sweep_axes = Axes([ckd])
+    space = CartesianDiscreteSpace(space=space, axes=sweep_axes)
+    waveform = CartesianWaveform(space=space, transforms=[])
+    ports: list[Meter] = []
+    ports.extend(meters)
+    ports.append(
+        Meter(
+            default_name="timer",
+            instrument_type=INSTRUMENT_TYPES.CLOCK,
+            units=Units.SECOND,
+        )
+    )
+    transform = IdentityTransform(port=meters[0], ports=Meters(ports))
     request = MeasurementRequest(
-        message="is this working",
-        measurement_name="test_measurement",
-        waveforms=[],
-        meter_transforms=[],
+        message="test measurement",
+        measurement_name="integration_test",
+        waveforms=[waveform],
+        meter_transforms=[transform],
     )
 
     # Send process request
     process_request_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL
     process_request = {
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: request.to_json(),
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: "test_id",
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 42,
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps(
+            {knobs[0]: {}}
+        ),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
 
@@ -328,7 +377,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     # Now send process data
     process_data_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.COMM_CHANNEL
     process_data = {
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 42,
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: str(time.time()),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: {"device1": [1.0, 2.0, 3.0]},
     }
