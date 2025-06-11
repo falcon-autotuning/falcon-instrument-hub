@@ -27,6 +27,7 @@ from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
 from falcon_core.math.spaces import CartesianSpace
 from falcon_core.physics.device_structures import BarrierGate, Ohmic
 from falcon_core.physics.units import Units
+from instrument_templates.constants import SUPPORTED_PROPERTIES
 
 from server_daemons.api.interpreter import (
     RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
@@ -274,7 +275,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     upload_data_msgs = []
 
     # Subscribe to channels
-    log_channel = INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL
+    log_channel = INTERPRETER_RUNTIME_COMMANDS.LOG.COMM_CHANNEL + ".interpreter"
     measurement_ready_channel = (
         INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.COMM_CHANNEL
     )
@@ -338,7 +339,9 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     process_request = {
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: request.to_json(),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 42,
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps(
+            {knobs[0].to_json(): {SUPPORTED_PROPERTIES.VOLTAGE_STATE: []}}
+        ),
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
     }
 
@@ -356,13 +359,13 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
             return False
         for msg in msgs:
             msg_content = msg.data.decode()
+
             print(f"Checking log message: {msg_content}", flush=True)
             if any(
                 keyword in msg_content
                 for keyword in [
                     "Error processing request",
-                    "Processing request",
-                    "successfully",
+                    "Measurement successfully deployed ....",
                 ]
             ):
                 return True
