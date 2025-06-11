@@ -9,7 +9,13 @@ from falcon_core.math.arrays.measured_array_1D import MeasuredArray1D
 from falcon_core.physics.device_structures import Connection
 from falcon_core.typing import Instrument
 from instrument_templates.base_instrument_driver import BaseInstrumentDriver
-from instrument_templates.typing import Index, PropertyJson, PropertyName, PropertyValue
+from instrument_templates.typing import (
+    Index,
+    PropertyJson,
+    PropertyName,
+    PropertyValue,
+    Staircase,
+)
 from nats.aio.client import Client
 from nats.aio.msg import Msg
 from numpy.typing import NDArray
@@ -48,4 +54,5 @@ __all__ = [
     "PropertyJson",
     "PropertyValue",
     "BaseInstrumentDriver",
+    "Staircase",
 ]

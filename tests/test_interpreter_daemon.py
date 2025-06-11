@@ -337,7 +337,7 @@ class TestInterpreterDaemon:
         # Create a mock message with test data
         test_data = {
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: '{"type": "test_request"}',
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: "test_id",
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 42,
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: '{"device1": {"prop1": "value1"}}',
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
         }
@@ -355,12 +355,12 @@ class TestInterpreterDaemon:
         interpreter_daemon.process_request.assert_called_once_with(
             request=mock_request_obj,
             configuration={"device1": {"prop1": "value1"}},
-            id="test_id",
+            id=42,
         )
 
         # Verify deploy_measurements was called
         interpreter_daemon.deploy_measurements.assert_called_once_with(
-            measurement_id="test_id"
+            measurement_id=42,
         )
 
         # Verify load_and_export_data was called with the correct arguments
@@ -368,7 +368,7 @@ class TestInterpreterDaemon:
             request=mock_request_obj,
             data_path=Path("/tmp/test_data"),
             shape=(10, 10),
-            id="test_id",
+            id=42,
             data_count=5,
         )
 
