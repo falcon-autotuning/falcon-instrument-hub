@@ -316,7 +316,7 @@ class TestInterpreterDaemon:
     async def test_handle_request(
         self,
         mock_measurement_request,
-        interpreter_daemon,
+        interpreter_daemon: InterpreterDaemon,
         mock_nats,
     ):
         """Test the handle_request method."""
@@ -326,7 +326,7 @@ class TestInterpreterDaemon:
 
         # Mock the necessary methods
         interpreter_daemon.log = AsyncMock()
-        interpreter_daemon.process_request = MagicMock(return_value=(5, (10, 10)))
+        interpreter_daemon.process_request = AsyncMock(return_value=(5, (10, 10)))
         interpreter_daemon.deploy_measurements = AsyncMock()
         interpreter_daemon.load_and_export_data = AsyncMock()
 
