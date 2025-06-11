@@ -22,6 +22,9 @@ from .dependancies import (
     np,
 )
 from .instructions import Instruction, MeasurementInstructions
+from .typing import (
+    Staircase,
+)
 
 if TYPE_CHECKING:
     from nats.js import JetStreamContext
@@ -55,6 +58,7 @@ class InterpreterDaemon:
         "MeasurementInstructions",
     ]
     _debug: bool
+    _shape: tuple[int, ...]
 
     def __init__(
         self,
@@ -313,7 +317,7 @@ class InterpreterDaemon:
             assert isinstance(unpacked_configuration, dict)
             measurement_request = MeasurementRequest.from_json(request)
             await self.log("Measurement unpacked, processing ....")
-            data_count, shape = await self.process_request(
+            data_count = await self.process_request(
                 request=measurement_request,
                 configuration=unpacked_configuration,
                 id=id,
@@ -323,7 +327,6 @@ class InterpreterDaemon:
             await self.load_and_export_data(
                 request=measurement_request,
                 data_path=data_path,
-                shape=shape,
                 id=id,
                 data_count=data_count,
             )
@@ -336,10 +339,8 @@ class InterpreterDaemon:
         request: "MeasurementRequest",
         configuration: dict["InstrumentPort", "PropertyJson"],
         id: "ID",
-    ) -> tuple[int, tuple[int, ...]]:
-        """Processes an incoming request, breaks it down into pieces, and stores the results into measurement groups.
-
-        Allows for multiple measurements to be processed at once.
+    ) -> int:
+        """Allows for multiple measurements to be processed at once.
 
         Args:
             request: The measurement request to process.
@@ -348,7 +349,6 @@ class InterpreterDaemon:
 
         Returns:
             the number of unique collected measurments
-            the end shape of the compiled data.
 
         Raises:
             RuntimeError: If no valid waveform is found in the request.
@@ -442,9 +442,8 @@ class InterpreterDaemon:
         self._measurement_groups[id] = MeasurementInstructions(
             instructions=instructions
         )
-        shape = valid_waveform._space._space.shape
-        assert isinstance(shape, tuple), "Invalid shape for waveform data."
-        return (collected_measurements, shape)
+        self._shape = valid_waveform._space._space.shape
+        return collected_measurements
 
     def chunk_instructions(
         self,
@@ -584,7 +583,6 @@ class InterpreterDaemon:
     async def load_and_export_data(
         self,
         request: "MeasurementRequest",
-        shape: tuple[int, ...],
         data_path: Path,
         id: "ID",
         data_count: int,
@@ -605,7 +603,7 @@ class InterpreterDaemon:
             data_count=data_count,
         )
         number_of_bins = self.get_data_point_counter_per_queue(
-            shape=shape,
+            shape=self._shape,
             data_count=data_count,
         )
         name_attribute_maps = self.preprocess_voltage_states(id=id)
@@ -617,7 +615,7 @@ class InterpreterDaemon:
         )
         response = self.make_response(
             data_arrays=final_data,
-            shape=shape,
+            shape=self._shape,
         )
         self.store_in_database(
             response=response,
@@ -753,6 +751,9 @@ class InterpreterDaemon:
                 assert isinstance(staircase, tuple), (
                     "STAIRCASE must be a tuple of numbers."
                 )
+                assert isinstance(staircase[1], int), (
+                    "STAIRCASE[1] (num_steps) must be an integer."
+                )
                 num_steps = int(staircase[1])
                 for step in range(num_steps):
                     map = {}
@@ -760,6 +761,12 @@ class InterpreterDaemon:
                         staircase = property_map[SUPPORTED_PROPERTIES.STAIRCASE]
                         assert isinstance(staircase, tuple), (
                             "STAIRCASE must be a tuple of numbers."
+                        )
+                        assert isinstance(staircase[4], float), (
+                            "STAIRCASE[4] (v_stop) must be a float."
+                        )
+                        assert isinstance(staircase[3], float), (
+                            "STAIRCASE[3] (v_start) must be a float."
                         )
                         map[port.instrument_facing_name()] = (
                             (float(staircase[4]) - float(staircase[3]))
