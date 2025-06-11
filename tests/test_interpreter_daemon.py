@@ -475,7 +475,7 @@ class TestInterpreterDaemon:
         )
 
         # Create test measurement instructions
-        measurement_id = "test_id"
+        measurement_id = 4
         instr1 = Instruction(
             setters={port: {SUPPORTED_PROPERTIES.VOLTAGE_STATE: 1.0}},
             getters=[port],
@@ -572,11 +572,11 @@ class TestInterpreterDaemon:
         mock_request = MagicMock(spec=MeasurementRequest)
         mock_response = MagicMock(spec=MeasurementResponse)
         interpreter_daemon.make_response.return_value = mock_response
+        interpreter_daemon._shape = (3,)
 
         # Call load_and_export_data
         await interpreter_daemon.load_and_export_data(
             request=mock_request,
-            shape=(3,),
             data_path=Path("/tmp/test_data"),
             id=345,
             data_count=2,
