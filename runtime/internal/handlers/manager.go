@@ -70,7 +70,9 @@ func NewManager(
 		// For now, return a basic handler - you might want to return an error
 		// instead
 		instrumentHandler = &instrument.Handler{
-			Instruments: make(map[string]*instrument.InstrumentProcess),
+			Instruments: make(
+				map[instrument.Name]*instrument.InstrumentProcess,
+			),
 		}
 	}
 

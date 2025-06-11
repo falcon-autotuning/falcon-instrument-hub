@@ -48,17 +48,17 @@ func setupTestInstrumentHandlerForPortRequest(
 	require.NoError(t, err)
 
 	// Create mock instruments in the handler for testing
-	handler.Instruments = map[string]*instrument.InstrumentProcess{
+	handler.Instruments = map[instrument.Name]*instrument.InstrumentProcess{
 		"dac1": {
 			Name:        "dac1",
 			Initialized: true,
-			Ports: map[string]map[string]string{
+			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"knobs": {
 					"0": createTestKnobJSON("DAC", "knob1"),
 					"1": createTestKnobJSON("DAC", "knob2"),
 				},
 			},
-			Configuration: map[string]map[string]map[string]any{
+			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"knobs": {
 					"0": {
 						"bounds": []float64{0, 100},
@@ -74,13 +74,13 @@ func setupTestInstrumentHandlerForPortRequest(
 		"dac2": {
 			Name:        "dac2",
 			Initialized: true,
-			Ports: map[string]map[string]string{
+			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"meters": {
 					"0": createTestMeterJSON("DAC", "meter1"),
 					"1": createTestMeterJSON("DAC", "meter2"),
 				},
 			},
-			Configuration: map[string]map[string]map[string]any{
+			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"meters": {
 					"0": map[string]any{
 						"bounds": []float64{0, 100},
@@ -96,14 +96,14 @@ func setupTestInstrumentHandlerForPortRequest(
 		"ohmic_instrument": {
 			Name:        "ohmic_instrument",
 			Initialized: true,
-			Ports: map[string]map[string]string{
+			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"meters": {
 					"0": createTestOhmicMeterJSON("DAC", "ohmic_meter"),
 				},
 			},
-			Configuration: map[string]map[string]map[string]any{
+			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"meters": {
-					"0": map[string]any{
+					"0": instrument.PortConfiguration{
 						"bounds": []float64{0, 100},
 						"unit":   "A",
 					},
@@ -116,7 +116,7 @@ func setupTestInstrumentHandlerForPortRequest(
 }
 
 // createTestKnobJSON creates a test knob JSON string
-func createTestKnobJSON(instrumentType, portName string) string {
+func createTestKnobJSON(instrumentType, portName string) instrument.JsonPort {
 	knob := map[string]interface{}{
 		"__class__":       "Knob",
 		"__module__":      "falcon_core.instrument_interfaces.names.knob",
@@ -126,11 +126,11 @@ func createTestKnobJSON(instrumentType, portName string) string {
 		"description":     "Test knob",
 	}
 	data, _ := json.Marshal(knob)
-	return string(data)
+	return instrument.JsonPort(data)
 }
 
 // createTestMeterJSON creates a test meter JSON string
-func createTestMeterJSON(instrumentType, portName string) string {
+func createTestMeterJSON(instrumentType, portName string) instrument.JsonPort {
 	meter := map[string]interface{}{
 		"__class__":       "Meter",
 		"__module__":      "falcon_core.instrument_interfaces.names.meter",
@@ -140,11 +140,13 @@ func createTestMeterJSON(instrumentType, portName string) string {
 		"description":     "Test meter",
 	}
 	data, _ := json.Marshal(meter)
-	return string(data)
+	return instrument.JsonPort(data)
 }
 
 // createTestOhmicMeterJSON creates a test ohmic meter JSON string
-func createTestOhmicMeterJSON(instrumentType, portName string) string {
+func createTestOhmicMeterJSON(
+	instrumentType, portName string,
+) instrument.JsonPort {
 	meter := map[string]interface{}{
 		"__class__":       "Meter",
 		"__module__":      "falcon_core.instrument_interfaces.names.meter",
@@ -155,7 +157,7 @@ func createTestOhmicMeterJSON(instrumentType, portName string) string {
 		"description":     "Test ohmic meter",
 	}
 	data, _ := json.Marshal(meter)
-	return string(data)
+	return instrument.JsonPort(data)
 }
 
 func TestNewPortRequestHandler(t *testing.T) {

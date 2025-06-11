@@ -11,7 +11,7 @@ import (
 )
 
 // startInstrument launches a new instrument daemon
-func (h *Handler) startInstrument(name string) error {
+func (h *Handler) startInstrument(name Name) error {
 	// Get absolute path to script (relative to where Go binary is running)
 	currentDir, err := os.Getwd()
 	if err != nil {
@@ -38,7 +38,7 @@ func (h *Handler) startInstrument(name string) error {
 		ctx,
 		h.pythonInterpreter,
 		scriptPath,
-		name,
+		string(name),
 		h.natsURL,
 	)
 

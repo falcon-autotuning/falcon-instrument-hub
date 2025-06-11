@@ -1,5 +1,7 @@
 package config
 
+import "strings"
+
 // DeviceConfig represents the complete device configuration
 type DeviceConfig struct {
 	// Region 1: Global name categorization
@@ -14,7 +16,7 @@ type DeviceConfig struct {
 	Groups map[string]Group `yaml:"groups"`
 
 	// Region 3: DC wiring
-	WiringDC map[string]WiringSpec `yaml:"wiringDC"`
+	WiringDC map[InstrumentConnection]WiringSpec `yaml:"wiringDC"`
 }
 
 type Group struct {
@@ -33,7 +35,18 @@ type WiringSpec struct {
 }
 
 // WireMap represents the wire mapping configuration
-type WireMap map[string]string
+type WireMap map[InstrumentConnection]InstrumentConnection
+
+type InstrumentConnection string
+
+func (ic InstrumentConnection) String() string {
+	return string(ic)
+}
+
+func (ic InstrumentConnection) Contains(other string) bool {
+	// Check if the connection contains the other string
+	return strings.Contains(ic.String(), other)
+}
 
 // Config holds all configuration data and file paths
 type Config struct {

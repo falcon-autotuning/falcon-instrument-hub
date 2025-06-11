@@ -100,11 +100,27 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	// Collect port properties using the instrument handler's existing
 	// functionality
 	knobs, meters := h.instrumentHandler.CollectPortProperties()
+	bytes, err := json.Marshal(knobs)
+	encodedKnobs := string(bytes)
+	if err != nil {
+		h.logger.Error(
+			PortRequestHandlerName,
+			fmt.Sprintf("Failed to marshal knobs: %v", err),
+		)
+	}
+	bytes, err = json.Marshal(meters)
+	encodedMeters := string(bytes)
+	if err != nil {
+		h.logger.Error(
+			PortRequestHandlerName,
+			fmt.Sprintf("Failed to marshal meters: %v", err),
+		)
+	}
 
 	// Create response
 	response := api.PortPayload{
-		Knobs:     fmt.Sprintf("[%s]", strings.Join(knobs, ",")),
-		Meters:    fmt.Sprintf("[%s]", strings.Join(meters, ",")),
+		Knobs:     encodedKnobs,
+		Meters:    encodedMeters,
 		Timestamp: request.Timestamp,
 	}
 

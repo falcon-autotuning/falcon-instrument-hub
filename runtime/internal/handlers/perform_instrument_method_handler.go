@@ -106,7 +106,7 @@ func (h *PerformInstrumentMethodHandler) handleMessage(msg *nats.Msg) {
 
 	if !slices.Contains(
 		activeInstruments,
-		performInstrMethod.Instrument,
+		instrument.Name(performInstrMethod.Instrument),
 	) {
 
 		h.logger.Error(

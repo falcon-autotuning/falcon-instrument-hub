@@ -63,7 +63,7 @@ func TestDeviceConfigHandler(t *testing.T) {
 					Order:          "O1;R1;B1;P1;P2;R2;O2",
 				},
 			},
-			WiringDC: map[string]config.WiringSpec{
+			WiringDC: map[config.InstrumentConnection]config.WiringSpec{
 				"S1": {Resistance: 100.0, Capacitance: 1e-15},
 				"P1": {Resistance: 200.0, Capacitance: 2e-15},
 			},
