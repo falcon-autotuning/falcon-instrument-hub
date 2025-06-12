@@ -13,6 +13,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -43,7 +44,7 @@ type PendingGet struct {
 // PendingBufferedMeasurement tracks buffered measurements waiting for
 // RETURN_DATA
 type PendingBufferedMeasurement struct {
-	ProcessId         int64
+	ProcessId         ID
 	GetterPorts       []instrument.JsonPort       // Original getter ports
 	GetterInstruments []instrument.Name           // Instruments that need to be armed
 	SetterPort        instrument.JsonPort         // The single setter port
@@ -62,6 +63,9 @@ type MeasurementReadyHandler struct {
 	returnDataSub               *nats.Subscription
 	instrumentHandler           *instrument.Handler
 	config                      *config.Config
+	measurementStack            *measure.MeasurementStack
+	currentMeasurement          *measure.MeasurementStackItem
+	isProcessing                bool
 	pendingGets                 map[string]*PendingGet                          // GetId -> PendingGet
 	getResults                  map[ID]map[instrument.JsonPort]any              // ProcessId -> Port -> Value
 	pendingBufferedMeasurements map[ID]*PendingBufferedMeasurement              // ProcessId -> PendingBufferedMeasurement
@@ -79,6 +83,8 @@ func NewMeasurementReadyHandler(
 		logger:            logger,
 		instrumentHandler: instrumentHandler,
 		config:            cfg,
+		measurementStack:  &measure.MeasurementStack{},
+		isProcessing:      false,
 		pendingGets:       make(map[string]*PendingGet),
 		getResults:        make(map[ID]map[instrument.JsonPort]any),
 		pendingBufferedMeasurements: make(
@@ -196,50 +202,149 @@ func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
 		)
 		return
 	}
+	// Create stack item and add to queue
+	stackItem := measure.MeasurementStackItem{
+		MeasurementReady: measurementReady,
+		Timestamp:        time.Now(),
+		Priority:         0, // Default priority
+	}
 
-	// Determine if this is buffered or unbuffered measurement
-	isBuffered := len(measurementReady.Setters) > 0
+	h.measurementStack.Push(stackItem)
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Queued measurement for ProcessId %d. Queue size: %d",
+			measurementReady.ProcessId,
+			h.measurementStack.Size(),
+		),
+	)
+
+	// Try to process the next measurement if not currently processing
+	h.tryProcessNextMeasurement()
+}
+
+// tryProcessNextMeasurement attempts to start processing the next queued
+// measurement
+func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	if h.isProcessing {
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			"Already processing a measurement, skipping",
+		)
+		return
+	}
+
+	stackItem, hasNext := h.measurementStack.Pop()
+	if !hasNext {
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			"No measurements in queue",
+		)
+		return
+	}
+
+	h.isProcessing = true
+	h.currentMeasurement = &stackItem
 
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Processing %s measurement for ProcessId %d (Getters: %d, Setters: %d)",
-			map[bool]string{true: "buffered", false: "unbuffered"}[isBuffered],
-			measurementReady.ProcessId,
-			len(measurementReady.Getters),
-			len(measurementReady.Setters),
+			"Starting processing of measurement ProcessId %d. Remaining in queue: %d",
+			stackItem.MeasurementReady.ProcessId,
+			h.measurementStack.Size(),
 		),
 	)
 
-	if isBuffered {
-		h.handleBufferedMeasurement(measurementReady)
+	// Process the measurement asynchronously to avoid blocking
+	go h.processMeasurement(stackItem.MeasurementReady)
+}
+
+// processMeasurement handles the actual measurement processing
+func (h *MeasurementReadyHandler) processMeasurement(
+	msg api.MeasurementReady,
+) {
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Processing %s measurement for ProcessId %d (Getters: %d, Setters: %d)",
+			map[bool]string{true: "buffered", false: "unbuffered"}[msg.Buffered],
+			msg.ProcessId,
+			len(msg.Getters),
+			len(msg.Setters),
+		),
+	)
+
+	if msg.Buffered {
+		h.handleBufferedMeasurement(msg)
 	} else {
-		h.handleUnbufferedMeasurement(measurementReady)
+		h.handleUnbufferedMeasurement(msg)
 	}
 }
 
+// markMeasurementComplete marks the current measurement as complete and tries
+// to process the next one
+func (h *MeasurementReadyHandler) markMeasurementComplete() {
+	h.mutex.Lock()
+	h.isProcessing = false
+	h.currentMeasurement = nil
+	h.mutex.Unlock()
+
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		"Measurement processing complete, checking for next measurement",
+	)
+
+	// Try to process the next measurement
+	h.tryProcessNextMeasurement()
+}
+
+type (
+	Setter  map[instrument.PropertyName]any
+	Setters map[instrument.JsonPort]Setter
+)
+
 // handleUnbufferedMeasurement handles unbuffered measurements (Option 1)
 func (h *MeasurementReadyHandler) handleUnbufferedMeasurement(
-	measurementReady api.MeasurementReady,
+	msg api.MeasurementReady,
 ) {
-	if len(measurementReady.Getters) == 0 {
+	if len(msg.Getters) == 0 {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			"No getters specified for unbuffered measurement",
 		)
 		return
 	}
+	for i, setter := range msg.Setters {
+		var setters Setters
+
+		err :=json.Unmarshal(setter, &setters)
+		if err != nil {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf("Failed to unmarshal setters: %v",
+				err,
+				),
+				)
+		}
+		for 
+
+		h.instrumentHandler.handleUpdateDaemonProperty()
+
+	// TODO: need to handle setting
 
 	// Initialize result map for this process
 	h.mutex.Lock()
-	h.getResults[ID(measurementReady.ProcessId)] = make(
+	h.getResults[ID(msg.ProcessId)] = make(
 		map[instrument.JsonPort]any,
 	)
 	h.mutex.Unlock()
 
 	// Send GET commands for each getter
-	for _, port := range measurementReady.Getters {
-		if err := h.sendGetCommand(instrument.JsonPort(port), ID(measurementReady.ProcessId)); err != nil {
+	for _, port := range msg.Getters {
+		if err := h.sendGetCommand(instrument.JsonPort(port), ID(msg.ProcessId)); err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
@@ -279,7 +384,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 		)
 	}
 
-	setterPort := measurementReady.Setters[0]
+	setterPort := measurementReady.Setters[0] // TODO: actually set this
 
 	// Get unique instruments from getters
 	uniqueInstruments := h.getUniqueInstruments(
@@ -299,13 +404,13 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 	// Initialize pending buffered measurement
 	h.mutex.Lock()
 	h.pendingBufferedMeasurements[ID(measurementReady.ProcessId)] = &PendingBufferedMeasurement{
-		ProcessId:         measurementReady.ProcessId,
+		ProcessId:         ID(measurementReady.ProcessId),
 		GetterPorts:       convertToJsonPorts(measurementReady.Getters),
 		GetterInstruments: uniqueInstruments,
 		SetterPort:        instrument.JsonPort(setterPort),
 		ExpectedReturns: len(
 			measurementReady.Getters,
-		), // One return per getter port
+		),
 		ReceivedReturns: 0,
 		Results:         make(map[instrument.JsonPort]any),
 		ArmedCount:      0,
@@ -526,7 +631,6 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 	}
 	h.getResults[matchingGet.ProcessId][matchingGet.Port] = returnGet.Value
 
-	// Remove the pending GET
 	delete(h.pendingGets, matchingGetId)
 
 	h.logger.Debug(
@@ -539,8 +643,8 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 		),
 	)
 
-	// Check if we have all results for this process
 	h.checkAndSendProcessData(matchingGet.ProcessId)
+	h.markMeasurementComplete()
 }
 
 // getUniqueInstruments extracts unique instrument names from a list of ports
@@ -1046,7 +1150,6 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId ID) {
 		return
 	}
 
-	// Send PROCESS_DATA (not UPLOAD_DATA)
 	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
@@ -1058,7 +1161,6 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId ID) {
 		)
 		return
 	}
-
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
@@ -1068,8 +1170,8 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId ID) {
 		),
 	)
 
-	// Clean up the pending measurement
 	delete(h.pendingBufferedMeasurements, processId)
+	h.markMeasurementComplete()
 }
 
 // checkAndSendProcessData checks if all GET results are collected and sends
