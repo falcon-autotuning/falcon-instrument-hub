@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -307,6 +308,103 @@ func (h *Handler) SetInstrumentInitialized(
 			h.portProcessor.InvalidatePortConfigCache()
 		}
 	}
+}
+
+type SetInstruction struct {
+	Property PropertyName
+	Name     JsonPort
+	Value    any
+}
+
+// SetProperty sends a SET command to the appropriate instrument based on the
+// provided property and name.
+func (h *Handler) SetProperty(req SetInstruction) {
+	// Find the instrument and index by searching through all instrument ports
+	var targetInstrument Name
+	var targetIndex Index
+	found := false
+	h.mutex.RLock()
+
+	for instrumentName, process := range h.Instruments {
+		if !process.Initialized || process.Ports == nil {
+			continue
+		}
+
+		// Check if this instrument has the requested property
+		if propertyData, exists := process.Ports[req.Property]; exists {
+			h.Log.Info(
+				"Received %s end it exists %v",
+				propertyData,
+				exists,
+			)
+			for index, portName := range propertyData {
+				if portName == req.Name {
+					targetInstrument = instrumentName
+					targetIndex = index
+					found = true
+					break
+				}
+			}
+			if found {
+				break
+			}
+		}
+	}
+	h.mutex.RUnlock()
+
+	if !found {
+		h.Log.Error(
+			"Could not find instrument with property %s and name %s",
+			req.Property,
+			req.Name,
+		)
+		return
+	}
+	realIndex, err := strconv.ParseInt(string(targetIndex), 10, 64)
+	if err != nil {
+		h.Log.Error(
+			"Failed to convert index %s to int64: %v",
+			targetIndex,
+			err,
+		)
+	}
+
+	// Create and send the SET command to the target instrument
+	setCommand := api.Set{
+		Property: string(req.Property),
+		Index:    realIndex,
+		Value:    req.Value,
+	}
+
+	setData, err := json.Marshal(setCommand)
+	if err != nil {
+		h.Log.Error(
+			"Failed to marshal %s command: %v", SetCommand, err,
+		)
+		return
+	}
+
+	// Publish the SET command to the target instrument
+	setSubject := fmt.Sprintf("%s.%s", SetCommand, targetInstrument)
+
+	if err := h.nc.Publish(setSubject, setData); err != nil {
+		h.Log.Error(
+			"Failed to publish %s command to %s: %v",
+			SetCommand,
+			setSubject,
+			err,
+		)
+		return
+	}
+
+	h.Log.Info(
+		"Successfully sent %s command to %s: property=%s, index=%s, value=%v",
+		SetCommand,
+		setSubject,
+		req.Property,
+		targetIndex,
+		req.Value,
+	)
 }
 
 // LogWrapper provides convenient logging with automatic handler name and
