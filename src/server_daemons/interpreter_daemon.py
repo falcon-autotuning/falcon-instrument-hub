@@ -227,7 +227,13 @@ class InterpreterDaemon:
                     getter.to_json() for getter in getters
                 ],
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.SETTERS: [
-                    json.dumps({setter.to_json(): values})
+                    json.dumps(
+                        {
+                            "setter": setter.to_json(),
+                            "property": list(values.keys()),
+                            "values": list(values.values()),
+                        }
+                    )
                     for setter, values in setters.items()
                 ],
             }
