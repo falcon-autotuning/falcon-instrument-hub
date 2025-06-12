@@ -579,15 +579,19 @@ class InterpreterDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            instrument_data = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
+            raw_data_payload = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
             id = int(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
             timestamp = int(
                 data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
             )
-            assert isinstance(instrument_data, dict)
+            assert isinstance(raw_data_payload, str), (
+                "raw_data_payload must be a string."
+            )
+            data_payload = json.loads(raw_data_payload)
+            assert isinstance(data_payload, dict), "data_payload must be a dictionary."
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
-            entry = DataEntry(timestamp=timestamp, data=data)
+            entry = DataEntry(timestamp=timestamp, data=data_payload)
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")
