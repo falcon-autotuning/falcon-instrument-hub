@@ -581,7 +581,7 @@ class InterpreterDaemon:
             data = json.loads(msg.data.decode())
             instrument_data = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
             id = int(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
-            timestamp = str(
+            timestamp = int(
                 data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
             )
             assert isinstance(instrument_data, dict)

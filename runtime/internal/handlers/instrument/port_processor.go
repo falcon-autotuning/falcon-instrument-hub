@@ -1,6 +1,7 @@
 package instrument
 
 import (
+	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -395,12 +396,39 @@ func (pp *PortProcessor) GetPortConfiguration(
 		portConfigurations = cached
 	} else {
 		// Build and cache if not available
+		pp.Log.Debug(
+			"Building the cached port configurations",
+		)
 		portConfigurations = pp.buildAndCachePortConfigurations(instruments)
 	}
 
-	if portConfig, exists := portConfigurations[name]; exists {
+	// need to get compact json form:
+	var data PortObject
+	if err := json.Unmarshal([]byte(name), &data); err != nil {
+		pp.Log.Error("Failed to unmarshal JsonPort: %v", err)
+	}
+	compactJSON, err := json.Marshal(data)
+	if err != nil {
+		pp.Log.Error("Failed to marshal JsonPort: %v", err)
+	}
+	compactPortName := JsonPort(compactJSON)
+	pp.Log.Debug(
+		"New compact port name: %s",
+		compactPortName,
+	)
+
+	// now check if the port exists
+	if portConfig, exists := portConfigurations[compactPortName]; exists {
 		return &portConfig, nil
 	}
+	ports := make([]JsonPort, 0, len(portConfigurations))
+	for port := range portConfigurations {
+		ports = append(ports, port)
+	}
+	pp.Log.Error(
+		"The current ports in the configuration are: %v",
+		ports,
+	)
 
 	return nil, fmt.Errorf("port %s not found in configurations", name)
 }
