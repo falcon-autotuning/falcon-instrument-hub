@@ -843,6 +843,7 @@ class InterpreterDaemon:
         log_attempts = 0
         while True:
             queue = self.data_queue.get(id, [])
+            await self.log(f"The data queue is {self.data_queue.items()}.")
             current_count = len(queue)
             if current_count > data_count:
                 await self.log(
