@@ -481,7 +481,7 @@ class InterpreterDaemon:
         """
         if not buffered:
             # treat each column as a chunk of shape (n_axes, 1)
-            data = raw_time_trace.data
+            data = raw_time_trace.data.T
             return [data[:, i : i + 1] for i in range(data.shape[1])]
         # Find chunk boundaries where the primary axis stops staircasing
         primary_axis = raw_time_trace.data[0, :]
