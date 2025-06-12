@@ -595,6 +595,7 @@ class InterpreterDaemon:
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")
+            await self.log(f"heres the contents {self.data_queue[id].queue}")
         except Exception as e:
             await self.log(f"Error adding data to the queue: {e}")
 
@@ -843,8 +844,7 @@ class InterpreterDaemon:
         log_attempts = 0
         while True:
             queue = self.data_queue.get(id, [])
-            await self.log(f"The data queue is {self.data_queue.items()}.")
-            await self.log(f"The contents in the queue are {queue}")
+            await self.log(f"The data queue is {self.data_queue[id].queue}.")
             current_count = len(queue)
             if current_count > data_count:
                 await self.log(
