@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -37,7 +36,7 @@ type BusyManager interface {
 type PendingMeasurement struct {
 	Hash         int64
 	ResponseName string
-	ProcessId    string
+	ProcessId    ID
 }
 
 // MeasureCommandHandler handles MEASURE_COMMAND requests
@@ -49,7 +48,7 @@ type MeasureCommandHandler struct {
 	measurementManager  *measurements.Manager
 	instrumentHandler   *instrument.Handler
 	busyManager         BusyManager
-	pendingMeasurements map[string]PendingMeasurement
+	pendingMeasurements map[ID]PendingMeasurement
 	mutex               sync.RWMutex
 }
 
@@ -65,7 +64,7 @@ func NewMeasureCommandHandler(
 		measurementManager:  measurementManager,
 		instrumentHandler:   instrumentHandler,
 		busyManager:         busyManager,
-		pendingMeasurements: make(map[string]PendingMeasurement),
+		pendingMeasurements: make(map[ID]PendingMeasurement),
 	}
 }
 
@@ -194,7 +193,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	)
 
 	// Store pending measurement for correlation with UPLOAD_DATA
-	processId := strconv.Itoa(uniqueID)
+	processId := ID(uniqueID)
 	h.mutex.Lock()
 	h.pendingMeasurements[processId] = PendingMeasurement{
 		Hash:         measureCommand.Hash,
@@ -204,7 +203,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	h.mutex.Unlock()
 
 	// Send PROCESS_REQUEST to interpreter
-	if err := h.sendProcessRequest(measureCommand.Request, uniqueID, expectedPath); err != nil {
+	if err := h.sendProcessRequest(measureCommand.Request, processId, expectedPath); err != nil {
 		h.logger.Error(
 			MeasureCommandHandlerName,
 			fmt.Sprintf("Failed to send PROCESS_REQUEST: %v", err),
@@ -318,7 +317,7 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 // sendProcessRequest sends a PROCESS_REQUEST to the interpreter
 func (h *MeasureCommandHandler) sendProcessRequest(
 	request string,
-	uniqueID int,
+	uniqueID ID,
 	dataPath string,
 ) error {
 	// Build configurations from current instrument ports
@@ -338,7 +337,7 @@ func (h *MeasureCommandHandler) sendProcessRequest(
 		Request:        request,
 		Configurations: string(configurationsJSON),
 		DataPath:       dataPath,
-		ProcessId:      strconv.Itoa(uniqueID),
+		ProcessId:      int64(uniqueID),
 	}
 
 	// Marshal the request

@@ -29,10 +29,12 @@ const (
 	UploadDataMessage       = "UPLOAD_DATA"
 )
 
+type ID int64
+
 // PendingGet tracks GET commands waiting for RETURN_GET responses
 type PendingGet struct {
-	Port      instrument.JsonPort // Port for the GET command
-	ProcessId string
+	Port      instrument.JsonPort     // Port for the GET command
+	ProcessId ID                      // Process ID for this GET operation
 	GetId     string                  // Unique identifier for this GET operation
 	Property  instrument.PropertyName // Property used in the GET command
 	Index     instrument.Index        // Index used in the GET command
@@ -41,7 +43,7 @@ type PendingGet struct {
 // PendingBufferedMeasurement tracks buffered measurements waiting for
 // RETURN_DATA
 type PendingBufferedMeasurement struct {
-	ProcessId         string
+	ProcessId         int64
 	GetterPorts       []instrument.JsonPort       // Original getter ports
 	GetterInstruments []instrument.Name           // Instruments that need to be armed
 	SetterPort        instrument.JsonPort         // The single setter port
@@ -61,8 +63,8 @@ type MeasurementReadyHandler struct {
 	instrumentHandler           *instrument.Handler
 	config                      *config.Config
 	pendingGets                 map[string]*PendingGet                          // GetId -> PendingGet
-	getResults                  map[string]map[instrument.JsonPort]any          // ProcessId -> Port -> Value
-	pendingBufferedMeasurements map[string]*PendingBufferedMeasurement          // ProcessId -> PendingBufferedMeasurement
+	getResults                  map[ID]map[instrument.JsonPort]any              // ProcessId -> Port -> Value
+	pendingBufferedMeasurements map[ID]*PendingBufferedMeasurement              // ProcessId -> PendingBufferedMeasurement
 	portConfigCache             map[instrument.JsonPort]*instrument.PortOptions // Cache port configs locally
 	mutex                       sync.RWMutex
 }
@@ -78,9 +80,9 @@ func NewMeasurementReadyHandler(
 		instrumentHandler: instrumentHandler,
 		config:            cfg,
 		pendingGets:       make(map[string]*PendingGet),
-		getResults:        make(map[string]map[instrument.JsonPort]any),
+		getResults:        make(map[ID]map[instrument.JsonPort]any),
 		pendingBufferedMeasurements: make(
-			map[string]*PendingBufferedMeasurement,
+			map[ID]*PendingBufferedMeasurement,
 		),
 		portConfigCache: make(
 			map[instrument.JsonPort]*instrument.PortOptions,
@@ -201,7 +203,7 @@ func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Processing %s measurement for ProcessId %s (Getters: %d, Setters: %d)",
+			"Processing %s measurement for ProcessId %d (Getters: %d, Setters: %d)",
 			map[bool]string{true: "buffered", false: "unbuffered"}[isBuffered],
 			measurementReady.ProcessId,
 			len(measurementReady.Getters),
@@ -230,14 +232,14 @@ func (h *MeasurementReadyHandler) handleUnbufferedMeasurement(
 
 	// Initialize result map for this process
 	h.mutex.Lock()
-	h.getResults[measurementReady.ProcessId] = make(
+	h.getResults[ID(measurementReady.ProcessId)] = make(
 		map[instrument.JsonPort]any,
 	)
 	h.mutex.Unlock()
 
 	// Send GET commands for each getter
 	for _, port := range measurementReady.Getters {
-		if err := h.sendGetCommand(instrument.JsonPort(port), measurementReady.ProcessId); err != nil {
+		if err := h.sendGetCommand(instrument.JsonPort(port), ID(measurementReady.ProcessId)); err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
@@ -259,7 +261,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No setters specified for buffered measurement ProcessId %s",
+				"No setters specified for buffered measurement ProcessId %d",
 				measurementReady.ProcessId,
 			),
 		)
@@ -270,7 +272,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Multiple setters specified for buffered measurement ProcessId %s, using only the first one: %v",
+				"Multiple setters specified for buffered measurement ProcessId %d, using only the first one: %v",
 				measurementReady.ProcessId,
 				measurementReady.Setters,
 			),
@@ -287,7 +289,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No valid getter instruments found for ProcessId %s",
+				"No valid getter instruments found for ProcessId %d",
 				measurementReady.ProcessId,
 			),
 		)
@@ -296,7 +298,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 
 	// Initialize pending buffered measurement
 	h.mutex.Lock()
-	h.pendingBufferedMeasurements[measurementReady.ProcessId] = &PendingBufferedMeasurement{
+	h.pendingBufferedMeasurements[ID(measurementReady.ProcessId)] = &PendingBufferedMeasurement{
 		ProcessId:         measurementReady.ProcessId,
 		GetterPorts:       convertToJsonPorts(measurementReady.Getters),
 		GetterInstruments: uniqueInstruments,
@@ -313,7 +315,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Starting buffered measurement for ProcessId %s: %d getter instruments to arm, setter port: %s",
+			"Starting buffered measurement for ProcessId %d: %d getter instruments to arm, setter port: %s",
 			measurementReady.ProcessId,
 			len(uniqueInstruments),
 			setterPort,
@@ -322,7 +324,7 @@ func (h *MeasurementReadyHandler) handleBufferedMeasurement(
 
 	// Step 1: Arm all getter instruments
 	h.armGetterInstruments(
-		measurementReady.ProcessId,
+		ID(measurementReady.ProcessId),
 		convertToJsonPorts(measurementReady.Getters),
 	)
 }
@@ -386,7 +388,7 @@ func (h *MeasurementReadyHandler) getCachedPortConfiguration(
 // sendGetCommand sends a GET command for a specific port
 func (h *MeasurementReadyHandler) sendGetCommand(
 	port instrument.JsonPort,
-	processId string,
+	processId ID,
 ) error {
 	// Get port configuration using cached version
 	portConfig, err := h.getCachedPortConfiguration(port)
@@ -399,7 +401,7 @@ func (h *MeasurementReadyHandler) sendGetCommand(
 	}
 
 	// Generate unique ID for this GET operation
-	getId := fmt.Sprintf("%s_%s_%d", processId, port, time.Now().UnixNano())
+	getId := fmt.Sprintf("%d_%s_%d", processId, port, time.Now().UnixNano())
 
 	// Store pending GET with property and index for matching
 	h.mutex.Lock()
@@ -530,7 +532,7 @@ func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Stored result for port %s, ProcessId %s: %v",
+			"Stored result for port %s, ProcessId %d: %v",
 			matchingGet.Port,
 			matchingGet.ProcessId,
 			returnGet.Value,
@@ -573,7 +575,7 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 
 // armGetterInstruments sends TRIGGER commands to arm all getter instruments
 func (h *MeasurementReadyHandler) armGetterInstruments(
-	processId string,
+	processId ID,
 	getterPorts []instrument.JsonPort,
 ) {
 	// Get the first port for each unique instrument to use for trigger
@@ -621,7 +623,7 @@ func (h *MeasurementReadyHandler) armGetterInstruments(
 func (h *MeasurementReadyHandler) sendTriggerCommand(
 	instrumentName instrument.Name,
 	port instrument.JsonPort,
-	processId string,
+	processId ID,
 	isGetter bool,
 ) error {
 	portConfig, err := h.getCachedPortConfiguration(port)
@@ -674,7 +676,7 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+TriggerMessage+" command to %s instrument %s (Property: %s, Index: %s, ProcessId: %s)",
+			"Sent "+TriggerMessage+" command to %s instrument %s (Property: %s, Index: %s, ProcessId: %d)",
 			action,
 			instrumentName,
 			portConfig.Properties[0],
@@ -688,7 +690,7 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 
 // incrementArmedCount increments the armed count and checks if we can proceed
 // to setters
-func (h *MeasurementReadyHandler) incrementArmedCount(processId string) {
+func (h *MeasurementReadyHandler) incrementArmedCount(processId ID) {
 	h.mutex.Lock()
 
 	var shouldTriggerSetter bool
@@ -698,7 +700,7 @@ func (h *MeasurementReadyHandler) incrementArmedCount(processId string) {
 		h.logger.Debug(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Armed instrument count for ProcessId %s: %d/%d",
+				"Armed instrument count for ProcessId %d: %d/%d",
 				processId,
 				pending.ArmedCount,
 				len(pending.GetterInstruments),
@@ -720,13 +722,13 @@ func (h *MeasurementReadyHandler) incrementArmedCount(processId string) {
 }
 
 // triggerSetter sends the TRIGGER command to the setter instrument
-func (h *MeasurementReadyHandler) triggerSetter(processId string) {
+func (h *MeasurementReadyHandler) triggerSetter(processId ID) {
 	pending, exists := h.pendingBufferedMeasurements[processId]
 	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending buffered measurement found for ProcessId %s",
+				"No pending buffered measurement found for ProcessId %d",
 				processId,
 			),
 		)
@@ -749,7 +751,7 @@ func (h *MeasurementReadyHandler) triggerSetter(processId string) {
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"All getters armed for ProcessId %s, triggering setter on instrument %s",
+			"All getters armed for ProcessId %d, triggering setter on instrument %s",
 			processId,
 			setterPortConfig.Instrument,
 		),
@@ -840,12 +842,12 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		),
 	)
 
-	var matchingProcessId string
+	var matchingProcessId ID
 	for processId, pending := range h.pendingBufferedMeasurements {
 		h.logger.Debug(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Checking ProcessId %s: GetterPorts=%v",
+				"Checking ProcessId %d: GetterPorts=%v",
 				processId,
 				pending.GetterPorts,
 			),
@@ -878,7 +880,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 			h.logger.Debug(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
-					"Found matching ProcessId %s for port %s",
+					"Found matching ProcessId %d for port %s",
 					processId,
 					port,
 				),
@@ -887,12 +889,12 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		} else {
 			h.logger.Debug(
 				MeasurementReadyHandlerName,
-				fmt.Sprintf("Port %s not found in getters for ProcessId %s", port, processId),
+				fmt.Sprintf("Port %s not found in getters for ProcessId %d", port, processId),
 			)
 		}
 	}
 
-	if matchingProcessId == "" {
+	if matchingProcessId == 0 {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
@@ -906,7 +908,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Processing RETURN_DATA for matching ProcessId %s",
+			"Processing RETURN_DATA for matching ProcessId %d",
 			matchingProcessId,
 		),
 	)
@@ -920,7 +922,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Stored buffered result for port %s, ProcessId %s (%d/%d received): %v",
+			"Stored buffered result for port %s, ProcessId %d (%d/%d received): %v",
 			port,
 			matchingProcessId,
 			pending.ReceivedReturns,
@@ -996,13 +998,13 @@ func (h *MeasurementReadyHandler) portInGetters(
 }
 
 // sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
-func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
+func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId ID) {
 	pending, exists := h.pendingBufferedMeasurements[processId]
 	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending buffered measurement found for ProcessId %s",
+				"No pending buffered measurement found for ProcessId %d",
 				processId,
 			),
 		)
@@ -1015,7 +1017,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to marshal buffered results for ProcessId %s: %v",
+				"Failed to marshal buffered results for ProcessId %d: %v",
 				processId,
 				err,
 			),
@@ -1026,7 +1028,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 	// Create PROCESS_DATA message (same as unbuffered)
 	processData := api.ProcessData{
 		Data:      string(dataBytes),
-		ProcessId: processId,
+		ProcessId: int64(processId),
 		Timestamp: time.Now().UnixMicro(),
 	}
 
@@ -1036,7 +1038,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to marshal "+ProcessDataMessage+" for ProcessId %s: %v",
+				"Failed to marshal "+ProcessDataMessage+" for ProcessId %d: %v",
 				processId,
 				err,
 			),
@@ -1049,7 +1051,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to publish "+ProcessDataMessage+" for ProcessId %s: %v",
+				"Failed to publish "+ProcessDataMessage+" for ProcessId %d: %v",
 				processId,
 				err,
 			),
@@ -1060,7 +1062,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+ProcessDataMessage+" for buffered measurement ProcessId %s with %d results",
+			"Sent "+ProcessDataMessage+" for buffered measurement ProcessId %d with %d results",
 			processId,
 			len(pending.Results),
 		),
@@ -1072,7 +1074,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 
 // checkAndSendProcessData checks if all GET results are collected and sends
 // PROCESS_DATA
-func (h *MeasurementReadyHandler) checkAndSendProcessData(processId string) {
+func (h *MeasurementReadyHandler) checkAndSendProcessData(processId ID) {
 	// Count pending GETs for this process
 	pendingCount := 0
 	expectedCount := 0
@@ -1094,7 +1096,7 @@ func (h *MeasurementReadyHandler) checkAndSendProcessData(processId string) {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
-					"Failed to send "+ProcessDataMessage+" for ProcessId %s: %v",
+					"Failed to send "+ProcessDataMessage+" for ProcessId %d: %v",
 					processId,
 					err,
 				),
@@ -1104,10 +1106,10 @@ func (h *MeasurementReadyHandler) checkAndSendProcessData(processId string) {
 }
 
 // sendProcessData sends the collected data as PROCESS_DATA
-func (h *MeasurementReadyHandler) sendProcessData(processId string) error {
+func (h *MeasurementReadyHandler) sendProcessData(processId ID) error {
 	results, exists := h.getResults[processId]
 	if !exists {
-		return fmt.Errorf("no results found for ProcessId %s", processId)
+		return fmt.Errorf("no results found for ProcessId %d", processId)
 	}
 
 	// Marshal the results to JSON string
@@ -1119,7 +1121,7 @@ func (h *MeasurementReadyHandler) sendProcessData(processId string) error {
 	// Create PROCESS_DATA message
 	processData := api.ProcessData{
 		Data:      string(dataBytes),
-		ProcessId: processId,
+		ProcessId: int64(processId),
 		Timestamp: time.Now().UnixMicro(),
 	}
 
@@ -1137,7 +1139,7 @@ func (h *MeasurementReadyHandler) sendProcessData(processId string) error {
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+ProcessDataMessage+" for ProcessId %s with %d measurements",
+			"Sent "+ProcessDataMessage+" for ProcessId %d with %d measurements",
 			processId,
 			len(results),
 		),

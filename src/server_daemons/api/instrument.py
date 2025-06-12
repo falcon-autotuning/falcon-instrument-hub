@@ -9,6 +9,11 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+    @property
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
@@ -17,11 +22,6 @@ class CONFIRM_INITIALIZATION:
     def PORT(self) -> str:
         """the configuration of the instrument ports"""
         return "port"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -73,11 +73,6 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
@@ -86,6 +81,11 @@ class PERFORM_ARBITRARY_METHOD:
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""

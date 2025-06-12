@@ -304,7 +304,7 @@ class InterpreterDaemon:
         try:
             data = json.loads(msg.data.decode())
             request = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST)
-            id = str(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID))
+            id = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID)
             configuration = data.get(
                 INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS
             )
@@ -845,6 +845,7 @@ class InterpreterDaemon:
         while True:
             queue = self.data_queue.get(id, [])
             await self.log(f"The data queue is {self.data_queue[id].queue}.")
+            await self.log(f"The contents in the queue are {queue}")
             current_count = len(queue)
             if current_count > data_count:
                 await self.log(

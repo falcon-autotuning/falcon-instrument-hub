@@ -32,11 +32,6 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def GETTERS(self) -> str:
         """the connections that are ready to be measured"""
         return "getters"
@@ -50,6 +45,11 @@ class MEASUREMENT_READY:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -129,16 +129,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def VALUE(self) -> str:
-        """The quantity"""
-        return "value"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROPERTY(self) -> str:
         """The main subclass of property"""
         return "property"
@@ -147,6 +137,16 @@ class UPDATE_DAEMON_PROPERTY:
     def NAME(self) -> str:
         """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
         return "name"
+
+    @property
+    def VALUE(self) -> str:
+        """The quantity"""
+        return "value"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
@@ -175,11 +175,6 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
@@ -188,6 +183,11 @@ class CONFIRM_INITIALIZATION:
     def PORT(self) -> str:
         """the configuration of the instrument ports"""
         return "port"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -216,6 +216,11 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+    @property
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
@@ -224,11 +229,6 @@ class PERFORM_ARBITRARY_METHOD:
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
@@ -262,6 +262,11 @@ class RETURN_GET:
         return "RETURN_GET"
 
     @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
+    @property
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
@@ -275,11 +280,6 @@ class RETURN_GET:
     def PROPERTY(self) -> str:
         """The name of the property that is to be set"""
         return "property"
-
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -331,14 +331,14 @@ class SETUP_INSTRUMENT:
         return "SETUP_INSTRUMENT"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def NAME(self) -> str:
         """the name of the instrument to startup"""
         return "name"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class DESTROY_INSTRUMENT:
     """The substrings necessary for shuts down an instrument on a instrument server."""
@@ -475,11 +475,6 @@ class MEASURE_COMMAND:
         return "MEASURE_COMMAND"
 
     @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
-    @property
     def REQUEST(self) -> str:
         """the measurement request to be taken"""
         return "request"
@@ -488,6 +483,11 @@ class MEASURE_COMMAND:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
 
 class MEASURE_RESPONSE:
     """The substrings necessary for recieve a response from the runtime as to the measurement performed."""

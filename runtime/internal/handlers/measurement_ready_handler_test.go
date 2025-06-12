@@ -65,7 +65,7 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 			Initialized: true,
 			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"knobs": {
-					"1": createTestPortJSON("port1", "knobs"),
+					"1": createTestPortJSON("port1"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -82,7 +82,7 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 			Initialized: true,
 			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"knobs": {
-					"2": createTestPortJSON("port2", "knobs"),
+					"2": createTestPortJSON("port2"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -99,7 +99,7 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 			Initialized: true,
 			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"knobs": {
-					"10": createTestPortJSON("getter_port", "knobs"),
+					"10": createTestPortJSON("getter_port"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -116,7 +116,7 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 			Initialized: true,
 			Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
 				"knobs": {
-					"20": createTestPortJSON("setter_port", "knobs"),
+					"20": createTestPortJSON("setter_port"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -135,14 +135,20 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 
 // createTestPortJSON creates a test port JSON string with the given port name
 // and property
-func createTestPortJSON(portName, property string) instrument.JsonPort {
-	port := map[string]interface{}{
-		"__class__":       "Knob",
-		"__module__":      "falcon_core.instrument_interfaces.names.knob",
-		"pseudo_name":     portName, // This is key - the port name goes here
-		"instrument_type": "DAC",
-		"units":           "V",
-		"description":     "Test port",
+func createTestPortJSON(
+	portName config.InstrumentConnection,
+) instrument.JsonPort {
+	port := instrument.PortObject{
+		Class:  "Knob",
+		Module: "falcon_core.instrument_interfaces.names.knob",
+		PseudoName: instrument.PsuedoName{
+			Class:  "Knob",
+			Module: "falcon_core.instrument_interfaces.names.knob",
+			Name:   portName,
+		},
+		InstrumentType: "DAC",
+		Units:          map[string]any{"unit": "V"},
+		Description:    "Test port",
 	}
 	data, _ := json.Marshal(port)
 	return instrument.JsonPort(data)
@@ -171,11 +177,11 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	// Create unbuffered measurement request
-	port1JSON := createTestPortJSON("port1", "knobs")
-	port2JSON := createTestPortJSON("port2", "knobs")
+	port1JSON := createTestPortJSON("port1")
+	port2JSON := createTestPortJSON("port2")
 
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-1",
+		ProcessId: 1,
 		Getters: []string{
 			string(port1JSON),
 			string(port2JSON),
@@ -241,7 +247,7 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	// Wait for PROCESS_DATA response
 	select {
 	case processData := <-processDataReceived:
-		assert.Equal(t, "test-process-1", processData.ProcessId)
+		assert.Equal(t, int64(1), processData.ProcessId)
 
 		// Parse the data JSON
 		var results map[string]interface{}
@@ -280,11 +286,11 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	// Create buffered measurement request
-	getterPortJSON := createTestPortJSON("getter_port", "knobs")
-	setterPortJSON := createTestPortJSON("setter_port", "knobs")
+	getterPortJSON := createTestPortJSON("getter_port")
+	setterPortJSON := createTestPortJSON("setter_port")
 
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-buffered",
+		ProcessId: 2,
 		Getters:   []string{string(getterPortJSON)},
 		Setters: []string{
 			string(setterPortJSON),
@@ -376,7 +382,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Wait for PROCESS_DATA response
 	select {
 	case processData := <-processDataReceived:
-		assert.Equal(t, "test-process-buffered", processData.ProcessId)
+		assert.Equal(t, int64(2), processData.ProcessId)
 
 		// Parse the data JSON
 		var results map[string]interface{}
@@ -439,11 +445,11 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 
 	// Create buffered measurement request with multiple setters (should log
 	// error)
-	getterPortJSON := createTestPortJSON("getter_port", "knobs")
-	setterPortJSON := createTestPortJSON("setter_port", "knobs")
+	getterPortJSON := createTestPortJSON("getter_port")
+	setterPortJSON := createTestPortJSON("setter_port")
 
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-multi-setter",
+		ProcessId: 3,
 		Getters:   []string{string(getterPortJSON)},
 		Setters: []string{
 			string(setterPortJSON),
@@ -526,7 +532,7 @@ func TestMeasurementReadyHandler_CachingBehavior(t *testing.T) {
 	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
 
 	// Create the port JSON that would be used in a real request
-	port1JSON := createTestPortJSON("port1", "knobs")
+	port1JSON := createTestPortJSON("port1")
 
 	// First call - should hit the instrument handler
 	result1, err1 := handler.getCachedPortConfiguration(port1JSON)
@@ -568,10 +574,10 @@ func TestMeasurementReadyHandler_InvalidConfiguration(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	// Create measurement request with invalid port
-	invalidPortJSON := createTestPortJSON("invalid_port", "knobs")
+	invalidPortJSON := createTestPortJSON("invalid_port")
 
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-invalid",
+		ProcessId: 4,
 		Getters:   []string{string(invalidPortJSON)},
 		Setters:   []string{},
 	}
@@ -646,7 +652,7 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 
 	// Create measurement request with no getters
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-no-getters",
+		ProcessId: 5,
 		Getters:   []string{}, // No getters
 		Setters:   []string{},
 	}
@@ -689,10 +695,10 @@ func TestMeasurementReadyHandler_BufferedMeasurement_NoSetters_Error(
 	defer handler.Unsubscribe()
 
 	// Try to force buffered mode but with no setters
-	getterPortJSON := createTestPortJSON("getter_port", "knobs")
+	getterPortJSON := createTestPortJSON("getter_port")
 
 	measurementReady := api.MeasurementReady{
-		ProcessId: "test-process-buffered-no-setters",
+		ProcessId: 21,
 		Getters:   []string{string(getterPortJSON)},
 		Setters:   []string{}, // This should trigger unbuffered mode, not buffered
 	}
