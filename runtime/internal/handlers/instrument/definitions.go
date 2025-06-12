@@ -118,8 +118,8 @@ type (
 	PortConfiguration      map[string]any
 )
 
-// psuedoName represents a pythonic name that falcon understands
-type psuedoName struct {
+// PsuedoName represents a pythonic name that falcon understands
+type PsuedoName struct {
 	Class  connectionType              `json:"__class__"`
 	Module module                      `json:"__module__"`
 	Name   config.InstrumentConnection `json:"name"`
@@ -136,7 +136,7 @@ type PortObject struct {
 	Class          port        `json:"__class__"`
 	Module         module      `json:"__module__"`
 	DefaultName    defaultName `json:"default_name"`
-	PseudoName     psuedoName  `json:"pseudo_name"`
+	PseudoName     PsuedoName  `json:"pseudo_name"`
 	InstrumentType string      `json:"instrument_type"`
 	Units          units       `json:"units"`
 	Description    string      `json:"description"`

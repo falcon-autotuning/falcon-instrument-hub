@@ -15,7 +15,7 @@ import (
 type PortProcessor struct {
 	logger            *logging.Logger
 	Log               *LogWrapper // Log wrapper for structured logging
-	nameMapping       map[config.InstrumentConnection]*psuedoName
+	nameMapping       map[config.InstrumentConnection]*PsuedoName
 	cachedPortConfigs map[JsonPort]PortOptions // Cache for port configurations
 	portConfigsCached bool                     // Flag to track if cache is valid
 	cacheMutex        sync.RWMutex             // Mutex for cache access
@@ -35,7 +35,7 @@ func NewPortProcessor(
 			fmt.Sprintf("Failed to build name mapping: %v", err),
 		)
 		nameMapping = make(
-			map[config.InstrumentConnection]*psuedoName,
+			map[config.InstrumentConnection]*PsuedoName,
 		)
 	}
 
@@ -52,8 +52,8 @@ func NewPortProcessor(
 func buildNameMapping(
 	deviceConfig *config.DeviceConfig,
 	wireMap *config.WireMap,
-) (map[config.InstrumentConnection]*psuedoName, error) {
-	nameMapping := make(map[config.InstrumentConnection]*psuedoName)
+) (map[config.InstrumentConnection]*PsuedoName, error) {
+	nameMapping := make(map[config.InstrumentConnection]*PsuedoName)
 
 	// Handle nil inputs gracefully
 	if deviceConfig == nil || wireMap == nil {
@@ -86,7 +86,7 @@ func buildNameMapping(
 
 		// Check if readable name exists in our device categories
 		if connType, exists := connectionCategories[wireConnection]; exists {
-			nameMapping[wireName] = &psuedoName{
+			nameMapping[wireName] = &PsuedoName{
 				Name:   wireConnection,
 				Class:  connType,
 				Module: connectionToModule[connType],
@@ -130,7 +130,7 @@ func (pp *PortProcessor) ProcessInstrumentPorts(
 // "meters")
 func processPortProperty(
 	properties map[Index]JsonPort,
-	nameMapping map[config.InstrumentConnection]*psuedoName,
+	nameMapping map[config.InstrumentConnection]*PsuedoName,
 	instrumentName Name,
 ) error {
 	var errors []string
@@ -166,7 +166,7 @@ func processPortProperty(
 // updatePortPsuedoName processes a single port and upgrades it
 func updatePortPsuedoName(
 	port JsonPort,
-	deviceConn *psuedoName,
+	deviceConn *PsuedoName,
 ) (JsonPort, error) {
 	var portObj PortObject
 	if err := portObj.FromInterface(port); err != nil {
