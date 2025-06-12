@@ -9,11 +9,6 @@ class LOG:
         return "LOG"
 
     @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
-    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -22,6 +17,11 @@ class LOG:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
 
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
@@ -111,14 +111,14 @@ class STATUS:
         return "STATUS"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def STATUS(self) -> str:
         """At compilation of this message the state of the process"""
         return "status"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class UPDATE_DAEMON_PROPERTY:
     """The substrings necessary for issued to selectively update an instruments property in a daemon."""
@@ -127,11 +127,6 @@ class UPDATE_DAEMON_PROPERTY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "UPDATE_DAEMON_PROPERTY"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The main subclass of property"""
-        return "property"
 
     @property
     def NAME(self) -> str:
@@ -148,6 +143,11 @@ class UPDATE_DAEMON_PROPERTY:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The main subclass of property"""
+        return "property"
+
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
 
@@ -157,14 +157,14 @@ class UPLOAD_DATA:
         return "UPLOAD_DATA"
 
     @property
-    def DATA(self) -> str:
-        """the jsonable measurement request for the FAlCon to unpack and use"""
-        return "data"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def DATA(self) -> str:
+        """the jsonable measurement request for the FAlCon to unpack and use"""
+        return "data"
 
 
 class RUNTIME_COMMANDS:

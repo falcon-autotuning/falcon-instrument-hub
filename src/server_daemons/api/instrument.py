@@ -50,11 +50,6 @@ class LOG:
         return "LOG"
 
     @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
-    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -63,6 +58,11 @@ class LOG:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
 
 class PERFORM_ARBITRARY_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -73,6 +73,11 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+    @property
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
@@ -81,11 +86,6 @@ class PERFORM_ARBITRARY_METHOD:
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
@@ -147,11 +147,6 @@ class SET:
         return "SET"
 
     @property
-    def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
-        return "value"
-
-    @property
     def PROPERTY(self) -> str:
         """The name of the property that is to be set"""
         return "property"
@@ -160,6 +155,11 @@ class SET:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
+    @property
+    def VALUE(self) -> str:
+        """The argument to be set inside the instrument"""
+        return "value"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""

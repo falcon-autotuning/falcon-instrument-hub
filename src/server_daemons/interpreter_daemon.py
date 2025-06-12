@@ -304,7 +304,7 @@ class InterpreterDaemon:
         try:
             data = json.loads(msg.data.decode())
             request = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST)
-            id = int(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID))
+            id = str(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID))
             configuration = data.get(
                 INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS
             )
