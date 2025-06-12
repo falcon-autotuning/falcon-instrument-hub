@@ -852,7 +852,7 @@ class InterpreterDaemon:
                     )
                     return
                 await self.log(
-                    f"Waiting for more data for {id} (expected {data_count}, got {current_count})"
+                    f"Waiting for more data for id {id} (expected {data_count}, got {current_count})"
                 )
                 log_attempts += 1
                 await asyncio.sleep(wait_time)

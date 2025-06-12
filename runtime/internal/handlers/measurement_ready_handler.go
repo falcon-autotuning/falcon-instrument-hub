@@ -18,8 +18,6 @@ import (
 
 const (
 	MeasurementReadyHandlerName = "MEASUREMENT_READY_HANDLER"
-	MeasurementReadySubject     = "MEASUREMENT_READY.interpreter"
-	ProcessDataSubject          = "PROCESS_DATA.interpreter"
 
 	// Message type names for logging
 	MeasurementReadyMessage = "MEASUREMENT_READY"
@@ -97,12 +95,12 @@ func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
 
 	// Subscribe to MEASUREMENT_READY
 	h.subscription, err = nc.Subscribe(
-		MeasurementReadySubject,
+		MeasurementReadyMessage,
 		h.handleMeasurementReady,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to subscribe to "+MeasurementReadySubject+": %w",
+			"failed to subscribe to "+MeasurementReadyMessage+": %w",
 			err,
 		)
 	}
@@ -133,7 +131,7 @@ func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
 
 	h.logger.Info(
 		MeasurementReadyHandlerName,
-		"Subscribed to "+MeasurementReadySubject+", "+ReturnGetMessage+".>, and "+ReturnDataMessage+".>",
+		"Subscribed to "+MeasurementReadyMessage+", "+ReturnGetMessage+".>, and "+ReturnDataMessage+".>",
 	)
 	return nil
 }
@@ -1047,7 +1045,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId string) {
 	}
 
 	// Send PROCESS_DATA (not UPLOAD_DATA)
-	if err := h.nc.Publish(ProcessDataSubject, processDataBytes); err != nil {
+	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
@@ -1132,7 +1130,7 @@ func (h *MeasurementReadyHandler) sendProcessData(processId string) error {
 	}
 
 	// Send PROCESS_DATA
-	if err := h.nc.Publish(ProcessDataSubject, processDataBytes); err != nil {
+	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
 		return fmt.Errorf("failed to publish "+ProcessDataMessage+": %w", err)
 	}
 

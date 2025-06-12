@@ -224,7 +224,7 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	// Subscribe to PROCESS_DATA to capture the final result
 	processDataReceived := make(chan api.ProcessData, 1)
 	processDataSub, err := nc.Subscribe(
-		ProcessDataSubject,
+		ProcessDataMessage,
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
 			json.Unmarshal(msg.Data, &processData)
@@ -235,7 +235,7 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	defer processDataSub.Unsubscribe()
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadySubject, measurementData)
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait for PROCESS_DATA response
@@ -359,7 +359,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Subscribe to PROCESS_DATA to capture the final result
 	processDataReceived := make(chan api.ProcessData, 1)
 	processDataSub, err := nc.Subscribe(
-		ProcessDataSubject,
+		ProcessDataMessage,
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
 			json.Unmarshal(msg.Data, &processData)
@@ -370,7 +370,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	defer processDataSub.Unsubscribe()
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadySubject, measurementData)
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait for PROCESS_DATA response
@@ -483,7 +483,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	defer triggerSubSetter.Unsubscribe()
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadySubject, measurementData)
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait a bit for processing
@@ -580,7 +580,7 @@ func TestMeasurementReadyHandler_InvalidConfiguration(t *testing.T) {
 	require.NoError(t, err)
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadySubject, measurementData)
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait a bit for processing
@@ -655,7 +655,7 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 	require.NoError(t, err)
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadySubject, measurementData)
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait a bit for processing
@@ -701,7 +701,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement_NoSetters_Error(
 	// any)
 	measurementData := make(chan api.ProcessData, 1)
 	measurementDataSub, err := nc.Subscribe(
-		ProcessDataSubject,
+		ProcessDataMessage,
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
 			if json.Unmarshal(msg.Data, &processData) == nil {
@@ -718,7 +718,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement_NoSetters_Error(
 
 	// Send the measurement request
 	measurementReadyBytes, _ := json.Marshal(measurementReady)
-	nc.Publish(MeasurementReadySubject, measurementReadyBytes)
+	nc.Publish(MeasurementReadyMessage, measurementReadyBytes)
 
 	// Wait a bit to see if any PROCESS_DATA is sent (there shouldn't be)
 	select {
