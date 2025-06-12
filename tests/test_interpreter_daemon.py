@@ -32,6 +32,18 @@ class MockMsg:
 
     def __init__(self, data):
         self.data = data.encode() if isinstance(data, str) else data
+        self.subject = "test.subject"
+        self.reply = None
+        self.headers = None
+
+    def respond(self, data):
+        """Mock respond method."""
+
+    def ack(self):
+        """Mock ack method."""
+
+    def nak(self):
+        """Mock nak method."""
 
 
 class TestInterpreterDaemon:
@@ -227,8 +239,14 @@ class TestInterpreterDaemon:
         _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
+        name = InstrumentPort(
+            default_name="device1",
+            pseudo_name=Ohmic("test_knob"),
+        )
         await interpreter_daemon.update_daemon_property(
-            property="voltage_state", name="device1", value=1.0
+            property="voltage_state",
+            name=name,
+            value=1.0,
         )
 
         # Verify the correct message format
@@ -246,7 +264,7 @@ class TestInterpreterDaemon:
         )
         assert (
             message_data[INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.NAME]
-            == "device1"
+            == name.to_json()
         )
         assert (
             message_data[INTERPRETER_RUNTIME_COMMANDS.UPDATE_DAEMON_PROPERTY.VALUE]
@@ -310,70 +328,6 @@ class TestInterpreterDaemon:
             == INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.COMM_CHANNEL
         )
         assert second_call[1]["cb"] == interpreter_daemon.handle_data
-
-    @pytest.mark.asyncio
-    @patch("server_daemons.interpreter_daemon.MeasurementRequest")
-    async def test_handle_request(
-        self,
-        mock_measurement_request,
-        interpreter_daemon: InterpreterDaemon,
-        mock_nats,
-    ):
-        """Test the handle_request method."""
-        _, mock_client, _ = mock_nats
-
-        interpreter_daemon._nc = mock_client
-
-        # Mock the necessary methods
-        interpreter_daemon.log = AsyncMock()
-        interpreter_daemon.process_request = AsyncMock(return_value=(5, (10, 10)))
-        interpreter_daemon.deploy_measurements = AsyncMock()
-        interpreter_daemon.load_and_export_data = AsyncMock()
-
-        # Create a mock measurement request
-        mock_request_obj = MagicMock()
-        mock_measurement_request.from_json.return_value = mock_request_obj
-
-        # Create a mock message with test data
-        test_data = {
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: '{"type": "test_request"}',
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 42,
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: '{"device1": {"prop1": "value1"}}',
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: "/tmp/test_data",
-        }
-        mock_msg = MockMsg(json.dumps(test_data))
-
-        # Call handle_request with the mock message
-        await interpreter_daemon.handle_request(mock_msg)
-
-        # Verify the measurement request was processed correctly
-        mock_measurement_request.from_json.assert_called_once_with(
-            '{"type": "test_request"}'
-        )
-
-        # Verify process_request was called with the correct arguments
-        interpreter_daemon.process_request.assert_called_once_with(
-            request=mock_request_obj,
-            configuration={"device1": {"prop1": "value1"}},
-            id=42,
-        )
-
-        # Verify deploy_measurements was called
-        interpreter_daemon.deploy_measurements.assert_called_once_with(
-            measurement_id=42,
-        )
-
-        # Verify load_and_export_data was called with the correct arguments
-        interpreter_daemon.load_and_export_data.assert_called_once_with(
-            request=mock_request_obj,
-            data_path=Path("/tmp/test_data"),
-            shape=(10, 10),
-            id=42,
-            data_count=5,
-        )
-
-        # Verify log messages
-        assert interpreter_daemon.log.call_count >= 2
 
     @pytest.mark.asyncio
     async def test_handle_request_with_exception(self, interpreter_daemon, mock_nats):

@@ -38,6 +38,7 @@ type Manager struct {
 	interpreterHandler             *InterpreterHandler
 	busyHandler                    *BusyHandler
 	measureCommandHandler          *MeasureCommandHandler
+	measureReadyHandler            *MeasurementReadyHandler
 	performInstrumentMethodHandler *PerformInstrumentMethodHandler
 	statusHandler                  *StatusHandler
 	portRequestHandler             *PortRequestHandler
@@ -96,6 +97,11 @@ func NewManager(
 			instrumentHandler,
 		),
 		portRequestHandler: NewPortRequestHandler(
+			logger,
+			instrumentHandler,
+			cfg,
+		),
+		measureReadyHandler: NewMeasurementReadyHandler(
 			logger,
 			instrumentHandler,
 			cfg,
@@ -211,6 +217,11 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			name:    "port request handler",
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
+		},
+		{
+			name:    "measurement ready handler",
+			startOp: func() error { return m.measureReadyHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.measureReadyHandler.Unsubscribe() },
 		},
 		{
 			name:    "status handler",

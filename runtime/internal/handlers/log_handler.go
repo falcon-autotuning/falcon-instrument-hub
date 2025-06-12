@@ -73,11 +73,11 @@ func (h *LogHandler) handleLogMessage(msg *nats.Msg) {
 	rawData := msg.Data
 
 	// Debug: Log message reception
-	h.logger.Debug(
-		LogHandlerName,
-		fmt.Sprintf("Received message on %s: %s", channel, string(rawData)),
-	)
-
+	// h.logger.Debug(
+	// 	LogHandlerName,
+	// 	fmt.Sprintf("Received message on %s: %s", channel, string(rawData)),
+	// )
+	//
 	// Try to decode as JSON first (structured log message)
 	var apiLog api.Log
 	if err := json.Unmarshal(rawData, &apiLog); err != nil {
@@ -91,7 +91,7 @@ func (h *LogHandler) handleLogMessage(msg *nats.Msg) {
 	}
 
 	// Handle structured log message
-	h.logger.Debug(LogHandlerName, "Handling structured log")
+	// h.logger.Debug(LogHandlerName, "Handling structured log")
 	h.handleStructuredLog(channel, &apiLog)
 
 	// Optional: Reply if the message expects a response

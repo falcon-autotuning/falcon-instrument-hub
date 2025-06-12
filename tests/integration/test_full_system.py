@@ -25,7 +25,6 @@ from falcon_core.math.axes import Axes
 from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
 from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
 from falcon_core.math.spaces import CartesianSpace
-from falcon_core.physics.device_structures import BarrierGate, Ohmic
 from falcon_core.physics.units import Units
 
 from .server_api import RUNTIME_COMMANDS
@@ -250,9 +249,11 @@ async def nats_client():
 
 
 @pytest_asyncio.fixture
-async def setup_status(nats_client, expectedDaemons):
+async def setup_status(nats_client, expectedDaemons: list[str]):
     """Returns the received status messages."""
-    status_msgs = {daemon_name: [] for daemon_name in expectedDaemons}
+    status_msgs: dict[str, list[str]] = {
+        daemon_name: [] for daemon_name in expectedDaemons
+    }
 
     async def status_handler(msg):
         # Extract instrument name from the subject
@@ -274,9 +275,9 @@ async def setup_status(nats_client, expectedDaemons):
 
 @pytest_asyncio.fixture
 async def go_runtime_process(
-    test_config_files,
-    setup_status,
-    serverName,
+    test_config_files: dict[str, str],
+    setup_status: dict[str, list[str]],
+    serverName: str,
 ):
     """Start the Go runtime server."""
     max_wait_time = 20.0
@@ -396,7 +397,7 @@ async def setup_port_payload(nats_client):
             conversion[2].clear()
             if raw_data:
                 conversion[2].extend(
-                    [conversion[1].from_dict(data) for data in raw_data]
+                    [conversion[1].from_json(data) for data in raw_data]
                 )
 
     await nats_client.subscribe(
@@ -548,25 +549,29 @@ async def daemon_health_monitoring(
 
 
 @pytest.fixture
-def knobs():
+def knobs(daemon_health_monitoring: tuple[list[Knob], list[Meter]]):
     """Returns a list of active knobs."""
-    return [
-        Knob(
-            default_name="test_knob",
-            pseudo_name=BarrierGate("B3"),
-        )
-    ]
+    selected_knobs = []
+    active_knobs, active_meters = daemon_health_monitoring
+    for knob in active_knobs:
+        if knob.instrument_facing_name() == "B3":
+            selected_knobs.append(knob)
+
+    print(f"Selected knobs for measurement: {selected_knobs}")
+    return selected_knobs
 
 
 @pytest.fixture
-def meters():
+def meters(daemon_health_monitoring: tuple[list[Knob], list[Meter]]):
     """Returns a list of active meters."""
-    return [
-        Meter(
-            default_name="test_meter",
-            pseudo_name=Ohmic("O2"),
-        )
-    ]
+    selected_meters = []
+    active_knobs, active_meters = daemon_health_monitoring
+    for meter in active_meters:
+        if meter.instrument_facing_name() == "O2":
+            selected_meters.append(meter)
+
+    print(f"Selected meters for measurement: {selected_meters}")
+    return selected_meters
 
 
 @pytest.fixture
@@ -657,7 +662,6 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
 @pytest.mark.asyncio
 async def test_full_measurement_flow(
     nats_client,
-    daemon_health_monitoring: tuple[list[Knob], list[Meter]],
     measurement_request,
     externalProcessName,
     cleanup_instruments,
@@ -667,13 +671,6 @@ async def test_full_measurement_flow(
     check_interval = 1.0
     elapsed_time = 0.0
     upload_msgs = []
-
-    selected_knobs = []
-    active_knobs, active_meters = daemon_health_monitoring
-    for knob in active_knobs:
-        if knob.instrument_facing_name() == "B3":
-            selected_knobs.append(knob)
-    print(f"Selected knobs for measurement: {selected_knobs}")
 
     async def upload_handler(msg):
         upload_msgs.append(json.loads(msg.data.decode()))
