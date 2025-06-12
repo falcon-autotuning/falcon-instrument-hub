@@ -35,6 +35,10 @@ class DataEntry:
         """Returns the data of the data entry."""
         return self._data
 
+    def __repr__(self) -> str:
+        """Returns the representation of the data entry."""
+        return f"DataEntry(timestamp={self._timestamp}, data={self._data})"
+
 
 class DataQueue:
     """A queue for storing data from the interpreter daemon.
