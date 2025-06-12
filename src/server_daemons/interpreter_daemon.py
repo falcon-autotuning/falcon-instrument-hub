@@ -408,6 +408,7 @@ class InterpreterDaemon:
             buffered=buffered,
         )
         await self.log("Chunks completed")
+        await self.log(f"The chunks are: {chunks}")
         getters = [transform.port for transform in request.meter_transforms]
         await self.log("Selected getters for the measurement.")
 

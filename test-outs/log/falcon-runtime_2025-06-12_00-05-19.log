@@ -1,0 +1,217 @@
+[2025-06-12 00:05:19.944] [INFO] [SYSTEM] Logger initialized
+[2025-06-12 00:05:19.945] [INFO] [SYSTEM] Log file: /home/tylerk/Documents/instrument-server/test-outs/log/falcon-runtime_2025-06-12_00-05-19.log
+[2025-06-12 00:05:19.946] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-12 00:05:19.977] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-12 00:05:19.979] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-12 00:05:20.766] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-12 00:05:20.768] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:20.769] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-12 00:05:21.495] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:21.499] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-12 00:05:21.500] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-12 00:05:23.808] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-12 00:05:23.810] [INFO] [VENV] Installing package with uv: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-12 00:05:23.811] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main'"
+[2025-06-12 00:05:24.565] [INFO] [VENV] Successfully installed package: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-12 00:05:24.569] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:24.570] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-12 00:05:25.332] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:25.339] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-12 00:05:25.340] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-12 00:05:25.371] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-12 00:05:25.374] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-12 00:05:26.105] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-12 00:05:26.107] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:26.108] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-12 00:05:26.840] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:26.845] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-12 00:05:26.845] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-12 00:05:28.217] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-12 00:05:28.223] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:28.224] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-12 00:05:28.949] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-12 00:05:28.958] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-12 00:05:28.959] [INFO] [HANDLER_MANAGER] Starting handler manager
+[2025-06-12 00:05:28.960] [INFO] [LOG_HANDLER] Subscribed to LOG.> channels
+[2025-06-12 00:05:28.960] [INFO] [DEVICE_CONFIG_HANDLER] Subscribed to DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-12 00:05:28.961] [INFO] [INSTRUMENT_HANDLER] Setting up instrument handler subscriptions
+[2025-06-12 00:05:28.961] [INFO] [INSTRUMENT_HANDLER] Script updated at scripts/launch_instrument_daemon.py
+[2025-06-12 00:05:28.962] [INFO] [INSTRUMENT_HANDLER] Subscribed to SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.*
+[2025-06-12 00:05:28.962] [INFO] [INSTRUMENT_HANDLER] Subscribed to DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.*
+[2025-06-12 00:05:28.963] [INFO] [INSTRUMENT_HANDLER] Subscribed to CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.*
+[2025-06-12 00:05:28.963] [INFO] [INSTRUMENT_HANDLER] Subscribed to UPDATE_DAEMON_PROPERTY on subject: UPDATE_DAEMON_PROPERTY.instrument-server
+[2025-06-12 00:05:28.964] [INFO] [INSTRUMENT_HANDLER] Instrument handler subscriptions ready
+[2025-06-12 00:05:28.964] [INFO] [INTERPRETER_HANDLER] Starting interpreter handler
+[2025-06-12 00:05:28.965] [INFO] [INTERPRETER_HANDLER] Interpreter script updated at scripts/launch_interpreter.py
+[2025-06-12 00:05:28.966] [DEBUG] [INTERPRETER_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py
+[2025-06-12 00:05:28.966] [INFO] [INTERPRETER_HANDLER] Starting interpreter daemon 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py 
+ nats URL nats://localhost:4222
+[2025-06-12 00:05:28.967] [INFO] [INTERPRETER_HANDLER] Started interpreter with PID 208466
+[2025-06-12 00:05:28.967] [INFO] [INTERPRETER_HANDLER] Interpreter handler started successfully
+[2025-06-12 00:05:28.968] [INFO] [BUSY_HANDLER] Subscribed to BUSY.external.* channels
+[2025-06-12 00:05:28.968] [INFO] [MEASURE_COMMAND_HANDLER] Subscribed to MEASURE_COMMAND.external.> and UPLOAD_DATA
+[2025-06-12 00:05:28.969] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Subscribed to PERFORM_INSTRUMENT_METHOD.external.instrument-server
+[2025-06-12 00:05:28.969] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-12 00:05:28.970] [INFO] [MEASUREMENT_READY_HANDLER] Subscribed to MEASUREMENT_READY, RETURN_GET.>, and RETURN_DATA.>
+[2025-06-12 00:05:28.971] [INFO] [STATUS_HANDLER] Started publishing status messages every 4 seconds
+[2025-06-12 00:05:28.971] [INFO] [HANDLER_MANAGER] All handlers started successfully
+[2025-06-12 00:05:28.972] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-12 00:05:29.646] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Connected to NATS server at nats://localhost:4222
+[2025-06-12 00:05:29.648] [NATS] [MESSAGE] [LOG.interpreter] JSON: Connected to NATS server at nats://localhost:4222
+[2025-06-12 00:05:29.646] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_REQUEST
+[2025-06-12 00:05:29.650] [NATS] [MESSAGE] [LOG.interpreter] JSON: Subscribed to channel: PROCESS_REQUEST
+[2025-06-12 00:05:29.646] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_DATA
+[2025-06-12 00:05:29.651] [NATS] [MESSAGE] [LOG.interpreter] JSON: Subscribed to channel: PROCESS_DATA
+[2025-06-12 00:05:32.971] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-12 00:05:35.947] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1749704735946520}
+[2025-06-12 00:05:35.956] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 0 instruments
+[2025-06-12 00:05:35.957] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-12 00:05:35.958] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-12 00:05:35.959] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument LargeMultiChannelDAC 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-12 00:05:35.959] [DEBUG] [INSTRUMENT_HANDLER] Collected 0 knobs and 0 meters
+[2025-06-12 00:05:35.960] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-12 00:05:35.960] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-12 00:05:35.961] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-12 00:05:35.961] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument LargeMultiChannelDAC 
+ pid 208513
+[2025-06-12 00:05:35.962] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: LargeMultiChannelDAC
+[2025-06-12 00:05:35.962] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-12 00:05:35.963] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-12 00:05:35.963] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument MultiChannelAmnmeter 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-12 00:05:35.965] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument MultiChannelAmnmeter 
+ pid 208515
+[2025-06-12 00:05:35.965] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: MultiChannelAmnmeter
+[2025-06-12 00:05:36.658] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.MultiChannelAmnmeter
+[2025-06-12 00:05:36.652] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Connected to NATS successfully
+[2025-06-12 00:05:36.660] [NATS] [MESSAGE] [LOG.MultiChannelAmnmeter] JSON: Connected to NATS successfully
+[2025-06-12 00:05:36.658] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Instrument config released for MultiChannelAmnmeter
+[2025-06-12 00:05:36.661] [NATS] [MESSAGE] [LOG.MultiChannelAmnmeter] JSON: Instrument config released for MultiChannelAmnmeter
+[2025-06-12 00:05:36.662] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: MultiChannelAmnmeter
+[2025-06-12 00:05:36.658] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Setup all subscriptions for MultiChannelAmnmeter
+[2025-06-12 00:05:36.663] [NATS] [MESSAGE] [LOG.MultiChannelAmnmeter] JSON: Setup all subscriptions for MultiChannelAmnmeter
+[2025-06-12 00:05:36.658] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Daemon MultiChannelAmnmeter running, waiting for shutdown signal...
+[2025-06-12 00:05:36.664] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument MultiChannelAmnmeter
+[2025-06-12 00:05:36.665] [NATS] [MESSAGE] [LOG.MultiChannelAmnmeter] JSON: Daemon MultiChannelAmnmeter running, waiting for shutdown signal...
+[2025-06-12 00:05:36.654] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Connected to NATS successfully
+[2025-06-12 00:05:36.677] [NATS] [MESSAGE] [LOG.LargeMultiChannelDAC] JSON: Connected to NATS successfully
+[2025-06-12 00:05:36.676] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Instrument config released for LargeMultiChannelDAC
+[2025-06-12 00:05:36.679] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.LargeMultiChannelDAC
+[2025-06-12 00:05:36.679] [NATS] [MESSAGE] [LOG.LargeMultiChannelDAC] JSON: Instrument config released for LargeMultiChannelDAC
+[2025-06-12 00:05:36.676] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Setup all subscriptions for LargeMultiChannelDAC
+[2025-06-12 00:05:36.681] [NATS] [MESSAGE] [LOG.LargeMultiChannelDAC] JSON: Setup all subscriptions for LargeMultiChannelDAC
+[2025-06-12 00:05:36.676] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Daemon LargeMultiChannelDAC running, waiting for shutdown signal...
+[2025-06-12 00:05:36.682] [NATS] [MESSAGE] [LOG.LargeMultiChannelDAC] JSON: Daemon LargeMultiChannelDAC running, waiting for shutdown signal...
+[2025-06-12 00:05:36.684] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: LargeMultiChannelDAC
+[2025-06-12 00:05:36.685] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument LargeMultiChannelDAC
+[2025-06-12 00:05:36.972] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-12 00:05:39.947] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1749704739947218}
+[2025-06-12 00:05:39.955] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 2 instruments
+[2025-06-12 00:05:39.956] [DEBUG] [INSTRUMENT_HANDLER] Collected 100 knobs and 10 meters
+[2025-06-12 00:05:39.957] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-12 00:05:39.958] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-12 00:05:39.958] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-12 00:05:40.972] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-12 00:05:43.958] [DEBUG] [MEASURE_COMMAND_HANDLER] Received command: {"request": "{\"__class__\": \"MeasurementRequest\", \"__module__\": \"falcon_core.communications.messages.measurement_request\", \"message\": \"test measurement\", \"waveforms\": [{\"__class__\": \"CartesianWaveform\", \"__module__\": \"falcon_core.instrument_interfaces.waveforms.cartesian_waveform\", \"transforms\": [], \"space\": {\"__class__\": \"CartesianDiscreteSpace\", \"__module__\": \"falcon_core.math.discrete_spaces.cartesian_discrete_space\", \"space\": {\"__class__\": \"CartesianSpace\", \"__module__\": \"falcon_core.math.spaces.cartesian_space\", \"axes\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"CartesianDiscretizer\", \"__module__\": \"falcon_core.math.discretizers.cartesian_discretizer\", \"delta_domain\": {\"__class__\": \"Domain\", \"__module__\": \"falcon_core.math.domains.domain\", \"lesser_bound\": -1.0, \"greater_bound\": 1.0, \"lesser_bound_contained\": true, \"greater_bound_contained\": true}, \"delta\": 0.1}]}, \"domain\": {\"__class__\": \"Domain\", \"__module__\": \"falcon_core.math.domains.domain\", \"lesser_bound\": 0, \"greater_bound\": 1, \"lesser_bound_contained\": true, \"greater_bound_contained\": false}, \"ranges\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"ControlArray1D\", \"__module__\": \"falcon_core.math.arrays.control_array_1D\", \"data\": {\"__binary_blob__\": true, \"type\": \"numpy.ndarray\", \"data\": \"gASV2QAAAAAAAACMFm51bXB5Ll9jb3JlLm11bHRpYXJyYXmUjAxfcmVjb25zdHJ1Y3SUk5SMBW51bXB5lIwHbmRhcnJheZSTlEsAhZRDAWKUh5RSlChLAUsKhZRoA4wFZHR5cGWUk5SMAmY4lImIh5RSlChLA4wBPJROTk5K/////0r/////SwB0lGKJQ1AAAAAAAAAAAJqZmZmZmbk/mpmZmZmZyT80MzMzMzPTP5qZmZmZmdk/AAAAAAAA4D80MzMzMzPjP2dmZmZmZuY/mpmZmZmZ6T/NzMzMzMzsP5R0lGIu\", \"shape\": [10], \"dtype\": \"float64\"}, \"alignment\": {\"__class__\": \"IncreasingAlignment\", \"__module__\": \"falcon_core.math.arrays.increasing_alignment\", \"alignment\": true}, \"principle_dimension\": null}]}, \"shape\": [10]}, \"axes\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"CoupledKnobDomain\", \"__module__\": \"falcon_core.math.domains.coupled_knob_domain\", \"domains\": [{\"__class__\": \"KnobDomain\", \"__module__\": \"falcon_core.math.domains.knob_domain\", \"lesser_bound\": 0, \"greater_bound\": 0.5, \"lesser_bound_contained\": true, \"greater_bound_contained\": true, \"label\": {\"__class__\": \"Knob\", \"__module__\": \"falcon_core.instrument_interfaces.names.knob\", \"default_name\": \"LargeMultiChannelDAC_voltage_state_5\", \"pseudo_name\": {\"__class__\": \"BarrierGate\", \"__module__\": \"falcon_core.physics.device_structures.barrier_gate\", \"name\": \"B3\"}, \"instrument_type\": \"dc_voltage_source\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"name\": \"volt\", \"symbol\": \"V\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {\"CURRENT\": -1, \"LENGTH\": 2, \"MASS\": 1, \"TIME\": -3}, \"offset\": 0, \"prefix\": \"\", \"scale_factor\": 1}}, \"description\": \"A large multi-channel DAC instrument driver for testing purposes.\"}}]}]}}}], \"meter_transforms\": [{\"__class__\": \"IdentityTransform\", \"__module__\": \"falcon_core.instrument_interfaces.port_transforms.identity_transform\", \"port\": {\"__class__\": \"Meter\", \"__module__\": \"falcon_core.instrument_interfaces.names.meter\", \"default_name\": \"MultiChannelAmnmeter_current_state_1\", \"pseudo_name\": {\"__class__\": \"Ohmic\", \"__module__\": \"falcon_core.physics.device_structures.ohmic\", \"name\": \"O2\"}, \"instrument_type\": \"amnmeter\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"name\": \"radian\", \"symbol\": \"rad\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {}, \"offset\": 0, \"prefix\": \"\", \"scale_factor\": 1}}, \"description\": \"A DC current sink driver.\"}, \"transform\": {\"__jsonable_function__\": true, \"__function_dill__\": \"gASVUgMAAAAAAACMLGZhbGNvbl9jb3JlLm1hdGguYW5hbHl0aWNfZnVuY3Rpb25zLmlkZW50aXR5lIwISWRlbnRpdHmUk5QpgZR9lCiMBl9wb3J0c5SMLmZhbGNvbl9jb3JlLmluc3RydW1lbnRfaW50ZXJmYWNlcy5uYW1lcy5tZXRlcnOUjAZNZXRlcnOUk5QpgZR9lGgFXZQojC1mYWxjb25fY29yZS5pbnN0cnVtZW50X2ludGVyZmFjZXMubmFtZXMubWV0ZXKUjAVNZXRlcpSTlCmBlH2UKIwNX2RlZmF1bHRfbmFtZZSMJE11bHRpQ2hhbm5lbEFtbm1ldGVyX2N1cnJlbnRfc3RhdGVfMZSMDF9wc2V1ZG9fbmFtZZSMK2ZhbGNvbl9jb3JlLnBoeXNpY3MuZGV2aWNlX3N0cnVjdHVyZXMub2htaWOUjAVPaG1pY5STlCmBlH2UjAVfbmFtZZSMAk8ylHNijBBfaW5zdHJ1bWVudF90eXBllIwIYW1ubWV0ZXKUjAZfdW5pdHOUjCVmYWxjb25fY29yZS5waHlzaWNzLnVuaXRzLnN5bWJvbF91bml0lIwKU3ltYm9sVW5pdJSTlCmBlH2UKGgZjAZyYWRpYW6UjAdfc3ltYm9slIwDcmFklIwFX3VuaXSUjB5mYWxjb25fY29yZS5waHlzaWNzLnVuaXRzLnVuaXSUjARVbml0lJOUKYGUfZQojAtfZGltZW5zaW9uc5R9lIwHX29mZnNldJRLAIwHX3ByZWZpeJSMAJSMDV9zY2FsZV9mYWN0b3KUSwF1YnVijAxfZGVzY3JpcHRpb26UjBlBIERDIGN1cnJlbnQgc2luayBkcml2ZXIulHViaA4pgZR9lChoEYwFdGltZXKUaBNOaBuMBWNsb2NrlGgdaCApgZR9lChoJmgpKYGUfZQoaCx9lIwEVElNRZRLAXNoMUc/8AAAAAAAAGguRwAAAAAAAAAAaC9oMHViaCSMAXOUaBmMBnNlY29uZJR1YmgyaDB1YmVzYowJX2Z1bmN0aW9ulGgAjBBJZGVudGl0eUZ1bmN0aW9ulJOUKYGUfZQojAVfcG9ydJRoD4wIX21hcHBpbmeUfZQoaBqMAXiUaDeMAXSUdXVidWIu\"}}], \"time_domain\": {\"__class__\": \"KnobDomain\", \"__module__\": \"falcon_core.math.domains.knob_domain\", \"lesser_bound\": 0, \"greater_bound\": 1, \"lesser_bound_contained\": true, \"greater_bound_contained\": false, \"label\": {\"__class__\": \"Knob\", \"__module__\": \"falcon_core.instrument_interfaces.names.knob\", \"default_name\": \"time\", \"pseudo_name\": null, \"instrument_type\": \"clock\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {\"TIME\": 1}, \"scale_factor\": 1.0, \"offset\": 0.0, \"prefix\": \"\"}, \"symbol\": \"s\", \"name\": \"second\"}, \"description\": \"\"}}, \"measurement_name\": \"integration_test\"}", "hash": 692, "timestamp": 1749704743958189}
+[2025-06-12 00:05:43.968] [DEBUG] [MEASURE_COMMAND_HANDLER] Set IsBusy flag to true - measurement started
+[2025-06-12 00:05:43.969] [INFO] [MEASURE_COMMAND_HANDLER] Allocated measurement ID 19 for hash 692
+[2025-06-12 00:05:43.970] [DEBUG] [INSTRUMENT_HANDLER] Starting port mapping inversion with 2 instruments
+[2025-06-12 00:05:43.971] [DEBUG] [INSTRUMENT_HANDLER] Processing instrument LargeMultiChannelDAC with 2 properties
+[2025-06-12 00:05:43.971] [DEBUG] [INSTRUMENT_HANDLER] Processing instrument MultiChannelAmnmeter with 4 properties
+[2025-06-12 00:05:43.972] [DEBUG] [INSTRUMENT_HANDLER] Port mapping inversion complete. Found 240 port configurations
+[2025-06-12 00:05:43.974] [INFO] [MEASURE_COMMAND_HANDLER] Sent PROCESS_REQUEST to interpreter for measurement ID 19 with 240 port configurations
+[2025-06-12 00:05:43.999] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY: {"process_id": 19, "getters": ["{\"__class__\": \"Meter\", \"__module__\": \"falcon_core.instrument_interfaces.names.meter\", \"default_name\": \"MultiChannelAmnmeter_current_state_1\", \"pseudo_name\": {\"__class__\": \"Ohmic\", \"__module__\": \"falcon_core.physics.device_structures.ohmic\", \"name\": \"O2\"}, \"instrument_type\": \"amnmeter\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"name\": \"radian\", \"symbol\": \"rad\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {}, \"offset\": 0, \"prefix\": \"\", \"scale_factor\": 1}}, \"description\": \"A DC current sink driver.\"}"], "setters": []}
+[2025-06-12 00:05:44.000] [INFO] [MEASUREMENT_READY_HANDLER] Processing unbuffered measurement for ProcessId 19 (Getters: 1, Setters: 0)
+[2025-06-12 00:05:44.000] [DEBUG] [MEASUREMENT_READY_HANDLER] Port {"__class__": "Meter", "__module__": "falcon_core.instrument_interfaces.names.meter", "default_name": "MultiChannelAmnmeter_current_state_1", "pseudo_name": {"__class__": "Ohmic", "__module__": "falcon_core.physics.device_structures.ohmic", "name": "O2"}, "instrument_type": "amnmeter", "units": {"__class__": "SymbolUnit", "__module__": "falcon_core.physics.units.symbol_unit", "name": "radian", "symbol": "rad", "unit": {"__class__": "Unit", "__module__": "falcon_core.physics.units.unit", "dimensions": {}, "offset": 0, "prefix": "", "scale_factor": 1}}, "description": "A DC current sink driver."} not in cache, fetching from instrument handler
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Measurement unpacked, processing ....
+[2025-06-12 00:05:44.001] [NATS] [MESSAGE] [LOG.interpreter] JSON: Measurement unpacked, processing ....
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Compiling waveform ...
+[2025-06-12 00:05:44.003] [DEBUG] [INSTRUMENT_HANDLER] New compact port name: {"__class__":"Meter","__module__":"falcon_core.instrument_interfaces.names.meter","default_name":"MultiChannelAmnmeter_current_state_1","pseudo_name":{"__class__":"Ohmic","__module__":"falcon_core.physics.device_structures.ohmic","name":"O2"},"instrument_type":"amnmeter","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"radian","symbol":"rad","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{},"offset":0,"prefix":"","scale_factor":1}},"description":"A DC current sink driver."}
+[2025-06-12 00:05:44.004] [DEBUG] [MEASUREMENT_READY_HANDLER] Successfully retrieved port configuration for {"__class__": "Meter", "__module__": "falcon_core.instrument_interfaces.names.meter", "default_name": "MultiChannelAmnmeter_current_state_1", "pseudo_name": {"__class__": "Ohmic", "__module__": "falcon_core.physics.device_structures.ohmic", "name": "O2"}, "instrument_type": "amnmeter", "units": {"__class__": "SymbolUnit", "__module__": "falcon_core.physics.units.symbol_unit", "name": "radian", "symbol": "rad", "unit": {"__class__": "Unit", "__module__": "falcon_core.physics.units.unit", "dimensions": {}, "offset": 0, "prefix": "", "scale_factor": 1}}, "description": "A DC current sink driver."}: instrument=MultiChannelAmnmeter, index=1, properties=[current_state]
+[2025-06-12 00:05:44.004] [DEBUG] [MEASUREMENT_READY_HANDLER] Sent GET command for port {"__class__": "Meter", "__module__": "falcon_core.instrument_interfaces.names.meter", "default_name": "MultiChannelAmnmeter_current_state_1", "pseudo_name": {"__class__": "Ohmic", "__module__": "falcon_core.physics.device_structures.ohmic", "name": "O2"}, "instrument_type": "amnmeter", "units": {"__class__": "SymbolUnit", "__module__": "falcon_core.physics.units.symbol_unit", "name": "radian", "symbol": "rad", "unit": {"__class__": "Unit", "__module__": "falcon_core.physics.units.unit", "dimensions": {}, "offset": 0, "prefix": "", "scale_factor": 1}}, "description": "A DC current sink driver."} to MultiChannelAmnmeter (Property: current_state, Index: 1, GetId: 19_{"__class__": "Meter", "__module__": "falcon_core.instrument_interfaces.names.meter", "default_name": "MultiChannelAmnmeter_current_state_1", "pseudo_name": {"__class__": "Ohmic", "__module__": "falcon_core.physics.device_structures.ohmic", "name": "O2"}, "instrument_type": "amnmeter", "units": {"__class__": "SymbolUnit", "__module__": "falcon_core.physics.units.symbol_unit", "name": "radian", "symbol": "rad", "unit": {"__class__": "Unit", "__module__": "falcon_core.physics.units.unit", "dimensions": {}, "offset": 0, "prefix": "", "scale_factor": 1}}, "description": "A DC current sink driver."}_1749704744004619753)
+[2025-06-12 00:05:44.005] [NATS] [MESSAGE] [LOG.interpreter] JSON: Compiling waveform ...
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waveform compiled successfully.
+[2025-06-12 00:05:44.006] [NATS] [MESSAGE] [LOG.interpreter] JSON: Waveform compiled successfully.
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Standard measurement selected.
+[2025-06-12 00:05:44.007] [NATS] [MESSAGE] [LOG.interpreter] JSON: Standard measurement selected.
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Chunking instructions ...
+[2025-06-12 00:05:44.008] [NATS] [MESSAGE] [LOG.interpreter] JSON: Chunking instructions ...
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Chunks completed
+[2025-06-12 00:05:44.009] [NATS] [MESSAGE] [LOG.interpreter] JSON: Chunks completed
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Selected getters for the measurement.
+[2025-06-12 00:05:44.010] [NATS] [MESSAGE] [LOG.interpreter] JSON: Selected getters for the measurement.
+[2025-06-12 00:05:43.998] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Request successfully processed and chunked...
+[2025-06-12 00:05:44.011] [DEBUG] [MEASUREMENT_READY_HANDLER] Received RETURN_GET: {"value": 1.0, "timestamp": 1749704744005583, "index": 1, "property": "current_state"}
+[2025-06-12 00:05:44.011] [DEBUG] [MEASUREMENT_READY_HANDLER] Stored result for port {"__class__": "Meter", "__module__": "falcon_core.instrument_interfaces.names.meter", "default_name": "MultiChannelAmnmeter_current_state_1", "pseudo_name": {"__class__": "Ohmic", "__module__": "falcon_core.physics.device_structures.ohmic", "name": "O2"}, "instrument_type": "amnmeter", "units": {"__class__": "SymbolUnit", "__module__": "falcon_core.physics.units.symbol_unit", "name": "radian", "symbol": "rad", "unit": {"__class__": "Unit", "__module__": "falcon_core.physics.units.unit", "dimensions": {}, "offset": 0, "prefix": "", "scale_factor": 1}}, "description": "A DC current sink driver."}, ProcessId 19: 1
+[2025-06-12 00:05:44.012] [INFO] [MEASUREMENT_READY_HANDLER] Sent PROCESS_DATA for ProcessId 19 with 1 measurements
+[2025-06-12 00:05:44.013] [NATS] [MESSAGE] [LOG.interpreter] JSON: Request successfully processed and chunked...
+[2025-06-12 00:05:43.999] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Measurement successfully deployed ....
+[2025-06-12 00:05:44.014] [NATS] [MESSAGE] [LOG.interpreter] JSON: Measurement successfully deployed ....
+[2025-06-12 00:05:43.999] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 19 (expected 1, got 0)
+[2025-06-12 00:05:44.015] [NATS] [MESSAGE] [LOG.interpreter] JSON: Waiting for more data for id 19 (expected 1, got 0)
+[2025-06-12 00:05:44.013] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Data added to queue ....
+[2025-06-12 00:05:44.016] [NATS] [MESSAGE] [LOG.interpreter] JSON: Data added to queue ....
+[2025-06-12 00:05:44.500] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Error processing request: 'int' object has no attribute 'even_divisions'
+[2025-06-12 00:05:44.509] [NATS] [MESSAGE] [LOG.interpreter] JSON: Error processing request: 'int' object has no attribute 'even_divisions'
+[2025-06-12 00:05:44.971] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-12 00:05:46.986] [INFO] [INSTRUMENT_HANDLER] Received DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.TestExternalProcess
+[2025-06-12 00:05:47.005] [INFO] [INSTRUMENT_HANDLER] Instrument LargeMultiChannelDAC stopped gracefully
+[2025-06-12 00:05:47.006] [INFO] [INSTRUMENT_HANDLER] Received DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.TestExternalProcess
+[2025-06-12 00:05:47.007] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument LargeMultiChannelDAC 
+ pid 208513 
+ error waitid: no child processes 
+ exit code -1 
+ runtime 11.043279327 
+ stdout  
+ stderr 
+[2025-06-12 00:05:47.011] [INFO] [INSTRUMENT_HANDLER] Instrument MultiChannelAmnmeter stopped gracefully
+[2025-06-12 00:05:47.011] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument MultiChannelAmnmeter 
+ pid 208515 
+ error waitid: no child processes 
+ exit code -1 
+ runtime 11.045212926 
+ stdout  
+ stderr 
+[2025-06-12 00:05:47.987] [INFO] [HANDLER_MANAGER] Stopping handler manager
+[2025-06-12 00:05:47.997] [INFO] [STATUS_HANDLER] Stopped publishing status messages
+[2025-06-12 00:05:47.997] [INFO] [MEASUREMENT_READY_HANDLER] Unsubscribed from MEASUREMENT_READY, RETURN_GET, and RETURN_DATA
+[2025-06-12 00:05:47.998] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external.>
+[2025-06-12 00:05:47.999] [DEBUG] [STATUS_HANDLER] Status publishing loop stopped
+[2025-06-12 00:05:47.999] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Unsubscribed from PERFORM_ARBITRARY_METHOD
+[2025-06-12 00:05:48.000] [INFO] [MEASURE_COMMAND_HANDLER] Unsubscribed from MEASURE_COMMAND.external and UPLOAD_DATA
+[2025-06-12 00:05:48.000] [INFO] [BUSY_HANDLER] Unsubscribed from BUSY.external.* channels
+[2025-06-12 00:05:48.001] [INFO] [INTERPRETER_HANDLER] Stopping interpreter handler
+[2025-06-12 00:05:48.001] [INFO] [INTERPRETER_HANDLER] Stopping interpreter during cleanup
+[2025-06-12 00:05:48.008] [INFO] [INTERPRETER_HANDLER] Interpreter stopped gracefully
+[2025-06-12 00:05:48.009] [INFO] [INSTRUMENT_HANDLER] Unsubscribing from instrument handler
+[2025-06-12 00:05:48.009] [ERROR] [INTERPRETER_HANDLER] Interpreter daemon process exited with error 
+ pid 208466 
+ error waitid: no child processes 
+ exit code -1 
+ runtime 19.041394796 
+ stdout  
+ stderr 
+[2025-06-12 00:05:48.010] [INFO] [INSTRUMENT_HANDLER] Stopping instrument LargeMultiChannelDAC during cleanup
+[2025-06-12 00:05:48.011] [ERROR] [INSTRUMENT_HANDLER] Failed to send SIGTERM to LargeMultiChannelDAC: os: process already finished
+[2025-06-12 00:05:48.011] [INFO] [INSTRUMENT_HANDLER] Instrument LargeMultiChannelDAC stopped gracefully
+[2025-06-12 00:05:48.012] [INFO] [INSTRUMENT_HANDLER] Stopping instrument MultiChannelAmnmeter during cleanup
+[2025-06-12 00:05:48.012] [ERROR] [INSTRUMENT_HANDLER] Failed to send SIGTERM to MultiChannelAmnmeter: os: process already finished
+[2025-06-12 00:05:48.013] [INFO] [INSTRUMENT_HANDLER] Instrument MultiChannelAmnmeter stopped gracefully
+[2025-06-12 00:05:48.013] [INFO] [DEVICE_CONFIG_HANDLER] Unsubscribed from DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-12 00:05:48.014] [INFO] [LOG_HANDLER] Unsubscribed from LOG.* channels
+[2025-06-12 00:05:48.014] [INFO] [HANDLER_MANAGER] Handler manager stopped
+[2025-06-12 00:05:48.015] [DEBUG] [INSTRUMENT_HANDLER] Cleanup loop stopping
+[2025-06-12 00:05:48.016] [INFO] [SYSTEM] Logger shutting down
