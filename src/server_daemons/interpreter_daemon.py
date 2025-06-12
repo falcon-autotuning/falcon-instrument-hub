@@ -557,7 +557,7 @@ class InterpreterDaemon:
         """
         if measurement_id not in self.measurement_groups:
             return
-        for step in self.measurement_groups[measurement_id]:
+        for i, step in enumerate(self.measurement_groups[measurement_id]):
             for connection, props in step.setters.items():
                 for prop, value in props.items():
                     await self.update_daemon_property(
@@ -565,6 +565,9 @@ class InterpreterDaemon:
                         name=connection,
                         value=value,
                     )
+            await self.log(
+                f"Step {i} of {len(self.measurement_groups[measurement_id])} deploying for measurement {measurement_id}."
+            )
             await self.deploy_measurement(
                 id=measurement_id,
                 getters=step.getters,
