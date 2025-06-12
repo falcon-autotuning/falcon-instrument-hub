@@ -820,10 +820,10 @@ class InterpreterDaemon:
         for dim in shape:
             product *= dim
         expected_data_points_per_queue = product / data_count
-        assert isinstance(expected_data_points_per_queue, int), (
+        assert product % data_count == 0, (
             f"Uneven division {expected_data_points_per_queue}, not sure how many data points to expect"
         )
-        return expected_data_points_per_queue
+        return int(expected_data_points_per_queue)
 
     async def confirm_data_exists(
         self,
