@@ -68,6 +68,13 @@ class Instruction:
         """If the instruction is buffered."""
         return self._buffered
 
+    def __repr__(self) -> str:
+        """Returns a string representation of the instruction."""
+        return (
+            f"Instruction(setters={self._setters}, getters={self._getters}, "
+            f"buffered={self._buffered})"
+        )
+
 
 class MeasurementInstructions:
     """A class that holds the instructions for a measurement.
