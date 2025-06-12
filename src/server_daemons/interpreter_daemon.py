@@ -446,6 +446,7 @@ class InterpreterDaemon:
                             )
                         },
                     )
+            await self.log(f"Adding instruction to the list {instruction}.")
             instructions.append(instruction)
 
         collected_measurements = len(instructions)
