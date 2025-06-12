@@ -17,16 +17,16 @@ class DataEntry:
     This holds both of these properties.
     """
 
-    _timestamp: str
+    _timestamp: int
     _data: Data
 
-    def __init__(self, timestamp: str, data: Data):
+    def __init__(self, timestamp: int, data: Data):
         """Initialize the data entry."""
         self._timestamp = timestamp
         self._data = data
 
     @property
-    def timestamp(self) -> str:
+    def timestamp(self) -> int:
         """Returns the timestamp of the data entry."""
         return self._timestamp
 
