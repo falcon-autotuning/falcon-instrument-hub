@@ -595,7 +595,6 @@ class InterpreterDaemon:
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")
-            await self.log(f"heres the contents {self.data_queue[id].queue}")
         except Exception as e:
             await self.log(f"Error adding data to the queue: {e}")
 
@@ -822,7 +821,7 @@ class InterpreterDaemon:
             product *= dim
         expected_data_points_per_queue = product / data_count
         assert isinstance(expected_data_points_per_queue, int), (
-            "Uneven division, not sure how many data points to expect"
+            f"Uneven division {expected_data_points_per_queue}, not sure how many data points to expect"
         )
         return expected_data_points_per_queue
 
@@ -844,7 +843,6 @@ class InterpreterDaemon:
         log_attempts = 0
         while True:
             queue = self.data_queue.get(id, [])
-            await self.log(f"The contents in the queue are {queue}")
             current_count = len(queue)
             if current_count > data_count:
                 await self.log(
