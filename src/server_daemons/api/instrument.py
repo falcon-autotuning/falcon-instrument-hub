@@ -9,11 +9,6 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
@@ -22,6 +17,11 @@ class CONFIRM_INITIALIZATION:
     def PORT(self) -> str:
         """the configuration of the instrument ports"""
         return "port"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -50,11 +50,6 @@ class LOG:
         return "LOG"
 
     @property
-    def MESSAGE(self) -> str:
-        """The contents of the log message"""
-        return "message"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -63,6 +58,11 @@ class LOG:
     def HASH(self) -> str:
         """the hash for the requesting unit"""
         return "hash"
+
+    @property
+    def MESSAGE(self) -> str:
+        """The contents of the log message"""
+        return "message"
 
 class PERFORM_ARBITRARY_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -119,6 +119,11 @@ class RETURN_GET:
         return "RETURN_GET"
 
     @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
+    @property
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
@@ -133,11 +138,6 @@ class RETURN_GET:
         """The name of the property that is to be set"""
         return "property"
 
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
-
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
 
@@ -145,11 +145,6 @@ class SET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "SET"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
     @property
     def INDEX(self) -> str:
@@ -160,6 +155,11 @@ class SET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""

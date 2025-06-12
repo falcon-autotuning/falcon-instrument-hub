@@ -9,11 +9,6 @@ class LOG:
         return "LOG"
 
     @property
-    def MESSAGE(self) -> str:
-        """The contents of the log message"""
-        return "message"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -22,6 +17,11 @@ class LOG:
     def HASH(self) -> str:
         """the hash for the requesting unit"""
         return "hash"
+
+    @property
+    def MESSAGE(self) -> str:
+        """The contents of the log message"""
+        return "message"
 
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
@@ -32,14 +32,14 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
-    def GETTERS(self) -> str:
-        """the connections that are ready to be measured"""
-        return "getters"
-
-    @property
     def SETTERS(self) -> str:
         """the connections that are to be set when buffered"""
         return "setters"
+
+    @property
+    def BUFFERED(self) -> str:
+        """if this is a buffered measurement or not"""
+        return "buffered"
 
     @property
     def PROCESS_ID(self) -> str:
@@ -50,6 +50,11 @@ class MEASUREMENT_READY:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def GETTERS(self) -> str:
+        """the connections that are ready to be measured"""
+        return "getters"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -83,6 +88,11 @@ class PROCESS_REQUEST:
         return "PROCESS_REQUEST"
 
     @property
+    def REQUEST(self) -> str:
+        """The measurement request from FAlCon"""
+        return "request"
+
+    @property
     def CONFIGURATIONS(self) -> str:
         """The configurations of the instruments loaded into the instrument server"""
         return "configurations"
@@ -96,11 +106,6 @@ class PROCESS_REQUEST:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
-
-    @property
-    def REQUEST(self) -> str:
-        """The measurement request from FAlCon"""
-        return "request"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""
@@ -129,11 +134,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROPERTY(self) -> str:
         """The main subclass of property"""
         return "property"
@@ -147,6 +147,11 @@ class UPDATE_DAEMON_PROPERTY:
     def VALUE(self) -> str:
         """The quantity"""
         return "value"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""

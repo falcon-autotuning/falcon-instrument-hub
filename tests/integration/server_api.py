@@ -42,6 +42,11 @@ class MEASUREMENT_READY:
         return "setters"
 
     @property
+    def BUFFERED(self) -> str:
+        """if this is a buffered measurement or not"""
+        return "buffered"
+
+    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
@@ -216,6 +221,11 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
+    def KEYWORD_ARGS(self) -> str:
+        """Arbitrary keyword arguments to be passes to the method"""
+        return "keyword_args"
+
+    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -224,11 +234,6 @@ class PERFORM_ARBITRARY_METHOD:
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
-
-    @property
-    def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
-        return "keyword_args"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
@@ -262,6 +267,11 @@ class RETURN_GET:
         return "RETURN_GET"
 
     @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
@@ -275,11 +285,6 @@ class RETURN_GET:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -349,14 +354,14 @@ class DESTROY_INSTRUMENT:
         return "DESTROY_INSTRUMENT"
 
     @property
-    def NAME(self) -> str:
-        """the name of the instrument to stop"""
-        return "name"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def NAME(self) -> str:
+        """the name of the instrument to stop"""
+        return "name"
 
 class PERFORM_INSTRUMENT_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""

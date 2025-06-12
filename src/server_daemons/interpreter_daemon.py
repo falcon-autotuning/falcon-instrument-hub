@@ -211,16 +211,14 @@ class InterpreterDaemon:
         self,
         id: "ID",
         getters: "Getters",
-        setters: "Setters" = {},
+        setters: "Setters",
     ) -> None:
         """Deploys a measurement to the local runtime server.
-
-        Setters are only required if the measurment is buffered and they need to be triggered
 
         Args:
             id: The ID of the measurement.
             getters: The getters to deploy.
-            setters: The setters to deploy (optional, defaults to empty).
+            setters: The setters to deploy.
         """
         message = json.dumps(
             {
@@ -229,7 +227,8 @@ class InterpreterDaemon:
                     getter.to_json() for getter in getters
                 ],
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.SETTERS: [
-                    setter.to_json() for setter in setters
+                    json.dumps({setter.to_json(): values})
+                    for setter, values in setters.items()
                 ],
             }
         )
@@ -558,21 +557,22 @@ class InterpreterDaemon:
         if measurement_id not in self.measurement_groups:
             return
         for i, step in enumerate(self.measurement_groups[measurement_id]):
-            for connection, props in step.setters.items():
-                for prop, value in props.items():
-                    await self.update_daemon_property(
-                        property=prop,
-                        name=connection,
-                        value=value,
-                    )
+            # for connection, props in step.setters.items():
+            #     for prop, value in props.items():
+            #         await self.update_daemon_property(
+            #             property=prop,
+            #             name=connection,
+            #             value=value,
+            #         )
             await self.log(
                 f"Step {i} of {len(self.measurement_groups[measurement_id])} deploying for measurement {measurement_id}."
             )
             await self.deploy_measurement(
                 id=measurement_id,
                 getters=step.getters,
-                setters=step.setters if step.buffered else {},
+                setters=step.setters,
             )
+            await asyncio.sleep(0.05)  # Allow some time for the deployment to settle
 
     async def handle_data(
         self,
