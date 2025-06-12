@@ -403,6 +403,7 @@ class InterpreterDaemon:
         axes_domains = valid_waveform._space._axes
         instructions = []
         await self.log("Chunking instructions ...")
+        await self.log(f"The raw time trace is: {raw_time_trace}")
         chunks = self.chunk_instructions(
             raw_time_trace=raw_time_trace,
             buffered=buffered,
