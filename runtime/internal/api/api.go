@@ -7,9 +7,9 @@ This file is auto-generated from YAML command schemas.
 
 // Log: Contains the necessary substrings for a logging style command
 type Log struct {
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Hash int64 `yaml:"hash" json:"hash"` // the hash for the requesting unit
     Message string `yaml:"message" json:"message"` // The contents of the log message
-    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // MeasurementReady: Indicates that a meassurement is ready for the server to perform
@@ -30,10 +30,10 @@ type ProcessData struct {
 
 // ProcessRequest: A request to the interpreter to process an incoming measurement
 type ProcessRequest struct {
+    Request string `yaml:"request" json:"request"` // The measurement request from FAlCon
     Configurations string `yaml:"configurations" json:"configurations"` // The configurations of the instruments loaded into the instrument server
     DataPath string `yaml:"data_path" json:"data_path"` // The filepath to the spot in the HDF5 database to store the collected data at
     ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
-    Request string `yaml:"request" json:"request"` // The measurement request from FAlCon
 }
 
 // Status: Provide the status of the process
@@ -44,10 +44,10 @@ type Status struct {
 
 // UpdateDaemonProperty: Issued to selectively update an instruments property in a daemon
 type UpdateDaemonProperty struct {
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Property string `yaml:"property" json:"property"` // The main subclass of property
     Name string `yaml:"name" json:"name"` // The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
     Value interface{} `yaml:"value" json:"value"` // The quantity
-    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // UploadData: Used by the interpreter to hand data off the the runtime for FAlCon
@@ -78,17 +78,17 @@ type PerformArbitraryMethod struct {
 
 // ReturnData: Returns measured data
 type ReturnData struct {
-    Data []interface{} `yaml:"data" json:"data"` // The measured data collected on the instrument
     Property string `yaml:"property" json:"property"` // The name of the property that is to be set
     Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
+    Data []interface{} `yaml:"data" json:"data"` // The measured data collected on the instrument
 }
 
 // ReturnGet: Response from a get instruction on a sandboxed instrument
 type ReturnGet struct {
+    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Property string `yaml:"property" json:"property"` // The name of the property that is to be set
     Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
-    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
 }
 
 // Set: Execute a set instruction on a sandboxed instrument
@@ -100,8 +100,18 @@ type Set struct {
 
 // Trigger: Execute a trigger/arm on a buffered instrument
 type Trigger struct {
-    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
     Property string `yaml:"property" json:"property"` // The name of the property that is to be set
+    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
+}
+
+// Armed: Statement from an instrument indicating sets are complete and it is locked from further modifications.
+type Armed struct {
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+}
+
+// Executing: Statement from an instrument indicating it is successfully triggered and executing a measurement.
+type Executing struct {
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // SetupInstrument: Sets up an instrument on a instrument server
@@ -136,9 +146,9 @@ type PortRequest struct {
 
 // PortPayload: All of the current instrument ports
 type PortPayload struct {
+    Meters string `yaml:"meters" json:"meters"` // All of the meters attached to the instrument server
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Knobs string `yaml:"knobs" json:"knobs"` // All of the knobs attached to the instrument server
-    Meters string `yaml:"meters" json:"meters"` // All of the meters attached to the instrument server
 }
 
 // DeviceConfigRequest: A request for the device configuration
@@ -154,16 +164,16 @@ type DeviceConfigResponse struct {
 
 // MeasureCommand: issued to runtime to request a measurement from the instrument server
 type MeasureCommand struct {
+    Request string `yaml:"request" json:"request"` // the measurement request to be taken
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Hash int64 `yaml:"hash" json:"hash"` // the hash for the requesting unit
-    Request string `yaml:"request" json:"request"` // the measurement request to be taken
 }
 
 // MeasureResponse: Recieve a response from the runtime as to the measurement performed
 type MeasureResponse struct {
-    Response string `yaml:"response" json:"response"` // the measurement response containing the information from the server
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Hash int64 `yaml:"hash" json:"hash"` // the hash for the requesting unit
+    Response string `yaml:"response" json:"response"` // the measurement response containing the information from the server
 }
 
 // CommandRegistry maps command names to empty struct instances
@@ -182,6 +192,8 @@ var CommandRegistry = map[string]interface{}{
     "RETURN_GET": ReturnGet{},
     "SET": Set{},
     "TRIGGER": Trigger{},
+    "ARMED": Armed{},
+    "EXECUTING": Executing{},
     "SETUP_INSTRUMENT": SetupInstrument{},
     "DESTROY_INSTRUMENT": DestroyInstrument{},
     "PERFORM_INSTRUMENT_METHOD": PerformInstrumentMethod{},

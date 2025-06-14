@@ -407,6 +407,13 @@ func (h *Handler) SetProperty(req SetInstruction) {
 	)
 }
 
+// SetProperties sets multiple properties on an instrument in order
+func (h *Handler) SetProperties(si []SetInstruction) {
+	for _, instruction := range si {
+		h.SetProperty(instruction)
+	}
+}
+
 // LogWrapper provides convenient logging with automatic handler name and
 // sprintf formatting
 type LogWrapper struct {
