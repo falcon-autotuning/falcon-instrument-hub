@@ -9,6 +9,11 @@ class LOG:
         return "LOG"
 
     @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
+
+    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -18,11 +23,6 @@ class LOG:
         """When the response was completed"""
         return "timestamp"
 
-    @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
 
@@ -30,6 +30,16 @@ class MEASUREMENT_READY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "MEASUREMENT_READY"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it"""
+        return "process_id"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
     @property
     def GETTERS(self) -> str:
@@ -45,16 +55,6 @@ class MEASUREMENT_READY:
     def BUFFERED(self) -> str:
         """if this is a buffered measurement or not"""
         return "buffered"
-
-    @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
-        return "process_id"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -221,11 +221,6 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
-    def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
-        return "keyword_args"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -234,6 +229,11 @@ class PERFORM_ARBITRARY_METHOD:
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
+
+    @property
+    def KEYWORD_ARGS(self) -> str:
+        """Arbitrary keyword arguments to be passes to the method"""
+        return "keyword_args"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
@@ -267,16 +267,6 @@ class RETURN_GET:
         return "RETURN_GET"
 
     @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
-
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
-
-    @property
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
@@ -285,6 +275,16 @@ class RETURN_GET:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -326,6 +326,32 @@ class TRIGGER:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
+class ARMED:
+    """The substrings necessary for statement from an instrument indicating sets are complete and it is locked from further modifications.."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "ARMED"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+class EXECUTING:
+    """The substrings necessary for statement from an instrument indicating it is successfully triggered and executing a measurement.."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "EXECUTING"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class SETUP_INSTRUMENT:
     """The substrings necessary for sets up an instrument on a instrument server."""
@@ -372,16 +398,6 @@ class PERFORM_INSTRUMENT_METHOD:
         return "PERFORM_INSTRUMENT_METHOD"
 
     @property
-    def INSTRUMENT(self) -> str:
-        """Which instrument are we communicating with?"""
-        return "instrument"
-
-    @property
-    def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
-        return "method"
-
-    @property
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
@@ -390,6 +406,16 @@ class PERFORM_INSTRUMENT_METHOD:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def INSTRUMENT(self) -> str:
+        """Which instrument are we communicating with?"""
+        return "instrument"
+
+    @property
+    def METHOD(self) -> str:
+        """The name of the method that is to be performed"""
+        return "method"
 
 class BUSY:
     """The substrings necessary for if a process is currently running an action right now."""
@@ -480,6 +506,11 @@ class MEASURE_COMMAND:
         return "MEASURE_COMMAND"
 
     @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
+
+    @property
     def REQUEST(self) -> str:
         """the measurement request to be taken"""
         return "request"
@@ -488,11 +519,6 @@ class MEASURE_COMMAND:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
 
 class MEASURE_RESPONSE:
     """The substrings necessary for recieve a response from the runtime as to the measurement performed."""
@@ -535,6 +561,8 @@ class RUNTIME_COMMANDS:
     RETURN_GET = RETURN_GET()
     SET = SET()
     TRIGGER = TRIGGER()
+    ARMED = ARMED()
+    EXECUTING = EXECUTING()
     SETUP_INSTRUMENT = SETUP_INSTRUMENT()
     DESTROY_INSTRUMENT = DESTROY_INSTRUMENT()
     PERFORM_INSTRUMENT_METHOD = PERFORM_INSTRUMENT_METHOD()

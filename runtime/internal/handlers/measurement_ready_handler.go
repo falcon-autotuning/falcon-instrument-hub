@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -30,24 +31,17 @@ const (
 	UploadDataMessage       = "UPLOAD_DATA"
 )
 
+var ArmedMessage = api.GetCommandName(api.Armed)
+
 type ID int64
 
-// PendingGet tracks GET commands waiting for RETURN_GET responses
-type PendingGet struct {
-	Port      instrument.JsonPort     // Port for the GET command
-	ProcessId ID                      // Process ID for this GET operation
-	GetId     string                  // Unique identifier for this GET operation
-	Property  instrument.PropertyName // Property used in the GET command
-	Index     instrument.Index        // Index used in the GET command
-}
-
-// PendingMeasurement tracks measurements waiting for RETURN_DATA
-type PendingBufferedMeasurement struct {
+// MeasurementScheduler tracks measurements waiting for RETURN_DATA
+type MeasurementScheduler struct {
 	ProcessId         ID
 	GetterPorts       []instrument.JsonPort       // Original getter ports
-	GetterInstruments []instrument.Name           // Instruments that need to be armed
 	SetterPorts       []instrument.JsonPort       // Original setter ports
-	ExpectedReturns   int                         // Number of RETURN_DATA messages expected
+	GetterInstruments []instrument.Name           // Instruments that need to be armed
+	SetterInstruments []instrument.Name           // Instruments that need to be armed
 	ReceivedReturns   int                         // Number of RETURN_DATA messages received
 	Results           map[instrument.JsonPort]any // Port -> Data mapping
 	ReadyCount        int                         // Number of instruments successfully armed
@@ -56,21 +50,20 @@ type PendingBufferedMeasurement struct {
 
 // MeasurementReadyHandler handles MEASUREMENT_READY requests
 type MeasurementReadyHandler struct {
-	logger                      *logging.Logger
-	nc                          *nats.Conn
-	subscription                *nats.Subscription
-	returnGetSub                *nats.Subscription
-	returnDataSub               *nats.Subscription
-	instrumentHandler           *instrument.Handler
-	config                      *config.Config
-	measurementStack            *measure.MeasurementStack
-	currentMeasurement          *measure.MeasurementStackItem
-	isProcessing                bool
-	pendingGets                 map[string]*PendingGet                          // GetId -> PendingGet
-	getResults                  map[ID]map[instrument.JsonPort]any              // ProcessId -> Port -> Value
-	pendingBufferedMeasurements map[ID]*PendingBufferedMeasurement              // ProcessId -> PendingBufferedMeasurement
-	portConfigCache             map[instrument.JsonPort]*instrument.PortOptions // Cache port configs locally
-	mutex                       sync.RWMutex
+	logger             *logging.Logger
+	nc                 *nats.Conn
+	subscription       *nats.Subscription
+	returnGetSub       *nats.Subscription
+	returnDataSub      *nats.Subscription
+	instrumentHandler  *instrument.Handler
+	config             *config.Config
+	measurementStack   *measure.MeasurementStack
+	currentMeasurement *measure.MeasurementStackItem
+	isProcessing       bool
+	getResults         map[ID]map[instrument.JsonPort]any              // ProcessId -> Port -> Value
+	schedulers         map[ID]*MeasurementScheduler                    // ProcessId -> PendingBufferedMeasurement
+	portConfigCache    map[instrument.JsonPort]*instrument.PortOptions // Cache port configs locally
+	mutex              sync.RWMutex
 }
 
 // NewMeasurementReadyHandler creates a new handler
@@ -85,10 +78,9 @@ func NewMeasurementReadyHandler(
 		config:            cfg,
 		measurementStack:  &measure.MeasurementStack{},
 		isProcessing:      false,
-		pendingGets:       make(map[string]*PendingGet),
 		getResults:        make(map[ID]map[instrument.JsonPort]any),
-		pendingBufferedMeasurements: make(
-			map[ID]*PendingBufferedMeasurement,
+		schedulers: make(
+			map[ID]*MeasurementScheduler,
 		),
 		portConfigCache: make(
 			map[instrument.JsonPort]*instrument.PortOptions,
@@ -113,18 +105,29 @@ func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
 		)
 	}
 
-	// Subscribe to RETURN_GET responses
-	h.returnGetSub, err = nc.Subscribe(
-		ReturnGetMessage+".>",
-		h.handleReturnGet,
+	// Subscribe to ARMED
+	h.subscription, err = nc.Subscribe(
+		ArmedMessage,
+		h.handleArmed,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to subscribe to "+ReturnGetMessage+": %w",
+			"failed to subscribe to "+ArmedMessage+": %w",
 			err,
 		)
 	}
 
+	// Subscribe to EXECUTING
+	h.subscription, err = nc.Subscribe(
+		ExecutingMessage,
+		h.handleExecuting,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to subscribe to "+ExecutingMessage+": %w",
+			err,
+		)
+	}
 	// Subscribe to RETURN_DATA responses for buffered measurements
 	h.returnDataSub, err = nc.Subscribe(
 		ReturnDataMessage+".>",
@@ -153,13 +156,6 @@ func (h *MeasurementReadyHandler) Unsubscribe() error {
 			errs = append(errs, err)
 		}
 		h.subscription = nil
-	}
-
-	if h.returnGetSub != nil {
-		if err := h.returnGetSub.Unsubscribe(); err != nil {
-			errs = append(errs, err)
-		}
-		h.returnGetSub = nil
 	}
 
 	if h.returnDataSub != nil {
@@ -287,12 +283,6 @@ type Instructions struct {
 	Values   []any                     `json:"values"`
 }
 
-// arm will add an arm instruction to the end of the lists
-func (in *Instructions) arm() {
-	in.Property = append(in.Property, arm)
-	in.Values = append(in.Values, true)
-}
-
 // separate converts the Instructions into a slice of SetInstruction
 func (in *Instructions) separate() []instrument.SetInstruction {
 	var instructions []instrument.SetInstruction
@@ -304,6 +294,96 @@ func (in *Instructions) separate() []instrument.SetInstruction {
 		})
 	}
 	return instructions
+}
+
+// fromJson loads instructions from a JSON string
+func (in *Instructions) fromJson(jsonStr string) error {
+	err1 := json.Unmarshal([]byte(jsonStr), &in)
+	// marshal cycling the Setter to ensure it is a valid JsonPort
+	fixed_bytes, err2 := json.Marshal(in.Setter)
+	err3 := json.Unmarshal(fixed_bytes, &in.Setter)
+	if err1 == nil && err2 == nil && err3 == nil {
+		return nil
+	}
+	var errorMsgs []string
+	if err1 != nil {
+		errorMsgs = append(
+			errorMsgs,
+			fmt.Sprintf("unmarshal error: %v", err1),
+		)
+	}
+	if err2 != nil {
+		errorMsgs = append(
+			errorMsgs,
+			fmt.Sprintf("marshal error: %v", err2),
+		)
+	}
+	if err3 != nil {
+		errorMsgs = append(
+			errorMsgs,
+			fmt.Sprintf("remarshal error: %v", err3),
+		)
+	}
+	return fmt.Errorf(
+		"Failed to process instruction: %s",
+		strings.Join(errorMsgs, "; "),
+	)
+}
+
+type InstrumentInstructions struct {
+	Name            instrument.Name
+	SetInstructions []instrument.SetInstruction
+}
+
+// append adds a new instruction to the list
+func (ii *InstrumentInstructions) append(in Instructions) {
+	ii.SetInstructions = append(ii.SetInstructions, in.separate()...)
+}
+
+// peek returns the first instruction without removing it
+func (ii *InstrumentInstructions) peek() *instrument.SetInstruction {
+	return &ii.SetInstructions[0]
+}
+
+// arm will add an arm instruction to the end of the lists
+func (ii *InstrumentInstructions) arm() {
+	// any Instructions for the instrument will work as a surrogate
+	newii := Instructions{
+		Setter:   ii.peek().Name,
+		Property: []instrument.PropertyName{arm},
+		Values:   []any{true},
+	}
+
+	ii.append(newii)
+}
+
+func collectAllSetInstructions(
+	setters []string,
+) ([]Instructions, error) {
+	var allInstructions []Instructions
+	var errorMsgs []string
+
+	for _, setter := range setters {
+		var instructions Instructions
+		err := instructions.fromJson(setter)
+		if err == nil {
+			allInstructions = append(allInstructions, instructions)
+			continue
+		}
+		errorMsgs = append(
+			errorMsgs,
+			fmt.Sprintf("setter %q: %v", setter, err),
+		)
+	}
+
+	if len(errorMsgs) > 0 {
+		return allInstructions, fmt.Errorf(
+			"failed to process some setters: %s",
+			strings.Join(errorMsgs, "; "),
+		)
+	}
+
+	return allInstructions, nil
 }
 
 // processMeasurement handles measurements
@@ -336,67 +416,98 @@ func (h *MeasurementReadyHandler) processMeasurement(
 			),
 		)
 	}
-	for _, setter := range msg.Setters {
-		var instructions Instructions
+	totalInstructions, err := collectAllSetInstructions(msg.Setters)
+	if err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to collect all set instructions: %s",
+				err,
+			),
+		)
+	}
+	setterPorts := make([]instrument.JsonPort, 0, len(totalInstructions))
+	for _, instruction := range totalInstructions {
+		setterPorts = append(setterPorts, instruction.Setter)
+	}
+	getterPorts, err := convertToJsonPorts(msg.Getters)
+	// Get unique instruments from getters
+	uniqueInstruments := h.getUniqueInstruments(getterPorts)
+	if err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to convert getters to JsonPorts: %s",
+				err,
+			),
+		)
+	}
+	// Initialize pending buffered measurement
+	h.mutex.Lock()
+	h.schedulers[ID(msg.ProcessId)] = &MeasurementScheduler{
+		ProcessId:         ID(msg.ProcessId),
+		GetterPorts:       getterPorts,
+		GetterInstruments: uniqueInstruments,
+		SetterPorts:       setterPorts,
+		ReceivedReturns:   0,
+		ReadyCount:        0,
+		ExecutedCount:     0,
+		Results:           make(map[instrument.JsonPort]any),
+	}
+	h.mutex.Unlock()
 
-		err := json.Unmarshal([]byte(setter), &instructions)
+	// Begin sorting the instructions by instrument
+	sortedInstructions := make(
+		[]*InstrumentInstructions,
+		0,
+		len(totalInstructions),
+	)
+
+	for _, instruction := range totalInstructions {
+		options, err := h.getCachedPortConfiguration(instruction.Setter)
 		if err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
-				fmt.Sprintf("Failed to unmarshal instruction: %v",
+				fmt.Sprintf(
+					"Failed to get port configuration for setter %s: %v",
+					instruction.Setter,
 					err,
 				),
 			)
 		}
-		instructions.arm()
-		setInstructions := instructions.separate()
-		for _, instruction := range setInstructions {
-			h.instrumentHandler.SetProperty(instruction)
+
+		// Find existing InstrumentInstructions or create new one
+		var targetInstructions *InstrumentInstructions
+		for _, existing := range sortedInstructions {
+			if existing.Name == options.Instrument {
+				targetInstructions = existing
+				break
+			}
 		}
-	}
 
-	setterPort := msg.Setters[0] // TODO: actually set this
-
-	// Get unique instruments from getters
-	uniqueInstruments := h.getUniqueInstruments(
-		convertToJsonPorts(msg.Getters),
-	)
-	if len(uniqueInstruments) == 0 {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"No valid getter instruments found for ProcessId %d",
-				msg.ProcessId,
-			),
-		)
-		return
+		if targetInstructions == nil {
+			targetInstructions = &InstrumentInstructions{
+				Name: options.Instrument,
+			}
+			sortedInstructions = append(sortedInstructions, targetInstructions)
+		}
+		targetInstructions.append(instruction)
 	}
-
-	// Initialize pending buffered measurement
-	h.mutex.Lock()
-	h.pendingBufferedMeasurements[ID(msg.ProcessId)] = &PendingBufferedMeasurement{
-		ProcessId:         ID(msg.ProcessId),
-		GetterPorts:       convertToJsonPorts(msg.Getters),
-		GetterInstruments: uniqueInstruments,
-		SetterPort:        instrument.JsonPort(setterPort),
-		ExpectedReturns: len(
-			msg.Getters,
-		),
-		ReceivedReturns: 0,
-		Results:         make(map[instrument.JsonPort]any),
-		ArmedCount:      0,
+	for _, instructions := range sortedInstructions {
+		instructions.arm()
+		h.instrumentHandler.SetProperties(instructions.SetInstructions)
 	}
-	h.mutex.Unlock()
 
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Starting buffered measurement for ProcessId %d: %d getter instruments to arm, setter port: %s",
+			"Starting buffered measurement for ProcessId %d: %d getter instruments to arm",
 			msg.ProcessId,
 			len(uniqueInstruments),
-			setterPort,
 		),
 	)
+
+	// TODO: this handler ends here as we await lock signals
 
 	// Step 1: Arm all getter instruments
 	h.armGetterInstruments(
@@ -1224,10 +1335,40 @@ func (h *MeasurementReadyHandler) sendProcessData(processId ID) error {
 	return nil
 }
 
-func convertToJsonPorts(strings []string) []instrument.JsonPort {
+func convertToJsonPorts(strings []string) ([]instrument.JsonPort, error) {
 	result := make([]instrument.JsonPort, len(strings))
+	var errorMsgs []string
+
 	for i, s := range strings {
-		result[i] = instrument.JsonPort(s)
+		fixed_bytes, err1 := json.Marshal(s)
+		if err1 != nil {
+			errorMsgs = append(
+				errorMsgs,
+				fmt.Sprintf("marshal error for string %d (%q): %v", i, s, err1),
+			)
+			continue
+		}
+
+		err2 := json.Unmarshal(fixed_bytes, &result[i])
+		if err2 != nil {
+			errorMsgs = append(
+				errorMsgs,
+				fmt.Sprintf(
+					"unmarshal error for string %d (%q): %v",
+					i,
+					s,
+					err2,
+				),
+			)
+		}
 	}
-	return result
+
+	if len(errorMsgs) > 0 {
+		return result, fmt.Errorf(
+			"failed to convert some strings to JsonPorts: %s",
+			strings.Join(errorMsgs, "; "),
+		)
+	}
+
+	return result, nil
 }

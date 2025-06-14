@@ -32,11 +32,6 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
-    def SETTERS(self) -> str:
-        """the connections that are to be set when buffered"""
-        return "setters"
-
-    @property
     def BUFFERED(self) -> str:
         """if this is a buffered measurement or not"""
         return "buffered"
@@ -55,6 +50,11 @@ class MEASUREMENT_READY:
     def GETTERS(self) -> str:
         """the connections that are ready to be measured"""
         return "getters"
+
+    @property
+    def SETTERS(self) -> str:
+        """the connections that are to be set when buffered"""
+        return "setters"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -134,11 +134,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def PROPERTY(self) -> str:
-        """The main subclass of property"""
-        return "property"
-
-    @property
     def NAME(self) -> str:
         """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
         return "name"
@@ -153,6 +148,11 @@ class UPDATE_DAEMON_PROPERTY:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The main subclass of property"""
+        return "property"
+
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
 
@@ -162,14 +162,14 @@ class UPLOAD_DATA:
         return "UPLOAD_DATA"
 
     @property
-    def DATA(self) -> str:
-        """the jsonable measurement request for the FAlCon to unpack and use"""
-        return "data"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def DATA(self) -> str:
+        """the jsonable measurement request for the FAlCon to unpack and use"""
+        return "data"
 
 
 class RUNTIME_COMMANDS:

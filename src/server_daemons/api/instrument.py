@@ -147,6 +147,11 @@ class SET:
         return "SET"
 
     @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
@@ -155,11 +160,6 @@ class SET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""
@@ -173,6 +173,19 @@ class STATUS:
     def STATUS(self) -> str:
         """At compilation of this message the state of the process"""
         return "status"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+class ARMED:
+    """The substrings necessary for statement from an instrument indicating sets are complete and it is locked from further modifications.."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "ARMED"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -197,6 +210,19 @@ class TRIGGER:
         """The particular index of a instrument that is to be set"""
         return "index"
 
+class EXECUTING:
+    """The substrings necessary for statement from an instrument indicating it is successfully triggered and executing a measurement.."""
+
+    @property
+    def COMM_CHANNEL(self) -> str:
+        """This is the communication channel to issue the command on."""
+        return "EXECUTING"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
 
 class RUNTIME_COMMANDS:
     """All of the various runtime commands that a compiler may use."""
@@ -209,4 +235,6 @@ class RUNTIME_COMMANDS:
     RETURN_GET = RETURN_GET()
     SET = SET()
     STATUS = STATUS()
+    ARMED = ARMED()
     TRIGGER = TRIGGER()
+    EXECUTING = EXECUTING()
