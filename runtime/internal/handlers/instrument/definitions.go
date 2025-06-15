@@ -529,25 +529,25 @@ func NewLogWrapper(logger *logging.Logger, handlerName string) *LogWrapper {
 }
 
 // Info logs an info message with sprintf formatting
-func (l *LogWrapper) Info(format string, args ...interface{}) {
+func (l *LogWrapper) Info(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.logger.Info(l.handlerName, msg)
 }
 
 // Warn logs a warning message with sprintf formatting
-func (l *LogWrapper) Warn(format string, args ...interface{}) {
+func (l *LogWrapper) Warn(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.logger.Warn(l.handlerName, msg)
 }
 
 // Error logs an error message with sprintf formatting
-func (l *LogWrapper) Error(format string, args ...interface{}) {
+func (l *LogWrapper) Error(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.logger.Error(l.handlerName, msg)
 }
 
 // Debug logs a debug message with sprintf formatting
-func (l *LogWrapper) Debug(format string, args ...interface{}) {
+func (l *LogWrapper) Debug(format string, args ...any) {
 	msg := fmt.Sprintf(format, args...)
 	l.logger.Debug(l.handlerName, msg)
 }
