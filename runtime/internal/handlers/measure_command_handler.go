@@ -36,7 +36,7 @@ type BusyManager interface {
 type PendingMeasurement struct {
 	Hash         int64
 	ResponseName string
-	ProcessId    ID
+	ProcessId    instrument.ID
 }
 
 // MeasureCommandHandler handles MEASURE_COMMAND requests
@@ -48,7 +48,7 @@ type MeasureCommandHandler struct {
 	measurementManager  *measurements.Manager
 	instrumentHandler   *instrument.Handler
 	busyManager         BusyManager
-	pendingMeasurements map[ID]PendingMeasurement
+	pendingMeasurements map[instrument.ID]PendingMeasurement
 	mutex               sync.RWMutex
 }
 
@@ -64,7 +64,7 @@ func NewMeasureCommandHandler(
 		measurementManager:  measurementManager,
 		instrumentHandler:   instrumentHandler,
 		busyManager:         busyManager,
-		pendingMeasurements: make(map[ID]PendingMeasurement),
+		pendingMeasurements: make(map[instrument.ID]PendingMeasurement),
 	}
 }
 
@@ -193,7 +193,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	)
 
 	// Store pending measurement for correlation with UPLOAD_DATA
-	processId := ID(uniqueID)
+	processId := instrument.ID(uniqueID)
 	h.mutex.Lock()
 	h.pendingMeasurements[processId] = PendingMeasurement{
 		Hash:         measureCommand.Hash,
@@ -317,7 +317,7 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 // sendProcessRequest sends a PROCESS_REQUEST to the interpreter
 func (h *MeasureCommandHandler) sendProcessRequest(
 	request string,
-	uniqueID ID,
+	uniqueID instrument.ID,
 	dataPath string,
 ) error {
 	// Build configurations from current instrument ports

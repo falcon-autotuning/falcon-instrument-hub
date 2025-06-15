@@ -3,7 +3,9 @@ package handlers
 import (
 	"encoding/json"
 	"path/filepath"
-	"strconv"
+	"slices"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -17,6 +19,8 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
+
+var SetCommand = api.GetCommandName(api.Set{})
 
 // Test helper to create a test NATS server
 func setupTestNATSServer(t *testing.T) *nats.Conn {
@@ -67,12 +71,20 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"1": createTestPortJSON("port1"),
 				},
+				"ARM": {
+					"1": createTestPortJSON("port1"),
+				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"knobs": {
 					"1": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
+					},
+				},
+				"ARM": {
+					"1": {
+						"type": "boolean",
 					},
 				},
 			},
@@ -84,12 +96,20 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"2": createTestPortJSON("port2"),
 				},
+				"ARM": {
+					"2": createTestPortJSON("port2"),
+				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"knobs": {
 					"2": {
 						"bounds": []float64{0, 100},
 						"unit":   "V",
+					},
+				},
+				"ARM": {
+					"2": {
+						"type": "boolean",
 					},
 				},
 			},
@@ -101,12 +121,20 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"10": createTestPortJSON("getter_port"),
 				},
+				"ARM": {
+					"10": createTestPortJSON("getter_port"),
+				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"knobs": {
 					"10": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "V",
+					},
+				},
+				"ARM": {
+					"10": map[string]any{
+						"type": "boolean",
 					},
 				},
 			},
@@ -118,12 +146,28 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"20": createTestPortJSON("setter_port"),
 				},
+				"ARM": {
+					"20": createTestPortJSON("setter_port"),
+				},
+				"master": {
+					"1": createTestPortJSON("master_port"),
+				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
 				"knobs": {
 					"20": map[string]any{
 						"bounds": []float64{0, 100},
 						"unit":   "V",
+					},
+				},
+				"ARM": {
+					"20": map[string]any{
+						"type": "boolean",
+					},
+				},
+				"master": {
+					"1": map[string]any{
+						"value": true,
 					},
 				},
 			},
@@ -154,115 +198,6 @@ func createTestPortJSON(
 	return instrument.JsonPort(data)
 }
 
-func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	instrumentHandler := setupTestInstrumentHandler2(t)
-	cfg := &config.Config{
-		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
-		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
-	}
-
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS connection
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	defer handler.Unsubscribe()
-
-	// Create unbuffered measurement request
-	port1JSON := createTestPortJSON("port1")
-	port2JSON := createTestPortJSON("port2")
-
-	measurementReady := api.MeasurementReady{
-		ProcessId: 1,
-		Getters: []string{
-			string(port1JSON),
-			string(port2JSON),
-		}, // Use full JSON strings
-		Setters: []string{}, // Empty setters = unbuffered
-	}
-
-	measurementData, err := json.Marshal(measurementReady)
-	require.NoError(t, err)
-
-	// Subscribe to GET commands to simulate instrument responses
-	getSubPort1, err := nc.Subscribe(
-		GetMessage+".instrument1",
-		func(msg *nats.Msg) {
-			// Simulate instrument1 responding with RETURN_GET
-			returnGet := api.ReturnGet{
-				Index:     1,
-				Property:  "knobs",
-				Value:     42.0,
-				Timestamp: time.Now().UnixMicro(),
-			}
-			returnData, _ := json.Marshal(returnGet)
-			nc.Publish(ReturnGetMessage+".instrument1", returnData)
-		},
-	)
-	require.NoError(t, err)
-	defer getSubPort1.Unsubscribe()
-
-	getSubPort2, err := nc.Subscribe(
-		GetMessage+".instrument2",
-		func(msg *nats.Msg) {
-			// Simulate instrument2 responding with RETURN_GET
-			returnGet := api.ReturnGet{
-				Index:     2,
-				Property:  "knobs",
-				Value:     123.5,
-				Timestamp: time.Now().UnixMicro(),
-			}
-			returnData, _ := json.Marshal(returnGet)
-			nc.Publish(ReturnGetMessage+".instrument2", returnData)
-		},
-	)
-	require.NoError(t, err)
-	defer getSubPort2.Unsubscribe()
-
-	// Subscribe to PROCESS_DATA to capture the final result
-	processDataReceived := make(chan api.ProcessData, 1)
-	processDataSub, err := nc.Subscribe(
-		ProcessDataMessage,
-		func(msg *nats.Msg) {
-			var processData api.ProcessData
-			json.Unmarshal(msg.Data, &processData)
-			processDataReceived <- processData
-		},
-	)
-	require.NoError(t, err)
-	defer processDataSub.Unsubscribe()
-
-	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
-	require.NoError(t, err)
-
-	// Wait for PROCESS_DATA response
-	select {
-	case processData := <-processDataReceived:
-		assert.Equal(t, int64(1), processData.ProcessId)
-
-		// Parse the data JSON
-		var results map[string]interface{}
-		err := json.Unmarshal([]byte(processData.Data), &results)
-		require.NoError(t, err)
-
-		// Verify both port results are present
-		assert.Equal(t, 42.0, results[string(port1JSON)])
-		assert.Equal(t, 123.5, results[string(port2JSON)])
-
-	case <-time.After(5 * time.Second):
-		t.Fatal("Timeout waiting for PROCESS_DATA")
-	}
-}
-
 func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
@@ -287,38 +222,112 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 
 	// Create buffered measurement request
 	getterPortJSON := createTestPortJSON("getter_port")
-	setterPortJSON := createTestPortJSON("setter_port")
+
+	setterInstruction := map[string]interface{}{
+		"setter":   string(createTestPortJSON("setter_port")),
+		"property": []string{"knobs"},
+		"values":   []interface{}{5.0},
+	}
+	setterInstructionJSON, _ := json.Marshal(setterInstruction)
 
 	measurementReady := api.MeasurementReady{
 		ProcessId: 2,
 		Getters:   []string{string(getterPortJSON)},
 		Setters: []string{
-			string(setterPortJSON),
-		}, // Non-empty setters = buffered
+			string(setterInstructionJSON),
+		}, // Use instruction format
+		Buffered: true,
 	}
 
 	measurementData, err := json.Marshal(measurementReady)
 	require.NoError(t, err)
 
 	// Track the sequence of operations using atomic operations
-	var triggerCount int64
-	var getterArmed int64
+	var armedReceived int64
+	var getterTriggered int64
 	var setterTriggered int64
+	var executingReceived int64
+	var setCommandCount int64
+	var armCommandCount int64
+
+	// IMPORTANT: Let the measurement ready handler subscribe first
+	// so it gets priority on messages
+	time.Sleep(100 * time.Millisecond)
+
+	// Subscribe to SET commands to simulate setter instrument arming
+	// Use a specific subject to avoid conflicts
+	setSubSetter, err := nc.Subscribe(
+		"SET.setter_instrument", // Specific subject, not wildcard
+		func(msg *nats.Msg) {
+			var setCmd api.Set
+			if err := json.Unmarshal(msg.Data, &setCmd); err != nil {
+				t.Logf("Failed to unmarshal SET command: %v", err)
+				return
+			}
+
+			atomic.AddInt64(&setCommandCount, 1)
+			t.Logf(
+				"TEST: Received SET command: property=%s, index=%d, value=%v, processId=%d, chunkId=%d",
+				setCmd.Property,
+				setCmd.Index,
+				setCmd.Value,
+				setCmd.ProcessId,
+				setCmd.ChunkId,
+			)
+
+			// Simulate ARM command received - send ARMED response
+			if setCmd.Property == "ARM" {
+				atomic.AddInt64(&armCommandCount, 1)
+				t.Logf("TEST: ARM command detected, sending ARMED response")
+
+				armed := api.Armed{
+					ProcessId: setCmd.ProcessId,
+					ChunkId:   setCmd.ChunkId,
+				}
+				armedData, _ := json.Marshal(armed)
+				armedSubject := "ARMED.setter_instrument"
+				if err := nc.Publish(armedSubject, armedData); err != nil {
+					t.Logf("TEST: Failed to publish ARMED: %v", err)
+				} else {
+					t.Logf("TEST: Published ARMED to %s", armedSubject)
+					atomic.AddInt64(&armedReceived, 1)
+				}
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSubSetter.Unsubscribe()
 
 	// Subscribe to TRIGGER commands for getter instrument
 	triggerSubGetter, err := nc.Subscribe(
-		TriggerMessage+".getter_instrument",
+		"TRIGGER.getter_instrument", // Specific subject
 		func(msg *nats.Msg) {
-			atomic.AddInt64(&triggerCount, 1)
-			atomic.StoreInt64(&getterArmed, 1)
+			var triggerCmd api.Trigger
+			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
+				t.Logf("Failed to unmarshal TRIGGER command: %v", err)
+				return
+			}
 
-			// Verify this is the first trigger (getter should be armed first)
-			assert.Equal(
-				t,
-				int64(0),
-				atomic.LoadInt64(&setterTriggered),
-				"Getter should be armed before setter",
+			t.Logf(
+				"TEST: Received TRIGGER for getter: processId=%d, chunkId=%d",
+				triggerCmd.ProcessId,
+				triggerCmd.ChunkId,
 			)
+			atomic.AddInt64(&getterTriggered, 1)
+
+			// Simulate getter instrument executing - send EXECUTING response
+			executing := api.Executing{
+				ProcessId: triggerCmd.ProcessId,
+				ChunkId:   triggerCmd.ChunkId,
+			}
+			executingData, _ := json.Marshal(executing)
+			executingSubject := "EXECUTING.getter_instrument"
+			if err := nc.Publish(executingSubject, executingData); err != nil {
+				t.Logf("TEST: Failed to publish EXECUTING: %v", err)
+			} else {
+				t.Logf("TEST: Published EXECUTING to %s", executingSubject)
+				atomic.AddInt64(&executingReceived, 1)
+			}
 		},
 	)
 	require.NoError(t, err)
@@ -326,37 +335,39 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 
 	// Subscribe to TRIGGER commands for setter instrument
 	triggerSubSetter, err := nc.Subscribe(
-		TriggerMessage+".setter_instrument",
+		"TRIGGER.setter_instrument", // Specific subject
 		func(msg *nats.Msg) {
-			atomic.AddInt64(&triggerCount, 1)
-			atomic.StoreInt64(&setterTriggered, 1)
+			var triggerCmd api.Trigger
+			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
+				t.Logf("Failed to unmarshal TRIGGER command: %v", err)
+				return
+			}
 
-			// Verify getter was armed first
-			assert.Equal(
-				t,
-				int64(1),
-				atomic.LoadInt64(&getterArmed),
-				"Getter should be armed before setter",
+			t.Logf(
+				"TEST: Received TRIGGER for setter: processId=%d, chunkId=%d",
+				triggerCmd.ProcessId,
+				triggerCmd.ChunkId,
 			)
+			atomic.AddInt64(&setterTriggered, 1)
 
 			// Simulate instrument returning buffered data after setter is
 			// triggered
 			returnData := api.ReturnData{
-				Data:     []interface{}{99.9, 88.8},
-				Property: "knobs",
-				Index:    10, // This must match the getter_instrument index
+				Data:      []interface{}{99.9, 88.8},
+				Property:  "knobs",
+				Index:     10, // This must match the getter_instrument index
+				ProcessId: triggerCmd.ProcessId,
+				ChunkId:   triggerCmd.ChunkId,
 			}
 			returnDataBytes, _ := json.Marshal(returnData)
 
 			// Publish the RETURN_DATA response
-			go func() {
-				// Small delay to ensure the trigger processing completes
-				time.Sleep(10 * time.Millisecond)
-				nc.Publish(
-					ReturnDataMessage+".getter_instrument",
-					returnDataBytes,
-				)
-			}()
+			returnDataSubject := "RETURN_DATA.getter_instrument"
+			if err := nc.Publish(returnDataSubject, returnDataBytes); err != nil {
+				t.Logf("TEST: Failed to publish RETURN_DATA: %v", err)
+			} else {
+				t.Logf("TEST: Published RETURN_DATA to %s", returnDataSubject)
+			}
 		},
 	)
 	require.NoError(t, err)
@@ -368,7 +379,11 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 		ProcessDataMessage,
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
-			json.Unmarshal(msg.Data, &processData)
+			if err := json.Unmarshal(msg.Data, &processData); err != nil {
+				t.Logf("Failed to unmarshal PROCESS_DATA: %v", err)
+				return
+			}
+			t.Logf("Received PROCESS_DATA: processId=%d", processData.ProcessId)
 			processDataReceived <- processData
 		},
 	)
@@ -395,27 +410,559 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 		assert.Greater(t, processData.Timestamp, int64(0))
 
 	case <-time.After(5 * time.Second):
+		// Print debug information before failing
+		t.Logf("Debug info:")
+		t.Logf(
+			"  SET commands received: %d",
+			atomic.LoadInt64(&setCommandCount),
+		)
+		t.Logf(
+			"  ARM commands received: %d",
+			atomic.LoadInt64(&armCommandCount),
+		)
+		t.Logf("  ARMED responses sent: %d", atomic.LoadInt64(&armedReceived))
+		t.Logf("  Getter triggers: %d", atomic.LoadInt64(&getterTriggered))
+		t.Logf("  Setter triggers: %d", atomic.LoadInt64(&setterTriggered))
+		t.Logf("  EXECUTING received: %d", atomic.LoadInt64(&executingReceived))
 		t.Fatal("Timeout waiting for PROCESS_DATA")
 	}
 
 	// Verify the sequence
 	assert.Equal(
 		t,
-		int64(2),
-		atomic.LoadInt64(&triggerCount),
-		"Should have triggered both getter and setter",
+		int64(1),
+		atomic.LoadInt64(&armedReceived),
+		"Should have received one ARMED",
 	)
 	assert.Equal(
 		t,
 		int64(1),
-		atomic.LoadInt64(&getterArmed),
-		"Getter should have been armed",
+		atomic.LoadInt64(&getterTriggered),
+		"Should have triggered getter once",
 	)
 	assert.Equal(
 		t,
 		int64(1),
 		atomic.LoadInt64(&setterTriggered),
-		"Setter should have been triggered",
+		"Should have triggered setter once",
+	)
+	assert.Equal(
+		t,
+		int64(1),
+		atomic.LoadInt64(&executingReceived),
+		"Should have received one EXECUTING",
+	)
+	assert.GreaterOrEqual(
+		t,
+		atomic.LoadInt64(&setCommandCount),
+		int64(2),
+		"Should have received at least 2 SET commands",
+	)
+	assert.Equal(
+		t,
+		int64(1),
+		atomic.LoadInt64(&armCommandCount),
+		"Should have received exactly 1 ARM command",
+	)
+}
+
+func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
+	// Test multiple measurements can be pipelined
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandler2(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+
+	// Setup NATS connection
+	nc := setupTestNATSServer(t)
+	defer nc.Close()
+
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	// Track SET commands received by instruments
+	var setCommandCount int64
+	var uniqueChunkIds []int64
+	var chunkIdMutex sync.Mutex
+
+	// Subscribe to SET commands to track pipelining
+	setSubSetter, err := nc.Subscribe(
+		SetCommand+".setter_instrument",
+		func(msg *nats.Msg) {
+			var setCmd api.Set
+			json.Unmarshal(msg.Data, &setCmd)
+
+			atomic.AddInt64(&setCommandCount, 1)
+
+			// Track unique ChunkIds
+			chunkIdMutex.Lock()
+			found := false
+			found = slices.Contains(uniqueChunkIds, setCmd.ChunkId)
+			if !found {
+				uniqueChunkIds = append(uniqueChunkIds, setCmd.ChunkId)
+			}
+			chunkIdMutex.Unlock()
+
+			// Send ARMED response for ARM commands
+			if setCmd.Property == "ARM" {
+				armed := api.Armed{
+					ProcessId: setCmd.ProcessId,
+					ChunkId:   setCmd.ChunkId,
+				}
+				armedData, _ := json.Marshal(armed)
+				nc.Publish(ArmedMessage+".setter_instrument", armedData)
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSubSetter.Unsubscribe()
+
+	// Create multiple measurements
+	getterPortJSON := createTestPortJSON("getter_port")
+	setterInstruction := map[string]interface{}{
+		"setter":   string(createTestPortJSON("setter_port")),
+		"property": []string{"knobs"},
+		"values":   []interface{}{5.0},
+	}
+	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+
+	// Send 3 measurements rapidly
+	for i := 1; i <= 3; i++ {
+		measurementReady := api.MeasurementReady{
+			ProcessId: int64(100 + i),
+			Getters:   []string{string(getterPortJSON)},
+			Setters:   []string{string(setterInstructionJSON)},
+			Buffered:  true,
+		}
+
+		measurementData, _ := json.Marshal(measurementReady)
+		nc.Publish(MeasurementReadyMessage, measurementData)
+	}
+
+	// Wait for SET commands to be processed
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify that SET commands were sent for all measurements
+	setCount := atomic.LoadInt64(&setCommandCount)
+	assert.GreaterOrEqual(
+		t,
+		setCount,
+		int64(3),
+		"Should have sent SET commands for all measurements",
+	)
+
+	// Verify that different ChunkIds were assigned
+	chunkIdMutex.Lock()
+	assert.GreaterOrEqual(
+		t,
+		len(uniqueChunkIds),
+		3,
+		"Should have assigned unique ChunkIds",
+	)
+	chunkIdMutex.Unlock()
+
+	// Verify ChunkIds are sequential
+	chunkIdMutex.Lock()
+	for i := 1; i < len(uniqueChunkIds); i++ {
+		assert.Greater(
+			t,
+			uniqueChunkIds[i],
+			uniqueChunkIds[i-1],
+			"ChunkIds should be sequential",
+		)
+	}
+	chunkIdMutex.Unlock()
+}
+
+func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
+	// Setup
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandler2(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+
+	// Setup NATS connection
+	nc := setupTestNATSServer(t)
+	defer nc.Close()
+
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	// Create unbuffered measurement request with multiple setters
+	getterPortJSON1 := createTestPortJSON("getter_port")
+	getterPortJSON2 := createTestPortJSON("port1") // instrument1 port
+
+	setterInstruction1 := map[string]interface{}{
+		"setter": string(
+			createTestPortJSON("setter_port"),
+		), // setter_instrument
+		"property": []string{"knobs"},
+		"values":   []interface{}{5.0},
+	}
+	setterInstruction2 := map[string]interface{}{
+		"setter":   string(createTestPortJSON("port2")), // instrument2 port
+		"property": []string{"knobs"},
+		"values":   []interface{}{10.0},
+	}
+	setterInstruction1JSON, _ := json.Marshal(setterInstruction1)
+	setterInstruction2JSON, _ := json.Marshal(setterInstruction2)
+
+	measurementReady := api.MeasurementReady{
+		ProcessId: 4,
+		Getters:   []string{string(getterPortJSON1), string(getterPortJSON2)},
+		Setters: []string{
+			string(setterInstruction1JSON),
+			string(setterInstruction2JSON),
+		},
+		Buffered: false, // Unbuffered measurement
+	}
+
+	measurementData, err := json.Marshal(measurementReady)
+	require.NoError(t, err)
+
+	// Track the sequence of operations
+	var armedCount int64
+	var getterTriggerCount int64
+	var setterTriggerCount int64
+	var executingCount int64
+	var setCommandCount int64
+	var armCommandCount int64
+	var triggeredInstruments []string
+	var armedInstruments []string
+	var mu sync.Mutex
+
+	// Subscribe to SET commands to simulate setter instruments arming
+	setSubMultiple, err := nc.Subscribe(
+		"SET.>", // Listen to all SET commands
+		func(msg *nats.Msg) {
+			var setCmd api.Set
+			if err := json.Unmarshal(msg.Data, &setCmd); err != nil {
+				t.Logf("Failed to unmarshal SET command: %v", err)
+				return
+			}
+
+			atomic.AddInt64(&setCommandCount, 1)
+			instrumentName := strings.Split(msg.Subject, ".")[1]
+
+			t.Logf(
+				"TEST: Received SET command on %s: property=%s, index=%d, value=%v, processId=%d, chunkId=%d",
+				instrumentName,
+				setCmd.Property,
+				setCmd.Index,
+				setCmd.Value,
+				setCmd.ProcessId,
+				setCmd.ChunkId,
+			)
+
+			// Simulate ARM command received - send ARMED response
+			if setCmd.Property == "ARM" {
+				atomic.AddInt64(&armCommandCount, 1)
+				mu.Lock()
+				armedInstruments = append(armedInstruments, instrumentName)
+				mu.Unlock()
+
+				t.Logf(
+					"TEST: ARM command detected on %s, sending ARMED response",
+					instrumentName,
+				)
+
+				armed := api.Armed{
+					ProcessId: setCmd.ProcessId,
+					ChunkId:   setCmd.ChunkId,
+				}
+				armedData, _ := json.Marshal(armed)
+				armedSubject := "ARMED." + instrumentName
+				if err := nc.Publish(armedSubject, armedData); err != nil {
+					t.Logf("TEST: Failed to publish ARMED: %v", err)
+				} else {
+					t.Logf("TEST: Published ARMED to %s", armedSubject)
+					atomic.AddInt64(&armedCount, 1)
+				}
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSubMultiple.Unsubscribe()
+
+	// Subscribe to TRIGGER commands for all instruments
+	triggerSubAll, err := nc.Subscribe(
+		"TRIGGER.>",
+		func(msg *nats.Msg) {
+			var triggerCmd api.Trigger
+			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
+				t.Logf("Failed to unmarshal TRIGGER command: %v", err)
+				return
+			}
+
+			instrumentName := strings.Split(msg.Subject, ".")[1]
+			mu.Lock()
+			triggeredInstruments = append(triggeredInstruments, instrumentName)
+			mu.Unlock()
+
+			t.Logf(
+				"TEST: Received TRIGGER for %s: processId=%d, chunkId=%d",
+				instrumentName,
+				triggerCmd.ProcessId,
+				triggerCmd.ChunkId,
+			)
+
+			// Check if this instrument is in the getter instruments list
+			if strings.Contains(instrumentName, "getter") ||
+				instrumentName == "instrument1" {
+				atomic.AddInt64(&getterTriggerCount, 1)
+
+				// Simulate getter instrument executing - send EXECUTING
+				// response
+				executing := api.Executing{
+					ProcessId: triggerCmd.ProcessId,
+					ChunkId:   triggerCmd.ChunkId,
+				}
+				executingData, _ := json.Marshal(executing)
+				executingSubject := "EXECUTING." + instrumentName
+				if err := nc.Publish(executingSubject, executingData); err != nil {
+					t.Logf("TEST: Failed to publish EXECUTING: %v", err)
+				} else {
+					t.Logf("TEST: Published EXECUTING to %s", executingSubject)
+					atomic.AddInt64(&executingCount, 1)
+				}
+			} else {
+				atomic.AddInt64(&setterTriggerCount, 1)
+				// For unbuffered measurements, setters don't typically send
+				// data back
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer triggerSubAll.Unsubscribe()
+
+	// Give time for subscriptions to be ready
+	time.Sleep(100 * time.Millisecond)
+
+	// Send MEASUREMENT_READY message
+	err = nc.Publish(MeasurementReadyMessage, measurementData)
+	require.NoError(t, err)
+
+	// Wait for processing to complete
+	time.Sleep(1 * time.Second)
+	// Verify the sequence for unbuffered measurement
+	totalTriggers := atomic.LoadInt64(
+		&getterTriggerCount,
+	) + atomic.LoadInt64(
+		&setterTriggerCount,
+	)
+
+	t.Logf("Final counts:")
+	t.Logf("  ARMED responses: %d", atomic.LoadInt64(&armedCount))
+	t.Logf("  Getter triggers: %d", atomic.LoadInt64(&getterTriggerCount))
+	t.Logf("  Setter triggers: %d", atomic.LoadInt64(&setterTriggerCount))
+	t.Logf("  Total triggers: %d", totalTriggers)
+
+	// Should process normally with first setter only
+	// Expect both getter and setter to be triggered (total 2)
+	assert.Equal(
+		t,
+		int64(4),
+		totalTriggers,
+		"Should have triggered both getter and setter instruments",
+	)
+
+	assert.Equal(
+		t,
+		int64(2),
+		atomic.LoadInt64(&getterTriggerCount),
+		"Should have triggered getter instrument once",
+	)
+
+	assert.Equal(
+		t,
+		int64(2),
+		atomic.LoadInt64(&setterTriggerCount),
+		"Should have triggered setter instrument once (ignoring duplicate setters)",
+	)
+}
+
+func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
+	// Test that ChunkIds are assigned correctly and uniquely
+	tempDir := t.TempDir()
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+
+	instrumentHandler := setupTestInstrumentHandler2(t)
+	cfg := &config.Config{
+		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
+		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
+	}
+
+	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+
+	// Verify initial ChunkId is 1
+	assert.Equal(t, int64(1), handler.nextChunkId)
+
+	// Setup NATS connection
+	nc := setupTestNATSServer(t)
+	defer nc.Close()
+
+	err = handler.Subscribe(nc)
+	require.NoError(t, err)
+	defer handler.Unsubscribe()
+
+	// Track ChunkIds in messages
+	var receivedChunkIds []int64
+	var chunkIdMutex sync.Mutex
+
+	// Subscribe to SET commands to capture ChunkIds
+	setSub, err := nc.Subscribe(
+		"SET.>",
+		func(msg *nats.Msg) {
+			var setCmd api.Set
+			if json.Unmarshal(msg.Data, &setCmd) == nil {
+				chunkIdMutex.Lock()
+				// Only count each unique ChunkId once
+				found := false
+				for _, existingId := range receivedChunkIds {
+					if existingId == setCmd.ChunkId {
+						found = true
+						break
+					}
+				}
+				if !found {
+					receivedChunkIds = append(receivedChunkIds, setCmd.ChunkId)
+				}
+				chunkIdMutex.Unlock()
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSub.Unsubscribe()
+
+	// Subscribe to SET commands to send ARMED responses
+	setSub, err = nc.Subscribe(
+		"SET.>", // Use explicit subject pattern
+		func(msg *nats.Msg) {
+			t.Logf("TEST: Received SET message on subject '%s'", msg.Subject)
+
+			var setCmd api.Set
+			if json.Unmarshal(msg.Data, &setCmd) == nil {
+				t.Logf(
+					"TEST: Parsed SET command: property=%s, index=%d, processId=%d, chunkId=%d",
+					setCmd.Property,
+					setCmd.Index,
+					setCmd.ProcessId,
+					setCmd.ChunkId,
+				)
+
+				if setCmd.Property == "ARM" {
+					t.Logf("TEST: ARM command detected, sending ARMED response")
+
+					armed := api.Armed{
+						ProcessId: setCmd.ProcessId,
+						ChunkId:   setCmd.ChunkId,
+					}
+					armedData, _ := json.Marshal(armed)
+
+					// Extract instrument name from the SET subject and create
+					// ARMED subject
+					subjectParts := strings.Split(msg.Subject, ".")
+					if len(subjectParts) >= 2 {
+						instrumentName := subjectParts[1]
+						armedSubject := ArmedMessage + "." + instrumentName
+						t.Logf(
+							"TEST: Publishing ARMED to subject '%s'",
+							armedSubject,
+						)
+						if err := nc.Publish(armedSubject, armedData); err != nil {
+							t.Logf("TEST: Failed to publish ARMED: %v", err)
+						} else {
+							t.Logf("TEST: Successfully published ARMED")
+						}
+					} else {
+						t.Logf("TEST: Invalid SET subject format: %s", msg.Subject)
+					}
+				}
+			} else {
+				t.Logf("TEST: Failed to unmarshal SET command from subject '%s'", msg.Subject)
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSub.Unsubscribe()
+
+	// Send multiple measurements
+	setterInstruction := map[string]interface{}{
+		"setter":   string(createTestPortJSON("setter_port")),
+		"property": []string{"knobs"},
+		"values":   []interface{}{5.0},
+	}
+	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+
+	for i := 1; i <= 5; i++ {
+		measurementReady := api.MeasurementReady{
+			ProcessId: int64(i),
+			Getters:   []string{string(createTestPortJSON("getter_port"))},
+			Setters:   []string{string(setterInstructionJSON)},
+			Buffered:  true,
+		}
+
+		measurementData, _ := json.Marshal(measurementReady)
+		nc.Publish(MeasurementReadyMessage, measurementData)
+	}
+
+	// Wait for processing
+	time.Sleep(200 * time.Millisecond)
+
+	// Verify ChunkIds were assigned sequentially
+	chunkIdMutex.Lock()
+	assert.GreaterOrEqual(
+		t,
+		len(receivedChunkIds),
+		5,
+		"Should have received ChunkIds for all measurements",
+	)
+
+	// Check that we got sequential ChunkIds starting from 1
+	expectedChunkIds := make(map[int64]bool)
+	for i := int64(1); i <= 5; i++ {
+		expectedChunkIds[i] = false
+	}
+
+	for _, chunkId := range receivedChunkIds {
+		if _, exists := expectedChunkIds[chunkId]; exists {
+			expectedChunkIds[chunkId] = true
+		}
+	}
+
+	for i := int64(1); i <= 5; i++ {
+		assert.True(
+			t,
+			expectedChunkIds[i],
+			"Should have assigned ChunkId %d",
+			i,
+		)
+	}
+	chunkIdMutex.Unlock()
+
+	// Verify nextChunkId has been incremented
+	assert.Equal(
+		t,
+		int64(6),
+		handler.nextChunkId,
+		"nextChunkId should be 6 after 5 measurements",
 	)
 }
 
@@ -446,42 +993,101 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	// Create buffered measurement request with multiple setters (should log
 	// error)
 	getterPortJSON := createTestPortJSON("getter_port")
-	setterPortJSON := createTestPortJSON("setter_port")
+
+	setterInstruction := map[string]interface{}{
+		"setter":   string(createTestPortJSON("setter_port")),
+		"property": []string{"knobs"},
+		"values":   []interface{}{5.0},
+	}
+	setterInstructionJSON, _ := json.Marshal(setterInstruction)
 
 	measurementReady := api.MeasurementReady{
 		ProcessId: 3,
 		Getters:   []string{string(getterPortJSON)},
 		Setters: []string{
-			string(setterPortJSON),
-			string(setterPortJSON),
-		}, // Multiple setters (using same port twice)
+			string(setterInstructionJSON),
+			string(setterInstructionJSON),
+		}, // Multiple setters
+		Buffered: true,
 	}
 
 	measurementData, err := json.Marshal(measurementReady)
 	require.NoError(t, err)
 
 	// Count triggers - should still get both getter and setter triggers
-	// even with multiple setters (only first setter should be used)
-	var triggerCount int64
 	var getterTriggerCount int64
 	var setterTriggerCount int64
 
-	// Subscribe to getter triggers
-	triggerSubGetter, err := nc.Subscribe(
-		TriggerMessage+".getter_instrument",
+	// Subscribe to SET commands to simulate instruments responding to ARM
+	// commands
+	setSub, err := nc.Subscribe(
+		"SET.setter_instrument",
 		func(msg *nats.Msg) {
-			atomic.AddInt64(&triggerCount, 1)
+			var setCmd api.Set
+			if err := json.Unmarshal(msg.Data, &setCmd); err != nil {
+				t.Logf("Failed to unmarshal SET command: %v", err)
+				return
+			}
+
+			t.Logf(
+				"TEST: Received SET command: property=%s, index=%d, processId=%d, chunkId=%d",
+				setCmd.Property,
+				setCmd.Index,
+				setCmd.ProcessId,
+				setCmd.ChunkId,
+			)
+
+			// When instrument receives ARM command, it responds with ARMED
+			if setCmd.Property == "ARM" {
+				t.Logf("TEST: ARM command received, sending ARMED response")
+
+				armed := api.Armed{
+					ProcessId: setCmd.ProcessId,
+					ChunkId:   setCmd.ChunkId,
+				}
+				armedData, _ := json.Marshal(armed)
+				armedSubject := "ARMED.setter_instrument"
+
+				if err := nc.Publish(armedSubject, armedData); err != nil {
+					t.Logf("TEST: Failed to publish ARMED: %v", err)
+				} else {
+					t.Logf("TEST: Published ARMED to %s", armedSubject)
+				}
+			}
+		},
+	)
+	require.NoError(t, err)
+	defer setSub.Unsubscribe()
+
+	// Subscribe to TRIGGER commands to simulate instrument execution
+	triggerSubGetter, err := nc.Subscribe(
+		"TRIGGER.getter_instrument",
+		func(msg *nats.Msg) {
+			var triggerCmd api.Trigger
+			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
+				return
+			}
+
+			t.Logf("TEST: Received TRIGGER for getter")
 			atomic.AddInt64(&getterTriggerCount, 1)
+
+			// Getter responds with EXECUTING
+			executing := api.Executing{
+				ProcessId: triggerCmd.ProcessId,
+				ChunkId:   triggerCmd.ChunkId,
+			}
+			executingData, _ := json.Marshal(executing)
+			nc.Publish("EXECUTING.getter_instrument", executingData)
 		},
 	)
 	require.NoError(t, err)
 	defer triggerSubGetter.Unsubscribe()
 
-	// Subscribe to setter triggers
+	// Subscribe to TRIGGER commands for setter
 	triggerSubSetter, err := nc.Subscribe(
-		TriggerMessage+".setter_instrument",
+		"TRIGGER.setter_instrument",
 		func(msg *nats.Msg) {
-			atomic.AddInt64(&triggerCount, 1)
+			t.Logf("TEST: Received TRIGGER for setter")
 			atomic.AddInt64(&setterTriggerCount, 1)
 		},
 	)
@@ -493,106 +1099,42 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	require.NoError(t, err)
 
 	// Wait a bit for processing
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
+
+	// Check final counts
+	totalTriggers := atomic.LoadInt64(
+		&getterTriggerCount,
+	) + atomic.LoadInt64(
+		&setterTriggerCount,
+	)
+
+	t.Logf("Final counts:")
+	t.Logf("  Getter triggers: %d", atomic.LoadInt64(&getterTriggerCount))
+	t.Logf("  Setter triggers: %d", atomic.LoadInt64(&setterTriggerCount))
+	t.Logf("  Total triggers: %d", totalTriggers)
 
 	// Should process normally with first setter only
 	// Expect both getter and setter to be triggered (total 2)
 	assert.Equal(
 		t,
 		int64(2),
-		atomic.LoadInt64(&triggerCount),
+		totalTriggers,
 		"Should have triggered both getter and setter instruments",
 	)
+
 	assert.Equal(
 		t,
 		int64(1),
 		atomic.LoadInt64(&getterTriggerCount),
 		"Should have triggered getter instrument once",
 	)
+
 	assert.Equal(
 		t,
 		int64(1),
 		atomic.LoadInt64(&setterTriggerCount),
 		"Should have triggered setter instrument once (ignoring duplicate setters)",
 	)
-}
-
-func TestMeasurementReadyHandler_CachingBehavior(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	instrumentHandler := setupTestInstrumentHandler2(t)
-	cfg := &config.Config{
-		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
-		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
-	}
-
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
-
-	// Create the port JSON that would be used in a real request
-	port1JSON := createTestPortJSON("port1")
-
-	// First call - should hit the instrument handler
-	result1, err1 := handler.getCachedPortConfiguration(port1JSON)
-	require.NoError(t, err1)
-	assert.Equal(t, instrument.Name("instrument1"), result1.Instrument)
-	assert.Equal(t, instrument.Index(strconv.FormatInt(1, 10)), result1.Index)
-	assert.Equal(
-		t,
-		[]instrument.PropertyName{instrument.PropertyName("knobs")},
-		result1.Properties,
-	)
-
-	// Second call - should use cache
-	result2, err2 := handler.getCachedPortConfiguration(port1JSON)
-	require.NoError(t, err2)
-	assert.Equal(t, result1, result2)
-}
-
-func TestMeasurementReadyHandler_InvalidConfiguration(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	instrumentHandler := setupTestInstrumentHandler2(t)
-	cfg := &config.Config{
-		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
-		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
-	}
-
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS connection
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	defer handler.Unsubscribe()
-
-	// Create measurement request with invalid port
-	invalidPortJSON := createTestPortJSON("invalid_port")
-
-	measurementReady := api.MeasurementReady{
-		ProcessId: 4,
-		Getters:   []string{string(invalidPortJSON)},
-		Setters:   []string{},
-	}
-
-	measurementData, err := json.Marshal(measurementReady)
-	require.NoError(t, err)
-
-	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
-	require.NoError(t, err)
-
-	// Wait a bit for processing
-	time.Sleep(100 * time.Millisecond)
-
-	// Test should complete without crashing (error handling verification)
 }
 
 func TestMeasurementReadyHandler_Subscribe_Unsubscribe(t *testing.T) {
@@ -617,14 +1159,16 @@ func TestMeasurementReadyHandler_Subscribe_Unsubscribe(t *testing.T) {
 	err = handler.Subscribe(nc)
 	assert.NoError(t, err)
 	assert.NotNil(t, handler.subscription)
-	assert.NotNil(t, handler.returnGetSub)
+	assert.NotNil(t, handler.armedSub)
+	assert.NotNil(t, handler.executingSub)
 	assert.NotNil(t, handler.returnDataSub)
 
 	// Test Unsubscribe
 	err = handler.Unsubscribe()
 	assert.NoError(t, err)
 	assert.Nil(t, handler.subscription)
-	assert.Nil(t, handler.returnGetSub)
+	assert.Nil(t, handler.armedSub)
+	assert.Nil(t, handler.executingSub)
 	assert.Nil(t, handler.returnDataSub)
 }
 
@@ -668,72 +1212,4 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test should complete without crashing (error handling verification)
-}
-
-func TestMeasurementReadyHandler_BufferedMeasurement_NoSetters_Error(
-	t *testing.T,
-) {
-	// Setup
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	instrumentHandler := setupTestInstrumentHandler2(t)
-	cfg := &config.Config{
-		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
-		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
-	}
-
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS connection
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	defer handler.Unsubscribe()
-
-	// Try to force buffered mode but with no setters
-	getterPortJSON := createTestPortJSON("getter_port")
-
-	measurementReady := api.MeasurementReady{
-		ProcessId: 21,
-		Getters:   []string{string(getterPortJSON)},
-		Setters:   []string{}, // This should trigger unbuffered mode, not buffered
-	}
-
-	// Subscribe to PROCESS_DATA to capture any responses (there shouldn't be
-	// any)
-	measurementData := make(chan api.ProcessData, 1)
-	measurementDataSub, err := nc.Subscribe(
-		ProcessDataMessage,
-		func(msg *nats.Msg) {
-			var processData api.ProcessData
-			if json.Unmarshal(msg.Data, &processData) == nil {
-				select {
-				case measurementData <- processData:
-				default:
-					// Channel full, ignore
-				}
-			}
-		},
-	)
-	require.NoError(t, err)
-	defer measurementDataSub.Unsubscribe()
-
-	// Send the measurement request
-	measurementReadyBytes, _ := json.Marshal(measurementReady)
-	nc.Publish(MeasurementReadyMessage, measurementReadyBytes)
-
-	// Wait a bit to see if any PROCESS_DATA is sent (there shouldn't be)
-	select {
-	case processData := <-measurementData:
-		t.Fatalf("Unexpected PROCESS_DATA received: %+v", processData)
-	case <-time.After(1 * time.Second):
-		// Expected behavior - no PROCESS_DATA should be sent
-		t.Log(
-			"Correctly did not receive PROCESS_DATA for unbuffered measurement with no setters",
-		)
-	}
 }

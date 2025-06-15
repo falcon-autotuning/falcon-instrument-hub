@@ -206,5 +206,5 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 		Name:     JsonPort(req.Name),
 		Value:    req.Value,
 	}
-	h.SetProperty(set)
+	h.SetPropertyWithDefaults(set)
 }
