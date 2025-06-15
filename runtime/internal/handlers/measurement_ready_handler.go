@@ -57,6 +57,63 @@ type MeasurementScheduler struct {
 	TriggeredGetterChecklist map[instrument.Name]bool    // Getter instrument -> triggered status
 }
 
+func (ms *MeasurementScheduler) registerReadySetter(
+	name instrument.Name,
+) error {
+	if !slices.Contains(ms.SetterInstruments, name) {
+		return fmt.Errorf(
+			"instrument %s not found in setter instruments. Available setter instruments: %v",
+			name,
+			ms.SetterInstruments,
+		)
+	}
+	ms.ReadyChecklist[name] = true
+	return nil
+}
+
+func (ms *MeasurementScheduler) settersAreReady() bool {
+	for _, name := range ms.SetterInstruments {
+		if !ms.ReadyChecklist[name] {
+			return false
+		}
+	}
+	return true
+}
+
+func (ms *MeasurementScheduler) resetSettersReadiness() {
+	for name := range ms.ReadyChecklist {
+		ms.ReadyChecklist[name] = false
+	}
+}
+
+func (ms *MeasurementScheduler) gettersAreTriggered() bool {
+	for _, name := range ms.GetterInstruments {
+		if !ms.TriggeredGetterChecklist[name] {
+			return false
+		}
+	}
+	return true
+}
+
+func (ms *MeasurementScheduler) resetGettersTriggered() {
+	for name := range ms.TriggeredGetterChecklist {
+		ms.TriggeredGetterChecklist[name] = false
+	}
+}
+
+func (ms *MeasurementScheduler) containsGetter(port instrument.JsonPort) bool {
+	return slices.Contains(ms.GetterPorts, port)
+}
+
+func (ms *MeasurementScheduler) storeData(port instrument.JsonPort, data any) {
+	ms.Results[port] = data
+	ms.ReceivedReturns++
+}
+
+func (ms *MeasurementScheduler) allDataHere() bool {
+	return ms.ReceivedReturns == ms.ExpectedReturns
+}
+
 type Instructions struct {
 	Setter   instrument.JsonPort       `json:"setter"`
 	Property []instrument.PropertyName `json:"property"`
@@ -234,9 +291,7 @@ func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
 		subjects = append(subjects, config.Name)
 	}
 
-	h.log.Info(
-		"Subscribed to %s", strings.Join(subjects, ", "),
-	)
+	h.log.Info("Subscribed to %s", strings.Join(subjects, ", "))
 	return nil
 }
 
@@ -281,18 +336,10 @@ func (h *MeasurementReadyHandler) Unsubscribe() error {
 
 // handleMeasurementReady processes incoming MEASUREMENT_READY requests
 func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
-	h.log.Debug(
-		"Received "+MeasurementReadyMessage+": %s",
-		string(msg.Data),
-	)
-
-	// Parse the incoming message
 	var measurementReady api.MeasurementReady
+	h.log.Debug("Received  %s", MeasurementReadyMessage)
 	if err := json.Unmarshal(msg.Data, &measurementReady); err != nil {
-		h.log.Error(
-			"Failed to unmarshal "+MeasurementReadyMessage+": %v",
-			err,
-		)
+		h.log.Error("Failed to unmarshal %s: %v", MeasurementReadyMessage, err)
 		return
 	}
 	// Create stack item and add to queue with assigned ChunkId
@@ -304,7 +351,6 @@ func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
 	stackItem := measure.MeasurementStackItem{
 		MeasurementReady: measurementReady,
 		Timestamp:        time.Now(),
-		Priority:         0, // Default priority
 		ChunkId:          chunkId,
 	}
 
@@ -327,20 +373,14 @@ func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
 	defer h.mutex.Unlock()
 
 	if h.isProcessing {
-		h.log.Debug(
-			"Already processing a measurement, skipping",
-		)
+		h.log.Debug("Already processing a measurement, skipping")
 		return
 	}
-
 	stackItem, hasNext := h.measurementStack.Pop()
 	if !hasNext {
-		h.log.Debug(
-			"No measurements in queue",
-		)
+		h.log.Debug("No measurements in queue")
 		return
 	}
-
 	h.isProcessing = true
 	h.currentMeasurement = &stackItem
 
@@ -350,9 +390,6 @@ func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
 		stackItem.ChunkId,
 		h.measurementStack.Size(),
 	)
-
-	// Process the measurement arming and triggering
-	go h.processMeasurementExecution(stackItem)
 }
 
 // markMeasurementComplete marks the current measurement as complete and tries
@@ -366,8 +403,6 @@ func (h *MeasurementReadyHandler) markMeasurementComplete() {
 	h.log.Debug(
 		"Measurement processing complete, checking for next measurement",
 	)
-
-	// Try to process the next measurement
 	h.tryProcessNextMeasurement()
 }
 
@@ -452,20 +487,14 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	msg api.MeasurementReady,
 	chunkId int64,
 ) {
-	// Early return for unbuffered measurements with no getters
 	if len(msg.Getters) == 0 {
-		h.log.Error(
-			"No getters specified for measurement",
-		)
+		h.log.Error("No getters specified for measurement")
 		return
 	}
 
 	totalInstructions, err := collectAllSetInstructions(msg.Setters)
 	if err != nil {
-		h.log.Error(
-			"Failed to collect all set instructions: %s",
-			err,
-		)
+		h.log.Error("Failed to collect all set instructions: %s", err)
 		return
 	}
 
@@ -476,10 +505,7 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 
 	getterPorts, err := convertToJsonPorts(msg.Getters)
 	if err != nil {
-		h.log.Error(
-			"Failed to convert getters to JsonPorts: %s",
-			err,
-		)
+		h.log.Error("Failed to convert getters to JsonPorts: %s", err)
 		return
 	}
 
@@ -488,16 +514,12 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	setterInstruments := h.getUniqueInstruments(setterPorts)
 	masterInstruments := setterInstruments // default for unbuffered
 
-	if msg.Buffered && len(msg.Setters) > 1 {
-		// For buffered measurements, find the master setter instrument
+	if msg.Buffered && len(setterInstruments) > 1 {
 		masterInstrument, err := h.instrumentHandler.FindMasterInstrument(
 			setterInstruments,
 		)
 		if err != nil {
-			h.log.Error(
-				"Failed to find master setter instruments: %v",
-				err,
-			)
+			h.log.Error("Failed to find master setter instruments: %v", err)
 			return
 		}
 		masterInstruments = []instrument.Name{masterInstrument}
@@ -517,10 +539,9 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 			return
 		}
 
-		// Filter setterInstruments to only include the master
 		h.log.Info(
 			"Using master trigger instrument %s for buffered measurement",
-			masterInstruments[0],
+			masterInstrument,
 		)
 	}
 
@@ -569,63 +590,6 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	h.mutex.Unlock()
 }
 
-// processMeasurementExecution handles the arming and triggering phase
-func (h *MeasurementReadyHandler) processMeasurementExecution(
-	stackItem measure.MeasurementStackItem,
-) {
-	msg := stackItem.MeasurementReady
-	chunkId := stackItem.ChunkId
-
-	h.log.Info(
-		"Starting execution phase for ProcessId %d, ChunkId %d (Getters: %d, Setters: %d)",
-		msg.ProcessId,
-		chunkId,
-		len(msg.Getters),
-		len(msg.Setters),
-	)
-
-	if len(msg.Getters) == 0 {
-		h.log.Error(
-			"No getters specified for measurement",
-		)
-		return
-	}
-
-	measurementID := instrument.MeasurementID{
-		ProcessId: instrument.ID(msg.ProcessId),
-		ChunkId:   instrument.ID(chunkId),
-	}
-
-	// The scheduler should already exist from processMeasurementSets
-	h.mutex.RLock()
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error(
-			"No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		h.mutex.RUnlock()
-		return
-	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error(
-			"No scheduler found for %+v", measurementID,
-		)
-		h.mutex.RUnlock()
-		return
-	}
-	h.mutex.RUnlock()
-
-	h.log.Info(
-		"Starting measurement for ProcessId %d, ChunkId %d: awaiting %d setter instruments to arm",
-		msg.ProcessId,
-		chunkId,
-		len(scheduler.SetterPorts),
-	)
-}
-
 func collectAllSetInstructions(
 	setters []string,
 ) ([]Instructions, error) {
@@ -657,52 +621,37 @@ func collectAllSetInstructions(
 
 // handleArmed processes ARMED messages from instruments
 func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
-	h.log.Debug(
-		"Received "+ArmedMessage+": %s", string(msg.Data),
-	)
-
-	// Parse the ARMED message
 	var armed api.Armed
+	h.log.Debug("Received %s", ArmedMessage)
 	if err := json.Unmarshal(msg.Data, &armed); err != nil {
-		h.log.Error(
-			"Failed to unmarshal "+ArmedMessage+": %v", err,
-		)
+		h.log.Error("Failed to unmarshal %s: %v", ArmedMessage, err)
 		return
 	}
 
-	// Check if ProcessId is present in the message
 	measurementID := instrument.MeasurementID{
 		ProcessId: instrument.ID(armed.ProcessId),
 		ChunkId:   instrument.ID(armed.ChunkId),
 	}
 	if measurementID.ProcessId == 0 {
-		h.log.Error(
-			"ProcessId not found in ARMED message",
-		)
+		h.log.Error("ProcessId not found in %s message", ArmedMessage)
 		return
 	}
 
-	// Check if ChunkId is present in the message
 	if measurementID.ChunkId == 0 {
-		h.log.Error(
-			"ChunkId not found in ARMED message",
-		)
+		h.log.Error("ChunkId not found in %s message", ArmedMessage)
 		return
 	}
 
-	// Extract instrument name from the subject
-	// Subject format: "ARMED.<instrument_name>"
+	// Subject format: ARMED.<instrument_name>
 	subjectParts := strings.Split(msg.Subject, ".")
 	if len(subjectParts) < 2 {
-		h.log.Error(
-			"Invalid ARMED subject format: %s", msg.Subject,
-		)
+		h.log.Error("Invalid %s subject format: %s", ArmedMessage, msg.Subject)
 		return
 	}
 	instrumentName := instrument.Name(subjectParts[1])
-
 	h.log.Debug(
-		"Processing ARMED from instrument: %s for %+v",
+		"Processing %s from instrument: %s for %+v",
+		ArmedMessage,
 		instrumentName,
 		measurementID,
 	)
@@ -727,83 +676,24 @@ func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
 		)
 		return
 	}
-
-	// Check if this instrument is in the setter instruments for this scheduler
+	err := scheduler.registerReadySetter(instrumentName)
+	if err != nil {
+		h.log.Error("error registering ready setter: %v",
+			err.Error(),
+		)
+	}
 	h.log.Debug(
-		"Checking if instrument %s is in setter instruments for %+v. Setter instruments: %v",
+		"Marked instrument %s as ready for %+v",
 		instrumentName,
 		measurementID,
-		scheduler.SetterInstruments,
 	)
-
-	found := false
-	for _, setterInstrument := range scheduler.SetterInstruments {
-		h.log.Debug(
-			"Comparing instrument %s with setter instrument %s",
-			instrumentName,
-			setterInstrument,
-		)
-		if setterInstrument == instrumentName {
-			scheduler.ReadyChecklist[instrumentName] = true
-			found = true
-			h.log.Debug(
-				"Marked instrument %s as ready for %+v",
-				instrumentName,
-				measurementID,
-			)
-			break
-		}
-	}
-
-	if !found {
-		h.log.Error(
-			"Instrument %s not found in setter instruments for %+v. Available setter instruments: %v",
-			instrumentName,
-			measurementID,
-			scheduler.SetterInstruments,
-		)
+	if !scheduler.settersAreReady() {
 		return
 	}
-
-	if h.allSettersReady(scheduler) {
-		h.log.Info(
-			"All setter instruments ready for %+v, arming getter instruments",
-			measurementID,
-		)
-		// Reset the ready checklist to prevent re-triggering
-		for instrumentName := range scheduler.ReadyChecklist {
-			scheduler.ReadyChecklist[instrumentName] = false
-		}
-		h.log.Debug(
-			"Reset ready checklist for %+v", measurementID,
-		)
-		go h.triggerGetterInstruments(measurementID)
-	}
-}
-
-// allSettersReady checks if all setter instruments in the scheduler are ready
-func (h *MeasurementReadyHandler) allSettersReady(
-	scheduler *MeasurementScheduler,
-) bool {
-	for _, instrumentName := range scheduler.SetterInstruments {
-		if !scheduler.ReadyChecklist[instrumentName] {
-			return false
-		}
-	}
-	return true
-}
-
-// allGettersTriggered checks if all getter instruments in the scheduler are
-// triggered
-func (h *MeasurementReadyHandler) allGettersTriggered(
-	scheduler *MeasurementScheduler,
-) bool {
-	for _, instrumentName := range scheduler.GetterInstruments {
-		if !scheduler.TriggeredGetterChecklist[instrumentName] {
-			return false
-		}
-	}
-	return true
+	h.log.Info("All setter instruments ready for %+v", measurementID)
+	scheduler.resetSettersReadiness()
+	h.log.Debug("Reset ready checklist for %+v", measurementID)
+	go h.triggerGetterInstruments(measurementID, scheduler.GetterInstruments)
 }
 
 // getUniqueInstruments extracts unique instrument names from a list of ports
@@ -814,8 +704,6 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 	var uniqueInstruments []instrument.Name
 
 	for _, port := range ports {
-		// Use instrument handler's GetPortOptions (which uses its internal
-		// cache)
 		portConfig, err := h.instrumentHandler.GetPortOptions(port)
 		if err != nil {
 			h.log.Error(
@@ -838,35 +726,13 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 // triggerGetterInstruments sends TRIGGER commands to arm all getter instruments
 func (h *MeasurementReadyHandler) triggerGetterInstruments(
 	measurementID instrument.MeasurementID,
+	getterInstruments []instrument.Name,
 ) {
-	h.mutex.RLock()
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error(
-			"No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		h.mutex.RUnlock()
-		return
-	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error(
-			"No scheduler found for %+v", measurementID,
-		)
-		h.mutex.RUnlock()
-		return
-	}
-
-	getterInstruments := scheduler.GetterInstruments
-	h.mutex.RUnlock()
-
-	// Send TRIGGER command for each unique instrument
 	for _, instrumentName := range getterInstruments {
 		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
 			h.log.Error(
-				"Failed to send "+TriggerMessage+" command to arm instrument %s: %v",
+				"Failed to send %s command to arm instrument %s: %v",
+				TriggerMessage,
 				instrumentName,
 				err,
 			)
@@ -884,17 +750,14 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 		ProcessId: int64(measurementID.ProcessId),
 		ChunkId:   int64(measurementID.ChunkId),
 	}
-
-	// Marshal the command
 	triggerCommandData, err := json.Marshal(triggerCommand)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to marshal "+TriggerMessage+" command: %w",
+			"failed to marshal %s command: %w",
+			TriggerMessage,
 			err,
 		)
 	}
-
-	// Send TRIGGER command to specific instrument
 	subject := fmt.Sprintf("%s.%s", TriggerMessage, instrumentName)
 	if err := h.nc.Publish(subject, triggerCommandData); err != nil {
 		return fmt.Errorf(
@@ -902,64 +765,32 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 			err,
 		)
 	}
-
 	h.log.Debug(
-		"Sent "+TriggerMessage+" command to %s instrument for %+v",
+		"Sent %s command to %s instrument for %+v",
+		TriggerMessage,
 		instrumentName,
 		measurementID,
 	)
-
 	return nil
 }
 
 // handleAllGettersTriggered handles when all getter instruments are triggered
 func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 	measurementID instrument.MeasurementID,
+	triggerNames []instrument.Name,
 ) {
-	h.mutex.Lock()
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error(
-			"No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		h.mutex.Unlock()
-		return
-	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error(
-			"No scheduler found for %+v", measurementID,
-		)
-		h.mutex.Unlock()
-		return
-	}
-
-	// Reset the triggered getter checklist to prevent re-triggering
-	for instrumentName := range scheduler.TriggeredGetterChecklist {
-		scheduler.TriggeredGetterChecklist[instrumentName] = false
-	}
-	h.log.Debug(
-		"Reset triggered getter checklist for %+v", measurementID,
-	)
-
-	// Determine which setter instruments to trigger
-	instrumentsToTrigger := scheduler.MasterTriggerInstruments
-	h.mutex.Unlock()
-
 	h.log.Info(
 		"All getter instruments triggered for %+v, triggering %d setter instruments: %v",
 		measurementID,
-		len(instrumentsToTrigger),
-		instrumentsToTrigger,
+		len(triggerNames),
+		triggerNames,
 	)
 
-	// Send TRIGGER command for setter instruments
-	for _, instrumentName := range instrumentsToTrigger {
+	for _, instrumentName := range triggerNames {
 		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
 			h.log.Error(
-				"Failed to send "+TriggerMessage+" command to setter instrument %s: %v",
+				"Failed to send %s command to register triggers instrument %s: %v",
+				TriggerMessage,
 				instrumentName,
 				err,
 			)
@@ -969,12 +800,10 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 
 // handleExecuting processes EXECUTING messages from instruments
 func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
+	var executing api.Executing
 	h.log.Debug(
 		"Received "+ExecutingMessage+": %s", string(msg.Data),
 	)
-
-	// Parse the EXECUTING message
-	var executing api.Executing
 	if err := json.Unmarshal(msg.Data, &executing); err != nil {
 		h.log.Error(
 			"Failed to unmarshal "+ExecutingMessage+": %v", err,
@@ -982,7 +811,6 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		return
 	}
 
-	// Check if ProcessId and ChunkId are present in the message
 	measurementID := instrument.MeasurementID{
 		ProcessId: instrument.ID(executing.ProcessId),
 		ChunkId:   instrument.ID(executing.ChunkId),
@@ -1001,7 +829,6 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		return
 	}
 
-	// Extract instrument name from the subject
 	// Subject format: "EXECUTING.<instrument_name>"
 	subjectParts := strings.Split(msg.Subject, ".")
 	if len(subjectParts) < 2 {
@@ -1018,7 +845,6 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		measurementID,
 	)
 
-	// Update triggered getter checklist for the specific scheduler
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -1039,19 +865,7 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		return
 	}
 
-	// Check if this instrument is in the getter instruments for this scheduler
-	found := false
-	if slices.Contains(scheduler.GetterInstruments, instrumentName) {
-		scheduler.TriggeredGetterChecklist[instrumentName] = true
-		found = true
-		h.log.Debug(
-			"Marked getter instrument %s as triggered for %+v",
-			instrumentName,
-			measurementID,
-		)
-	}
-
-	if !found {
+	if !slices.Contains(scheduler.GetterInstruments, instrumentName) {
 		h.log.Error(
 			"Instrument %s not found in getter instruments for %+v",
 			instrumentName,
@@ -1059,29 +873,46 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		)
 		return
 	}
-
-	// Check if all getter instruments are triggered
-	if h.allGettersTriggered(scheduler) {
-		go h.handleAllGettersTriggered(measurementID)
+	scheduler.TriggeredGetterChecklist[instrumentName] = true
+	h.log.Debug(
+		"Marked getter instrument %s as triggered for %+v",
+		instrumentName,
+		measurementID,
+	)
+	if !scheduler.gettersAreTriggered() {
+		return
 	}
+	scheduler.resetGettersTriggered()
+	h.log.Debug("Reset triggered getter checklist for %+v", measurementID)
+	go h.handleAllGettersTriggered(
+		measurementID,
+		scheduler.MasterTriggerInstruments,
+	)
 }
 
 // handleReturnData processes RETURN_DATA responses from buffered measurements
 func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
+	var returnData api.ReturnData
 	h.log.Debug(
 		"Received "+ReturnDataMessage+": %s", string(msg.Data),
 	)
-
-	// Parse the RETURN_DATA response
-	var returnData api.ReturnData
 	if err := json.Unmarshal(msg.Data, &returnData); err != nil {
 		h.log.Error(
 			"Failed to unmarshal "+ReturnDataMessage+": %v", err,
 		)
 		return
 	}
-
-	// Check if ProcessId is present in the message
+	// Extract instrument name from subject (RETURN_DATA.<instrument_name>)
+	subjectParts := strings.Split(msg.Subject, ".")
+	if len(subjectParts) < 2 {
+		h.log.Error(
+			"Invalid %s subject format: %s",
+			ReturnDataMessage,
+			msg.Subject,
+		)
+		return
+	}
+	instrumentName := instrument.Name(subjectParts[1])
 	measurementID := instrument.MeasurementID{
 		ProcessId: instrument.ID(returnData.ProcessId),
 		ChunkId:   instrument.ID(returnData.ChunkId),
@@ -1110,20 +941,14 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		returnData.Data,
 		measurementID,
 	)
-
-	// Find the corresponding port using property and index
-	port, err := h.findPortByPropertyAndIndex(
-		instrument.PropertyName(returnData.Property),
-		instrument.Index(strconv.FormatInt(returnData.Index, 10)),
-	)
-	if err != nil {
+	port, exists := h.instrumentHandler.Instruments[instrumentName].Ports[instrument.PropertyName(returnData.Property)][instrument.Index(strconv.FormatInt(returnData.Index, 10))]
+	if !exists {
 		h.log.Error(
-			"Failed to find port for %s (property: %s, index: %d, measurementID: %+v): %v",
+			"Failed to find port for %s (property: %s, index: %d, measurementID: %+v)",
 			ReturnDataMessage,
 			returnData.Property,
 			returnData.Index,
 			measurementID,
-			err,
 		)
 		return
 	}
@@ -1157,9 +982,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		)
 		return
 	}
-
-	// Verify this port was part of the getters for this measurement
-	if !h.portInGetters(port, scheduler.GetterPorts) {
+	if !scheduler.containsGetter(port) {
 		h.log.Error(
 			"Port %s not found in getters for %+v",
 			port,
@@ -1167,11 +990,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		)
 		return
 	}
-
-	// Store the result in the scheduler
-	scheduler.Results[port] = returnData.Data
-	scheduler.ReceivedReturns++
-
+	scheduler.storeData(port, returnData.Data)
 	h.log.Debug(
 		"Stored result for port %s, %+v (%d/%d received): %v",
 		port,
@@ -1180,70 +999,16 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		scheduler.ExpectedReturns,
 		returnData.Data,
 	)
-
-	// Check if we have all expected returns
-	if scheduler.ReceivedReturns >= scheduler.ExpectedReturns {
-		h.sendProcessDataForBuffered(measurementID)
+	if !scheduler.allDataHere() {
+		return
 	}
-}
-
-// findPortByPropertyAndIndex finds a port name given property and index
-func (h *MeasurementReadyHandler) findPortByPropertyAndIndex(
-	property instrument.PropertyName,
-	index instrument.Index,
-) (instrument.JsonPort, error) {
-	h.log.Debug(
-		"Looking for port with property=%s, index=%s",
-		property,
-		index,
-	)
-
-	// Get all port configurations
-	portConfigurations, err := h.instrumentHandler.BuildPortConfigurations()
-	if err != nil {
-		return "", fmt.Errorf("failed to build port configurations: %w", err)
-	}
-
-	h.log.Debug(
-		"Built %d port configurations", len(portConfigurations),
-	)
-
-	// Search for matching port
-	for portName, portConfig := range portConfigurations {
-		h.log.Debug(
-			"Checking port %s: %+v", portName, portConfig,
-		)
-
-		if portConfig.Index == index {
-			// Check if any of the properties match
-			if slices.Contains(portConfig.Properties, property) {
-				h.log.Debug(
-					"Found matching port: %s", portName,
-				)
-				return portName, nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf(
-		"no port found for property %s, index %s",
-		property,
-		index,
-	)
-}
-
-// portInGetters checks if a port was part of the getters for a specific
-// measurement
-func (h *MeasurementReadyHandler) portInGetters(
-	port instrument.JsonPort,
-	getterPorts []instrument.JsonPort,
-) bool {
-	return slices.Contains(getterPorts, port)
+	h.sendProcessDataForBuffered(measurementID, scheduler.Results)
 }
 
 // sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
 func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 	measurementID instrument.MeasurementID,
+	results map[instrument.JsonPort]any,
 ) {
 	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
 	if !exists {
@@ -1254,17 +1019,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 		return
 	}
 
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error(
-			"No scheduler found for %+v",
-			measurementID,
-		)
-		return
-	}
-
-	// Marshal the results to JSON string
-	dataBytes, err := json.Marshal(scheduler.Results)
+	dataBytes, err := json.Marshal(results)
 	if err != nil {
 		h.log.Error(
 			"Failed to marshal buffered results for %+v: %v",
@@ -1273,15 +1028,11 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 		)
 		return
 	}
-
-	// Create PROCESS_DATA message
 	processData := api.ProcessData{
 		Data:      string(dataBytes),
 		ProcessId: int64(measurementID.ProcessId),
 		Timestamp: time.Now().UnixMicro(),
 	}
-
-	// Marshal the PROCESS_DATA
 	processDataBytes, err := json.Marshal(processData)
 	if err != nil {
 		h.log.Error(
@@ -1294,16 +1045,18 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 
 	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
 		h.log.Error(
-			"Failed to publish "+ProcessDataMessage+" for %+v: %v",
+			"Failed to publish %s for %+v: %v",
+			ProcessDataMessage,
 			measurementID,
 			err,
 		)
 		return
 	}
 	h.log.Info(
-		"Sent "+ProcessDataMessage+" for buffered measurement %+v with %d results",
+		"Sent %s for buffered measurement %+v with %d results",
+		ProcessDataMessage,
 		measurementID,
-		len(scheduler.Results),
+		len(results),
 	)
 
 	// Clean up the scheduler
