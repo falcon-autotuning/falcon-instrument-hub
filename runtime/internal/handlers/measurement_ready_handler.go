@@ -19,263 +19,35 @@ import (
 )
 
 const (
-	MeasurementReadyHandlerName = "MEASUREMENT_READY_HANDLER"
-
-	// Message type names for logging
-	MeasurementReadyMessage = "MEASUREMENT_READY"
-	ProcessDataMessage      = "PROCESS_DATA"
-	GetMessage              = "GET"
-	ReturnGetMessage        = "RETURN_GET"
-	TriggerMessage          = "TRIGGER"
-	ReturnDataMessage       = "RETURN_DATA"
-	UploadDataMessage       = "UPLOAD_DATA"
+	MeasurementReadyHandlerName                         = "MEASUREMENT_READY_HANDLER"
+	arm                         instrument.PropertyName = "ARM"
 )
 
-var ArmedMessage = api.GetCommandName(api.Armed)
-
-type ID int64
+var (
+	ArmedMessage            = api.GetCommandName(api.Armed{})
+	ExecutingMessage        = api.GetCommandName(api.Executing{})
+	MeasurementReadyMessage = api.GetCommandName(api.MeasurementReady{})
+	ProcessDataMessage      = api.GetCommandName(api.ProcessData{})
+	TriggerMessage          = api.GetCommandName(api.Trigger{})
+	ReturnDataMessage       = api.GetCommandName(api.ReturnData{})
+	UploadDataMessage       = api.GetCommandName(api.UploadData{})
+	GetMessage              = api.GetCommandName(api.Get{})
+)
 
 // MeasurementScheduler tracks measurements waiting for RETURN_DATA
 type MeasurementScheduler struct {
-	ProcessId         ID
-	GetterPorts       []instrument.JsonPort       // Original getter ports
-	SetterPorts       []instrument.JsonPort       // Original setter ports
-	GetterInstruments []instrument.Name           // Instruments that need to be armed
-	SetterInstruments []instrument.Name           // Instruments that need to be armed
-	ReceivedReturns   int                         // Number of RETURN_DATA messages received
-	Results           map[instrument.JsonPort]any // Port -> Data mapping
-	ReadyCount        int                         // Number of instruments successfully armed
-	ExecutedCount     int                         // Number of instruments that have executed
+	ID                       instrument.MeasurementID    // Combined ProcessId and ChunkId
+	GetterPorts              []instrument.JsonPort       // Original getter ports
+	SetterPorts              []instrument.JsonPort       // Original setter ports
+	GetterInstruments        []instrument.Name           // Instruments that need to be armed
+	SetterInstruments        []instrument.Name           // Instruments that need to be armed
+	MasterTriggerInstruments []instrument.Name           // Master instruments for hardware trigger
+	ReceivedReturns          int                         // Number of RETURN_DATA messages received
+	ExpectedReturns          int                         // Expected number of RETURN_DATA messages
+	Results                  map[instrument.JsonPort]any // Port -> Data mapping
+	ReadyChecklist           map[instrument.Name]bool    // Setter instrument -> ready status
+	TriggeredGetterChecklist map[instrument.Name]bool    // Getter instrument -> triggered status
 }
-
-// MeasurementReadyHandler handles MEASUREMENT_READY requests
-type MeasurementReadyHandler struct {
-	logger             *logging.Logger
-	nc                 *nats.Conn
-	subscription       *nats.Subscription
-	returnGetSub       *nats.Subscription
-	returnDataSub      *nats.Subscription
-	instrumentHandler  *instrument.Handler
-	config             *config.Config
-	measurementStack   *measure.MeasurementStack
-	currentMeasurement *measure.MeasurementStackItem
-	isProcessing       bool
-	getResults         map[ID]map[instrument.JsonPort]any              // ProcessId -> Port -> Value
-	schedulers         map[ID]*MeasurementScheduler                    // ProcessId -> PendingBufferedMeasurement
-	portConfigCache    map[instrument.JsonPort]*instrument.PortOptions // Cache port configs locally
-	mutex              sync.RWMutex
-}
-
-// NewMeasurementReadyHandler creates a new handler
-func NewMeasurementReadyHandler(
-	logger *logging.Logger,
-	instrumentHandler *instrument.Handler,
-	cfg *config.Config,
-) *MeasurementReadyHandler {
-	return &MeasurementReadyHandler{
-		logger:            logger,
-		instrumentHandler: instrumentHandler,
-		config:            cfg,
-		measurementStack:  &measure.MeasurementStack{},
-		isProcessing:      false,
-		getResults:        make(map[ID]map[instrument.JsonPort]any),
-		schedulers: make(
-			map[ID]*MeasurementScheduler,
-		),
-		portConfigCache: make(
-			map[instrument.JsonPort]*instrument.PortOptions,
-		),
-	}
-}
-
-// Subscribe starts listening for MEASUREMENT_READY requests
-func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
-	h.nc = nc
-	var err error
-
-	// Subscribe to MEASUREMENT_READY
-	h.subscription, err = nc.Subscribe(
-		MeasurementReadyMessage,
-		h.handleMeasurementReady,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to subscribe to "+MeasurementReadyMessage+": %w",
-			err,
-		)
-	}
-
-	// Subscribe to ARMED
-	h.subscription, err = nc.Subscribe(
-		ArmedMessage,
-		h.handleArmed,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to subscribe to "+ArmedMessage+": %w",
-			err,
-		)
-	}
-
-	// Subscribe to EXECUTING
-	h.subscription, err = nc.Subscribe(
-		ExecutingMessage,
-		h.handleExecuting,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to subscribe to "+ExecutingMessage+": %w",
-			err,
-		)
-	}
-	// Subscribe to RETURN_DATA responses for buffered measurements
-	h.returnDataSub, err = nc.Subscribe(
-		ReturnDataMessage+".>",
-		h.handleReturnData,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to subscribe to "+ReturnDataMessage+": %w",
-			err,
-		)
-	}
-
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		"Subscribed to "+MeasurementReadyMessage+", "+ReturnGetMessage+".>, and "+ReturnDataMessage+".>",
-	)
-	return nil
-}
-
-// Unsubscribe stops listening for commands
-func (h *MeasurementReadyHandler) Unsubscribe() error {
-	var errs []error
-
-	if h.subscription != nil {
-		if err := h.subscription.Unsubscribe(); err != nil {
-			errs = append(errs, err)
-		}
-		h.subscription = nil
-	}
-
-	if h.returnDataSub != nil {
-		if err := h.returnDataSub.Unsubscribe(); err != nil {
-			errs = append(errs, err)
-		}
-		h.returnDataSub = nil
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to unsubscribe: %v", errs)
-	}
-
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		"Unsubscribed from "+MeasurementReadyMessage+", "+ReturnGetMessage+", and "+ReturnDataMessage,
-	)
-	return nil
-}
-
-// handleMeasurementReady processes incoming MEASUREMENT_READY requests
-func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Received "+MeasurementReadyMessage+": %s",
-			string(msg.Data),
-		),
-	)
-
-	// Parse the incoming message
-	var measurementReady api.MeasurementReady
-	if err := json.Unmarshal(msg.Data, &measurementReady); err != nil {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to unmarshal "+MeasurementReadyMessage+": %v",
-				err,
-			),
-		)
-		return
-	}
-	// Create stack item and add to queue
-	stackItem := measure.MeasurementStackItem{
-		MeasurementReady: measurementReady,
-		Timestamp:        time.Now(),
-		Priority:         0, // Default priority
-	}
-
-	h.measurementStack.Push(stackItem)
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Queued measurement for ProcessId %d. Queue size: %d",
-			measurementReady.ProcessId,
-			h.measurementStack.Size(),
-		),
-	)
-
-	// Try to process the next measurement if not currently processing
-	h.tryProcessNextMeasurement()
-}
-
-// tryProcessNextMeasurement attempts to start processing the next queued
-// measurement
-func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	if h.isProcessing {
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			"Already processing a measurement, skipping",
-		)
-		return
-	}
-
-	stackItem, hasNext := h.measurementStack.Pop()
-	if !hasNext {
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			"No measurements in queue",
-		)
-		return
-	}
-
-	h.isProcessing = true
-	h.currentMeasurement = &stackItem
-
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Starting processing of measurement ProcessId %d. Remaining in queue: %d",
-			stackItem.MeasurementReady.ProcessId,
-			h.measurementStack.Size(),
-		),
-	)
-
-	// Process the measurement asynchronously to avoid blocking
-	go h.processMeasurement(stackItem.MeasurementReady)
-}
-
-// markMeasurementComplete marks the current measurement as complete and tries
-// to process the next one
-func (h *MeasurementReadyHandler) markMeasurementComplete() {
-	h.mutex.Lock()
-	h.isProcessing = false
-	h.currentMeasurement = nil
-	h.mutex.Unlock()
-
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		"Measurement processing complete, checking for next measurement",
-	)
-
-	// Try to process the next measurement
-	h.tryProcessNextMeasurement()
-}
-
-const arm instrument.PropertyName = "ARM"
 
 type Instructions struct {
 	Setter   instrument.JsonPort       `json:"setter"`
@@ -357,6 +129,558 @@ func (ii *InstrumentInstructions) arm() {
 	ii.append(newii)
 }
 
+// MeasurementReadyHandler handles MEASUREMENT_READY requests
+type MeasurementReadyHandler struct {
+	logger              *logging.Logger
+	nc                  *nats.Conn
+	subscription        *nats.Subscription
+	armedSub            *nats.Subscription
+	executingSub        *nats.Subscription
+	returnDataSub       *nats.Subscription
+	instrumentHandler   *instrument.Handler
+	config              *config.Config
+	measurementStack    *measure.MeasurementStack
+	currentMeasurement  *measure.MeasurementStackItem
+	isProcessing        bool
+	getResults          map[instrument.ID]map[instrument.JsonPort]any
+	schedulers          map[instrument.ID]map[instrument.ID]*MeasurementScheduler // ProcessId -> ChunkId -> Scheduler
+	pendingMeasurements map[instrument.ID]*MeasurementScheduler
+	pendingGets         map[instrument.ID]any
+	nextChunkId         int64 // Unique identifier for the next chunk
+	mutex               sync.RWMutex
+}
+
+// NewMeasurementReadyHandler creates a new handler
+func NewMeasurementReadyHandler(
+	logger *logging.Logger,
+	instrumentHandler *instrument.Handler,
+	cfg *config.Config,
+) *MeasurementReadyHandler {
+	return &MeasurementReadyHandler{
+		logger:            logger,
+		instrumentHandler: instrumentHandler,
+		config:            cfg,
+		measurementStack:  &measure.MeasurementStack{},
+		isProcessing:      false,
+		getResults:        make(map[instrument.ID]map[instrument.JsonPort]any),
+		schedulers: make(
+			map[instrument.ID]map[instrument.ID]*MeasurementScheduler,
+		),
+		pendingMeasurements: make(
+			map[instrument.ID]*MeasurementScheduler,
+		),
+		pendingGets: make(map[instrument.ID]any),
+		nextChunkId: 1,
+	}
+}
+
+// Subscribe starts listening for MEASUREMENT_READY requests
+func (h *MeasurementReadyHandler) Subscribe(nc *nats.Conn) error {
+	h.nc = nc
+	var err error
+
+	// Subscribe to MEASUREMENT_READY
+	h.subscription, err = nc.Subscribe(
+		MeasurementReadyMessage,
+		h.handleMeasurementReady,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to subscribe to "+MeasurementReadyMessage+": %w",
+			err,
+		)
+	}
+
+	// Subscribe to ARMED
+	h.armedSub, err = nc.Subscribe(
+		ArmedMessage+".>",
+		h.handleArmed,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to subscribe to "+ArmedMessage+": %w",
+			err,
+		)
+	}
+
+	// Subscribe to EXECUTING
+	h.executingSub, err = nc.Subscribe(
+		ExecutingMessage+".>",
+		h.handleExecuting,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to subscribe to "+ExecutingMessage+": %w",
+			err,
+		)
+	}
+	// Subscribe to RETURN_DATA responses for buffered measurements
+	h.returnDataSub, err = nc.Subscribe(
+		ReturnDataMessage+".>",
+		h.handleReturnData,
+	)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to subscribe to "+ReturnDataMessage+": %w",
+			err,
+		)
+	}
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		"Subscribed to "+MeasurementReadyMessage+", "+ArmedMessage+".>, "+ExecutingMessage+".>, and "+ReturnDataMessage+".>",
+	)
+	return nil
+}
+
+// Unsubscribe stops listening for commands
+func (h *MeasurementReadyHandler) Unsubscribe() error {
+	var errs []error
+
+	if h.subscription != nil {
+		if err := h.subscription.Unsubscribe(); err != nil {
+			errs = append(errs, err)
+		}
+		h.subscription = nil
+	}
+
+	if h.returnDataSub != nil {
+		if err := h.returnDataSub.Unsubscribe(); err != nil {
+			errs = append(errs, err)
+		}
+		h.returnDataSub = nil
+	}
+
+	if h.executingSub != nil {
+		if err := h.executingSub.Unsubscribe(); err != nil {
+			errs = append(errs, err)
+		}
+		h.executingSub = nil
+	}
+
+	if h.armedSub != nil {
+		if err := h.armedSub.Unsubscribe(); err != nil {
+			errs = append(errs, err)
+		}
+		h.armedSub = nil
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to unsubscribe: %v", errs)
+	}
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		"Unsubscribed from "+MeasurementReadyMessage+", "+GetMessage+", and "+ReturnDataMessage,
+	)
+	return nil
+}
+
+// handleMeasurementReady processes incoming MEASUREMENT_READY requests
+func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Received "+MeasurementReadyMessage+": %s",
+			string(msg.Data),
+		),
+	)
+
+	// Parse the incoming message
+	var measurementReady api.MeasurementReady
+	if err := json.Unmarshal(msg.Data, &measurementReady); err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to unmarshal "+MeasurementReadyMessage+": %v",
+				err,
+			),
+		)
+		return
+	}
+	// Create stack item and add to queue with assigned ChunkId
+	h.mutex.Lock()
+	chunkId := h.nextChunkId
+	h.nextChunkId++
+	h.mutex.Unlock()
+
+	stackItem := measure.MeasurementStackItem{
+		MeasurementReady: measurementReady,
+		Timestamp:        time.Now(),
+		Priority:         0, // Default priority
+		ChunkId:          chunkId,
+	}
+
+	h.measurementStack.Push(stackItem)
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Queued measurement for ProcessId %d with ChunkId %d. Queue size: %d",
+			measurementReady.ProcessId,
+			chunkId,
+			h.measurementStack.Size(),
+		),
+	)
+
+	// Process measurements immediately to pipeline SET commands
+	h.processMeasurementSets(stackItem)
+
+	// Try to process the next measurement if not currently processing
+	h.tryProcessNextMeasurement()
+}
+
+// tryProcessNextMeasurement attempts to start processing the next queued
+// measurement
+func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	if h.isProcessing {
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			"Already processing a measurement, skipping",
+		)
+		return
+	}
+
+	stackItem, hasNext := h.measurementStack.Pop()
+	if !hasNext {
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			"No measurements in queue",
+		)
+		return
+	}
+
+	h.isProcessing = true
+	h.currentMeasurement = &stackItem
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Starting processing of measurement ProcessId %d, ChunkId %d. Remaining in queue: %d",
+			stackItem.MeasurementReady.ProcessId,
+			stackItem.ChunkId,
+			h.measurementStack.Size(),
+		),
+	)
+
+	// Process the measurement arming and triggering
+	go h.processMeasurementExecution(stackItem)
+}
+
+// markMeasurementComplete marks the current measurement as complete and tries
+// to process the next one
+func (h *MeasurementReadyHandler) markMeasurementComplete() {
+	h.mutex.Lock()
+	h.isProcessing = false
+	h.currentMeasurement = nil
+	h.mutex.Unlock()
+
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		"Measurement processing complete, checking for next measurement",
+	)
+
+	// Try to process the next measurement
+	h.tryProcessNextMeasurement()
+}
+
+// processMeasurementSets sends SET commands immediately for pipelining
+func (h *MeasurementReadyHandler) processMeasurementSets(
+	stackItem measure.MeasurementStackItem,
+) {
+	msg := stackItem.MeasurementReady
+	chunkId := stackItem.ChunkId
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Processing SET commands for ProcessId %d, ChunkId %d (Setters: %d)",
+			msg.ProcessId,
+			chunkId,
+			len(msg.Setters),
+		),
+	)
+
+	totalInstructions, err := collectAllSetInstructions(msg.Setters)
+	if err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to collect all set instructions: %s",
+				err,
+			),
+		)
+	}
+
+	// Begin sorting the instructions by instrument
+	sortedInstructions := make(
+		[]*InstrumentInstructions,
+		0,
+		len(totalInstructions),
+	)
+
+	for _, instruction := range totalInstructions {
+		options, err := h.instrumentHandler.GetPortOptions(instruction.Setter)
+		if err != nil {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Failed to get port configuration for setter %s: %v",
+					instruction.Setter,
+					err,
+				),
+			)
+			continue
+		}
+
+		// Find existing InstrumentInstructions or create new one
+		var targetInstructions *InstrumentInstructions
+		for _, existing := range sortedInstructions {
+			if existing.Name == options.Instrument {
+				targetInstructions = existing
+				break
+			}
+		}
+
+		if targetInstructions == nil {
+			targetInstructions = &InstrumentInstructions{
+				Name: options.Instrument,
+			}
+			sortedInstructions = append(sortedInstructions, targetInstructions)
+		}
+		targetInstructions.append(instruction)
+	}
+
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(msg.ProcessId),
+		ChunkId:   instrument.ID(chunkId),
+	}
+
+	// Create scheduler BEFORE sending SET commands to avoid race condition
+	h.createSchedulerForMeasurement(msg, chunkId)
+
+	for _, instructions := range sortedInstructions {
+		instructions.arm()
+		h.instrumentHandler.SetProperties(
+			instructions.SetInstructions,
+			measurementID,
+		)
+	}
+}
+
+// createSchedulerForMeasurement creates the scheduler before sending SET
+// commands
+func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
+	msg api.MeasurementReady,
+	chunkId int64,
+) {
+	// Early return for unbuffered measurements with no getters
+	if len(msg.Getters) == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"No getters specified for measurement",
+		)
+		return
+	}
+
+	totalInstructions, err := collectAllSetInstructions(msg.Setters)
+	if err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to collect all set instructions: %s",
+				err,
+			),
+		)
+		return
+	}
+
+	setterPorts := make([]instrument.JsonPort, 0, len(totalInstructions))
+	for _, instruction := range totalInstructions {
+		setterPorts = append(setterPorts, instruction.Setter)
+	}
+
+	getterPorts, err := convertToJsonPorts(msg.Getters)
+	if err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to convert getters to JsonPorts: %s",
+				err,
+			),
+		)
+		return
+	}
+
+	// Get unique instruments from getters and setters
+	getterInstruments := h.getUniqueInstruments(getterPorts)
+	setterInstruments := h.getUniqueInstruments(setterPorts)
+	masterInstruments := setterInstruments // default for unbuffered
+
+	if msg.Buffered && len(msg.Setters) > 1 {
+		// For buffered measurements, find the master setter instrument
+		masterInstrument, err := h.instrumentHandler.FindMasterInstrument(
+			setterInstruments,
+		)
+		if err != nil {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Failed to find master setter instruments: %v",
+					err,
+				),
+			)
+			return
+		}
+		masterInstruments = []instrument.Name{masterInstrument}
+
+		if len(masterInstruments) == 0 {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				"No master setter instruments found for buffered measurement",
+			)
+			return
+		}
+
+		if len(masterInstruments) > 1 {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Multiple master setter instruments found for buffered measurement: %v, expected 1",
+					masterInstruments,
+				),
+			)
+			return
+		}
+
+		// Filter setterInstruments to only include the master
+		h.logger.Info(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Using master trigger instrument %s for buffered measurement",
+				masterInstruments[0],
+			),
+		)
+	}
+
+	readyChecklist := make(map[instrument.Name]bool)
+	for _, instrumentName := range setterInstruments {
+		readyChecklist[instrumentName] = false
+	}
+
+	triggerGetterChecklist := make(map[instrument.Name]bool)
+	for _, instrumentName := range getterInstruments {
+		triggerGetterChecklist[instrumentName] = false
+	}
+
+	// Initialize scheduler for this specific chunk
+	h.mutex.Lock()
+	if h.schedulers[instrument.ID(msg.ProcessId)] == nil {
+		h.schedulers[instrument.ID(msg.ProcessId)] = make(
+			map[instrument.ID]*MeasurementScheduler,
+		)
+	}
+
+	scheduler := &MeasurementScheduler{
+		ID: instrument.MeasurementID{
+			ProcessId: instrument.ID(msg.ProcessId),
+			ChunkId:   instrument.ID(chunkId),
+		},
+		GetterPorts:              getterPorts,
+		GetterInstruments:        getterInstruments,
+		SetterInstruments:        setterInstruments,
+		MasterTriggerInstruments: masterInstruments,
+		SetterPorts:              setterPorts,
+		ReceivedReturns:          0,
+		ExpectedReturns:          len(getterPorts),
+		ReadyChecklist:           readyChecklist,
+		TriggeredGetterChecklist: triggerGetterChecklist,
+		Results:                  make(map[instrument.JsonPort]any),
+	}
+
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Created scheduler for %+v with setter instruments: %v, getter instruments: %v",
+			scheduler.ID,
+			setterInstruments,
+			getterInstruments,
+		),
+	)
+	h.schedulers[instrument.ID(msg.ProcessId)][scheduler.ID.ChunkId] = scheduler
+	h.mutex.Unlock()
+}
+
+// processMeasurementExecution handles the arming and triggering phase
+func (h *MeasurementReadyHandler) processMeasurementExecution(
+	stackItem measure.MeasurementStackItem,
+) {
+	msg := stackItem.MeasurementReady
+	chunkId := stackItem.ChunkId
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Starting execution phase for ProcessId %d, ChunkId %d (Getters: %d, Setters: %d)",
+			msg.ProcessId,
+			chunkId,
+			len(msg.Getters),
+			len(msg.Setters),
+		),
+	)
+
+	if len(msg.Getters) == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"No getters specified for measurement",
+		)
+		return
+	}
+
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(msg.ProcessId),
+		ChunkId:   instrument.ID(chunkId),
+	}
+
+	// The scheduler should already exist from processMeasurementSets
+	h.mutex.RLock()
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
+			),
+		)
+		h.mutex.RUnlock()
+		return
+	}
+
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
+		)
+		h.mutex.RUnlock()
+		return
+	}
+	h.mutex.RUnlock()
+
+	h.logger.Info(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Starting measurement for ProcessId %d, ChunkId %d: awaiting %d setter instruments to arm",
+			msg.ProcessId,
+			chunkId,
+			len(scheduler.SetterPorts),
+		),
+	)
+}
+
 func collectAllSetInstructions(
 	setters []string,
 ) ([]Instructions, error) {
@@ -386,347 +710,183 @@ func collectAllSetInstructions(
 	return allInstructions, nil
 }
 
-// processMeasurement handles measurements
-func (h *MeasurementReadyHandler) processMeasurement(
-	msg api.MeasurementReady,
-) {
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Processing %s measurement for ProcessId %d (Getters: %d, Setters: %d)",
-			map[bool]string{true: "buffered", false: "unbuffered"}[msg.Buffered],
-			msg.ProcessId,
-			len(msg.Getters),
-			len(msg.Setters),
-		),
-	)
-	if len(msg.Getters) == 0 {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			"No getters specified for measurement",
-		)
-		return
-	}
-	if msg.Buffered && len(msg.Setters) > 1 {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Too many setters specified for buffered measurement: %d, expected 1",
-				len(msg.Setters),
-			),
-		)
-	}
-	totalInstructions, err := collectAllSetInstructions(msg.Setters)
-	if err != nil {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to collect all set instructions: %s",
-				err,
-			),
-		)
-	}
-	setterPorts := make([]instrument.JsonPort, 0, len(totalInstructions))
-	for _, instruction := range totalInstructions {
-		setterPorts = append(setterPorts, instruction.Setter)
-	}
-	getterPorts, err := convertToJsonPorts(msg.Getters)
-	// Get unique instruments from getters
-	uniqueInstruments := h.getUniqueInstruments(getterPorts)
-	if err != nil {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to convert getters to JsonPorts: %s",
-				err,
-			),
-		)
-	}
-	// Initialize pending buffered measurement
-	h.mutex.Lock()
-	h.schedulers[ID(msg.ProcessId)] = &MeasurementScheduler{
-		ProcessId:         ID(msg.ProcessId),
-		GetterPorts:       getterPorts,
-		GetterInstruments: uniqueInstruments,
-		SetterPorts:       setterPorts,
-		ReceivedReturns:   0,
-		ReadyCount:        0,
-		ExecutedCount:     0,
-		Results:           make(map[instrument.JsonPort]any),
-	}
-	h.mutex.Unlock()
-
-	// Begin sorting the instructions by instrument
-	sortedInstructions := make(
-		[]*InstrumentInstructions,
-		0,
-		len(totalInstructions),
-	)
-
-	for _, instruction := range totalInstructions {
-		options, err := h.getCachedPortConfiguration(instruction.Setter)
-		if err != nil {
-			h.logger.Error(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf(
-					"Failed to get port configuration for setter %s: %v",
-					instruction.Setter,
-					err,
-				),
-			)
-		}
-
-		// Find existing InstrumentInstructions or create new one
-		var targetInstructions *InstrumentInstructions
-		for _, existing := range sortedInstructions {
-			if existing.Name == options.Instrument {
-				targetInstructions = existing
-				break
-			}
-		}
-
-		if targetInstructions == nil {
-			targetInstructions = &InstrumentInstructions{
-				Name: options.Instrument,
-			}
-			sortedInstructions = append(sortedInstructions, targetInstructions)
-		}
-		targetInstructions.append(instruction)
-	}
-	for _, instructions := range sortedInstructions {
-		instructions.arm()
-		h.instrumentHandler.SetProperties(instructions.SetInstructions)
-	}
-
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Starting buffered measurement for ProcessId %d: %d getter instruments to arm",
-			msg.ProcessId,
-			len(uniqueInstruments),
-		),
-	)
-
-	// TODO: this handler ends here as we await lock signals
-
-	// Step 1: Arm all getter instruments
-	h.armGetterInstruments(
-		ID(msg.ProcessId),
-		convertToJsonPorts(msg.Getters),
-	)
-}
-
-// getCachedPortConfiguration gets a port configuration with local caching
-func (h *MeasurementReadyHandler) getCachedPortConfiguration(
-	port instrument.JsonPort,
-) (*instrument.PortOptions, error) {
-	h.mutex.RLock()
-	if cached, exists := h.portConfigCache[port]; exists {
-		h.mutex.RUnlock()
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf("Found cached port configuration for %s", port),
-		)
-		return cached, nil
-	}
-	h.mutex.RUnlock()
-
+// handleArmed processes ARMED messages from instruments
+func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Port %s not in cache, fetching from instrument handler",
-			port,
-		),
+		fmt.Sprintf("Received "+ArmedMessage+": %s", string(msg.Data)),
 	)
 
-	// Not in local cache, get from instrument handler
-	portConfig, err := h.instrumentHandler.GetPortOptions(port)
-	if err != nil {
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to get port configuration for %s: %v",
-				port,
-				err,
-			),
-		)
-		return nil, err
-	}
-
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Successfully retrieved port configuration for %s: instrument=%s, index=%s, properties=%v",
-			port,
-			portConfig.Instrument,
-			portConfig.Index,
-			portConfig.Properties,
-		),
-	)
-
-	// Cache locally for future use
-	h.mutex.Lock()
-	h.portConfigCache[port] = portConfig
-	h.mutex.Unlock()
-
-	return portConfig, nil
-}
-
-// sendGetCommand sends a GET command for a specific port
-func (h *MeasurementReadyHandler) sendGetCommand(
-	port instrument.JsonPort,
-	processId ID,
-) error {
-	// Get port configuration using cached version
-	portConfig, err := h.getCachedPortConfiguration(port)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to get port configuration for %s: %w",
-			port,
-			err,
-		)
-	}
-
-	// Generate unique ID for this GET operation
-	getId := fmt.Sprintf("%d_%s_%d", processId, port, time.Now().UnixNano())
-
-	// Store pending GET with property and index for matching
-	h.mutex.Lock()
-	h.pendingGets[getId] = &PendingGet{
-		Port:      port,
-		ProcessId: processId,
-		GetId:     getId,
-		Property:  portConfig.Properties[0], // Use first property
-		Index:     portConfig.Index,
-	}
-	h.mutex.Unlock()
-
-	// Use the first property for the GET command
-	// Note: If a port has multiple properties, we might need to handle this
-	// differently
-	if len(portConfig.Properties) == 0 {
-		// Clean up pending GET on error
-		h.mutex.Lock()
-		delete(h.pendingGets, getId)
-		h.mutex.Unlock()
-		return fmt.Errorf("port %s has no properties", port)
-	}
-
-	// Create GET command using the port configuration
-	indexNumber, err := strconv.ParseInt(string(portConfig.Index), 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
-	}
-	getCommand := api.Get{
-		Index:    indexNumber,
-		Property: string(portConfig.Properties[0]), // Use first property
-	}
-
-	// Marshal the command
-	getCommandData, err := json.Marshal(getCommand)
-	if err != nil {
-		// Clean up pending GET on error
-		h.mutex.Lock()
-		delete(h.pendingGets, getId)
-		h.mutex.Unlock()
-		return fmt.Errorf("failed to marshal "+GetMessage+" command: %w", err)
-	}
-
-	// Send GET command to specific instrument
-	subject := fmt.Sprintf("%s.%s", GetMessage, portConfig.Instrument)
-	if err := h.nc.Publish(subject, getCommandData); err != nil {
-		// Clean up pending GET on error
-		h.mutex.Lock()
-		delete(h.pendingGets, getId)
-		h.mutex.Unlock()
-		return fmt.Errorf("failed to publish "+GetMessage+" command: %w", err)
-	}
-
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Sent "+GetMessage+" command for port %s to %s (Property: %s, Index: %s, GetId: %s)",
-			port,
-			portConfig.Instrument,
-			portConfig.Properties[0],
-			portConfig.Index,
-			getId,
-		),
-	)
-
-	return nil
-}
-
-// handleReturnGet processes RETURN_GET responses
-func (h *MeasurementReadyHandler) handleReturnGet(msg *nats.Msg) {
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf("Received "+ReturnGetMessage+": %s", string(msg.Data)),
-	)
-
-	// Parse the RETURN_GET response
-	var returnGet api.ReturnGet
-	if err := json.Unmarshal(msg.Data, &returnGet); err != nil {
+	// Parse the ARMED message
+	var armed api.Armed
+	if err := json.Unmarshal(msg.Data, &armed); err != nil {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
-			fmt.Sprintf("Failed to unmarshal "+ReturnGetMessage+": %v", err),
+			fmt.Sprintf("Failed to unmarshal "+ArmedMessage+": %v", err),
 		)
 		return
 	}
 
-	// Find the corresponding pending GET using Index and Property
+	// Check if ProcessId is present in the message
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(armed.ProcessId),
+		ChunkId:   instrument.ID(armed.ChunkId),
+	}
+	if measurementID.ProcessId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ProcessId not found in ARMED message",
+		)
+		return
+	}
+
+	// Check if ChunkId is present in the message
+	if measurementID.ChunkId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ChunkId not found in ARMED message",
+		)
+		return
+	}
+
+	// Extract instrument name from the subject
+	// Subject format: "ARMED.<instrument_name>"
+	subjectParts := strings.Split(msg.Subject, ".")
+	if len(subjectParts) < 2 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("Invalid ARMED subject format: %s", msg.Subject),
+		)
+		return
+	}
+	instrumentName := instrument.Name(subjectParts[1])
+
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Processing ARMED from instrument: %s for %+v",
+			instrumentName,
+			measurementID,
+		),
+	)
+
+	// Update ready checklist for the specific scheduler
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	var matchingGet *PendingGet
-	var matchingGetId string
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
+			),
+		)
+		return
+	}
 
-	// Find the GET that matches this RETURN_GET by Index and Property
-	for getId, pendingGet := range h.pendingGets {
-		if pendingGet.Index == instrument.Index(
-			strconv.FormatInt(returnGet.Index, 10),
-		) &&
-			pendingGet.Property == instrument.PropertyName(returnGet.Property) {
-			matchingGet = pendingGet
-			matchingGetId = getId
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
+		)
+		return
+	}
+
+	// Check if this instrument is in the setter instruments for this scheduler
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Checking if instrument %s is in setter instruments for %+v. Setter instruments: %v",
+			instrumentName,
+			measurementID,
+			scheduler.SetterInstruments,
+		),
+	)
+
+	found := false
+	for _, setterInstrument := range scheduler.SetterInstruments {
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Comparing instrument %s with setter instrument %s",
+				instrumentName,
+				setterInstrument,
+			),
+		)
+		if setterInstrument == instrumentName {
+			scheduler.ReadyChecklist[instrumentName] = true
+			found = true
+			h.logger.Debug(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Marked instrument %s as ready for %+v",
+					instrumentName,
+					measurementID,
+				),
+			)
 			break
 		}
 	}
 
-	if matchingGet == nil {
+	if !found {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending "+GetMessage+" found for "+ReturnGetMessage+" (Property: %s, Index: %d)",
-				returnGet.Property,
-				returnGet.Index,
+				"Instrument %s not found in setter instruments for %+v. Available setter instruments: %v",
+				instrumentName,
+				measurementID,
+				scheduler.SetterInstruments,
 			),
 		)
 		return
 	}
 
-	// Store the result
-	if h.getResults[matchingGet.ProcessId] == nil {
-		h.getResults[matchingGet.ProcessId] = make(
-			map[instrument.JsonPort]any,
+	if h.allSettersReady(scheduler) {
+		h.logger.Info(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"All setter instruments ready for %+v, arming getter instruments",
+				measurementID,
+			),
 		)
+		// Reset the ready checklist to prevent re-triggering
+		for instrumentName := range scheduler.ReadyChecklist {
+			scheduler.ReadyChecklist[instrumentName] = false
+		}
+		h.logger.Debug(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("Reset ready checklist for %+v", measurementID),
+		)
+		go h.triggerGetterInstruments(measurementID)
 	}
-	h.getResults[matchingGet.ProcessId][matchingGet.Port] = returnGet.Value
+}
 
-	delete(h.pendingGets, matchingGetId)
+// allSettersReady checks if all setter instruments in the scheduler are ready
+func (h *MeasurementReadyHandler) allSettersReady(
+	scheduler *MeasurementScheduler,
+) bool {
+	for _, instrumentName := range scheduler.SetterInstruments {
+		if !scheduler.ReadyChecklist[instrumentName] {
+			return false
+		}
+	}
+	return true
+}
 
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Stored result for port %s, ProcessId %d: %v",
-			matchingGet.Port,
-			matchingGet.ProcessId,
-			returnGet.Value,
-		),
-	)
-
-	h.checkAndSendProcessData(matchingGet.ProcessId)
-	h.markMeasurementComplete()
+// allGettersTriggered checks if all getter instruments in the scheduler are
+// triggered
+func (h *MeasurementReadyHandler) allGettersTriggered(
+	scheduler *MeasurementScheduler,
+) bool {
+	for _, instrumentName := range scheduler.GetterInstruments {
+		if !scheduler.TriggeredGetterChecklist[instrumentName] {
+			return false
+		}
+	}
+	return true
 }
 
 // getUniqueInstruments extracts unique instrument names from a list of ports
@@ -737,7 +897,9 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 	var uniqueInstruments []instrument.Name
 
 	for _, port := range ports {
-		portConfig, err := h.getCachedPortConfiguration(port)
+		// Use instrument handler's GetPortOptions (which uses its internal
+		// cache)
+		portConfig, err := h.instrumentHandler.GetPortOptions(port)
 		if err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
@@ -759,38 +921,40 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 	return uniqueInstruments
 }
 
-// armGetterInstruments sends TRIGGER commands to arm all getter instruments
-func (h *MeasurementReadyHandler) armGetterInstruments(
-	processId ID,
-	getterPorts []instrument.JsonPort,
+// triggerGetterInstruments sends TRIGGER commands to arm all getter instruments
+func (h *MeasurementReadyHandler) triggerGetterInstruments(
+	measurementID instrument.MeasurementID,
 ) {
-	// Get the first port for each unique instrument to use for trigger
-	// configuration
-	out := make(map[instrument.Name]instrument.JsonPort)
-
-	for _, port := range getterPorts {
-		portConfig, err := h.getCachedPortConfiguration(port)
-		if err != nil {
-			h.logger.Error(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf(
-					"Failed to get configuration for getter port %s: %v",
-					port,
-					err,
-				),
-			)
-			continue
-		}
-
-		// Use the first port we encounter for each instrument
-		if _, exists := out[portConfig.Instrument]; !exists {
-			out[portConfig.Instrument] = port
-		}
+	h.mutex.RLock()
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
+			),
+		)
+		h.mutex.RUnlock()
+		return
 	}
 
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
+		)
+		h.mutex.RUnlock()
+		return
+	}
+
+	getterInstruments := scheduler.GetterInstruments
+	h.mutex.RUnlock()
+
 	// Send TRIGGER command for each unique instrument
-	for instrumentName, firstPort := range out {
-		if err := h.sendTriggerCommand(instrumentName, firstPort, processId, true); err != nil {
+	for _, instrumentName := range getterInstruments {
+		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
 			h.logger.Error(
 				MeasurementReadyHandlerName,
 				fmt.Sprintf(
@@ -799,8 +963,6 @@ func (h *MeasurementReadyHandler) armGetterInstruments(
 					err,
 				),
 			)
-		} else {
-			h.incrementArmedCount(processId)
 		}
 	}
 }
@@ -808,32 +970,12 @@ func (h *MeasurementReadyHandler) armGetterInstruments(
 // sendTriggerCommand sends a TRIGGER command to an instrument
 func (h *MeasurementReadyHandler) sendTriggerCommand(
 	instrumentName instrument.Name,
-	port instrument.JsonPort,
-	processId ID,
-	isGetter bool,
+	measurementID instrument.MeasurementID,
 ) error {
-	portConfig, err := h.getCachedPortConfiguration(port)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to get port configuration for %s: %w",
-			port,
-			err,
-		)
-	}
-
-	// Use the first property for the TRIGGER command
-	if len(portConfig.Properties) == 0 {
-		return fmt.Errorf("port %s has no properties", port)
-	}
-
-	// Create TRIGGER command
-	indexNumber, err := strconv.ParseInt(string(portConfig.Index), 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse index for port %s: %w", port, err)
-	}
 	triggerCommand := api.Trigger{
-		Property: string(portConfig.Properties[0]), // Use first property
-		Index:    indexNumber,
+		Timestamp: time.Now().UnixMicro(),
+		ProcessId: int64(measurementID.ProcessId),
+		ChunkId:   int64(measurementID.ChunkId),
 	}
 
 	// Marshal the command
@@ -854,105 +996,201 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 		)
 	}
 
-	action := "set"
-	if isGetter {
-		action = "arm"
-	}
-
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+TriggerMessage+" command to %s instrument %s (Property: %s, Index: %s, ProcessId: %d)",
-			action,
+			"Sent "+TriggerMessage+" command to %s instrument for %+v",
 			instrumentName,
-			portConfig.Properties[0],
-			portConfig.Index,
-			processId,
+			measurementID,
 		),
 	)
 
 	return nil
 }
 
-// incrementArmedCount increments the armed count and checks if we can proceed
-// to setters
-func (h *MeasurementReadyHandler) incrementArmedCount(processId ID) {
+// handleAllGettersTriggered handles when all getter instruments are triggered
+func (h *MeasurementReadyHandler) handleAllGettersTriggered(
+	measurementID instrument.MeasurementID,
+) {
 	h.mutex.Lock()
-
-	var shouldTriggerSetter bool
-	if pending, exists := h.pendingBufferedMeasurements[processId]; exists {
-		pending.ArmedCount++
-
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Armed instrument count for ProcessId %d: %d/%d",
-				processId,
-				pending.ArmedCount,
-				len(pending.GetterInstruments),
-			),
-		)
-
-		// If all getters are armed, proceed to trigger the setter
-		shouldTriggerSetter = pending.ArmedCount >= len(
-			pending.GetterInstruments,
-		)
-	}
-
-	h.mutex.Unlock()
-
-	// Call triggerSetter outside of the mutex to avoid deadlock
-	if shouldTriggerSetter {
-		h.triggerSetter(processId)
-	}
-}
-
-// triggerSetter sends the TRIGGER command to the setter instrument
-func (h *MeasurementReadyHandler) triggerSetter(processId ID) {
-	pending, exists := h.pendingBufferedMeasurements[processId]
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
 	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending buffered measurement found for ProcessId %d",
-				processId,
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
 			),
 		)
+		h.mutex.Unlock()
 		return
 	}
 
-	setterPortConfig, err := h.getCachedPortConfiguration(pending.SetterPort)
-	if err != nil {
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to get setter port configuration for %s: %v",
-				pending.SetterPort,
-				err,
-			),
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
 		)
+		h.mutex.Unlock()
 		return
 	}
+
+	// Reset the triggered getter checklist to prevent re-triggering
+	for instrumentName := range scheduler.TriggeredGetterChecklist {
+		scheduler.TriggeredGetterChecklist[instrumentName] = false
+	}
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf("Reset triggered getter checklist for %+v", measurementID),
+	)
+
+	// Determine which setter instruments to trigger
+	instrumentsToTrigger := scheduler.MasterTriggerInstruments
+	h.mutex.Unlock()
 
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"All getters armed for ProcessId %d, triggering setter on instrument %s",
-			processId,
-			setterPortConfig.Instrument,
+			"All getter instruments triggered for %+v, triggering %d setter instruments: %v",
+			measurementID,
+			len(instrumentsToTrigger),
+			instrumentsToTrigger,
 		),
 	)
 
-	// Send TRIGGER to setter
-	if err := h.sendTriggerCommand(setterPortConfig.Instrument, pending.SetterPort, processId, false); err != nil {
+	// Send TRIGGER command for setter instruments
+	for _, instrumentName := range instrumentsToTrigger {
+		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
+			h.logger.Error(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Failed to send "+TriggerMessage+" command to setter instrument %s: %v",
+					instrumentName,
+					err,
+				),
+			)
+		}
+	}
+}
+
+// handleExecuting processes EXECUTING messages from instruments
+func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf("Received "+ExecutingMessage+": %s", string(msg.Data)),
+	)
+
+	// Parse the EXECUTING message
+	var executing api.Executing
+	if err := json.Unmarshal(msg.Data, &executing); err != nil {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("Failed to unmarshal "+ExecutingMessage+": %v", err),
+		)
+		return
+	}
+
+	// Check if ProcessId and ChunkId are present in the message
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(executing.ProcessId),
+		ChunkId:   instrument.ID(executing.ChunkId),
+	}
+	if measurementID.ProcessId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ProcessId not found in EXECUTING message",
+		)
+		return
+	}
+
+	if measurementID.ChunkId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ChunkId not found in EXECUTING message",
+		)
+		return
+	}
+
+	// Extract instrument name from the subject
+	// Subject format: "EXECUTING.<instrument_name>"
+	subjectParts := strings.Split(msg.Subject, ".")
+	if len(subjectParts) < 2 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("Invalid EXECUTING subject format: %s", msg.Subject),
+		)
+		return
+	}
+	instrumentName := instrument.Name(subjectParts[1])
+
+	h.logger.Debug(
+		MeasurementReadyHandlerName,
+		fmt.Sprintf(
+			"Processing EXECUTING from instrument: %s for %+v",
+			instrumentName,
+			measurementID,
+		),
+	)
+
+	// Update triggered getter checklist for the specific scheduler
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
+	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to send "+TriggerMessage+" command to setter instrument %s: %v",
-				setterPortConfig.Instrument,
-				err,
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
 			),
 		)
+		return
+	}
+
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
+		)
+		return
+	}
+
+	// Check if this instrument is in the getter instruments for this scheduler
+	found := false
+	for _, getterInstrument := range scheduler.GetterInstruments {
+		if getterInstrument == instrumentName {
+			scheduler.TriggeredGetterChecklist[instrumentName] = true
+			found = true
+			h.logger.Debug(
+				MeasurementReadyHandlerName,
+				fmt.Sprintf(
+					"Marked getter instrument %s as triggered for %+v",
+					instrumentName,
+					measurementID,
+				),
+			)
+			break
+		}
+	}
+
+	if !found {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Instrument %s not found in getter instruments for %+v",
+				instrumentName,
+				measurementID,
+			),
+		)
+		return
+	}
+
+	// Check if all getter instruments are triggered
+	if h.allGettersTriggered(scheduler) {
+		go h.handleAllGettersTriggered(measurementID)
 	}
 }
 
@@ -973,13 +1211,36 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		return
 	}
 
+	// Check if ProcessId is present in the message
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(returnData.ProcessId),
+		ChunkId:   instrument.ID(returnData.ChunkId),
+	}
+	if measurementID.ProcessId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ProcessId not found in "+ReturnDataMessage+" message",
+		)
+		return
+	}
+
+	if measurementID.ChunkId == 0 {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			"ChunkId not found in "+ReturnDataMessage+" message",
+		)
+		return
+	}
+
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Processing RETURN_DATA: property=%s, index=%d, data=%v",
+			"Processing %s: property=%s, index=%d, data=%v, measurementID=%+v",
+			ReturnDataMessage,
 			returnData.Property,
 			returnData.Index,
 			returnData.Data,
+			measurementID,
 		),
 	)
 
@@ -992,9 +1253,11 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to find port for "+ReturnDataMessage+" (property: %s, index: %d): %v",
+				"Failed to find port for %s (property: %s, index: %d, measurementID: %+v): %v",
+				ReturnDataMessage,
 				returnData.Property,
 				returnData.Index,
+				measurementID,
 				err,
 			),
 		)
@@ -1004,122 +1267,72 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Found port '%s' for RETURN_DATA (property: %s, index: %d)",
+			"Found port '%s' for %s (property: %s, index: %d, measurementID: %+v)",
 			port,
+			ReturnDataMessage,
 			returnData.Property,
 			returnData.Index,
+			measurementID,
 		),
 	)
 
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		"About to acquire mutex lock to search for pending buffered measurements",
-	)
-
-	// Find which pending buffered measurement this belongs to
+	// Find the scheduler for this measurement
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Looking for pending buffered measurements, found %d total",
-			len(h.pendingBufferedMeasurements),
-		),
-	)
-
-	var matchingProcessId ID
-	for processId, pending := range h.pendingBufferedMeasurements {
-		h.logger.Debug(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Checking ProcessId %d: GetterPorts=%v",
-				processId,
-				pending.GetterPorts,
-			),
-		)
-
-		// Debug the exact comparison
-		for i, getterPort := range pending.GetterPorts {
-			h.logger.Debug(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf(
-					"Comparing getter[%d] (len=%d): %s",
-					i,
-					len(getterPort),
-					getterPort,
-				),
-			)
-			h.logger.Debug(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf("With found port (len=%d): %s", len(port), port),
-			)
-			h.logger.Debug(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf("Strings equal: %t", getterPort == port),
-			)
-		}
-
-		// Check if this port was part of the getters for this measurement
-		if h.portInGetters(port, pending.GetterPorts) {
-			matchingProcessId = processId
-			h.logger.Debug(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf(
-					"Found matching ProcessId %d for port %s",
-					processId,
-					port,
-				),
-			)
-			break
-		} else {
-			h.logger.Debug(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf("Port %s not found in getters for ProcessId %d", port, processId),
-			)
-		}
-	}
-
-	if matchingProcessId == 0 {
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
+	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending buffered measurement found for "+ReturnDataMessage+" from port %s",
-				port,
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
 			),
 		)
 		return
 	}
 
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf("No scheduler found for %+v", measurementID),
+		)
+		return
+	}
+
+	// Verify this port was part of the getters for this measurement
+	if !h.portInGetters(port, scheduler.GetterPorts) {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Port %s not found in getters for %+v",
+				port,
+				measurementID,
+			),
+		)
+		return
+	}
+
+	// Store the result in the scheduler
+	scheduler.Results[port] = returnData.Data
+	scheduler.ReceivedReturns++
+
 	h.logger.Debug(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Processing RETURN_DATA for matching ProcessId %d",
-			matchingProcessId,
-		),
-	)
-
-	pending := h.pendingBufferedMeasurements[matchingProcessId]
-
-	// Store the result
-	pending.Results[port] = returnData.Data
-	pending.ReceivedReturns++
-
-	h.logger.Debug(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Stored buffered result for port %s, ProcessId %d (%d/%d received): %v",
+			"Stored result for port %s, %+v (%d/%d received): %v",
 			port,
-			matchingProcessId,
-			pending.ReceivedReturns,
-			pending.ExpectedReturns,
+			measurementID,
+			scheduler.ReceivedReturns,
+			scheduler.ExpectedReturns,
 			returnData.Data,
 		),
 	)
 
 	// Check if we have all expected returns
-	if pending.ReceivedReturns >= pending.ExpectedReturns {
-		h.sendProcessDataForBuffered(matchingProcessId)
+	if scheduler.ReceivedReturns >= scheduler.ExpectedReturns {
+		h.sendProcessDataForBuffered(measurementID)
 	}
 }
 
@@ -1184,162 +1397,101 @@ func (h *MeasurementReadyHandler) portInGetters(
 }
 
 // sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
-func (h *MeasurementReadyHandler) sendProcessDataForBuffered(processId ID) {
-	pending, exists := h.pendingBufferedMeasurements[processId]
+func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
+	measurementID instrument.MeasurementID,
+) {
+	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
 	if !exists {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"No pending buffered measurement found for ProcessId %d",
-				processId,
+				"No scheduler map found for ProcessId %d",
+				measurementID.ProcessId,
+			),
+		)
+		return
+	}
+
+	scheduler, exists := schedulerMap[measurementID.ChunkId]
+	if !exists {
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"No scheduler found for %+v",
+				measurementID,
 			),
 		)
 		return
 	}
 
 	// Marshal the results to JSON string
-	dataBytes, err := json.Marshal(pending.Results)
+	dataBytes, err := json.Marshal(scheduler.Results)
 	if err != nil {
 		h.logger.Error(
 			MeasurementReadyHandlerName,
 			fmt.Sprintf(
-				"Failed to marshal buffered results for ProcessId %d: %v",
-				processId,
+				"Failed to marshal buffered results for %+v: %v",
+				measurementID,
 				err,
 			),
 		)
 		return
-	}
-
-	// Create PROCESS_DATA message (same as unbuffered)
-	processData := api.ProcessData{
-		Data:      string(dataBytes),
-		ProcessId: int64(processId),
-		Timestamp: time.Now().UnixMicro(),
-	}
-
-	// Marshal the PROCESS_DATA
-	processDataBytes, err := json.Marshal(processData)
-	if err != nil {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to marshal "+ProcessDataMessage+" for ProcessId %d: %v",
-				processId,
-				err,
-			),
-		)
-		return
-	}
-
-	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
-		h.logger.Error(
-			MeasurementReadyHandlerName,
-			fmt.Sprintf(
-				"Failed to publish "+ProcessDataMessage+" for ProcessId %d: %v",
-				processId,
-				err,
-			),
-		)
-		return
-	}
-	h.logger.Info(
-		MeasurementReadyHandlerName,
-		fmt.Sprintf(
-			"Sent "+ProcessDataMessage+" for buffered measurement ProcessId %d with %d results",
-			processId,
-			len(pending.Results),
-		),
-	)
-
-	delete(h.pendingBufferedMeasurements, processId)
-	h.markMeasurementComplete()
-}
-
-// checkAndSendProcessData checks if all GET results are collected and sends
-// PROCESS_DATA
-func (h *MeasurementReadyHandler) checkAndSendProcessData(processId ID) {
-	// Count pending GETs for this process
-	pendingCount := 0
-	expectedCount := 0
-
-	for _, pendingGet := range h.pendingGets {
-		if pendingGet.ProcessId == processId {
-			pendingCount++
-		}
-	}
-
-	// Count expected results
-	if results, exists := h.getResults[processId]; exists {
-		expectedCount = len(results)
-	}
-
-	// If no pending GETs remain for this process, send PROCESS_DATA
-	if pendingCount == 0 && expectedCount > 0 {
-		if err := h.sendProcessData(processId); err != nil {
-			h.logger.Error(
-				MeasurementReadyHandlerName,
-				fmt.Sprintf(
-					"Failed to send "+ProcessDataMessage+" for ProcessId %d: %v",
-					processId,
-					err,
-				),
-			)
-		}
-	}
-}
-
-// sendProcessData sends the collected data as PROCESS_DATA
-func (h *MeasurementReadyHandler) sendProcessData(processId ID) error {
-	results, exists := h.getResults[processId]
-	if !exists {
-		return fmt.Errorf("no results found for ProcessId %d", processId)
-	}
-
-	// Marshal the results to JSON string
-	dataBytes, err := json.Marshal(results)
-	if err != nil {
-		return fmt.Errorf("failed to marshal results: %w", err)
 	}
 
 	// Create PROCESS_DATA message
 	processData := api.ProcessData{
 		Data:      string(dataBytes),
-		ProcessId: int64(processId),
+		ProcessId: int64(measurementID.ProcessId),
 		Timestamp: time.Now().UnixMicro(),
 	}
 
 	// Marshal the PROCESS_DATA
 	processDataBytes, err := json.Marshal(processData)
 	if err != nil {
-		return fmt.Errorf("failed to marshal "+ProcessDataMessage+": %w", err)
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to marshal "+ProcessDataMessage+" for %+v: %v",
+				measurementID,
+				err,
+			),
+		)
+		return
 	}
 
-	// Send PROCESS_DATA
 	if err := h.nc.Publish(ProcessDataMessage, processDataBytes); err != nil {
-		return fmt.Errorf("failed to publish "+ProcessDataMessage+": %w", err)
+		h.logger.Error(
+			MeasurementReadyHandlerName,
+			fmt.Sprintf(
+				"Failed to publish "+ProcessDataMessage+" for %+v: %v",
+				measurementID,
+				err,
+			),
+		)
+		return
 	}
-
 	h.logger.Info(
 		MeasurementReadyHandlerName,
 		fmt.Sprintf(
-			"Sent "+ProcessDataMessage+" for ProcessId %d with %d measurements",
-			processId,
-			len(results),
+			"Sent "+ProcessDataMessage+" for buffered measurement %+v with %d results",
+			measurementID,
+			len(scheduler.Results),
 		),
 	)
 
-	// Clean up results for this process
-	delete(h.getResults, processId)
-
-	return nil
+	// Clean up the scheduler
+	delete(schedulerMap, measurementID.ChunkId)
+	if len(schedulerMap) == 0 {
+		delete(h.schedulers, measurementID.ProcessId)
+	}
+	h.markMeasurementComplete()
 }
 
-func convertToJsonPorts(strings []string) ([]instrument.JsonPort, error) {
-	result := make([]instrument.JsonPort, len(strings))
+func convertToJsonPorts(strs []string) ([]instrument.JsonPort, error) {
+	result := make([]instrument.JsonPort, len(strs))
 	var errorMsgs []string
 
-	for i, s := range strings {
+	for i, s := range strs {
 		fixed_bytes, err1 := json.Marshal(s)
 		if err1 != nil {
 			errorMsgs = append(

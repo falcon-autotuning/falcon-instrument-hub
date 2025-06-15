@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	Master                     PropertyName   = "master"
 	HandlerName                string         = "INSTRUMENT_HANDLER"
 	Knob                       port           = "Knob"
 	Meter                      port           = "Meter"
@@ -310,15 +311,70 @@ func (h *Handler) SetInstrumentInitialized(
 	}
 }
 
-type SetInstruction struct {
-	Property PropertyName
-	Name     JsonPort
-	Value    any
+func (h *Handler) IsInstrumentMaster(instrumentName Name) (bool, error) {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	instrument, exists := h.Instruments[instrumentName]
+	if !exists {
+		return false, fmt.Errorf("instrument %s not found", instrumentName)
+	}
+
+	// Check if the instrument is initialized and has a master port
+	if !instrument.Initialized || instrument.Ports == nil {
+		return false, nil
+	}
+
+	// Check if any port is marked as master
+	for propertyName := range instrument.Configuration {
+		if propertyName == Master {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
+
+func (h *Handler) FindMasterInstrument(instruments []Name) (Name, error) {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	for _, instrumentName := range instruments {
+		instrument, exists := h.Instruments[instrumentName]
+		if !exists {
+			continue
+		}
+
+		if instrument.Initialized && instrument.Ports != nil {
+			if _, isMaster := instrument.Ports[Master]; isMaster {
+				return instrumentName, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no master instrument found in the provided list")
+}
+
+type (
+	ID             int64
+	SetInstruction struct {
+		Property PropertyName
+		Name     JsonPort
+		Value    any
+	}
+	MeasurementID struct {
+		ProcessId ID
+		ChunkId   ID
+	}
+)
 
 // SetProperty sends a SET command to the appropriate instrument based on the
 // provided property and name.
-func (h *Handler) SetProperty(req SetInstruction) {
+func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
+	// default value for processId is 0, which means it is not set
+	if measurementID.ProcessId == 0 {
+		measurementID.ProcessId = -1
+	}
 	// Find the instrument and index by searching through all instrument ports
 	var targetInstrument Name
 	var targetIndex Index
@@ -371,9 +427,11 @@ func (h *Handler) SetProperty(req SetInstruction) {
 
 	// Create and send the SET command to the target instrument
 	setCommand := api.Set{
-		Property: string(req.Property),
-		Index:    realIndex,
-		Value:    req.Value,
+		Property:  string(req.Property),
+		Index:     realIndex,
+		Value:     req.Value,
+		ProcessId: int64(measurementID.ProcessId),
+		ChunkId:   int64(measurementID.ChunkId),
 	}
 
 	setData, err := json.Marshal(setCommand)
@@ -407,11 +465,52 @@ func (h *Handler) SetProperty(req SetInstruction) {
 	)
 }
 
-// SetProperties sets multiple properties on an instrument in order
-func (h *Handler) SetProperties(si []SetInstruction) {
+// SetProperties sets multiple properties on an instrument in order, ensuring
+// ARM is last
+func (h *Handler) SetProperties(
+	si []SetInstruction,
+	measurementID MeasurementID,
+) {
+	// Separate ARM instructions from regular instructions
+	var regularInstructions []SetInstruction
+	var armInstructions []SetInstruction
+
 	for _, instruction := range si {
-		h.SetProperty(instruction)
+		if instruction.Property == PropertyName("ARM") {
+			armInstructions = append(armInstructions, instruction)
+		} else {
+			regularInstructions = append(regularInstructions, instruction)
+		}
 	}
+
+	// Send regular instructions first
+	for _, instruction := range regularInstructions {
+		h.SetProperty(instruction, measurementID)
+	}
+
+	// Send ARM instructions last
+	for _, instruction := range armInstructions {
+		h.SetProperty(instruction, measurementID)
+	}
+}
+
+// SetPropertyWithDefaults sets a property with default MeasurementID (-1, 0)
+func (h *Handler) SetPropertyWithDefaults(req SetInstruction) {
+	defaultMeasurementID := MeasurementID{
+		ProcessId: -1,
+		ChunkId:   0,
+	}
+	h.SetProperty(req, defaultMeasurementID)
+}
+
+// SetPropertiesWithDefaults sets multiple properties with default MeasurementID
+// (-1, 0)
+func (h *Handler) SetPropertiesWithDefaults(si []SetInstruction) {
+	defaultMeasurementID := MeasurementID{
+		ProcessId: -1,
+		ChunkId:   0,
+	}
+	h.SetProperties(si, defaultMeasurementID)
 }
 
 // LogWrapper provides convenient logging with automatic handler name and

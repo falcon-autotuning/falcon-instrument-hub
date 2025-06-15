@@ -11,7 +11,8 @@ import (
 type MeasurementStackItem struct {
 	MeasurementReady api.MeasurementReady
 	Timestamp        time.Time
-	Priority         int // Optional: for priority handling
+	Priority         int   // Optional: for priority handling
+	ChunkId          int64 // Unique identifier for this measurement chunk
 }
 
 // MeasurementStack implements a FIFO queue for measurements
