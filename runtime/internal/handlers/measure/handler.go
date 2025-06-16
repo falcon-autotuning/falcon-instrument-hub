@@ -38,7 +38,7 @@ func NewMeasurementReadyHandler(
 			map[instrument.ID]*MeasurementScheduler,
 		),
 		pendingGets: make(map[instrument.ID]any),
-		nextChunkId: 1,
+		NextChunkId: 1,
 	}
 }
 
@@ -141,8 +141,8 @@ func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
 	}
 	// Create stack item and add to queue with assigned ChunkId
 	h.mutex.Lock()
-	chunkId := h.nextChunkId
-	h.nextChunkId++
+	chunkId := h.NextChunkId
+	h.NextChunkId++
 	h.mutex.Unlock()
 
 	stackItem := MeasurementStackItem{

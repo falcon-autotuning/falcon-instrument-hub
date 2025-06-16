@@ -7,6 +7,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/manageVenv"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
@@ -38,7 +39,7 @@ type Manager struct {
 	interpreterHandler             *InterpreterHandler
 	busyHandler                    *BusyHandler
 	measureCommandHandler          *MeasureCommandHandler
-	measureReadyHandler            *MeasurementReadyHandler
+	measureReadyHandler            *measure.MeasurementReadyHandler
 	performInstrumentMethodHandler *PerformInstrumentMethodHandler
 	statusHandler                  *StatusHandler
 	portRequestHandler             *PortRequestHandler
@@ -101,7 +102,7 @@ func NewManager(
 			instrumentHandler,
 			cfg,
 		),
-		measureReadyHandler: NewMeasurementReadyHandler(
+		measureReadyHandler: measure.NewMeasurementReadyHandler(
 			logger,
 			instrumentHandler,
 			cfg,
