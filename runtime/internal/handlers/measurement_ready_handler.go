@@ -190,6 +190,7 @@ func (ii *InstrumentInstructions) arm() {
 		Property: []instrument.PropertyName{arm},
 		Values:   []any{true},
 	}
+	// TODO: seperate the arm instruction from the get go
 
 	ii.append(newii)
 }
@@ -774,30 +775,6 @@ func (h *MeasurementReadyHandler) sendTriggerCommand(
 	return nil
 }
 
-// handleAllGettersTriggered handles when all getter instruments are triggered
-func (h *MeasurementReadyHandler) handleAllGettersTriggered(
-	measurementID instrument.MeasurementID,
-	triggerNames []instrument.Name,
-) {
-	h.log.Info(
-		"All getter instruments triggered for %+v, triggering %d setter instruments: %v",
-		measurementID,
-		len(triggerNames),
-		triggerNames,
-	)
-
-	for _, instrumentName := range triggerNames {
-		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
-			h.log.Error(
-				"Failed to send %s command to register triggers instrument %s: %v",
-				TriggerMessage,
-				instrumentName,
-				err,
-			)
-		}
-	}
-}
-
 // handleExecuting processes EXECUTING messages from instruments
 func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 	var executing api.Executing
@@ -888,6 +865,30 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		measurementID,
 		scheduler.MasterTriggerInstruments,
 	)
+}
+
+// handleAllGettersTriggered handles when all getter instruments are triggered
+func (h *MeasurementReadyHandler) handleAllGettersTriggered(
+	measurementID instrument.MeasurementID,
+	triggerNames []instrument.Name,
+) {
+	h.log.Info(
+		"All getter instruments triggered for %+v, triggering %d setter instruments: %v",
+		measurementID,
+		len(triggerNames),
+		triggerNames,
+	)
+
+	for _, instrumentName := range triggerNames {
+		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
+			h.log.Error(
+				"Failed to send %s command to register triggers instrument %s: %v",
+				TriggerMessage,
+				instrumentName,
+				err,
+			)
+		}
+	}
 }
 
 // handleReturnData processes RETURN_DATA responses from buffered measurements

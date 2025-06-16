@@ -513,6 +513,41 @@ func (h *Handler) SetPropertiesWithDefaults(si []SetInstruction) {
 	h.SetProperties(si, defaultMeasurementID)
 }
 
+// FindSetByInstrumentPropertyIndex finds a port using instrument name,
+// property, and index
+func (h *Handler) FindPortByInstrumentPropertyIndex(
+	name Name,
+	property PropertyName,
+	index Index,
+) (JsonPort, error) {
+	// Get the instrument directly
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	instrumentProcess, exists := h.Instruments[name]
+	if !exists {
+		return "", fmt.Errorf("instrument %s not found", name)
+	}
+
+	if !instrumentProcess.Initialized || instrumentProcess.Ports == nil {
+		return "", fmt.Errorf("instrument %s not initialized", name)
+	}
+
+	// Look up the port directly: instrument -> property -> index -> port
+	if propertyPorts, exists := instrumentProcess.Ports[property]; exists {
+		if port, exists := propertyPorts[index]; exists {
+			h.Log.Debug("Found port: %s", port)
+			return port, nil
+		}
+	}
+	return "", fmt.Errorf(
+		"no port found for instrument %s, property %s, index %s",
+		name,
+		property,
+		index,
+	)
+}
+
 // LogWrapper provides convenient logging with automatic handler name and
 // sprintf formatting
 type LogWrapper struct {
