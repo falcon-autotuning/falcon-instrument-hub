@@ -163,7 +163,7 @@ type MeasurementReadyHandler struct {
 	schedulers          map[instrument.ID]map[instrument.ID]*MeasurementScheduler // ProcessId -> ChunkId -> Scheduler
 	pendingMeasurements map[instrument.ID]*MeasurementScheduler
 	pendingGets         map[instrument.ID]any
-	nextChunkId         int64 // Unique identifier for the next chunk
+	NextChunkId         int64 // Unique identifier for the next chunk
 	mutex               sync.RWMutex
 }
 

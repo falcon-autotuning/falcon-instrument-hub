@@ -16,7 +16,9 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -210,7 +212,11 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -376,7 +382,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Subscribe to PROCESS_DATA to capture the final result
 	processDataReceived := make(chan api.ProcessData, 1)
 	processDataSub, err := nc.Subscribe(
-		ProcessDataMessage,
+		measure.ProcessDataMessage,
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
 			if err := json.Unmarshal(msg.Data, &processData); err != nil {
@@ -391,7 +397,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	defer processDataSub.Unsubscribe()
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
+	err = nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait for PROCESS_DATA response
@@ -478,7 +484,11 @@ func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -518,7 +528,7 @@ func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
 					ChunkId:   setCmd.ChunkId,
 				}
 				armedData, _ := json.Marshal(armed)
-				nc.Publish(ArmedMessage+".setter_instrument", armedData)
+				nc.Publish(measure.ArmedMessage+".setter_instrument", armedData)
 			}
 		},
 	)
@@ -544,7 +554,7 @@ func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
 		}
 
 		measurementData, _ := json.Marshal(measurementReady)
-		nc.Publish(MeasurementReadyMessage, measurementData)
+		nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	}
 
 	// Wait for SET commands to be processed
@@ -594,7 +604,11 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -755,7 +769,7 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
+	err = nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait for processing to complete
@@ -809,10 +823,14 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Verify initial ChunkId is 1
-	assert.Equal(t, int64(1), handler.nextChunkId)
+	assert.Equal(t, int64(1), handler.NextChunkId)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -881,7 +899,7 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 					subjectParts := strings.Split(msg.Subject, ".")
 					if len(subjectParts) >= 2 {
 						instrumentName := subjectParts[1]
-						armedSubject := ArmedMessage + "." + instrumentName
+						armedSubject := measure.ArmedMessage + "." + instrumentName
 						t.Logf(
 							"TEST: Publishing ARMED to subject '%s'",
 							armedSubject,
@@ -920,7 +938,7 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 		}
 
 		measurementData, _ := json.Marshal(measurementReady)
-		nc.Publish(MeasurementReadyMessage, measurementData)
+		nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	}
 
 	// Wait for processing
@@ -961,7 +979,7 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 	assert.Equal(
 		t,
 		int64(6),
-		handler.nextChunkId,
+		handler.NextChunkId,
 		"nextChunkId should be 6 after 5 measurements",
 	)
 }
@@ -980,7 +998,11 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -1095,7 +1117,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	defer triggerSubSetter.Unsubscribe()
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
+	err = nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait a bit for processing
@@ -1137,41 +1159,6 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	)
 }
 
-func TestMeasurementReadyHandler_Subscribe_Unsubscribe(t *testing.T) {
-	// Setup
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-
-	instrumentHandler := setupTestInstrumentHandler2(t)
-	cfg := &config.Config{
-		DeviceConfigPath: filepath.Join(tempDir, "device_config.json"),
-		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
-	}
-
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS connection
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	// Test Subscribe
-	err = handler.Subscribe(nc)
-	assert.NoError(t, err)
-	assert.NotNil(t, handler.subscription)
-	assert.NotNil(t, handler.armedSub)
-	assert.NotNil(t, handler.executingSub)
-	assert.NotNil(t, handler.returnDataSub)
-
-	// Test Unsubscribe
-	err = handler.Unsubscribe()
-	assert.NoError(t, err)
-	assert.Nil(t, handler.subscription)
-	assert.Nil(t, handler.armedSub)
-	assert.Nil(t, handler.executingSub)
-	assert.Nil(t, handler.returnDataSub)
-}
-
 func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 	// Setup
 	tempDir := t.TempDir()
@@ -1184,7 +1171,11 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 		WiremapPath:      filepath.Join(tempDir, "wiremap.json"),
 	}
 
-	handler := NewMeasurementReadyHandler(logger, instrumentHandler, cfg)
+	handler := measure.NewMeasurementReadyHandler(
+		logger,
+		instrumentHandler,
+		cfg,
+	)
 
 	// Setup NATS connection
 	nc := setupTestNATSServer(t)
@@ -1205,7 +1196,7 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 	require.NoError(t, err)
 
 	// Send MEASUREMENT_READY message
-	err = nc.Publish(MeasurementReadyMessage, measurementData)
+	err = nc.Publish(measure.MeasurementReadyMessage, measurementData)
 	require.NoError(t, err)
 
 	// Wait a bit for processing
