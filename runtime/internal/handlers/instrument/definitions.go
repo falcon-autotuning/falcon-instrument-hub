@@ -468,28 +468,17 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 // SetProperties sets multiple properties on an instrument in order, ensuring
 // ARM is last
 func (h *Handler) SetProperties(
-	si []SetInstruction,
+	seti []SetInstruction,
+	armi []SetInstruction,
 	measurementID MeasurementID,
 ) {
-	// Separate ARM instructions from regular instructions
-	var regularInstructions []SetInstruction
-	var armInstructions []SetInstruction
-
-	for _, instruction := range si {
-		if instruction.Property == PropertyName("ARM") {
-			armInstructions = append(armInstructions, instruction)
-		} else {
-			regularInstructions = append(regularInstructions, instruction)
-		}
-	}
-
 	// Send regular instructions first
-	for _, instruction := range regularInstructions {
+	for _, instruction := range seti {
 		h.SetProperty(instruction, measurementID)
 	}
 
 	// Send ARM instructions last
-	for _, instruction := range armInstructions {
+	for _, instruction := range armi {
 		h.SetProperty(instruction, measurementID)
 	}
 }
@@ -505,12 +494,12 @@ func (h *Handler) SetPropertyWithDefaults(req SetInstruction) {
 
 // SetPropertiesWithDefaults sets multiple properties with default MeasurementID
 // (-1, 0)
-func (h *Handler) SetPropertiesWithDefaults(si []SetInstruction) {
+func (h *Handler) SetPropertiesWithDefaults(seti, armi []SetInstruction) {
 	defaultMeasurementID := MeasurementID{
 		ProcessId: -1,
 		ChunkId:   0,
 	}
-	h.SetProperties(si, defaultMeasurementID)
+	h.SetProperties(seti, armi, defaultMeasurementID)
 }
 
 // FindSetByInstrumentPropertyIndex finds a port using instrument name,

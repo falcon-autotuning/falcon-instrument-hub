@@ -120,6 +120,7 @@ type Instructions struct {
 type InstrumentInstructions struct {
 	Name            instrument.Name
 	SetInstructions []instrument.SetInstruction
+	ArmInstruction  []instrument.SetInstruction
 }
 
 // append adds a new instruction to the list
@@ -140,9 +141,7 @@ func (ii *InstrumentInstructions) arm() {
 		Property: []instrument.PropertyName{arm},
 		Values:   []any{true},
 	}
-	// TODO: seperate the arm instruction from the get go
-
-	ii.append(newii)
+	ii.ArmInstruction = newii.separate()
 }
 
 // MeasurementReadyHandler handles MEASUREMENT_READY requests
