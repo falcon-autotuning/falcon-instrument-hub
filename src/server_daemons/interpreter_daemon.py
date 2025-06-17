@@ -42,6 +42,9 @@ if TYPE_CHECKING:
         PropertyValue,
         Setters,
     )
+TIMEOUT_SCALE_FACTOR = 1.5
+DEFAULT_SLOPE = 100  # [V/sec]
+DEFAULT_SAMPLE_RATE = 10000  # [samples/sec]
 
 
 class InterpreterDaemon:
@@ -417,6 +420,21 @@ class InterpreterDaemon:
         await self.log(f"The chunks are: {chunks}")
         getters = [transform.port for transform in request.meter_transforms]
         await self.log("Selected getters for the measurement.")
+        number_of_samples: dict[InstrumentPort, int] = {}
+        step_width = request.time_domain.domain.range  # [sec]
+        for meter in getters:
+            sample_rate = configuration[meter].get(
+                SUPPORTED_PROPERTIES.SAMPLE_RATE, DEFAULT_SAMPLE_RATE
+            )
+            assert isinstance(sample_rate, int), (
+                f"Sample rate {sample_rate} must be an integer."
+            )
+            assert sample_rate > 0, f"Sample rate {sample_rate} must be greater than 0."
+            num = step_width * sample_rate
+            assert num.is_integer(), (
+                f"The resulting number of samples ({num}) must be a whole number."
+            )
+            number_of_samples[meter] = int(num)
 
         for chunk in chunks:
             instruction = Instruction(
@@ -425,15 +443,55 @@ class InterpreterDaemon:
             )
             for i, couple_domain in enumerate(axes_domains):
                 raw_space = chunk[i, :]
+                for meter in getters:
+                    if not buffered:
+                        instruction.add_setter(
+                            instrument=meter,
+                            properties={
+                                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
+                                * step_width,
+                                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
+                                    number_of_samples[meter]
+                                ),
+                            },
+                        )
+                    else:
+                        instruction.add_setter(
+                            instrument=meter,
+                            properties={
+                                SUPPORTED_PROPERTIES.TIMEOUT: (
+                                    TIMEOUT_SCALE_FACTOR * step_width
+                                )
+                                + (len(raw_space) - 1),  # [sec]
+                                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
+                                    number_of_samples[meter] * len(raw_space)
+                                ),
+                            },
+                        )
                 for domain in couple_domain:
                     v_start = unit_domain.transform(
                         value=raw_space[0],
                         other=domain.domain,
                     )
-                    if not buffered or i != 0:
+                    if not buffered:
                         instruction.add_setter(
                             instrument=domain.label,
-                            properties={SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start},
+                            properties={
+                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
+                                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
+                                * step_width,
+                            },
+                        )
+                        continue
+                    if i != 0:
+                        instruction.add_setter(
+                            instrument=domain.label,
+                            properties={
+                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
+                                SUPPORTED_PROPERTIES.TIMEOUT: (
+                                    TIMEOUT_SCALE_FACTOR * step_width
+                                ),
+                            },
                         )
                         continue
                     v_stop = unit_domain.transform(
@@ -449,7 +507,10 @@ class InterpreterDaemon:
                                 0,
                                 v_start,
                                 v_stop,
-                            )
+                            ),
+                            SUPPORTED_PROPERTIES.TIMEOUT: (
+                                TIMEOUT_SCALE_FACTOR * step_width
+                            ),
                         },
                     )
             await self.log(f"Adding instruction to the list {instruction}.")
@@ -458,7 +519,10 @@ class InterpreterDaemon:
         collected_measurements = len(instructions)
         if buffered:
             # inject ramps in between each instruction
-            instructions = self.interject_ramps(instructions=instructions)
+            instructions = await self.interject_ramps(
+                instructions=instructions,
+                configuration=configuration,
+            )
 
         self._measurement_groups[id] = MeasurementInstructions(
             instructions=instructions
@@ -511,40 +575,53 @@ class InterpreterDaemon:
             )
         return chunks
 
-    def interject_ramps(
+    async def interject_ramps(
         self,
         instructions: list[Instruction],
+        configuration: dict["InstrumentPort", "PropertyJson"] = {},
     ) -> list[Instruction]:
         """Interjects ramps between each instruction.
 
         Args:
             instructions: The list of instructions to interject ramps into.
+            configuration: The configuration for the instruments.
 
         Returns:
             the list of instructions with ramps interjected.
         """
         new_instructions = []
+        await self.log("Interjecting ramps between instructions ...")
+
         for i, instruction in enumerate(instructions):
             if i == 0:
                 new_instructions.append(instruction)
                 continue
+            setters: dict[InstrumentPort, dict[str, Any]] = {}
+            for knob, properties in instruction.setters.items():
+                slope = configuration.get(knob, DEFAULT_SLOPE)
+                staircase = properties[SUPPORTED_PROPERTIES.STAIRCASE]
+                assert isinstance(staircase, tuple), (
+                    "The staircase property must be a tuple."
+                )
+                assert isinstance(slope, (int, float)), "The slope must be a number."
+                vstart = staircase[3]
+                assert isinstance(vstart, (int, float)), "The vstart must be a number."
+                vstop = staircase[4]
+                assert isinstance(vstop, (int, float)), "The vstop must be a number."
+                timeout = abs(vstop - vstart) / slope  # [sec]
+                setters[knob] = {
+                    SUPPORTED_PROPERTIES.VOLTAGE_STATE: properties[  # type: ignore[reportOptionalMemberAccess]
+                        SUPPORTED_PROPERTIES.STAIRCASE
+                    ][3],
+                    SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR * timeout,
+                }
             new_instruction = Instruction(
-                setters={
-                    port: (
-                        {
-                            SUPPORTED_PROPERTIES.VOLTAGE_STATE: properties[  # type: ignore[reportOptionalMemberAccess]
-                                SUPPORTED_PROPERTIES.STAIRCASE
-                            ][3]
-                        }
-                        if SUPPORTED_PROPERTIES.VOLTAGE_STATE not in properties
-                        else properties
-                    )
-                    for port, properties in instruction.setters.items()
-                },
+                setters=setters,
                 buffered=True,
             )
             new_instructions.append(new_instruction)
             new_instructions.append(instruction)
+        await self.log("Ramps interjected successfully.")
         return new_instructions
 
     async def deploy_measurements(
@@ -563,13 +640,6 @@ class InterpreterDaemon:
         if measurement_id not in self.measurement_groups:
             return
         for i, step in enumerate(self.measurement_groups[measurement_id]):
-            # for connection, props in step.setters.items():
-            #     for prop, value in props.items():
-            #         await self.update_daemon_property(
-            #             property=prop,
-            #             name=connection,
-            #             value=value,
-            #         )
             await self.log(
                 f"Step {i} of {len(self.measurement_groups[measurement_id])} deploying for measurement {measurement_id}."
             )
