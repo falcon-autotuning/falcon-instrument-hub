@@ -269,6 +269,7 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		instructions.arm()
 		h.instrumentHandler.SetProperties(
 			instructions.SetInstructions,
+			instructions.ArmInstruction,
 			measurementID,
 		)
 	}
