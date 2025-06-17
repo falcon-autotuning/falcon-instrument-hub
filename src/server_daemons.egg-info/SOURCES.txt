@@ -30,7 +30,6 @@ runtime/internal/handlers/log_handler_test.go
 runtime/internal/handlers/manager.go
 runtime/internal/handlers/measure_command_handler.go
 runtime/internal/handlers/measure_command_handler_test.go
-runtime/internal/handlers/measurement_ready_handler.go
 runtime/internal/handlers/measurement_ready_handler_test.go
 runtime/internal/handlers/perform_instrument_method_handler.go
 runtime/internal/handlers/port_request_handler.go
@@ -45,6 +44,13 @@ runtime/internal/handlers/instrument/port_processor.go
 runtime/internal/handlers/instrument/process_manager.go
 runtime/internal/handlers/instrument/subscriptions.go
 runtime/internal/handlers/instrument/utils.go
+runtime/internal/handlers/measure/armed_handler.go
+runtime/internal/handlers/measure/definitions.go
+runtime/internal/handlers/measure/executing_handler.go
+runtime/internal/handlers/measure/handler.go
+runtime/internal/handlers/measure/return_data_handler.go
+runtime/internal/handlers/measure/stack.go
+runtime/internal/handlers/measure/utils.go
 runtime/internal/handlers/scripts/launch_interpreter.py
 runtime/internal/logging/logger.go
 runtime/internal/manageVenv/venv.go
@@ -114,6 +120,7 @@ test-outs/log/falcon-runtime_2025-06-12_00-25-06.log
 test-outs/log/falcon-runtime_2025-06-12_00-26-59.log
 test-outs/log/falcon-runtime_2025-06-12_00-33-59.log
 test-outs/log/falcon-runtime_2025-06-12_00-35-24.log
+test-outs/log/falcon-runtime_2025-06-12_00-49-10.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py
