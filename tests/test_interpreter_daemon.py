@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import json
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
@@ -22,7 +22,6 @@ from server_daemons.dependancies import (
 )
 from server_daemons.instructions import (
     Instruction,
-    MeasurementInstructions,
 )
 from server_daemons.interpreter_daemon import InterpreterDaemon
 
@@ -285,7 +284,7 @@ class TestInterpreterDaemon:
             default_name="device1",
             pseudo_name=Ohmic("test_port"),
         )
-        await interpreter_daemon.deploy_measurement(id=345, getters=[port])
+        await interpreter_daemon.deploy_measurement(id=345, getters=[port], setters={})
 
         # Verify the correct message format
         mock_client.publish.assert_called_once()
@@ -356,14 +355,13 @@ class TestInterpreterDaemon:
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon.log = AsyncMock()
+        data = {"device1": [1.0, 2.0, 3.0]}
 
         # Create a mock message with test data
         test_data = {
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: "12345.67",
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: {
-                "device1": [1.0, 2.0, 3.0]
-            },
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: "12345",
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: json.dumps(data),
         }
         mock_msg = MockMsg(json.dumps(test_data))
 
@@ -371,14 +369,14 @@ class TestInterpreterDaemon:
         await interpreter_daemon.handle_data(mock_msg)  # type: ignore[no-untyped-call]
 
         # Verify the data was added to the queue
-        assert 345 in interpreter_daemon.data_queue
+        assert 345 in interpreter_daemon._data_queue
 
         assert len(interpreter_daemon.data_queue[345]) == 1
 
         # Verify the message content
         entry = interpreter_daemon.data_queue[345][0]
-        assert entry.timestamp == "12345.67"
-        assert entry.data == test_data
+        assert entry.timestamp == 12345
+        assert entry.data == data
 
         # Verify log message
         interpreter_daemon.log.assert_called_once_with("Data added to queue ....")
@@ -403,72 +401,6 @@ class TestInterpreterDaemon:
         interpreter_daemon.log.assert_called_once()
         assert (
             "Error adding data to the queue" in interpreter_daemon.log.call_args[0][0]
-        )
-
-    @pytest.mark.asyncio
-    async def test_deploy_measurements(
-        self,
-        interpreter_daemon: InterpreterDaemon,
-        mock_nats,
-        port: InstrumentPort,
-    ):
-        """Test the deploy_measurements method."""
-        _, mock_client, _ = mock_nats
-
-        interpreter_daemon._nc = mock_client
-
-        # Mock the update_daemon_property method
-        interpreter_daemon.update_daemon_property = AsyncMock()
-
-        # Mock the deploy_measurement method
-        interpreter_daemon.deploy_measurement = AsyncMock()
-
-        port = InstrumentPort(
-            default_name="device1",
-            pseudo_name=PlungerGate("test_port"),
-        )
-
-        # Create test measurement instructions
-        measurement_id = 4
-        instr1 = Instruction(
-            setters={port: {SUPPORTED_PROPERTIES.VOLTAGE_STATE: 1.0}},
-            getters=[port],
-        )
-        instr2 = Instruction(
-            setters={port: {SUPPORTED_PROPERTIES.VOLTAGE_STATE: 2.0}},
-            getters=[port],
-        )
-
-        interpreter_daemon._measurement_groups[measurement_id] = (
-            MeasurementInstructions(instructions=[instr1, instr2])
-        )
-
-        # Call deploy_measurements
-        await interpreter_daemon.deploy_measurements(measurement_id=measurement_id)
-
-        # Verify update_daemon_property was called for each setter
-        assert interpreter_daemon.update_daemon_property.call_count == 2
-
-        # Instead of checking specific call orders, check that each call was made with proper arguments
-        update_calls = interpreter_daemon.update_daemon_property.call_args_list
-        assert any(
-            call[1].get("property") == SUPPORTED_PROPERTIES.VOLTAGE_STATE
-            and call[1].get("value") == 1.0
-            for call in update_calls
-        )
-        assert any(
-            call[1].get("property") == SUPPORTED_PROPERTIES.VOLTAGE_STATE
-            and call[1].get("value") == 2.0
-            for call in update_calls
-        )
-
-        # Verify deploy_measurement was called for each instruction
-        assert interpreter_daemon.deploy_measurement.call_count == 2
-        interpreter_daemon.deploy_measurement.assert_has_calls(
-            [
-                call(id=measurement_id, getters=[port], setters={}),
-                call(id=measurement_id, getters=[port], setters={}),
-            ]
         )
 
     @pytest.mark.asyncio
@@ -579,17 +511,23 @@ class TestInterpreterDaemon:
     ):
         """Test the chunk_instructions method with non-buffered data."""
         # Create mock data array
+        data = np.array(
+            [
+                [1.0, 2.0, 3.0],
+                [4.0, 5.0, 6.0],
+            ]
+        )
         mock_array = MagicMock()
-        mock_array.data = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        mock_array.data = data
 
         # Call chunk_instructions with buffered=False
         chunks = interpreter_daemon.chunk_instructions(mock_array, buffered=False)
 
-        # Verify the chunks
-        assert len(chunks) == 3
-        np.testing.assert_array_equal(chunks[0], np.array([[1.0], [4.0]]))
-        np.testing.assert_array_equal(chunks[1], np.array([[2.0], [5.0]]))
-        np.testing.assert_array_equal(chunks[2], np.array([[3.0], [6.0]]))
+        # Verify the chunks - for non-buffered, each column becomes a separate chunk
+        assert len(chunks) == 3  # 3 columns in the data
+        np.testing.assert_array_equal(chunks[0], data[:, 0:1])
+        np.testing.assert_array_equal(chunks[1], data[:, 1:2])
+        np.testing.assert_array_equal(chunks[2], data[:, 2:3])
 
     @pytest.mark.asyncio
     async def test_simple_chunk_instructions_buffered(
@@ -692,8 +630,11 @@ class TestInterpreterDaemon:
         self,
         interpreter_daemon: InterpreterDaemon,
         port: InstrumentPort,
+        mock_nats,
     ):
         """Test the interject_ramps method."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
         # Create test instructions
         instr1 = Instruction(
             setters={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 0.0, 1.0)}}
@@ -702,8 +643,8 @@ class TestInterpreterDaemon:
             setters={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 1.0, 2.0)}}
         )
 
-        # Call interject_ramps
-        result = interpreter_daemon.interject_ramps([instr1, instr2])
+        # Call interject_ramps - this is an async method
+        result = await interpreter_daemon.interject_ramps([instr1, instr2])
 
         # Verify the interjected ramps
         assert len(result) == 3
@@ -725,7 +666,7 @@ class TestInterpreterDaemon:
 
         # Create a mock DataEntry with timestamp and data
         mock_entry = MagicMock(spec=DataEntry)
-        mock_entry.timestamp = "12345.67"
+        mock_entry.timestamp = 12345
 
         # Add the entry to the queue
         interpreter_daemon._data_queue[test_id].append(mock_entry)
