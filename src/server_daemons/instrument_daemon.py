@@ -376,7 +376,28 @@ class InstrumentDaemon:
             await self.log(
                 f"TRIGGER timeout reached ({timeout}s) - instrument unlocked"
             )
-            # TODO: If a setter instrument now return_data.
+            # Process any return data from setter instruments
+            while not self._instrument._return_data._message_queue.empty():
+                try:
+                    return_data = (
+                        self._instrument._return_data._message_queue.get_nowait()
+                    )
+                    # Add process_id and chunk_id to the return data message
+                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID] = (
+                        process_id
+                    )
+                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID] = chunk_id
+
+                    await self.send_command(
+                        channel=self.specific_channel(
+                            DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
+                        ),
+                        message=json.dumps(return_data),
+                    )
+                except Exception as e:
+                    await self.log(f"Error processing return data: {e}")
+
+            await self.log("All return data processed after TRIGGER command")
 
         except Exception as e:
             # Unlock on any error as well
