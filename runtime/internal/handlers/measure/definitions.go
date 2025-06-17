@@ -120,7 +120,8 @@ type Instructions struct {
 type InstrumentInstructions struct {
 	Name            instrument.Name
 	SetInstructions []instrument.SetInstruction
-	ArmInstruction  []instrument.SetInstruction
+	// TODO: handle trigger instruction
+	ArmInstruction []instrument.SetInstruction
 }
 
 // append adds a new instruction to the list
