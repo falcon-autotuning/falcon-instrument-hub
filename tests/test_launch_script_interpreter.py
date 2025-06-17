@@ -5,7 +5,6 @@ import fcntl
 import json
 import os
 import subprocess
-import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +12,7 @@ import nats
 import pytest
 import pytest_asyncio
 from falcon_core.communications.messages import MeasurementRequest
+from falcon_core.communications.time import Time
 from falcon_core.constants import INSTRUMENT_TYPES
 from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
@@ -378,8 +378,10 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     process_data_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.COMM_CHANNEL
     process_data = {
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 42,
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: str(time.time()),
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: {"device1": [1.0, 2.0, 3.0]},
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: Time().time,
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: json.dumps(
+            {"device1": [1.0, 2.0, 3.0]}
+        ),
     }
 
     print(f"Sending process data to channel {process_data_channel}...", flush=True)
