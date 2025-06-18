@@ -488,6 +488,8 @@ class InstrumentDaemon:
             property_name = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
             index = data.get(DRIVER_RUNTIME_COMMANDS.SET.INDEX)
             value = data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
+            process_id = int(data.get(DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID))
+            chunk_id = int(data.get(DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID))
 
             if not all([property_name, index, value is not None]):
                 await self.log(
@@ -499,6 +501,8 @@ class InstrumentDaemon:
                 DRIVER_RUNTIME_COMMANDS.SET.PROPERTY: property_name,
                 DRIVER_RUNTIME_COMMANDS.SET.INDEX: index,
                 DRIVER_RUNTIME_COMMANDS.SET.VALUE: value,
+                DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID: process_id,
+                DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID: chunk_id,
             }
             await self._set_queue.put(set_data)
             await self.log(f"SET command queued: {property_name}={value}")
