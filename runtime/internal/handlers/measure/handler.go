@@ -233,7 +233,10 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		0,
 		len(totalInstructions),
 	)
+	h.log.Debug("The total instructions to send are: %#v", totalInstructions)
 
+	// Create InstrumentInstructions for each unique instrument
+	instrumentMap := make(map[instrument.Name]*InstrumentInstructions)
 	for _, instruction := range totalInstructions {
 		options, err := h.instrumentHandler.GetPortOptions(instruction.Setter)
 		if err != nil {
@@ -244,22 +247,17 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 			continue
 		}
 
-		// Find existing InstrumentInstructions or create new one
-		var targetInstructions *InstrumentInstructions
-		for _, existing := range sortedInstructions {
-			if existing.Name == options.Instrument {
-				targetInstructions = existing
-				break
-			}
-		}
-
-		if targetInstructions == nil {
-			targetInstructions = &InstrumentInstructions{
+		// Create InstrumentInstructions if it doesn't exist
+		if _, exists := instrumentMap[options.Instrument]; !exists {
+			instrumentMap[options.Instrument] = &InstrumentInstructions{
 				Name: options.Instrument,
 			}
-			sortedInstructions = append(sortedInstructions, targetInstructions)
+			sortedInstructions = append(
+				sortedInstructions,
+				instrumentMap[options.Instrument],
+			)
 		}
-		targetInstructions.append(instruction)
+		instrumentMap[options.Instrument].append(instruction)
 	}
 
 	// Create scheduler BEFORE sending SET commands to avoid race condition
@@ -274,6 +272,7 @@ func (h *MeasurementReadyHandler) sendInstructions(
 	ii []*InstrumentInstructions,
 ) {
 	for _, instructions := range ii {
+		h.log.Debug("The instructions to send are: %#v", *instructions)
 		instructions.arm()
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {

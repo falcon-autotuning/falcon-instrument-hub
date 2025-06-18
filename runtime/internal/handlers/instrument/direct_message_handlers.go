@@ -2,6 +2,7 @@ package instrument
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
@@ -204,7 +205,7 @@ func (h *Handler) handleUpdateDaemonProperty(msg *nats.Msg) {
 	set := SetInstruction{
 		Property: PropertyName(req.Property),
 		Name:     JsonPort(req.Name),
-		Value:    req.Value,
+		Value:    fmt.Sprintf("%v", req.Value),
 	}
 	h.SetPropertyWithDefaults(set)
 }
