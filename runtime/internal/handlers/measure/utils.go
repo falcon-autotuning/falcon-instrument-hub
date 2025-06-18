@@ -19,26 +19,26 @@ func createBoolMap(names []instrument.Name) map[instrument.Name]bool {
 
 // collectAllSetInstructions collects and validates all setter instructions
 func collectAllSetInstructions(setters []string) ([]Instructions, error) {
-	var allInstructions []Instructions
+	var out []Instructions
 	var errorMsgs []string
 
 	for _, setter := range setters {
 		var instructions Instructions
 		err := instructions.fromJson(setter)
 		if err == nil {
-			allInstructions = append(allInstructions, instructions)
+			out = append(out, instructions)
 			continue
 		}
 		errorMsgs = append(errorMsgs, fmt.Sprintf("setter %q: %v", setter, err))
 	}
 
 	if len(errorMsgs) > 0 {
-		return allInstructions, fmt.Errorf("failed to process some setters: %s",
+		return out, fmt.Errorf("failed to process some setters: %s",
 			strings.Join(errorMsgs, "; "),
 		)
 	}
 
-	return allInstructions, nil
+	return out, nil
 }
 
 // convertToJsonPorts converts string array to JsonPort array

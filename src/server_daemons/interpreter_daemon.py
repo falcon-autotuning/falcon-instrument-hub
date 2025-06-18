@@ -435,7 +435,7 @@ class InterpreterDaemon:
                 f"The resulting number of samples ({num}) must be a whole number."
             )
             number_of_samples[meter] = int(num)
-
+        await self.log(f"The entire configuration looks like this: {configuration}")
         for chunk in chunks:
             instruction = Instruction(
                 getters=getters,

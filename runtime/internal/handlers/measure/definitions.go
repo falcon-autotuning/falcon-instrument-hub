@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -119,6 +118,43 @@ type Instructions struct {
 	Values   []any                     `json:"values"`
 }
 
+// separate converts the Instructions into a slice of SetInstruction
+func (in *Instructions) separate() []instrument.SetInstruction {
+	var instructions []instrument.SetInstruction
+	for i, property := range in.Property {
+		instructions = append(instructions, instrument.SetInstruction{
+			Name:     in.Setter,
+			Property: property,
+			Value:    in.Values[i],
+		})
+	}
+	return instructions
+}
+
+// fromJson loads instructions from a JSON string
+func (in *Instructions) fromJson(jsonStr string) error {
+	err1 := json.Unmarshal([]byte(jsonStr), &in)
+	// marshal cycling the Setter to ensure it is a valid JsonPort
+	fixed_bytes, err2 := json.Marshal(in.Setter)
+	err3 := json.Unmarshal(fixed_bytes, &in.Setter)
+	if err1 == nil && err2 == nil && err3 == nil {
+		return nil
+	}
+	var errorMsgs []string
+	if err1 != nil {
+		errorMsgs = append(errorMsgs, fmt.Sprintf("unmarshal error: %v", err1))
+	}
+	if err2 != nil {
+		errorMsgs = append(errorMsgs, fmt.Sprintf("marshal error: %v", err2))
+	}
+	if err3 != nil {
+		errorMsgs = append(errorMsgs, fmt.Sprintf("remarshal error: %v", err3))
+	}
+	return fmt.Errorf("failed to process instruction: %s",
+		strings.Join(errorMsgs, "; "),
+	)
+}
+
 type InstrumentInstructions struct {
 	Name                instrument.Name
 	SetInstructions     []instrument.SetInstruction
@@ -128,67 +164,62 @@ type InstrumentInstructions struct {
 
 // append adds a new instruction to the list, separating timeout instructions
 // and keeping only the largest
-func (ii *InstrumentInstructions) append(in Instructions) {
+func (ii *InstrumentInstructions) append(in Instructions) error {
+	var errorMsgs []string
 	separated := in.separate()
 	for _, instruction := range separated {
 		if instruction.Property == Timeout {
-			ii.addTimeoutInstruction(instruction)
+			if err := ii.addTimeoutInstruction(instruction); err != nil {
+				errorMsgs = append(errorMsgs, err.Error())
+			}
 		} else {
 			ii.SetInstructions = append(ii.SetInstructions, instruction)
 		}
 	}
+
+	if len(errorMsgs) > 0 {
+		return fmt.Errorf(
+			"failed to append instructions: %s",
+			strings.Join(errorMsgs, "; "),
+		)
+	}
+	return nil
 }
 
 // addTimeoutInstruction adds a timeout instruction, keeping only the one with
 // the largest value
 func (ii *InstrumentInstructions) addTimeoutInstruction(
 	instruction instrument.SetInstruction,
-) {
+) error {
 	// Convert the value to float64
 	var newTimeout float64
-	switch v := instruction.Value.(type) {
-	case float64:
-		newTimeout = v
-	case float32:
-		newTimeout = float64(v)
-	case int:
-		newTimeout = float64(v)
-	case int64:
-		newTimeout = float64(v)
-	case string:
-		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-			newTimeout = parsed
-		} else {
-			return
-		}
-	default:
-		return // Unsupported type, skip
+	newTimeout, ok := instruction.Value.(float64)
+	if !ok {
+		return fmt.Errorf(
+			"failed to convert value %v to float64 for instruction %s",
+			instruction.Value,
+			instruction.Name,
+		)
 	}
 
 	if len(ii.TimeoutInstructions) == 0 {
 		ii.TimeoutInstructions = append(ii.TimeoutInstructions, instruction)
-		return
+		return nil
 	}
 
 	var currentTimeout float64
-	switch v := ii.TimeoutInstructions[0].Value.(type) {
-	case float64:
-		currentTimeout = v
-	case float32:
-		currentTimeout = float64(v)
-	case int:
-		currentTimeout = float64(v)
-	case int64:
-		currentTimeout = float64(v)
-	case string:
-		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
-			currentTimeout = parsed
-		}
+	currentTimeout, ok = ii.TimeoutInstructions[0].Value.(float64)
+	if !ok {
+		return fmt.Errorf(
+			"failed to convert value %v to float64",
+			ii.TimeoutInstructions[0].Value,
+		)
 	}
 
 	if newTimeout > currentTimeout {
 		ii.TimeoutInstructions = []instrument.SetInstruction{instruction}
 	}
+	return nil
 }
 
 // peek returns the first instruction without removing it
@@ -227,41 +258,4 @@ type MeasurementReadyHandler struct {
 	pendingGets         map[instrument.ID]any
 	NextChunkId         int64 // Unique identifier for the next chunk
 	mutex               sync.RWMutex
-}
-
-// separate converts the Instructions into a slice of SetInstruction
-func (in *Instructions) separate() []instrument.SetInstruction {
-	var instructions []instrument.SetInstruction
-	for i, property := range in.Property {
-		instructions = append(instructions, instrument.SetInstruction{
-			Name:     in.Setter,
-			Property: property,
-			Value:    in.Values[i],
-		})
-	}
-	return instructions
-}
-
-// fromJson loads instructions from a JSON string
-func (in *Instructions) fromJson(jsonStr string) error {
-	err1 := json.Unmarshal([]byte(jsonStr), &in)
-	// marshal cycling the Setter to ensure it is a valid JsonPort
-	fixed_bytes, err2 := json.Marshal(in.Setter)
-	err3 := json.Unmarshal(fixed_bytes, &in.Setter)
-	if err1 == nil && err2 == nil && err3 == nil {
-		return nil
-	}
-	var errorMsgs []string
-	if err1 != nil {
-		errorMsgs = append(errorMsgs, fmt.Sprintf("unmarshal error: %v", err1))
-	}
-	if err2 != nil {
-		errorMsgs = append(errorMsgs, fmt.Sprintf("marshal error: %v", err2))
-	}
-	if err3 != nil {
-		errorMsgs = append(errorMsgs, fmt.Sprintf("remarshal error: %v", err3))
-	}
-	return fmt.Errorf("failed to process instruction: %s",
-		strings.Join(errorMsgs, "; "),
-	)
 }
