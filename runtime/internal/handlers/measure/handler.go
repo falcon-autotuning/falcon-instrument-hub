@@ -239,6 +239,7 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 	instrumentMap := make(map[instrument.Name]*InstrumentInstructions)
 	for _, instruction := range totalInstructions {
 		options, err := h.instrumentHandler.GetPortOptions(instruction.Setter)
+		instrumentName := options.Instrument
 		if err != nil {
 			h.log.Error("Failed to get port configuration for setter %s: %v",
 				instruction.Setter,
@@ -248,16 +249,16 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		}
 
 		// Create InstrumentInstructions if it doesn't exist
-		if _, exists := instrumentMap[options.Instrument]; !exists {
-			instrumentMap[options.Instrument] = &InstrumentInstructions{
-				Name: options.Instrument,
+		if _, exists := instrumentMap[instrumentName]; !exists {
+			instrumentMap[instrumentName] = &InstrumentInstructions{
+				Name: instrumentName,
 			}
 			sortedInstructions = append(
 				sortedInstructions,
-				instrumentMap[options.Instrument],
+				instrumentMap[instrumentName],
 			)
 		}
-		instrumentMap[options.Instrument].append(instruction)
+		instrumentMap[instrumentName].append(instruction)
 	}
 
 	// Create scheduler BEFORE sending SET commands to avoid race condition
@@ -273,6 +274,7 @@ func (h *MeasurementReadyHandler) sendInstructions(
 ) {
 	for _, instructions := range ii {
 		h.log.Debug("The instructions to send are: %#v", *instructions)
+		h.log.Debug("The measurement ID to send is %v", measurementID)
 		instructions.arm()
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {

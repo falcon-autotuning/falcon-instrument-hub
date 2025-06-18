@@ -133,22 +133,25 @@ func (in *Instructions) separate() []instrument.SetInstruction {
 
 // fromJson loads instructions from a JSON string
 func (in *Instructions) fromJson(jsonStr string) error {
-	err1 := json.Unmarshal([]byte(jsonStr), &in)
+	err := json.Unmarshal([]byte(jsonStr), &in)
+	// now we need to fix the Setter field explicitly
+	port := instrument.PortObject{}
+	err1 := json.Unmarshal([]byte(in.Setter), &port)
 	// marshal cycling the Setter to ensure it is a valid JsonPort
-	fixed_bytes, err2 := json.Marshal(in.Setter)
-	err3 := json.Unmarshal(fixed_bytes, &in.Setter)
-	if err1 == nil && err2 == nil && err3 == nil {
+	fixed_bytes, err2 := json.Marshal(port)
+	in.Setter = instrument.JsonPort(string(fixed_bytes))
+	if err1 == nil && err2 == nil {
 		return nil
 	}
 	var errorMsgs []string
+	if err != nil {
+		errorMsgs = append(errorMsgs, fmt.Sprintf("unmarshal error: %v", err))
+	}
 	if err1 != nil {
 		errorMsgs = append(errorMsgs, fmt.Sprintf("unmarshal error: %v", err1))
 	}
 	if err2 != nil {
 		errorMsgs = append(errorMsgs, fmt.Sprintf("marshal error: %v", err2))
-	}
-	if err3 != nil {
-		errorMsgs = append(errorMsgs, fmt.Sprintf("remarshal error: %v", err3))
 	}
 	return fmt.Errorf("failed to process instruction: %s",
 		strings.Join(errorMsgs, "; "),

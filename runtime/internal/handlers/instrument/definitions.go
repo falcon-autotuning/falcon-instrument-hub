@@ -395,11 +395,6 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 
 		// Check if this instrument has the requested property
 		if propertyData, exists := process.Ports[req.Property]; exists {
-			h.Log.Info(
-				"Received %s and it exists %v",
-				propertyData,
-				exists,
-			)
 			for index, portName := range propertyData {
 				if portName == req.Name {
 					targetInstrument = instrumentName
