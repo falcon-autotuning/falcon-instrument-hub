@@ -352,6 +352,27 @@ class InterpreterDaemon:
             InstrumentPort.from_json(key): value for key, value in configuration.items()
         }
 
+    def find_matching_port(
+        self,
+        configuration: dict["InstrumentPort", "PropertyJson"],
+        default_name: str,
+        property: "PropertyName",
+    ) -> "InstrumentPort | None":
+        """Processes the configuration and the search parameters and tries to find the matching port.
+
+        Args:
+            configuration: The configuration to search in.
+            default_name: The defualt name to search for in the configuration
+            property: The property of the port we are searching for.
+
+        Returns:
+            The port if found, else None.
+        """
+        for key, values in configuration.items():
+            if key.default_name == default_name and property in values:
+                return key
+        return None
+
     async def process_request(
         self,
         request: "MeasurementRequest",
@@ -444,9 +465,29 @@ class InterpreterDaemon:
             for i, couple_domain in enumerate(axes_domains):
                 raw_space = chunk[i, :]
                 for meter in getters:
+                    default_name = meter.default_name
+                    default_name.split("_##_")
+                    assert len(default_name) == 3, (
+                        f"The formatting of the defulat name {default_name} is incorrect, expected 3 parts."
+                    )
+                    default_name = (
+                        default_name[0]
+                        + "_##_"
+                        + SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES
+                        + "_##_"
+                        + default_name[2]
+                    )
+                    port = self.find_matching_port(
+                        configuration=configuration,
+                        default_name=default_name,
+                        property=SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES,
+                    )
+                    assert port is not None, (
+                        f"Failed to find a matching port in the configuration. Search for {default_name} and property {SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES}"
+                    )
                     if not buffered:
                         instruction.add_setter(
-                            instrument=meter,
+                            instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
                                 * step_width,
@@ -457,7 +498,7 @@ class InterpreterDaemon:
                         )
                     else:
                         instruction.add_setter(
-                            instrument=meter,
+                            instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: (
                                     TIMEOUT_SCALE_FACTOR * step_width

@@ -94,6 +94,14 @@ test-outs/device_config.yaml
 test-outs/wiremap.yaml
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-06-18_12-35-19.log
+test-outs/log/falcon-runtime_2025-06-18_12-47-12.log
+test-outs/log/falcon-runtime_2025-06-18_12-56-10.log
+test-outs/log/falcon-runtime_2025-06-18_13-12-53.log
+test-outs/log/falcon-runtime_2025-06-18_13-17-15.log
+test-outs/log/falcon-runtime_2025-06-18_13-22-59.log
+test-outs/log/falcon-runtime_2025-06-18_13-55-49.log
+test-outs/log/falcon-runtime_2025-06-18_14-02-34.log
+test-outs/log/falcon-runtime_2025-06-18_14-28-19.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py
