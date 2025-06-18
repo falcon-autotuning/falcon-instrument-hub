@@ -346,10 +346,7 @@ class InstrumentDaemon:
             chunk_id = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.CHUNK_ID]
             assert isinstance(chunk_id, int), "chunk_id must be an integer"
             # Send executing message immediately
-            timeout = self._instrument.get_property(
-                property_name=SUPPORTED_PROPERTIES.TIMEOUT,
-                index=-1,
-            )
+            timeout = self._instrument._timeout
             assert isinstance(timeout, (int, float)), (
                 f"timeout must be a number, got {timeout}"
             )
