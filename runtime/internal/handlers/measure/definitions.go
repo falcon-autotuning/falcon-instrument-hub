@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -17,7 +18,9 @@ import (
 
 const (
 	MeasurementReadyHandlerName                         = "MEASUREMENT_READY_HANDLER"
-	arm                         instrument.PropertyName = "ARM"
+	Arm                         instrument.PropertyName = "ARM"
+	timeout                     instrument.PropertyName = "TIMEOUT"
+	GlobalIndex                 instrument.Index        = "-1"
 )
 
 // SubscriptionConfig defines a subscription configuration
@@ -36,7 +39,6 @@ var (
 	TriggerMessage          = api.GetCommandName(api.Trigger{})
 	ReturnDataMessage       = api.GetCommandName(api.ReturnData{})
 	UploadDataMessage       = api.GetCommandName(api.UploadData{})
-	GetMessage              = api.GetCommandName(api.Get{})
 )
 
 // MeasurementScheduler tracks measurements waiting for RETURN_DATA
@@ -118,15 +120,75 @@ type Instructions struct {
 }
 
 type InstrumentInstructions struct {
-	Name            instrument.Name
-	SetInstructions []instrument.SetInstruction
-	// TODO: handle trigger instruction
-	ArmInstruction []instrument.SetInstruction
+	Name                instrument.Name
+	SetInstructions     []instrument.SetInstruction
+	TimeoutInstructions []instrument.SetInstruction
+	ArmInstruction      []instrument.SetInstruction
 }
 
-// append adds a new instruction to the list
+// append adds a new instruction to the list, separating timeout instructions
+// and keeping only the largest
 func (ii *InstrumentInstructions) append(in Instructions) {
-	ii.SetInstructions = append(ii.SetInstructions, in.separate()...)
+	separated := in.separate()
+	for _, instruction := range separated {
+		if instruction.Property == timeout {
+			ii.addTimeoutInstruction(instruction)
+		} else {
+			ii.SetInstructions = append(ii.SetInstructions, instruction)
+		}
+	}
+}
+
+// addTimeoutInstruction adds a timeout instruction, keeping only the one with
+// the largest value
+func (ii *InstrumentInstructions) addTimeoutInstruction(
+	instruction instrument.SetInstruction,
+) {
+	// Convert the value to float64
+	var newTimeout float64
+	switch v := instruction.Value.(type) {
+	case float64:
+		newTimeout = v
+	case float32:
+		newTimeout = float64(v)
+	case int:
+		newTimeout = float64(v)
+	case int64:
+		newTimeout = float64(v)
+	case string:
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			newTimeout = parsed
+		} else {
+			return
+		}
+	default:
+		return // Unsupported type, skip
+	}
+
+	if len(ii.TimeoutInstructions) == 0 {
+		ii.TimeoutInstructions = append(ii.TimeoutInstructions, instruction)
+		return
+	}
+
+	var currentTimeout float64
+	switch v := ii.TimeoutInstructions[0].Value.(type) {
+	case float64:
+		currentTimeout = v
+	case float32:
+		currentTimeout = float64(v)
+	case int:
+		currentTimeout = float64(v)
+	case int64:
+		currentTimeout = float64(v)
+	case string:
+		if parsed, err := strconv.ParseFloat(v, 64); err == nil {
+			currentTimeout = parsed
+		}
+	}
+
+	if newTimeout > currentTimeout {
+		ii.TimeoutInstructions = []instrument.SetInstruction{instruction}
+	}
 }
 
 // peek returns the first instruction without removing it
@@ -134,12 +196,12 @@ func (ii *InstrumentInstructions) peek() *instrument.SetInstruction {
 	return &ii.SetInstructions[0]
 }
 
-// arm will add an arm instruction to the end of the lists
+// arm will add an arm instruction and consolidates timeouts
 func (ii *InstrumentInstructions) arm() {
 	// any Instructions for the instrument will work as a surrogate
 	newii := Instructions{
 		Setter:   ii.peek().Name,
-		Property: []instrument.PropertyName{arm},
+		Property: []instrument.PropertyName{Arm},
 		Values:   []any{true},
 	}
 	ii.ArmInstruction = newii.separate()
