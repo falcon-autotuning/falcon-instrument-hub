@@ -466,16 +466,16 @@ class InterpreterDaemon:
                 raw_space = chunk[i, :]
                 for meter in getters:
                     default_name = meter.default_name
-                    default_name.split("_##_")
-                    assert len(default_name) == 3, (
-                        f"The formatting of the defulat name {default_name} is incorrect, expected 3 parts."
+                    name_parts = default_name.split("_##_")
+                    assert len(name_parts) == 3, (
+                        f"The formatting of the default name {default_name} is incorrect, expected 3 parts."
                     )
                     default_name = (
-                        default_name[0]
+                        name_parts[0]
                         + "_##_"
                         + SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES
                         + "_##_"
-                        + default_name[2]
+                        + name_parts[2]
                     )
                     port = self.find_matching_port(
                         configuration=configuration,
