@@ -73,8 +73,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"1": createTestPortJSON("port1"),
 				},
-				"ARM": {
-					"1": createTestPortJSON("port1"),
+				measure.Arm: {
+					measure.GlobalIndex: createTestPortJSON("port1"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -84,8 +84,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 						"unit":   "V",
 					},
 				},
-				"ARM": {
-					"1": {
+				measure.Arm: {
+					measure.GlobalIndex: {
 						"type": "boolean",
 					},
 				},
@@ -98,8 +98,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"2": createTestPortJSON("port2"),
 				},
-				"ARM": {
-					"2": createTestPortJSON("port2"),
+				measure.Arm: {
+					measure.GlobalIndex: createTestPortJSON("port2"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -109,8 +109,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 						"unit":   "V",
 					},
 				},
-				"ARM": {
-					"2": {
+				measure.Arm: {
+					measure.GlobalIndex: {
 						"type": "boolean",
 					},
 				},
@@ -123,8 +123,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"10": createTestPortJSON("getter_port"),
 				},
-				"ARM": {
-					"10": createTestPortJSON("getter_port"),
+				measure.Arm: {
+					measure.GlobalIndex: createTestPortJSON("getter_port"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -134,8 +134,8 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 						"unit":   "V",
 					},
 				},
-				"ARM": {
-					"10": map[string]any{
+				measure.Arm: {
+					measure.GlobalIndex: map[string]any{
 						"type": "boolean",
 					},
 				},
@@ -148,11 +148,11 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 				"knobs": {
 					"20": createTestPortJSON("setter_port"),
 				},
-				"ARM": {
-					"20": createTestPortJSON("setter_port"),
+				measure.Arm: {
+					measure.GlobalIndex: createTestPortJSON("setter_port"),
 				},
 				"master": {
-					"1": createTestPortJSON("master_port"),
+					measure.GlobalIndex: createTestPortJSON("master_port"),
 				},
 			},
 			Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
@@ -162,13 +162,13 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 						"unit":   "V",
 					},
 				},
-				"ARM": {
-					"20": map[string]any{
+				measure.Arm: {
+					measure.GlobalIndex: map[string]any{
 						"type": "boolean",
 					},
 				},
 				"master": {
-					"1": map[string]any{
+					measure.GlobalIndex: map[string]any{
 						"value": true,
 					},
 				},
@@ -229,10 +229,10 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Create buffered measurement request
 	getterPortJSON := createTestPortJSON("getter_port")
 
-	setterInstruction := map[string]interface{}{
+	setterInstruction := map[string]any{
 		"setter":   string(createTestPortJSON("setter_port")),
 		"property": []string{"knobs"},
-		"values":   []interface{}{5.0},
+		"values":   []any{5.0},
 	}
 	setterInstructionJSON, _ := json.Marshal(setterInstruction)
 
@@ -263,17 +263,22 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	// Subscribe to SET commands to simulate setter instrument arming
 	// Use a specific subject to avoid conflicts
 	setSubSetter, err := nc.Subscribe(
-		"SET.setter_instrument", // Specific subject, not wildcard
+		instrument.SetCommand+".setter_instrument",
 		func(msg *nats.Msg) {
 			var setCmd api.Set
 			if err := json.Unmarshal(msg.Data, &setCmd); err != nil {
-				t.Logf("Failed to unmarshal SET command: %v", err)
+				t.Logf(
+					"Failed to unmarshal %s command: %v",
+					instrument.SetCommand,
+					err,
+				)
 				return
 			}
 
 			atomic.AddInt64(&setCommandCount, 1)
 			t.Logf(
-				"TEST: Received SET command: property=%s, index=%d, value=%v, processId=%d, chunkId=%d",
+				"TEST: Received %s command: property=%s, index=%d, value=%v, processId=%d, chunkId=%d",
+				instrument.SetCommand,
 				setCmd.Property,
 				setCmd.Index,
 				setCmd.Value,
@@ -282,20 +287,28 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 			)
 
 			// Simulate ARM command received - send ARMED response
-			if setCmd.Property == "ARM" {
+			if setCmd.Property == string(measure.Arm) {
 				atomic.AddInt64(&armCommandCount, 1)
-				t.Logf("TEST: ARM command detected, sending ARMED response")
+				t.Logf(
+					"TEST: %s command detected, sending %s response",
+					measure.Arm,
+					measure.ArmedMessage,
+				)
 
 				armed := api.Armed{
 					ProcessId: setCmd.ProcessId,
 					ChunkId:   setCmd.ChunkId,
 				}
 				armedData, _ := json.Marshal(armed)
-				armedSubject := "ARMED.setter_instrument"
+				armedSubject := measure.ArmedMessage + ".setter_instrument"
 				if err := nc.Publish(armedSubject, armedData); err != nil {
-					t.Logf("TEST: Failed to publish ARMED: %v", err)
+					t.Logf(
+						"TEST: Failed to publish %s: %v",
+						measure.ArmedMessage,
+						err,
+					)
 				} else {
-					t.Logf("TEST: Published ARMED to %s", armedSubject)
+					t.Logf("TEST: Published %s to %s", measure.ArmedMessage, armedSubject)
 					atomic.AddInt64(&armedReceived, 1)
 				}
 			}
@@ -306,16 +319,21 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 
 	// Subscribe to TRIGGER commands for getter instrument
 	triggerSubGetter, err := nc.Subscribe(
-		"TRIGGER.getter_instrument", // Specific subject
+		measure.TriggerMessage+".getter_instrument",
 		func(msg *nats.Msg) {
 			var triggerCmd api.Trigger
 			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
-				t.Logf("Failed to unmarshal TRIGGER command: %v", err)
+				t.Logf(
+					"Failed to unmarshal %s command: %v",
+					measure.TriggerMessage,
+					err,
+				)
 				return
 			}
 
 			t.Logf(
-				"TEST: Received TRIGGER for getter: processId=%d, chunkId=%d",
+				"TEST: Received %s for getter: processId=%d, chunkId=%d",
+				measure.TriggerMessage,
 				triggerCmd.ProcessId,
 				triggerCmd.ChunkId,
 			)
@@ -327,11 +345,15 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 				ChunkId:   triggerCmd.ChunkId,
 			}
 			executingData, _ := json.Marshal(executing)
-			executingSubject := "EXECUTING.getter_instrument"
+			executingSubject := measure.ExecutingMessage + ".getter_instrument"
 			if err := nc.Publish(executingSubject, executingData); err != nil {
-				t.Logf("TEST: Failed to publish EXECUTING: %v", err)
+				t.Logf(
+					"TEST: Failed to publish %s : %v",
+					measure.ExecutingMessage,
+					err,
+				)
 			} else {
-				t.Logf("TEST: Published EXECUTING to %s", executingSubject)
+				t.Logf("TEST: Published %s to %s", measure.ExecutingMessage, executingSubject)
 				atomic.AddInt64(&executingReceived, 1)
 			}
 		},
@@ -341,16 +363,21 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 
 	// Subscribe to TRIGGER commands for setter instrument
 	triggerSubSetter, err := nc.Subscribe(
-		"TRIGGER.setter_instrument", // Specific subject
+		measure.TriggerMessage+".setter_instrument", // Specific subject
 		func(msg *nats.Msg) {
 			var triggerCmd api.Trigger
 			if err := json.Unmarshal(msg.Data, &triggerCmd); err != nil {
-				t.Logf("Failed to unmarshal TRIGGER command: %v", err)
+				t.Logf(
+					"Failed to unmarshal %s command: %v",
+					measure.TriggerMessage,
+					err,
+				)
 				return
 			}
 
 			t.Logf(
-				"TEST: Received TRIGGER for setter: processId=%d, chunkId=%d",
+				"TEST: Received %s for setter: processId=%d, chunkId=%d",
+				measure.TriggerMessage,
 				triggerCmd.ProcessId,
 				triggerCmd.ChunkId,
 			)
@@ -359,7 +386,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 			// Simulate instrument returning buffered data after setter is
 			// triggered
 			returnData := api.ReturnData{
-				Data:      []interface{}{99.9, 88.8},
+				Data:      []any{99.9, 88.8},
 				Property:  "knobs",
 				Index:     10, // This must match the getter_instrument index
 				ProcessId: triggerCmd.ProcessId,
@@ -368,11 +395,15 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 			returnDataBytes, _ := json.Marshal(returnData)
 
 			// Publish the RETURN_DATA response
-			returnDataSubject := "RETURN_DATA.getter_instrument"
+			returnDataSubject := measure.ReturnDataMessage + ".getter_instrument"
 			if err := nc.Publish(returnDataSubject, returnDataBytes); err != nil {
-				t.Logf("TEST: Failed to publish RETURN_DATA: %v", err)
+				t.Logf(
+					"TEST: Failed to publish %s : %v",
+					measure.ReturnDataMessage,
+					err,
+				)
 			} else {
-				t.Logf("TEST: Published RETURN_DATA to %s", returnDataSubject)
+				t.Logf("TEST: Published %s to %s", measure.ReturnDataMessage, returnDataSubject)
 			}
 		},
 	)
@@ -386,10 +417,18 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 		func(msg *nats.Msg) {
 			var processData api.ProcessData
 			if err := json.Unmarshal(msg.Data, &processData); err != nil {
-				t.Logf("Failed to unmarshal PROCESS_DATA: %v", err)
+				t.Logf(
+					"Failed to unmarshal %s : %v",
+					measure.ProcessDataMessage,
+					err,
+				)
 				return
 			}
-			t.Logf("Received PROCESS_DATA: processId=%d", processData.ProcessId)
+			t.Logf(
+				"Received %s: processId=%d",
+				measure.ProcessDataMessage,
+				processData.ProcessId,
+			)
 			processDataReceived <- processData
 		},
 	)
@@ -406,7 +445,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 		assert.Equal(t, int64(2), processData.ProcessId)
 
 		// Parse the data JSON
-		var results map[string]interface{}
+		var results map[string]any
 		err := json.Unmarshal([]byte(processData.Data), &results)
 		require.NoError(t, err)
 

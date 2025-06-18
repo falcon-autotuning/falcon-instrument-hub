@@ -362,6 +362,12 @@ type (
 		Name     JsonPort
 		Value    any
 	}
+	DirectSetInstruction struct {
+		InstrumentName Name
+		Property       PropertyName
+		Index          int64
+		Value          any
+	}
 	MeasurementID struct {
 		ProcessId ID
 		ChunkId   ID
@@ -375,6 +381,7 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	if measurementID.ProcessId == 0 {
 		measurementID.ProcessId = -1
 	}
+
 	// Find the instrument and index by searching through all instrument ports
 	var targetInstrument Name
 	var targetIndex Index
@@ -389,7 +396,7 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 		// Check if this instrument has the requested property
 		if propertyData, exists := process.Ports[req.Property]; exists {
 			h.Log.Info(
-				"Received %s end it exists %v",
+				"Received %s and it exists %v",
 				propertyData,
 				exists,
 			)
@@ -416,6 +423,7 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 		)
 		return
 	}
+
 	realIndex, err := strconv.ParseInt(string(targetIndex), 10, 64)
 	if err != nil {
 		h.Log.Error(
@@ -423,12 +431,35 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 			targetIndex,
 			err,
 		)
+		return
+	}
+
+	// Create DirectSetInstruction and send it
+	directInstruction := DirectSetInstruction{
+		InstrumentName: targetInstrument,
+		Property:       req.Property,
+		Index:          realIndex,
+		Value:          req.Value,
+	}
+
+	h.SendDirectSetInstruction(directInstruction, measurementID)
+}
+
+// SendDirectSetInstruction sends a SET command directly to a specific
+// instrument
+func (h *Handler) SendDirectSetInstruction(
+	req DirectSetInstruction,
+	measurementID MeasurementID,
+) {
+	// default value for processId is 0, which means it is not set
+	if measurementID.ProcessId == 0 {
+		measurementID.ProcessId = -1
 	}
 
 	// Create and send the SET command to the target instrument
 	setCommand := api.Set{
 		Property:  string(req.Property),
-		Index:     realIndex,
+		Index:     req.Index,
 		Value:     req.Value,
 		ProcessId: int64(measurementID.ProcessId),
 		ChunkId:   int64(measurementID.ChunkId),
@@ -443,7 +474,7 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	}
 
 	// Publish the SET command to the target instrument
-	setSubject := fmt.Sprintf("%s.%s", SetCommand, targetInstrument)
+	setSubject := fmt.Sprintf("%s.%s", SetCommand, req.InstrumentName)
 
 	if err := h.nc.Publish(setSubject, setData); err != nil {
 		h.Log.Error(
@@ -456,11 +487,11 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	}
 
 	h.Log.Info(
-		"Successfully sent %s command to %s: property=%s, index=%s, value=%v",
+		"Successfully sent %s command to %s: property=%s, index=%d, value=%v",
 		SetCommand,
 		setSubject,
 		req.Property,
-		targetIndex,
+		req.Index,
 		req.Value,
 	)
 }

@@ -210,6 +210,11 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 	msg := stackItem.MeasurementReady
 	chunkId := stackItem.ChunkId
 
+	measurementID := instrument.MeasurementID{
+		ProcessId: instrument.ID(msg.ProcessId),
+		ChunkId:   instrument.ID(chunkId),
+	}
+
 	h.log.Info(
 		"Processing SET commands for ProcessId %d, ChunkId %d (Setters: %d)",
 		msg.ProcessId,
@@ -257,21 +262,51 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		targetInstructions.append(instruction)
 	}
 
-	measurementID := instrument.MeasurementID{
-		ProcessId: instrument.ID(msg.ProcessId),
-		ChunkId:   instrument.ID(chunkId),
-	}
-
 	// Create scheduler BEFORE sending SET commands to avoid race condition
 	h.createSchedulerForMeasurement(msg, chunkId)
+	h.sendInstructions(measurementID, sortedInstructions)
+}
 
-	for _, instructions := range sortedInstructions {
+// sendInstructions sends all SET, TIMEOUT, and ARM instructions to be processed
+// before published
+func (h *MeasurementReadyHandler) sendInstructions(
+	measurementID instrument.MeasurementID,
+	ii []*InstrumentInstructions,
+) {
+	for _, instructions := range ii {
 		instructions.arm()
-		h.instrumentHandler.SetProperties(
-			instructions.SetInstructions,
-			instructions.ArmInstruction,
-			measurementID,
-		)
+		// Send regular SET instructions
+		for _, setInstruction := range instructions.SetInstructions {
+			h.instrumentHandler.SetProperty(setInstruction, measurementID)
+		}
+
+		// Send TIMEOUT instructions directly
+		for _, timeoutInstruction := range instructions.TimeoutInstructions {
+			directInstruction := instrument.DirectSetInstruction{
+				InstrumentName: instructions.Name,
+				Property:       timeoutInstruction.Property,
+				Index:          -1, // Global instrument command
+				Value:          timeoutInstruction.Value,
+			}
+			h.instrumentHandler.SendDirectSetInstruction(
+				directInstruction,
+				measurementID,
+			)
+		}
+
+		// Send ARM instructions directly
+		for _, armInstruction := range instructions.ArmInstruction {
+			directInstruction := instrument.DirectSetInstruction{
+				InstrumentName: instructions.Name,
+				Property:       armInstruction.Property,
+				Index:          -1, // Global instrument command
+				Value:          armInstruction.Value,
+			}
+			h.instrumentHandler.SendDirectSetInstruction(
+				directInstruction,
+				measurementID,
+			)
+		}
 	}
 }
 
@@ -341,18 +376,19 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 
 	readyChecklist := createBoolMap(setterInstruments)
 	triggerGetterChecklist := createBoolMap(getterInstruments)
+	processId := instrument.ID(msg.ProcessId)
 
 	// Initialize scheduler for this specific chunk
 	h.mutex.Lock()
-	if h.schedulers[instrument.ID(msg.ProcessId)] == nil {
-		h.schedulers[instrument.ID(msg.ProcessId)] = make(
+	if h.schedulers[processId] == nil {
+		h.schedulers[processId] = make(
 			map[instrument.ID]*MeasurementScheduler,
 		)
 	}
 
 	scheduler := &MeasurementScheduler{
 		ID: instrument.MeasurementID{
-			ProcessId: instrument.ID(msg.ProcessId),
+			ProcessId: processId,
 			ChunkId:   instrument.ID(chunkId),
 		},
 		GetterPorts:              getterPorts,
@@ -373,7 +409,7 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		setterInstruments,
 		getterInstruments,
 	)
-	h.schedulers[instrument.ID(msg.ProcessId)][scheduler.ID.ChunkId] = scheduler
+	h.schedulers[processId][scheduler.ID.ChunkId] = scheduler
 	h.mutex.Unlock()
 }
 
