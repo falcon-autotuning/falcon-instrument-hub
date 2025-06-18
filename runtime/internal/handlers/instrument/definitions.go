@@ -459,6 +459,11 @@ func (h *Handler) SendDirectSetInstruction(
 		ProcessId: int64(measurementID.ProcessId),
 		ChunkId:   int64(measurementID.ChunkId),
 	}
+	h.Log.Debug(
+		"The processId in the set command is %d for property %s",
+		setCommand.ProcessId,
+		setCommand.Property,
+	)
 
 	setData, err := json.Marshal(setCommand)
 	if err != nil {
