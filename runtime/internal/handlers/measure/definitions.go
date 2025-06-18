@@ -18,8 +18,8 @@ import (
 
 const (
 	MeasurementReadyHandlerName                         = "MEASUREMENT_READY_HANDLER"
-	Arm                         instrument.PropertyName = "ARM"
-	timeout                     instrument.PropertyName = "TIMEOUT"
+	Arm                         instrument.PropertyName = "arm"
+	Timeout                     instrument.PropertyName = "timeout"
 	GlobalIndex                 instrument.Index        = "-1"
 )
 
@@ -131,7 +131,7 @@ type InstrumentInstructions struct {
 func (ii *InstrumentInstructions) append(in Instructions) {
 	separated := in.separate()
 	for _, instruction := range separated {
-		if instruction.Property == timeout {
+		if instruction.Property == Timeout {
 			ii.addTimeoutInstruction(instruction)
 		} else {
 			ii.SetInstructions = append(ii.SetInstructions, instruction)
