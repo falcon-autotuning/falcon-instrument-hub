@@ -361,6 +361,7 @@ class InstrumentDaemon:
                 ),
                 message=json.dumps(return_msg),
             )
+            await self.log("Trigger command recieved, starting process...")
 
             # Start the trigger process (fire and forget)
             self._loop.run_in_executor(
