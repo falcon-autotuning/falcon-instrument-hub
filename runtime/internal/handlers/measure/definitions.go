@@ -40,15 +40,127 @@ var (
 	UploadDataMessage       = api.GetCommandName(api.UploadData{})
 )
 
+type PortDeployment struct {
+	Port    instrument.JsonPort
+	Options *instrument.PortOptions
+}
+
+// ScheduledPortDeployment tracks the structure of the ports schedules for
+// deployment
+type ScheduledPortDeployments struct {
+	Deployment map[instrument.Name][]PortDeployment
+}
+
+// NewScheduledPortDeployment creates a new ScheduledPortDeployment
+func NewScheduledPortDeployment() *ScheduledPortDeployments {
+	return &ScheduledPortDeployments{
+		Deployment: make(map[instrument.Name][]PortDeployment),
+	}
+}
+
+// Add adds a port to the deployment for the given instrument
+func (spd *ScheduledPortDeployments) Add(
+	instrumentName instrument.Name,
+	port instrument.JsonPort,
+	portOptions *instrument.PortOptions,
+) {
+	spd.Deployment[instrumentName] = append(
+		spd.Deployment[instrumentName],
+		PortDeployment{Port: port, Options: portOptions},
+	)
+}
+
+// GetInstruments returns a slice of all instrument names
+func (spd *ScheduledPortDeployments) GetInstruments() []instrument.Name {
+	instruments := make([]instrument.Name, 0, len(spd.Deployment))
+	for instrumentName := range spd.Deployment {
+		instruments = append(instruments, instrumentName)
+	}
+	return instruments
+}
+
+// GetPorts returns a slice of all ports across all instruments
+func (spd *ScheduledPortDeployments) GetPorts() []instrument.JsonPort {
+	var ports []instrument.JsonPort
+	for _, instrumentPortItems := range spd.Deployment {
+		for _, portItem := range instrumentPortItems {
+			ports = append(ports, portItem.Port)
+		}
+	}
+	return ports
+}
+
+// GetPortsForInstrument returns the ports for a specific instrument
+func (spd *ScheduledPortDeployments) GetPortsForInstrument(
+	instrumentName instrument.Name,
+) []instrument.JsonPort {
+	var ports []instrument.JsonPort
+	for _, portItem := range spd.Deployment[instrumentName] {
+		ports = append(ports, portItem.Port)
+	}
+	return ports
+}
+
+// GetPortOptionsForInstrumentAndPort returns the port options for a specific
+// instrument and port
+func (spd *ScheduledPortDeployments) GetPortOptionsForInstrumentAndPort(
+	instrumentName instrument.Name,
+	port instrument.JsonPort,
+) *instrument.PortOptions {
+	for _, portItem := range spd.Deployment[instrumentName] {
+		if portItem.Port == port {
+			return portItem.Options
+		}
+	}
+	return nil
+}
+
+// GetAllPortOptions returns all port options across all instruments
+func (spd *ScheduledPortDeployments) GetAllPortOptions() []*instrument.PortOptions {
+	var options []*instrument.PortOptions
+	for _, instrumentPortItems := range spd.Deployment {
+		for _, portItem := range instrumentPortItems {
+			options = append(options, portItem.Options)
+		}
+	}
+	return options
+}
+
+// GetPrimaryPropertyIndexes returns the primary property indexes for the
+// deployment
+func (spd *ScheduledPortDeployments) GetPrimaryPropertyIndexes() []instrument.PropertyIndex {
+	options := spd.GetAllPortOptions()
+	var outs []instrument.PropertyIndex
+	for _, option := range options {
+		if len(option.Properties) > 0 {
+			outs = append(outs, instrument.PropertyIndex{
+				Property: option.Properties[0],
+				Index:    option.Index,
+			})
+		}
+	}
+	return outs
+}
+
+// Contains checks if an instrument exists in the deployment
+func (spd *ScheduledPortDeployments) Contains(
+	instrumentName instrument.Name,
+) bool {
+	_, exists := spd.Deployment[instrumentName]
+	return exists
+}
+
+// Len returns the number of instruments in the deployment
+func (spd *ScheduledPortDeployments) Len() int {
+	return len(spd.Deployment)
+}
+
 // MeasurementScheduler tracks measurements waiting for RETURN_DATA
 type MeasurementScheduler struct {
 	ID                       instrument.MeasurementID    // Combined ProcessId and ChunkId
-	GetterPorts              []instrument.JsonPort       // Original getter ports
-	SetterPorts              []instrument.JsonPort       // Original setter ports
-	RequirementPorts         []instrument.JsonPort       // Ports that need to be armed
-	GetterInstruments        []instrument.Name           // Instruments that will be set in the measurement
-	SetterInstruments        []instrument.Name           // Instruments that will do the measuring
-	RequiredInstruments      []instrument.Name           // Instruments that need to be armed
+	GetterDeployment         *ScheduledPortDeployments   // Getter instruments and their ports
+	SetterDeployment         *ScheduledPortDeployments   // Setter instruments and their ports
+	RequirementDeployment    *ScheduledPortDeployments   // Required instruments and their ports
 	MasterTriggerInstruments []instrument.Name           // Master instruments for hardware trigger
 	ReceivedReturns          int                         // Number of RETURN_DATA messages received
 	ExpectedReturns          int                         // Expected number of RETURN_DATA messages
@@ -57,14 +169,45 @@ type MeasurementScheduler struct {
 	TriggeredGetterChecklist map[instrument.Name]bool    // Getter instrument -> triggered status
 }
 
+// GetterPorts returns all getter ports
+func (ms *MeasurementScheduler) GetterPorts() []instrument.JsonPort {
+	return ms.GetterDeployment.GetPorts()
+}
+
+// SetterPorts returns all setter ports
+func (ms *MeasurementScheduler) SetterPorts() []instrument.JsonPort {
+	return ms.SetterDeployment.GetPorts()
+}
+
+// RequirementPorts returns all requirement ports
+func (ms *MeasurementScheduler) RequirementPorts() []instrument.JsonPort {
+	return ms.RequirementDeployment.GetPorts()
+}
+
+// GetterInstruments returns all getter instrument names
+func (ms *MeasurementScheduler) GetterInstruments() []instrument.Name {
+	return ms.GetterDeployment.GetInstruments()
+}
+
+// SetterInstruments returns all setter instrument names
+func (ms *MeasurementScheduler) SetterInstruments() []instrument.Name {
+	return ms.SetterDeployment.GetInstruments()
+}
+
+// RequiredInstruments returns all required instrument names
+func (ms *MeasurementScheduler) RequiredInstruments() []instrument.Name {
+	return ms.RequirementDeployment.GetInstruments()
+}
+
 func (ms *MeasurementScheduler) registerReadyRequirement(
 	name instrument.Name,
 ) error {
-	if !slices.Contains(ms.RequiredInstruments, name) {
+	requiredInstruments := ms.RequiredInstruments()
+	if !slices.Contains(requiredInstruments, name) {
 		return fmt.Errorf(
 			"instrument %s not found in required instruments. Available required instruments: %v",
 			name,
-			ms.RequiredInstruments,
+			requiredInstruments,
 		)
 	}
 	ms.ReadyChecklist[name] = true
@@ -72,7 +215,8 @@ func (ms *MeasurementScheduler) registerReadyRequirement(
 }
 
 func (ms *MeasurementScheduler) requirementsAreSatisfied() bool {
-	for _, name := range ms.RequiredInstruments {
+	requiredInstruments := ms.RequiredInstruments()
+	for _, name := range requiredInstruments {
 		if !ms.ReadyChecklist[name] {
 			return false
 		}
@@ -87,7 +231,8 @@ func (ms *MeasurementScheduler) resetRequiredReadiness() {
 }
 
 func (ms *MeasurementScheduler) gettersAreTriggered() bool {
-	for _, name := range ms.GetterInstruments {
+	getterInstruments := ms.GetterInstruments()
+	for _, name := range getterInstruments {
 		if !ms.TriggeredGetterChecklist[name] {
 			return false
 		}
@@ -102,7 +247,8 @@ func (ms *MeasurementScheduler) resetGettersTriggered() {
 }
 
 func (ms *MeasurementScheduler) containsGetter(port instrument.JsonPort) bool {
-	return slices.Contains(ms.GetterPorts, port)
+	getterPorts := ms.GetterDeployment.GetPorts()
+	return slices.Contains(getterPorts, port)
 }
 
 func (ms *MeasurementScheduler) storeData(port instrument.JsonPort, data any) {
@@ -233,14 +379,23 @@ func (ii *InstrumentInstructions) peek() *instrument.SetInstruction {
 }
 
 // arm will add an arm instruction and consolidates timeouts
-func (ii *InstrumentInstructions) arm() {
+func (ii *InstrumentInstructions) arm(
+	propertyPairs []instrument.PropertyIndex,
+) error {
+	bytes, err := json.Marshal(propertyPairs)
+	if err != nil {
+		return fmt.Errorf("failed to marshal property pairs %v", err)
+	}
+	value := string(bytes)
+
 	// any Instructions for the instrument will work as a surrogate
 	newii := Instructions{
 		Port:     ii.peek().Name,
 		Property: []instrument.PropertyName{Arm},
-		Values:   []any{true},
+		Values:   []any{value},
 	}
 	ii.ArmInstruction = newii.separate()
+	return nil
 }
 
 // MeasurementReadyHandler handles MEASUREMENT_READY requests

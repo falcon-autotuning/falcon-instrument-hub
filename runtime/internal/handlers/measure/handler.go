@@ -210,6 +210,8 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 	msg := stackItem.MeasurementReady
 	chunkId := stackItem.ChunkId
 
+	h.createSchedulerForMeasurement(msg, chunkId)
+
 	measurementID := instrument.MeasurementID{
 		ProcessId: instrument.ID(msg.ProcessId),
 		ChunkId:   instrument.ID(chunkId),
@@ -261,9 +263,10 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		instrumentMap[instrumentName].append(instruction)
 	}
 
-	// Create scheduler BEFORE sending SET commands to avoid race condition
-	h.createSchedulerForMeasurement(msg, chunkId)
-	h.sendInstructions(measurementID, sortedInstructions)
+	err = h.sendInstructions(measurementID, sortedInstructions)
+	if err != nil {
+		h.log.Error("Could not send instructions: %s", err)
+	}
 }
 
 // sendInstructions sends all SET, TIMEOUT, and ARM instructions to be processed
@@ -271,11 +274,25 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 func (h *MeasurementReadyHandler) sendInstructions(
 	measurementID instrument.MeasurementID,
 	ii []*InstrumentInstructions,
-) {
+) error {
+	scheduler := h.selectScheduler(measurementID)
+	h.log.Debug("The measurement ID to send is %v", measurementID)
 	for _, instructions := range ii {
+		name := instructions.Name
 		h.log.Debug("The instructions to send are: %#v", *instructions)
-		h.log.Debug("The measurement ID to send is %v", measurementID)
-		instructions.arm()
+		// Need to determine if this instruction is for a setter or getter or
+		// just a requirement
+		if scheduler.GetterDeployment.Contains(name) {
+			instructions.arm(
+				scheduler.GetterDeployment.GetPrimaryPropertyIndexes(),
+			)
+		} else if scheduler.SetterDeployment.Contains(name) {
+			instructions.arm(scheduler.SetterDeployment.GetPrimaryPropertyIndexes())
+		} else if scheduler.RequirementDeployment.Contains(name) {
+			instructions.arm(scheduler.RequirementDeployment.GetPrimaryPropertyIndexes())
+		} else {
+			return fmt.Errorf("Unable to find an instrument corresponding to %s", name)
+		}
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {
 			h.instrumentHandler.SetProperty(setInstruction, measurementID)
@@ -309,6 +326,7 @@ func (h *MeasurementReadyHandler) sendInstructions(
 			)
 		}
 	}
+	return nil
 }
 
 // createSchedulerForMeasurement creates the scheduler before sending SET
@@ -343,11 +361,15 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	}
 
 	// Get unique instruments from getters and setters
-	getterInstruments := h.getUniqueInstruments(getterPorts)
-	setterInstruments := h.getUniqueInstruments(setterPorts)
-	requiredInstruments := h.getUniqueInstruments(requiredPorts)
-	h.log.Debug("The setter instruments are %v", setterInstruments)
-	masterInstruments := setterInstruments // default for unbuffered
+	getterDeployment := h.getUniqueInstruments(getterPorts)
+	setterDeployment := h.getUniqueInstruments(setterPorts)
+	setterInstruments := setterDeployment.GetInstruments()
+	requiredDeployment := h.getUniqueInstruments(requiredPorts)
+	h.log.Debug(
+		"The setter instruments are %v",
+		setterInstruments,
+	)
+	masterInstruments := setterDeployment.GetInstruments() // default for unbuffered
 
 	if msg.Buffered && len(setterInstruments) > 1 {
 		masterInstrument, err := h.instrumentHandler.FindMasterInstrument(
@@ -380,30 +402,21 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		)
 	}
 
-	readyChecklist := createBoolMap(setterInstruments)
-	triggerGetterChecklist := createBoolMap(getterInstruments)
+	readyChecklist := createBoolMap(setterDeployment.GetInstruments())
+	triggerGetterChecklist := createBoolMap(getterDeployment.GetInstruments())
 	processId := instrument.ID(msg.ProcessId)
-
-	// Initialize scheduler for this specific chunk
-	h.mutex.Lock()
-	if h.schedulers[processId] == nil {
-		h.schedulers[processId] = make(
-			map[instrument.ID]*MeasurementScheduler,
-		)
+	measurementId := instrument.MeasurementID{
+		ProcessId: processId,
+		ChunkId:   instrument.ID(chunkId),
 	}
 
+	// Initialize scheduler for this specific chunk
 	scheduler := &MeasurementScheduler{
-		ID: instrument.MeasurementID{
-			ProcessId: processId,
-			ChunkId:   instrument.ID(chunkId),
-		},
-		GetterPorts:              getterPorts,
-		GetterInstruments:        getterInstruments,
-		SetterInstruments:        setterInstruments,
+		ID:                       measurementId,
+		GetterDeployment:         getterDeployment,
+		SetterDeployment:         setterDeployment,
+		RequirementDeployment:    requiredDeployment,
 		MasterTriggerInstruments: masterInstruments,
-		SetterPorts:              setterPorts,
-		RequirementPorts:         requiredPorts,
-		RequiredInstruments:      requiredInstruments,
 		ReceivedReturns:          0,
 		ExpectedReturns:          len(getterPorts),
 		ReadyChecklist:           readyChecklist,
@@ -415,19 +428,39 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		"Created scheduler for %+v with setter instruments: %v, getter instruments: %v, required insturments: %v",
 		scheduler.ID,
 		setterInstruments,
-		getterInstruments,
-		requiredInstruments,
+		getterDeployment.GetInstruments(),
+		requiredDeployment.GetInstruments(),
 	)
-	h.schedulers[processId][scheduler.ID.ChunkId] = scheduler
+	h.mutex.Lock()
+	h.setScheduler(measurementId, scheduler)
 	h.mutex.Unlock()
 }
 
+func (h *MeasurementReadyHandler) setScheduler(
+	id instrument.MeasurementID,
+	scheduler *MeasurementScheduler,
+) {
+	if h.schedulers[id.ProcessId] == nil {
+		h.schedulers[id.ProcessId] = make(
+			map[instrument.ID]*MeasurementScheduler,
+		)
+	}
+	h.schedulers[id.ProcessId][id.ChunkId] = scheduler
+}
+
+// selectScheduler retrieves the scheduler for a given measurement ID
+func (h *MeasurementReadyHandler) selectScheduler(
+	id instrument.MeasurementID,
+) *MeasurementScheduler {
+	return h.schedulers[id.ProcessId][id.ChunkId]
+}
+
 // getUniqueInstruments extracts unique instrument names from a list of ports
+// and returns a ScheduledPortDeployment containing the mapping
 func (h *MeasurementReadyHandler) getUniqueInstruments(
 	ports []instrument.JsonPort,
-) []instrument.Name {
-	instrumentSet := make(map[instrument.Name]bool)
-	var uniqueInstruments []instrument.Name
+) *ScheduledPortDeployments {
+	deployment := NewScheduledPortDeployment()
 
 	for _, port := range ports {
 		portConfig, err := h.instrumentHandler.GetPortOptions(port)
@@ -439,13 +472,10 @@ func (h *MeasurementReadyHandler) getUniqueInstruments(
 			continue
 		}
 
-		if !instrumentSet[portConfig.Instrument] {
-			instrumentSet[portConfig.Instrument] = true
-			uniqueInstruments = append(uniqueInstruments, portConfig.Instrument)
-		}
+		deployment.Add(portConfig.Instrument, port, portConfig)
 	}
 
-	return uniqueInstruments
+	return deployment
 }
 
 // triggerGetterInstruments sends TRIGGER commands to arm all getter instruments
