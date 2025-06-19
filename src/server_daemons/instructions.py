@@ -40,6 +40,7 @@ class Instruction:
         """Initialize the instruction."""
         self._getters = getters
         self._setters = setters
+        self._requirements = requirements
         self._buffered = buffered
 
     @property
