@@ -365,10 +365,15 @@ class InstrumentDaemon:
 
             # Start the trigger process concurrently
             async def run_trigger():
-                await self._loop.run_in_executor(
-                    None,
-                    self._instrument.process_trigger,
-                )
+                try:
+                    await self.log("Starting process_trigger in executor...")
+                    await self._loop.run_in_executor(
+                        None,
+                        self._instrument.process_trigger,
+                    )
+                    await self.log("process_trigger completed in executor")
+                except Exception as e:
+                    await self.log(f"Error in process_trigger: {e}")
 
             self._loop.create_task(run_trigger())
 
@@ -377,27 +382,50 @@ class InstrumentDaemon:
             await self.log(
                 f"TRIGGER timeout reached ({timeout}s) - instrument unlocked"
             )
-            # Process any return data from setter instruments
-            while not self._instrument._return_data._message_queue.empty():
-                await self.log("Queue is not empty, processing return data....")
-                try:
-                    return_data = (
-                        self._instrument._return_data._message_queue.get_nowait()
-                    )
-                    # Add process_id and chunk_id to the return data message
-                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID] = (
-                        process_id
-                    )
-                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID] = chunk_id
+            # Add debugging for the queue state
+            await self.log("Checking return data queue...")
+            if hasattr(self._instrument, "_return_data"):
+                await self.log("Instrument has _return_data attribute")
+                if self._instrument._return_data:
+                    await self.log("_return_data object exists, checking queue...")
+                    queue_size = self._instrument._return_data._message_queue.qsize()
+                    await self.log(f"Queue size: {queue_size}")
 
-                    await self.send_command(
-                        channel=self.specific_channel(
-                            DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
-                        ),
-                        message=json.dumps(return_data),
+                    # Process any return data from setter instruments
+                    messages = self._instrument._return_data.get_queued_messages()
+                    await self.log(
+                        f"Got {len(messages)} messages from get_queued_messages()"
                     )
-                except Exception as e:
-                    await self.log(f"Error processing return data: {e}")
+
+                    if messages:
+                        for channel, message in messages:
+                            try:
+                                # Parse the message to add process_id and chunk_id
+                                return_data = json.loads(message)
+                                return_data[
+                                    DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID
+                                ] = process_id
+                                return_data[
+                                    DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID
+                                ] = chunk_id
+
+                                await self.send_command(
+                                    channel=self.specific_channel(
+                                        DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
+                                    ),
+                                    message=json.dumps(return_data),
+                                )
+                                await self.log(f"Sent return data: {return_data}")
+                            except Exception as e:
+                                await self.log(f"Error processing return data: {e}")
+                    else:
+                        await self.log(
+                            "No messages found in queue after trigger timeout"
+                        )
+                else:
+                    await self.log("_return_data is None")
+            else:
+                await self.log("Instrument does not have _return_data attribute")
 
             await self.log("All return data processed after TRIGGER command")
 
