@@ -379,6 +379,7 @@ class InstrumentDaemon:
             )
             # Process any return data from setter instruments
             while not self._instrument._return_data._message_queue.empty():
+                await self.log("Queue is not empty, processing return data....")
                 try:
                     return_data = (
                         self._instrument._return_data._message_queue.get_nowait()
