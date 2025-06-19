@@ -228,20 +228,22 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 
 	// Create buffered measurement request
 	getterPortJSON := createTestPortJSON("getter_port")
+	setterPortJSON := createTestPortJSON("setter_port")
 
-	setterInstruction := map[string]any{
+	requiredInstructions := map[string]any{
 		"setter":   string(createTestPortJSON("setter_port")),
 		"property": []string{"knobs"},
 		"values":   []any{5.0},
 	}
-	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+	requirementJSON, _ := json.Marshal(requiredInstructions)
 
 	measurementReady := api.MeasurementReady{
 		ProcessId: 2,
 		Getters:   []string{string(getterPortJSON)},
-		Setters: []string{
-			string(setterInstructionJSON),
-		}, // Use instruction format
+		Setters:   []string{string(setterPortJSON)},
+		Requirements: []string{
+			string(requirementJSON),
+		},
 		Buffered: true,
 	}
 
@@ -576,20 +578,22 @@ func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
 
 	// Create multiple measurements
 	getterPortJSON := createTestPortJSON("getter_port")
-	setterInstruction := map[string]interface{}{
+	setterPortJSON := createTestPortJSON("setter_port")
+	requiredInstructions := map[string]interface{}{
 		"setter":   string(createTestPortJSON("setter_port")),
 		"property": []string{"knobs"},
 		"values":   []interface{}{5.0},
 	}
-	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+	requiredJSON, _ := json.Marshal(requiredInstructions)
 
 	// Send 3 measurements rapidly
 	for i := 1; i <= 3; i++ {
 		measurementReady := api.MeasurementReady{
-			ProcessId: int64(100 + i),
-			Getters:   []string{string(getterPortJSON)},
-			Setters:   []string{string(setterInstructionJSON)},
-			Buffered:  true,
+			ProcessId:    int64(100 + i),
+			Getters:      []string{string(getterPortJSON)},
+			Setters:      []string{string(setterPortJSON)},
+			Requirements: []string{string(requiredJSON)},
+			Buffered:     true,
 		}
 
 		measurementData, _ := json.Marshal(measurementReady)
@@ -660,28 +664,31 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	// Create unbuffered measurement request with multiple setters
 	getterPortJSON1 := createTestPortJSON("getter_port")
 	getterPortJSON2 := createTestPortJSON("port1") // instrument1 port
+	setterPortJSON1 := createTestPortJSON("setter_port")
+	setterPortJSON2 := createTestPortJSON("port2") // instrument1 port
 
-	setterInstruction1 := map[string]interface{}{
+	requiredInstruction1 := map[string]interface{}{
 		"setter": string(
 			createTestPortJSON("setter_port"),
 		), // setter_instrument
 		"property": []string{"knobs"},
 		"values":   []interface{}{5.0},
 	}
-	setterInstruction2 := map[string]interface{}{
+	requiredInstruction2 := map[string]interface{}{
 		"setter":   string(createTestPortJSON("port2")), // instrument2 port
 		"property": []string{"knobs"},
 		"values":   []interface{}{10.0},
 	}
-	setterInstruction1JSON, _ := json.Marshal(setterInstruction1)
-	setterInstruction2JSON, _ := json.Marshal(setterInstruction2)
+	requiredJSON1, _ := json.Marshal(requiredInstruction1)
+	requiredJSON2, _ := json.Marshal(requiredInstruction2)
 
 	measurementReady := api.MeasurementReady{
 		ProcessId: 4,
 		Getters:   []string{string(getterPortJSON1), string(getterPortJSON2)},
-		Setters: []string{
-			string(setterInstruction1JSON),
-			string(setterInstruction2JSON),
+		Setters:   []string{string(setterPortJSON1), string(setterPortJSON2)},
+		Requirements: []string{
+			string(requiredJSON1),
+			string(requiredJSON2),
 		},
 		Buffered: false, // Unbuffered measurement
 	}
@@ -724,15 +731,17 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 			)
 
 			// Simulate ARM command received - send ARMED response
-			if setCmd.Property == "ARM" {
+			if setCmd.Property == string(measure.Arm) {
 				atomic.AddInt64(&armCommandCount, 1)
 				mu.Lock()
 				armedInstruments = append(armedInstruments, instrumentName)
 				mu.Unlock()
 
 				t.Logf(
-					"TEST: ARM command detected on %s, sending ARMED response",
+					"TEST: %s command detected on %s, sending %s response",
+					measure.Arm,
 					instrumentName,
+					measure.ArmedMessage,
 				)
 
 				armed := api.Armed{
@@ -740,11 +749,15 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 					ChunkId:   setCmd.ChunkId,
 				}
 				armedData, _ := json.Marshal(armed)
-				armedSubject := "ARMED." + instrumentName
+				armedSubject := measure.ArmedMessage + "." + instrumentName
 				if err := nc.Publish(armedSubject, armedData); err != nil {
-					t.Logf("TEST: Failed to publish ARMED: %v", err)
+					t.Logf(
+						"TEST: Failed to publish %s: %v",
+						measure.ArmedMessage,
+						err,
+					)
 				} else {
-					t.Logf("TEST: Published ARMED to %s", armedSubject)
+					t.Logf("TEST: Published %s to %s", measure.ArmedMessage, armedSubject)
 					atomic.AddInt64(&armedCount, 1)
 				}
 			}
@@ -961,19 +974,20 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 	defer setSub.Unsubscribe()
 
 	// Send multiple measurements
-	setterInstruction := map[string]interface{}{
+	requiredInstructions := map[string]interface{}{
 		"setter":   string(createTestPortJSON("setter_port")),
 		"property": []string{"knobs"},
 		"values":   []interface{}{5.0},
 	}
-	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+	requiredJSON, _ := json.Marshal(requiredInstructions)
 
 	for i := 1; i <= 5; i++ {
 		measurementReady := api.MeasurementReady{
-			ProcessId: int64(i),
-			Getters:   []string{string(createTestPortJSON("getter_port"))},
-			Setters:   []string{string(setterInstructionJSON)},
-			Buffered:  true,
+			ProcessId:    int64(i),
+			Getters:      []string{string(createTestPortJSON("getter_port"))},
+			Setters:      []string{string(createTestPortJSON("setter_port"))},
+			Requirements: []string{string(requiredJSON)},
+			Buffered:     true,
 		}
 
 		measurementData, _ := json.Marshal(measurementReady)
@@ -1054,22 +1068,23 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	// Create buffered measurement request with multiple setters (should log
 	// error)
 	getterPortJSON := createTestPortJSON("getter_port")
+	setterPortJSON := createTestPortJSON("setter_port")
 
-	setterInstruction := map[string]interface{}{
+	requiredInstructions := map[string]interface{}{
 		"setter":   string(createTestPortJSON("setter_port")),
 		"property": []string{"knobs"},
 		"values":   []interface{}{5.0},
 	}
-	setterInstructionJSON, _ := json.Marshal(setterInstruction)
+	requiredJSON, _ := json.Marshal(requiredInstructions)
 
 	measurementReady := api.MeasurementReady{
 		ProcessId: 3,
 		Getters:   []string{string(getterPortJSON)},
 		Setters: []string{
-			string(setterInstructionJSON),
-			string(setterInstructionJSON),
-		}, // Multiple setters
-		Buffered: true,
+			string(setterPortJSON),
+		},
+		Requirements: []string{string(requiredJSON), string(requiredJSON)},
+		Buffered:     true,
 	}
 
 	measurementData, err := json.Marshal(measurementReady)
@@ -1099,20 +1114,28 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 			)
 
 			// When instrument receives ARM command, it responds with ARMED
-			if setCmd.Property == "ARM" {
-				t.Logf("TEST: ARM command received, sending ARMED response")
+			if setCmd.Property == string(measure.Arm) {
+				t.Logf(
+					"TEST: %s command received, sending %s response",
+					measure.Arm,
+					measure.ArmedMessage,
+				)
 
 				armed := api.Armed{
 					ProcessId: setCmd.ProcessId,
 					ChunkId:   setCmd.ChunkId,
 				}
 				armedData, _ := json.Marshal(armed)
-				armedSubject := "ARMED.setter_instrument"
+				armedSubject := measure.ArmedMessage + ".setter_instrument"
 
 				if err := nc.Publish(armedSubject, armedData); err != nil {
-					t.Logf("TEST: Failed to publish ARMED: %v", err)
+					t.Logf(
+						"TEST: Failed to publish %s: %v",
+						measure.ArmedMessage,
+						err,
+					)
 				} else {
-					t.Logf("TEST: Published ARMED to %s", armedSubject)
+					t.Logf("TEST: Published %s to %s", measure.ArmedMessage, armedSubject)
 				}
 			}
 		},

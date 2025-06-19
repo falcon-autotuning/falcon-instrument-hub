@@ -321,6 +321,14 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		h.log.Error("No getters specified for measurement")
 		return
 	}
+	totalInstructions, err := collectAllRequirements(msg.Requirements)
+	if err != nil {
+		h.log.Error("Failed to collect all required instructions: %s", err)
+	}
+	requiredPorts := make([]instrument.JsonPort, 0, len(totalInstructions))
+	for _, instruction := range totalInstructions {
+		requiredPorts = append(requiredPorts, instruction.Port)
+	}
 
 	setterPorts, err := convertToJsonPorts(msg.Setters)
 	if err != nil {
@@ -337,6 +345,7 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	// Get unique instruments from getters and setters
 	getterInstruments := h.getUniqueInstruments(getterPorts)
 	setterInstruments := h.getUniqueInstruments(setterPorts)
+	requiredInstruments := h.getUniqueInstruments(requiredPorts)
 	h.log.Debug("The setter instruments are %v", setterInstruments)
 	masterInstruments := setterInstruments // default for unbuffered
 
@@ -393,6 +402,8 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		SetterInstruments:        setterInstruments,
 		MasterTriggerInstruments: masterInstruments,
 		SetterPorts:              setterPorts,
+		RequirementPorts:         requiredPorts,
+		RequiredInstruments:      requiredInstruments,
 		ReceivedReturns:          0,
 		ExpectedReturns:          len(getterPorts),
 		ReadyChecklist:           readyChecklist,
@@ -401,10 +412,11 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	}
 
 	h.log.Debug(
-		"Created scheduler for %+v with setter instruments: %v, getter instruments: %v",
+		"Created scheduler for %+v with setter instruments: %v, getter instruments: %v, required insturments: %v",
 		scheduler.ID,
 		setterInstruments,
 		getterInstruments,
+		requiredInstruments,
 	)
 	h.schedulers[processId][scheduler.ID.ChunkId] = scheduler
 	h.mutex.Unlock()
