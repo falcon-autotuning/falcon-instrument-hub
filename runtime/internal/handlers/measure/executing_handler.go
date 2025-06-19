@@ -63,6 +63,14 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		h.log.Error("No scheduler found for %+v", measurementID)
 		return
 	}
+	if slices.Contains(scheduler.SetterInstruments, instrumentName) {
+		h.log.Info(
+			"Instrument %s has been triggered and is running for %+v",
+			instrumentName,
+			measurementID,
+		)
+		return
+	}
 
 	if !slices.Contains(scheduler.GetterInstruments, instrumentName) {
 		h.log.Error("Instrument %s not found in getter instruments for %+v",
