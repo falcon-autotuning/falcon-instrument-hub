@@ -77,5 +77,5 @@ func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
 	h.log.Info("All setter instruments ready for %+v", measurementID)
 	scheduler.resetRequiredReadiness()
 	h.log.Debug("Reset ready checklist for %+v", measurementID)
-	go h.triggerGetterInstruments(measurementID, scheduler.GetterInstruments)
+	go h.triggerGetterInstruments(measurementID, scheduler.GetterInstruments())
 }
