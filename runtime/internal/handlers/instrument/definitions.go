@@ -67,6 +67,38 @@ var connectionToModule = map[connectionType]module{
 	Ohmic:         module(falconCoreModuleTemplate + ohmicModule),
 }
 
+// PortConfiguration represents the inverted mapping for a port
+type PortOptions struct {
+	Instrument Name           `json:"instrument"`
+	Properties []PropertyName `json:"properties"`
+	Index      Index          `json:"index"`
+}
+
+// GetPropertyIndices converts PortOptions to a slice of PropertyIndex structs
+// Uses the port's index for all properties
+func (po *PortOptions) GetPropertyIndices() []PropertyIndex {
+	indices := make([]PropertyIndex, len(po.Properties))
+	for i, property := range po.Properties {
+		indices[i] = PropertyIndex{Property: property, Index: po.Index}
+	}
+	return indices
+}
+
+// GetFirstPropertyIndex returns a PropertyIndex for the first property in
+// PortOptions
+// Returns nil if no properties exist
+func (po *PortOptions) GetFirstPropertyIndex() *PropertyIndex {
+	if len(po.Properties) == 0 {
+		return nil
+	}
+	return &PropertyIndex{Property: po.Properties[0], Index: po.Index}
+}
+
+type PropertyIndex struct {
+	Property PropertyName `json:"property"`
+	Index    Index        `json:"index"`
+}
+
 // InstrumentProcess represents a running instrument daemon
 type InstrumentProcess struct {
 	Name          Name

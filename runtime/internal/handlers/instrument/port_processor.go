@@ -235,13 +235,6 @@ func (pp *PortProcessor) CollectPortProperties(
 	return knobs, meters
 }
 
-// PortConfiguration represents the inverted mapping for a port
-type PortOptions struct {
-	Instrument Name           `json:"instrument"`
-	Properties []PropertyName `json:"properties"`
-	Index      Index          `json:"index"`
-}
-
 // BuildConfigurations creates the configuration mapping by collecting and
 // inverting port mappings
 func (pp *PortProcessor) BuildConfigurations(
