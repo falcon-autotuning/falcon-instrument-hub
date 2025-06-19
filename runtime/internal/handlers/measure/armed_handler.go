@@ -63,19 +63,19 @@ func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
 		h.log.Error("No scheduler found for %+v", measurementID)
 		return
 	}
-	err := scheduler.registerReadySetter(instrumentName)
+	err := scheduler.registerReadyRequirement(instrumentName)
 	if err != nil {
-		h.log.Error("error registering ready setter: %v", err.Error())
+		h.log.Error("error registering ready ports: %v", err.Error())
 	}
 	h.log.Debug("Marked instrument %s as ready for %+v",
 		instrumentName,
 		measurementID,
 	)
-	if !scheduler.settersAreReady() {
+	if !scheduler.requirementsAreSatisfied() {
 		return
 	}
 	h.log.Info("All setter instruments ready for %+v", measurementID)
-	scheduler.resetSettersReadiness()
+	scheduler.resetRequiredReadiness()
 	h.log.Debug("Reset ready checklist for %+v", measurementID)
 	go h.triggerGetterInstruments(measurementID, scheduler.GetterInstruments)
 }

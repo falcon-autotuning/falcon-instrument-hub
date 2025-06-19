@@ -45,8 +45,10 @@ type MeasurementScheduler struct {
 	ID                       instrument.MeasurementID    // Combined ProcessId and ChunkId
 	GetterPorts              []instrument.JsonPort       // Original getter ports
 	SetterPorts              []instrument.JsonPort       // Original setter ports
-	GetterInstruments        []instrument.Name           // Instruments that need to be armed
-	SetterInstruments        []instrument.Name           // Instruments that need to be armed
+	RequirementPorts         []instrument.JsonPort       // Ports that need to be armed
+	GetterInstruments        []instrument.Name           // Instruments that will be set in the measurement
+	SetterInstruments        []instrument.Name           // Instruments that will do the measuring
+	RequiredInstruments      []instrument.Name           // Instruments that need to be armed
 	MasterTriggerInstruments []instrument.Name           // Master instruments for hardware trigger
 	ReceivedReturns          int                         // Number of RETURN_DATA messages received
 	ExpectedReturns          int                         // Expected number of RETURN_DATA messages
@@ -55,22 +57,22 @@ type MeasurementScheduler struct {
 	TriggeredGetterChecklist map[instrument.Name]bool    // Getter instrument -> triggered status
 }
 
-func (ms *MeasurementScheduler) registerReadySetter(
+func (ms *MeasurementScheduler) registerReadyRequirement(
 	name instrument.Name,
 ) error {
-	if !slices.Contains(ms.SetterInstruments, name) {
+	if !slices.Contains(ms.RequiredInstruments, name) {
 		return fmt.Errorf(
-			"instrument %s not found in setter instruments. Available setter instruments: %v",
+			"instrument %s not found in required instruments. Available required instruments: %v",
 			name,
-			ms.SetterInstruments,
+			ms.RequiredInstruments,
 		)
 	}
 	ms.ReadyChecklist[name] = true
 	return nil
 }
 
-func (ms *MeasurementScheduler) settersAreReady() bool {
-	for _, name := range ms.SetterInstruments {
+func (ms *MeasurementScheduler) requirementsAreSatisfied() bool {
+	for _, name := range ms.RequiredInstruments {
 		if !ms.ReadyChecklist[name] {
 			return false
 		}
@@ -78,7 +80,7 @@ func (ms *MeasurementScheduler) settersAreReady() bool {
 	return true
 }
 
-func (ms *MeasurementScheduler) resetSettersReadiness() {
+func (ms *MeasurementScheduler) resetRequiredReadiness() {
 	for name := range ms.ReadyChecklist {
 		ms.ReadyChecklist[name] = false
 	}
