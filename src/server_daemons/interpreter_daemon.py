@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         PropertyJson,
         PropertyName,
         PropertyValue,
+        Requirements,
         Setters,
     )
 TIMEOUT_SCALE_FACTOR = 1.5
@@ -215,6 +216,7 @@ class InterpreterDaemon:
         id: "ID",
         getters: "Getters",
         setters: "Setters",
+        requirements: "Requirements",
     ) -> None:
         """Deploys a measurement to the local runtime server.
 
@@ -230,6 +232,9 @@ class InterpreterDaemon:
                     getter.to_json() for getter in getters
                 ],
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.SETTERS: [
+                    setter.to_json() for setter in setters
+                ],
+                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.REQUIREMENTS: [
                     json.dumps(
                         {
                             "setter": setter.to_json(),
@@ -237,7 +242,7 @@ class InterpreterDaemon:
                             "values": list(values.values()),
                         }
                     )
-                    for setter, values in setters.items()
+                    for setter, values in requirements.items()
                 ],
             }
         )
@@ -485,7 +490,7 @@ class InterpreterDaemon:
                         f"Failed to find a matching port in the configuration. Search for {default_name} and property {SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES}"
                     )
                     if not buffered:
-                        instruction.add_setter(
+                        instruction.add_requirement(
                             instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
@@ -496,7 +501,7 @@ class InterpreterDaemon:
                             },
                         )
                     else:
-                        instruction.add_setter(
+                        instruction.add_requirement(
                             instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: (
@@ -513,8 +518,9 @@ class InterpreterDaemon:
                         value=raw_space[0],
                         other=domain.domain,
                     )
+                    instruction.add_setter(domain.label)
                     if not buffered:
-                        instruction.add_setter(
+                        instruction.add_requirement(
                             instrument=domain.label,
                             properties={
                                 SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
@@ -524,7 +530,7 @@ class InterpreterDaemon:
                         )
                         continue
                     if i != 0:
-                        instruction.add_setter(
+                        instruction.add_requirement(
                             instrument=domain.label,
                             properties={
                                 SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
@@ -538,7 +544,7 @@ class InterpreterDaemon:
                         value=raw_space[-1],
                         other=domain.domain,
                     )
-                    instruction.add_setter(
+                    instruction.add_requirement(
                         instrument=domain.label,
                         properties={
                             SUPPORTED_PROPERTIES.STAIRCASE: (
@@ -636,8 +642,8 @@ class InterpreterDaemon:
             if i == 0:
                 new_instructions.append(instruction)
                 continue
-            setters: dict[InstrumentPort, dict[str, Any]] = {}
-            for knob, properties in instruction.setters.items():
+            requirements: dict[InstrumentPort, dict[str, Any]] = {}
+            for knob, properties in instruction.requirements.items():
                 slope = configuration.get(knob, DEFAULT_SLOPE)
                 staircase = properties[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
@@ -649,14 +655,15 @@ class InterpreterDaemon:
                 vstop = staircase[4]
                 assert isinstance(vstop, (int, float)), "The vstop must be a number."
                 timeout = abs(vstop - vstart) / slope  # [sec]
-                setters[knob] = {
+                requirements[knob] = {
                     SUPPORTED_PROPERTIES.VOLTAGE_STATE: properties[  # type: ignore[reportOptionalMemberAccess]
                         SUPPORTED_PROPERTIES.STAIRCASE
                     ][3],
                     SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR * timeout,
                 }
             new_instruction = Instruction(
-                setters=setters,
+                requirements=requirements,
+                setters=list(requirements.keys()),
                 buffered=True,
             )
             new_instructions.append(new_instruction)
@@ -685,6 +692,7 @@ class InterpreterDaemon:
             )
             await self.deploy_measurement(
                 id=measurement_id,
+                requirements=step.requirements,
                 getters=step.getters,
                 setters=step.setters,
             )
@@ -886,7 +894,7 @@ class InterpreterDaemon:
         for instr in self.measurement_groups[id]:
             if not instr.getters:
                 continue
-            first_property_map = list(instr.setters.values())[0]
+            first_property_map = list(instr.requirements.values())[0]
             if SUPPORTED_PROPERTIES.STAIRCASE in first_property_map:
                 staircase = first_property_map[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
@@ -898,7 +906,7 @@ class InterpreterDaemon:
                 num_steps = int(staircase[1])
                 for step in range(num_steps):
                     map = {}
-                    for port, property_map in instr.setters.items():
+                    for port, property_map in instr.requirements.items():
                         staircase = property_map[SUPPORTED_PROPERTIES.STAIRCASE]
                         assert isinstance(staircase, tuple), (
                             "STAIRCASE must be a tuple of numbers."
@@ -917,7 +925,7 @@ class InterpreterDaemon:
                     name_attribute_maps.append(map)
             elif SUPPORTED_PROPERTIES.VOLTAGE_STATE in first_property_map:
                 map = {}
-                for port, property_map in instr.setters.items():
+                for port, property_map in instr.requirements.items():
                     value = property_map[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
                     assert isinstance(value, float), "Invalid set command."
                     map[port.instrument_facing_name()] = value

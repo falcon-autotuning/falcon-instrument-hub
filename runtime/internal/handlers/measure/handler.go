@@ -222,7 +222,7 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		len(msg.Setters),
 	)
 
-	totalInstructions, err := collectAllSetInstructions(msg.Setters)
+	totalInstructions, err := collectAllRequirements(msg.Requirements)
 	if err != nil {
 		h.log.Error("Failed to collect all set instructions: %s", err)
 	}
@@ -238,11 +238,11 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 	// Create InstrumentInstructions for each unique instrument
 	instrumentMap := make(map[instrument.Name]*InstrumentInstructions)
 	for _, instruction := range totalInstructions {
-		options, err := h.instrumentHandler.GetPortOptions(instruction.Setter)
+		options, err := h.instrumentHandler.GetPortOptions(instruction.Port)
 		instrumentName := options.Instrument
 		if err != nil {
-			h.log.Error("Failed to get port configuration for setter %s: %v",
-				instruction.Setter,
+			h.log.Error("Failed to get port configuration for port %s: %v",
+				instruction.Port,
 				err,
 			)
 			continue
@@ -322,15 +322,10 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		return
 	}
 
-	totalInstructions, err := collectAllSetInstructions(msg.Setters)
+	setterPorts, err := convertToJsonPorts(msg.Setters)
 	if err != nil {
-		h.log.Error("Failed to collect all set instructions: %s", err)
+		h.log.Error("Failed to convert setters to JsonPorts: %s", err)
 		return
-	}
-
-	setterPorts := make([]instrument.JsonPort, 0, len(totalInstructions))
-	for _, instruction := range totalInstructions {
-		setterPorts = append(setterPorts, instruction.Setter)
 	}
 
 	getterPorts, err := convertToJsonPorts(msg.Getters)
@@ -342,6 +337,7 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 	// Get unique instruments from getters and setters
 	getterInstruments := h.getUniqueInstruments(getterPorts)
 	setterInstruments := h.getUniqueInstruments(setterPorts)
+	h.log.Debug("The setter instruments are %v", setterInstruments)
 	masterInstruments := setterInstruments // default for unbuffered
 
 	if msg.Buffered && len(setterInstruments) > 1 {

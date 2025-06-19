@@ -18,11 +18,11 @@ func createBoolMap(names []instrument.Name) map[instrument.Name]bool {
 }
 
 // collectAllSetInstructions collects and validates all setter instructions
-func collectAllSetInstructions(setters []string) ([]Instructions, error) {
+func collectAllRequirements(reqs []string) ([]Instructions, error) {
 	var out []Instructions
 	var errorMsgs []string
 
-	for _, setter := range setters {
+	for _, setter := range reqs {
 		var instructions Instructions
 		err := instructions.fromJson(setter)
 		if err == nil {

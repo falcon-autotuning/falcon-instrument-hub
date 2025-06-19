@@ -113,7 +113,7 @@ func (ms *MeasurementScheduler) allDataHere() bool {
 }
 
 type Instructions struct {
-	Setter   instrument.JsonPort       `json:"setter"`
+	Port     instrument.JsonPort       `json:"setter"`
 	Property []instrument.PropertyName `json:"property"`
 	Values   []any                     `json:"values"`
 }
@@ -123,7 +123,7 @@ func (in *Instructions) separate() []instrument.SetInstruction {
 	var instructions []instrument.SetInstruction
 	for i, property := range in.Property {
 		instructions = append(instructions, instrument.SetInstruction{
-			Name:     in.Setter,
+			Name:     in.Port,
 			Property: property,
 			Value:    in.Values[i],
 		})
@@ -136,10 +136,10 @@ func (in *Instructions) fromJson(jsonStr string) error {
 	err := json.Unmarshal([]byte(jsonStr), &in)
 	// now we need to fix the Setter field explicitly
 	port := instrument.PortObject{}
-	err1 := json.Unmarshal([]byte(in.Setter), &port)
+	err1 := json.Unmarshal([]byte(in.Port), &port)
 	// marshal cycling the Setter to ensure it is a valid JsonPort
 	fixed_bytes, err2 := json.Marshal(port)
-	in.Setter = instrument.JsonPort(string(fixed_bytes))
+	in.Port = instrument.JsonPort(string(fixed_bytes))
 	if err1 == nil && err2 == nil {
 		return nil
 	}
@@ -234,7 +234,7 @@ func (ii *InstrumentInstructions) peek() *instrument.SetInstruction {
 func (ii *InstrumentInstructions) arm() {
 	// any Instructions for the instrument will work as a surrogate
 	newii := Instructions{
-		Setter:   ii.peek().Name,
+		Port:     ii.peek().Name,
 		Property: []instrument.PropertyName{Arm},
 		Values:   []any{true},
 	}
