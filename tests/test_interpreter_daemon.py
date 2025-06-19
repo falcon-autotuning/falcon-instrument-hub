@@ -284,7 +284,12 @@ class TestInterpreterDaemon:
             default_name="device1",
             pseudo_name=Ohmic("test_port"),
         )
-        await interpreter_daemon.deploy_measurement(id=345, getters=[port], setters={})
+        await interpreter_daemon.deploy_measurement(
+            id=345,
+            getters=[port],
+            requirements={},
+            setters=[],
+        )
 
         # Verify the correct message format
         mock_client.publish.assert_called_once()
@@ -637,10 +642,10 @@ class TestInterpreterDaemon:
         interpreter_daemon._nc = mock_client
         # Create test instructions
         instr1 = Instruction(
-            setters={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 0.0, 1.0)}}
+            requirements={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 0.0, 1.0)}}
         )
         instr2 = Instruction(
-            setters={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 1.0, 2.0)}}
+            requirements={port: {SUPPORTED_PROPERTIES.STAIRCASE: (10, 5, 0, 1.0, 2.0)}}
         )
 
         # Call interject_ramps - this is an async method
@@ -650,8 +655,8 @@ class TestInterpreterDaemon:
         assert len(result) == 3
         assert result[0] == instr1
         # The middle instruction should set to the start value of the next instruction
-        assert SUPPORTED_PROPERTIES.VOLTAGE_STATE in result[1].setters[port]
-        assert result[1].setters[port][SUPPORTED_PROPERTIES.VOLTAGE_STATE] == 1.0
+        assert SUPPORTED_PROPERTIES.VOLTAGE_STATE in result[1].requirements[port]
+        assert result[1].requirements[port][SUPPORTED_PROPERTIES.VOLTAGE_STATE] == 1.0
         assert result[2] == instr2
 
     @pytest.mark.asyncio

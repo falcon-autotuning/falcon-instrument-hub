@@ -61,7 +61,7 @@ class Instruction:
 
     def add_setter(
         self,
-        instrument: InstrumentPort,
+        instrument: "InstrumentPort",
     ) -> None:
         """Add a setter to the instruction."""
         self._setters.append(instrument)
