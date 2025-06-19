@@ -363,11 +363,14 @@ class InstrumentDaemon:
             )
             await self.log("Trigger command recieved, starting process...")
 
-            # Start the trigger process (fire and forget)
-            self._loop.run_in_executor(
-                None,
-                self._instrument.process_trigger,
-            )
+            # Start the trigger process concurrently
+            async def run_trigger():
+                await self._loop.run_in_executor(
+                    None,
+                    self._instrument.process_trigger,
+                )
+
+            self._loop.create_task(run_trigger())
 
             await asyncio.sleep(timeout)
             await self.unlock_set_queue()
