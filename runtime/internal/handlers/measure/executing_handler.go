@@ -2,7 +2,6 @@ package measure
 
 import (
 	"encoding/json"
-	"slices"
 	"strings"
 
 	"github.com/nats-io/nats.go"
@@ -63,7 +62,7 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		h.log.Error("No scheduler found for %+v", measurementID)
 		return
 	}
-	if slices.Contains(scheduler.SetterInstruments, instrumentName) {
+	if scheduler.SetterDeployment.Contains(instrumentName) {
 		h.log.Info(
 			"Instrument %s has been triggered and is running for %+v",
 			instrumentName,
@@ -71,8 +70,7 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		)
 		return
 	}
-
-	if !slices.Contains(scheduler.GetterInstruments, instrumentName) {
+	if !scheduler.GetterDeployment.Contains(instrumentName) {
 		h.log.Error("Instrument %s not found in getter instruments for %+v",
 			instrumentName,
 			measurementID,
