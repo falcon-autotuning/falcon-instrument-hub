@@ -32,6 +32,11 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
+    def REQUIREMENTS(self) -> str:
+        """the instruments ports that are required to be set"""
+        return "requirements"
+
+    @property
     def BUFFERED(self) -> str:
         """if this is a buffered measurement or not"""
         return "buffered"
@@ -53,7 +58,7 @@ class MEASUREMENT_READY:
 
     @property
     def SETTERS(self) -> str:
-        """the connections that are to be set when buffered"""
+        """the connections that are to be set for the measurement"""
         return "setters"
 
 class PROCESS_DATA:
@@ -65,6 +70,11 @@ class PROCESS_DATA:
         return "PROCESS_DATA"
 
     @property
+    def DATA(self) -> str:
+        """the data taken from the instruments for interpretation"""
+        return "data"
+
+    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
@@ -74,11 +84,6 @@ class PROCESS_DATA:
         """When the response was completed"""
         return "timestamp"
 
-    @property
-    def DATA(self) -> str:
-        """the data taken from the instruments for interpretation"""
-        return "data"
-
 class PROCESS_REQUEST:
     """The substrings necessary for a request to the interpreter to process an incoming measurement."""
 
@@ -86,11 +91,6 @@ class PROCESS_REQUEST:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "PROCESS_REQUEST"
-
-    @property
-    def REQUEST(self) -> str:
-        """The measurement request from FAlCon"""
-        return "request"
 
     @property
     def CONFIGURATIONS(self) -> str:
@@ -107,6 +107,11 @@ class PROCESS_REQUEST:
         """A unique identifier for the process/ measurement and can index it"""
         return "process_id"
 
+    @property
+    def REQUEST(self) -> str:
+        """The measurement request from FAlCon"""
+        return "request"
+
 class STATUS:
     """The substrings necessary for provide the status of the process."""
 
@@ -116,14 +121,14 @@ class STATUS:
         return "STATUS"
 
     @property
-    def STATUS(self) -> str:
-        """At compilation of this message the state of the process"""
-        return "status"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def STATUS(self) -> str:
+        """At compilation of this message the state of the process"""
+        return "status"
 
 class UPDATE_DAEMON_PROPERTY:
     """The substrings necessary for issued to selectively update an instruments property in a daemon."""
@@ -132,6 +137,11 @@ class UPDATE_DAEMON_PROPERTY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "UPDATE_DAEMON_PROPERTY"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The main subclass of property"""
+        return "property"
 
     @property
     def NAME(self) -> str:
@@ -147,11 +157,6 @@ class UPDATE_DAEMON_PROPERTY:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The main subclass of property"""
-        return "property"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""

@@ -8,6 +8,7 @@ if TYPE_CHECKING:
         InstrumentPort,
         PropertyName,
         PropertyValue,
+        Requirements,
         Setters,
     )
 
@@ -17,19 +18,22 @@ class Instruction:
 
     A measurement is a thing that needs to be executed on instrument daemons running on the runtime instrument server.
     It is broken down into a atomic instructions that can be executed on order on the instruments to satify the measurement.
-    This consists of two main parts:
-        setters: A dictionary of connections and their properties to set.
+    This consists of three main parts:
+        requirements: A dictionary of connections and their properties to be set.
+        setters: A list of connections to set for the measurement.
         getters: A list of connections to get data from.
     Getters are no required, but setters are, otherwise there is no measurement to perform.
     """
 
     _setters: "Setters"
     _getters: "Getters"
+    _requirements: "Requirements"
     _buffered: bool
 
     def __init__(
         self,
-        setters: "Setters" = {},
+        setters: "Setters" = [],
+        requirements: "Requirements" = {},
         getters: "Getters" = [],
         buffered: bool = False,
     ):
@@ -57,11 +61,23 @@ class Instruction:
 
     def add_setter(
         self,
+        instrument: InstrumentPort,
+    ) -> None:
+        """Add a setter to the instruction."""
+        self._setters.append(instrument)
+
+    @property
+    def requirements(self) -> "Requirements":
+        """The requirements for the instruction."""
+        return self._requirements
+
+    def add_requirement(
+        self,
         instrument: "InstrumentPort",
         properties: dict["PropertyName", "PropertyValue"],
     ) -> None:
         """Add a setter to the instruction."""
-        self._setters[instrument] = properties
+        self._requirements[instrument] = properties
 
     @property
     def buffered(self) -> bool:

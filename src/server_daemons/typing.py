@@ -36,7 +36,8 @@ type Dimensions = dict[DimensionIndex, Dimension]
 type Metadata = dict[str, str | int | float]
 type ID = int
 type Getters = list[InstrumentPort]
-type Setters = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
+type Setters = list[InstrumentPort]
+type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
     "BaseArray",
