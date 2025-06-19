@@ -834,7 +834,7 @@ if __name__ == "__main__":
 		if received {
 			assert.Equal(t, "voltage", cmd.Property)
 			assert.Equal(t, int64(0), cmd.Index)
-			assert.Equal(t, 5.5, cmd.Value)
+			assert.Equal(t, "5.5", cmd.Value)
 		}
 	})
 
