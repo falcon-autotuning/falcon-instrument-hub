@@ -262,16 +262,14 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		}
 		instrumentMap[instrumentName].append(instruction)
 	}
-
-	err = h.sendInstructions(measurementID, sortedInstructions)
+	err = h.armInstructions(measurementID, sortedInstructions)
 	if err != nil {
-		h.log.Error("Could not send instructions: %s", err)
+		h.log.Error("Could not arm instructions: %s", err)
 	}
+	h.sendInstructions(measurementID, sortedInstructions)
 }
 
-// sendInstructions sends all SET, TIMEOUT, and ARM instructions to be processed
-// before published
-func (h *MeasurementReadyHandler) sendInstructions(
+func (h *MeasurementReadyHandler) armInstructions(
 	measurementID instrument.MeasurementID,
 	ii []*InstrumentInstructions,
 ) error {
@@ -279,20 +277,33 @@ func (h *MeasurementReadyHandler) sendInstructions(
 	h.log.Debug("The measurement ID to send is %v", measurementID)
 	for _, instructions := range ii {
 		name := instructions.Name
-		h.log.Debug("The instructions to send are: %#v", *instructions)
 		// Need to determine if this instruction is for a setter or getter or
 		// just a requirement
+		getters := make([]instrument.PropertyIndex, 0)
+		setters := make([]instrument.PropertyIndex, 0)
 		if scheduler.GetterDeployment.Contains(name) {
-			instructions.arm(
-				scheduler.GetterDeployment.GetPrimaryPropertyIndexes(),
-			)
-		} else if scheduler.SetterDeployment.Contains(name) {
-			instructions.arm(scheduler.SetterDeployment.GetPrimaryPropertyIndexes())
-		} else if scheduler.RequirementDeployment.Contains(name) {
-			instructions.arm(scheduler.RequirementDeployment.GetPrimaryPropertyIndexes())
-		} else {
-			return fmt.Errorf("unable to find an instrument corresponding to %s", name)
+			getters = scheduler.GetterDeployment.GetPrimaryPropertyIndexes()
 		}
+		if scheduler.SetterDeployment.Contains(name) {
+			setters = scheduler.SetterDeployment.GetPrimaryPropertyIndexes()
+		}
+		armvalue := ArmValue{
+			GetterPropertyPairs: getters,
+			SetterPropertyPairs: setters,
+		}
+		instructions.arm(armvalue)
+	}
+	return nil
+}
+
+// sendInstructions sends all SET, TIMEOUT, and ARM instructions to be processed
+// before published
+func (h *MeasurementReadyHandler) sendInstructions(
+	measurementID instrument.MeasurementID,
+	ii []*InstrumentInstructions,
+) {
+	for _, instructions := range ii {
+		h.log.Debug("The instructions to send are: %#v", *instructions)
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {
 			h.instrumentHandler.SetProperty(setInstruction, measurementID)
@@ -326,7 +337,6 @@ func (h *MeasurementReadyHandler) sendInstructions(
 			)
 		}
 	}
-	return nil
 }
 
 // createSchedulerForMeasurement creates the scheduler before sending SET

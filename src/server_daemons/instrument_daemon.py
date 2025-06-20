@@ -372,7 +372,7 @@ class InstrumentDaemon:
                     await self.log("Starting process_trigger in executor...")
                     await self._loop.run_in_executor(
                         None,
-                        self._instrument._process_trigger,
+                        self._instrument._process_triggers,
                     )
                 except Exception as e:
                     await self.log(f"Error in process_trigger: {e}")
@@ -384,6 +384,7 @@ class InstrumentDaemon:
             await self.log(
                 f"TRIGGER timeout reached ({timeout}s) - instrument unlocked"
             )
+            self._instrument._process_return_data()
             # Add debugging for the queue state
             await self.log("Checking return data queue...")
             if not self._instrument._return_data:
@@ -513,10 +514,6 @@ class InstrumentDaemon:
 
         # If this is an ARM command - if so, lock the queue
         self._is_locked = True
-        raw_trigger_indexes = json.loads(value)
-        assert isinstance(raw_trigger_indexes, list), (
-            f"Expected the type of the raw_trigger_indexes to be a list, not {type(raw_trigger_indexes)}"
-        )
         await self.fill_trigger_queue(raw_trigger_indexes=json.loads(value))
 
         return_data = {
@@ -532,17 +529,45 @@ class InstrumentDaemon:
 
     async def fill_trigger_queue(
         self,
-        raw_trigger_indexes: list[dict[str, str | int]],
+        raw_trigger_indexes: dict[str, list[dict[str, str | int]]],
     ) -> None:
         """Fills the trigger queue on the instrument with the trigger indexes selected from the recieved ARM command.
 
         Args:
             raw_trigger_indexes: The list of the trigger indexes to place in the queue for the instrument.
         """
-        assert isinstance(raw_trigger_indexes, list), (
-            f"Expected the type of the raw_trigger_indexes to be a list, not {type(raw_trigger_indexes)}"
+        assert isinstance(raw_trigger_indexes, dict), (
+            f"Expected the type of the raw_trigger_indexes to be a dict, not {type(raw_trigger_indexes)}"
         )
-        for trigger in raw_trigger_indexes:
+        assert "setter" in raw_trigger_indexes, (
+            f"Trigger dictionary missing required 'property' key: {raw_trigger_indexes}"
+        )
+        assert "getter" in raw_trigger_indexes, (
+            f"Trigger dictionary missing required 'index' key: {raw_trigger_indexes}"
+        )
+        setters = raw_trigger_indexes["setter"]
+        getters = raw_trigger_indexes["getter"]
+        self.set_instrument_queue(
+            trigger_indexes=setters,
+            triggers=self._instrument._setter_triggers,
+        )
+        self.set_instrument_queue(
+            trigger_indexes=getters,
+            triggers=self._instrument._getter_triggers,
+        )
+
+    def set_instrument_queue(
+        self,
+        trigger_indexes: list[dict[str, str | int]],
+        triggers: "list[Trigger]",
+    ) -> None:
+        """Sets the trigger queue for the insturment with the provided indexes.
+
+        Args:
+            trigger_indexes: The list of trigger indexes to set in the queue.
+            queue: The queue in the instrument that needs to contain the instrument indexes.
+        """
+        for trigger in trigger_indexes:
             assert isinstance(trigger, dict), (
                 f"Expected each trigger to be a dict, not {type(trigger)}"
             )
@@ -556,7 +581,7 @@ class InstrumentDaemon:
                 property_name=str(trigger["property"]),
                 index=int(trigger["index"]),
             )
-            self._instrument._trigger_queue.put(readyTrigger)
+            triggers.append(readyTrigger)
 
     async def unlock_set_queue(self):
         """Unlock the set queue to allow processing SET commands."""
