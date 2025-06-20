@@ -48,6 +48,7 @@ class InstrumentDaemon:
             instrument_class: The class of the instrument to be controlled.
         """
         self._mutex = asyncio.Lock()
+        self._unlock_state = []
         self._url = url
         self._debug = debug
         self._instrument_name = instrument_driver.__name__
