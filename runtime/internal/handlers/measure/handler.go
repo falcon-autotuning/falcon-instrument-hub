@@ -291,7 +291,7 @@ func (h *MeasurementReadyHandler) sendInstructions(
 		} else if scheduler.RequirementDeployment.Contains(name) {
 			instructions.arm(scheduler.RequirementDeployment.GetPrimaryPropertyIndexes())
 		} else {
-			return fmt.Errorf("Unable to find an instrument corresponding to %s", name)
+			return fmt.Errorf("unable to find an instrument corresponding to %s", name)
 		}
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {
