@@ -378,11 +378,16 @@ func (ii *InstrumentInstructions) peek() *instrument.SetInstruction {
 	return &ii.SetInstructions[0]
 }
 
+type ArmValue struct {
+	SetterPropertyPairs []instrument.PropertyIndex `json:"setter"`
+	GetterPropertyPairs []instrument.PropertyIndex `json:"getter"`
+}
+
 // arm will add an arm instruction and consolidates timeouts
 func (ii *InstrumentInstructions) arm(
-	propertyPairs []instrument.PropertyIndex,
+	armValue ArmValue,
 ) error {
-	bytes, err := json.Marshal(propertyPairs)
+	bytes, err := json.Marshal(armValue)
 	if err != nil {
 		return fmt.Errorf("failed to marshal property pairs %v", err)
 	}
