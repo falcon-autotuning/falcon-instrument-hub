@@ -411,10 +411,10 @@ class InstrumentDaemon:
 
         except Exception as e:
             # Unlock on any error as well
-            await self.try_to_leave()
             await self.log(
                 message=f"Error in TRIGGER command: {e!s}",
             )
+            await self.try_to_leave()
 
     async def process_return_data(
         self,
