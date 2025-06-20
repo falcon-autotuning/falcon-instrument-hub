@@ -25,6 +25,7 @@ class InstrumentDaemon:
     """A daemon that runs in the background and maintains and manages an instrument."""
 
     _nc: "Client"
+    _unlock_state: list[bool]
     _loop: asyncio.AbstractEventLoop
     _url: str
     _instrument_name: str
@@ -32,6 +33,7 @@ class InstrumentDaemon:
     _debug: bool
     _set_queue: asyncio.Queue
     _is_locked: bool
+    _mutex: asyncio.Lock
 
     def __init__(
         self,
@@ -45,6 +47,7 @@ class InstrumentDaemon:
             url: The URL of the NATS server.
             instrument_class: The class of the instrument to be controlled.
         """
+        self._mutex = asyncio.Lock()
         self._url = url
         self._debug = debug
         self._instrument_name = instrument_driver.__name__
@@ -333,6 +336,15 @@ class InstrumentDaemon:
                 message=f"Error in PERFORM_ARBITRARY_METHOD command: {e!s}",
             )
 
+    async def store_unlock_state_name(self, name: bool):
+        """Stores the unlock store names.
+
+        Args:
+            name: The name of the unlock state to store (either setter or not)
+        """
+        async with self._mutex:
+            self._unlock_state.append(name)
+
     async def handle_trigger(
         self,
         msg: "Msg",
@@ -348,6 +360,9 @@ class InstrumentDaemon:
             assert isinstance(process_id, int), "process_id must be an integer"
             chunk_id = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.CHUNK_ID]
             assert isinstance(chunk_id, int), "chunk_id must be an integer"
+            is_setter = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.IS_SETTER]
+            assert isinstance(is_setter, bool), "is_setter must be a boolean"
+            await self.store_unlock_state_name(is_setter)
             # Send executing message immediately
             timeout = self._instrument._timeout
             assert isinstance(timeout, (int, float)), (
@@ -370,63 +385,82 @@ class InstrumentDaemon:
             async def run_trigger():
                 try:
                     await self.log("Starting process_trigger in executor...")
-                    await self._loop.run_in_executor(
-                        None,
-                        self._instrument._process_triggers,
-                    )
+                    if is_setter:
+                        await self._loop.run_in_executor(
+                            None,
+                            self._instrument._process_setter_triggers,
+                        )
+                    else:
+                        await self._loop.run_in_executor(
+                            None,
+                            self._instrument._process_getter_triggers,
+                        )
                 except Exception as e:
                     await self.log(f"Error in process_trigger: {e}")
 
             self._loop.create_task(run_trigger())
 
             await asyncio.sleep(timeout)
-            await self.unlock_set_queue()
-            await self.log(
-                f"TRIGGER timeout reached ({timeout}s) - instrument unlocked"
-            )
-            self._instrument._process_return_data()
-            # Add debugging for the queue state
-            await self.log("Checking return data queue...")
-            if not self._instrument._return_data:
-                await self.log("_return_data is None")
-                return
-            await self.log("_return_data object exists, checking queue...")
-            queue_size = self._instrument._return_data._message_queue.qsize()
-            await self.log(f"Queue size: {queue_size}")
-
-            # Process any return data from setter instruments
-            messages = self._instrument._return_data.get_queued_messages()
-            await self.log(f"Got {len(messages)} messages from get_queued_messages()")
-
-            if not messages:
-                await self.log("No messages found in queue after trigger timeout")
-                return
-            for channel, message in messages:
-                try:
-                    # Parse the message to add process_id and chunk_id
-                    return_data = json.loads(message)
-                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID] = (
-                        process_id
-                    )
-                    return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID] = chunk_id
-
-                    await self.send_command(
-                        channel=self.specific_channel(
-                            DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
-                        ),
-                        message=json.dumps(return_data),
-                    )
-                    await self.log(f"Sent return data: {return_data}")
-                except Exception as e:
-                    await self.log(f"Error processing return data: {e}")
-            await self.log("No messages found in queue after trigger timeout")
+            await self.try_to_leave(name=is_setter)
+            await self.log(f"TRIGGER timeout reached ({timeout}s)")
+            if not is_setter:
+                await self.process_return_data(
+                    process_id=process_id,
+                    chunk_id=chunk_id,
+                )
 
         except Exception as e:
             # Unlock on any error as well
-            await self.unlock_set_queue()
+            await self.try_to_leave()
             await self.log(
-                message=f"Error in TRIGGER command: {e!s} - instrument unlocked",
+                message=f"Error in TRIGGER command: {e!s}",
             )
+
+    async def process_return_data(
+        self,
+        process_id: int,
+        chunk_id: int,
+    ) -> None:
+        """Process return data and sends it away.
+
+        Args:
+            process_id: The ID of the proces that requested the data
+            chunk_id: The ID of the chunk that indexes the data
+        """
+        self._instrument._process_return_data()
+        # Add debugging for the queue state
+        await self.log("Checking return data queue...")
+        if not self._instrument._return_data:
+            await self.log("_return_data is None")
+            return
+        await self.log("_return_data object exists, checking queue...")
+        queue_size = self._instrument._return_data._message_queue.qsize()
+        await self.log(f"Queue size: {queue_size}")
+
+        # Process any return data from setter instruments
+        messages = self._instrument._return_data.get_queued_messages()
+        await self.log(f"Got {len(messages)} messages from get_queued_messages()")
+
+        if not messages:
+            await self.log("No messages found in queue after trigger timeout")
+            return
+        for channel, message in messages:
+            try:
+                # Parse the message to add process_id and chunk_id
+                return_data = json.loads(message)
+                return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID] = process_id
+                return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID] = chunk_id
+
+                await self.send_command(
+                    channel=self.specific_channel(
+                        DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
+                    ),
+                    message=json.dumps(return_data),
+                )
+                await self.log(f"Sent return data: {return_data}")
+            except Exception as e:
+                await self.log(f"Error processing return data: {e}")
+        await self.log("No messages found in queue after trigger timeout")
 
     async def process_set_queue(self):
         """Process SET commands from the queue when unlocked."""
@@ -583,10 +617,19 @@ class InstrumentDaemon:
             )
             triggers.append(readyTrigger)
 
-    async def unlock_set_queue(self):
+    async def try_to_leave(self, name: bool | None = None):
         """Unlock the set queue to allow processing SET commands."""
-        self._is_locked = False
-        await self.log(f"Queue unlocked for {self._instrument_name}")
+        async with self._mutex:
+            if (len(self._unlock_state) == 1) != (name is None):
+                self._is_locked = False
+                self._unlock_state.clear()
+                await self.log(f"Queue unlocked for {self._instrument_name}")
+            elif name is not None:
+                sname = "setter" if name else "getter"
+                self._unlock_state.remove(name)
+                await self.log(f"Its not my job to unlock the queue, I was a {sname}")
+            else:
+                await self.log("I died before getting a name.")
 
     async def handle_set(
         self,

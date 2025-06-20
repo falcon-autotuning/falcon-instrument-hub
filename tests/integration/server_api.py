@@ -9,11 +9,6 @@ class LOG:
         return "LOG"
 
     @property
-    def MESSAGE(self) -> str:
-        """The contents of the log message"""
-        return "message"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -23,6 +18,11 @@ class LOG:
         """the hash for the requesting unit"""
         return "hash"
 
+    @property
+    def MESSAGE(self) -> str:
+        """The contents of the log message"""
+        return "message"
+
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
 
@@ -30,11 +30,6 @@ class MEASUREMENT_READY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "MEASUREMENT_READY"
-
-    @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
-        return "process_id"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -60,6 +55,11 @@ class MEASUREMENT_READY:
     def BUFFERED(self) -> str:
         """if this is a buffered measurement or not"""
         return "buffered"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it"""
+        return "process_id"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -185,6 +185,11 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
+    def PORT(self) -> str:
+        """the configuration of the instrument ports"""
+        return "port"
+
+    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -193,11 +198,6 @@ class CONFIRM_INITIALIZATION:
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
-
-    @property
-    def PORT(self) -> str:
-        """the configuration of the instrument ports"""
-        return "port"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -226,6 +226,11 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+    @property
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
@@ -235,11 +240,6 @@ class PERFORM_ARBITRARY_METHOD:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
 
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
 
@@ -247,6 +247,16 @@ class RETURN_DATA:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "RETURN_DATA"
+
+    @property
+    def DATA(self) -> str:
+        """The measured data collected on the instrument"""
+        return "data"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
 
     @property
     def INDEX(self) -> str:
@@ -262,16 +272,6 @@ class RETURN_DATA:
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
-
-    @property
-    def DATA(self) -> str:
-        """The measured data collected on the instrument"""
-        return "data"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
@@ -310,16 +310,6 @@ class SET:
         return "SET"
 
     @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
-
-    @property
-    def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
-        return "value"
-
-    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
@@ -334,6 +324,16 @@ class SET:
         """The name of the property that is to be set"""
         return "property"
 
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
+    @property
+    def VALUE(self) -> str:
+        """The argument to be set inside the instrument"""
+        return "value"
+
 class TRIGGER:
     """The substrings necessary for execute a trigger/arm on a buffered instrument."""
 
@@ -341,6 +341,11 @@ class TRIGGER:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "TRIGGER"
+
+    @property
+    def IS_SETTER(self) -> str:
+        """if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger."""
+        return "is_setter"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -366,11 +371,6 @@ class ARMED:
         return "ARMED"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
@@ -379,6 +379,11 @@ class ARMED:
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class EXECUTING:
     """The substrings necessary for statement from an instrument indicating it is successfully triggered and executing a measurement.."""
@@ -389,6 +394,11 @@ class EXECUTING:
         return "EXECUTING"
 
     @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
+
+    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -397,11 +407,6 @@ class EXECUTING:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
-
-    @property
-    def CHUNK_ID(self) -> str:
-        """A unique identifier for a particular chunk of a measurement."""
-        return "chunk_id"
 
 class SETUP_INSTRUMENT:
     """The substrings necessary for sets up an instrument on a instrument server."""
@@ -430,14 +435,14 @@ class DESTROY_INSTRUMENT:
         return "DESTROY_INSTRUMENT"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def NAME(self) -> str:
         """the name of the instrument to stop"""
         return "name"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class PERFORM_INSTRUMENT_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -579,11 +584,6 @@ class MEASURE_RESPONSE:
         return "MEASURE_RESPONSE"
 
     @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
-    @property
     def RESPONSE(self) -> str:
         """the measurement response containing the information from the server"""
         return "response"
@@ -592,6 +592,11 @@ class MEASURE_RESPONSE:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
 
 
 class RUNTIME_COMMANDS:

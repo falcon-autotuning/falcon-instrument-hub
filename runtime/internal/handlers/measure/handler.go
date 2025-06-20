@@ -494,7 +494,7 @@ func (h *MeasurementReadyHandler) triggerGetterInstruments(
 	getterInstruments []instrument.Name,
 ) {
 	for _, instrumentName := range getterInstruments {
-		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
+		if err := h.sendTriggerCommand(instrumentName, measurementID, false); err != nil {
 			h.log.Error("Failed to send %s command to arm instrument %s: %v",
 				TriggerMessage,
 				instrumentName,
@@ -517,7 +517,7 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 	)
 
 	for _, instrumentName := range triggerNames {
-		if err := h.sendTriggerCommand(instrumentName, measurementID); err != nil {
+		if err := h.sendTriggerCommand(instrumentName, measurementID, true); err != nil {
 			h.log.Error(
 				"Failed to send %s command to register triggers instrument %s: %v",
 				TriggerMessage,
@@ -532,11 +532,13 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 func (h *MeasurementReadyHandler) sendTriggerCommand(
 	instrumentName instrument.Name,
 	measurementID instrument.MeasurementID,
+	is_setter bool,
 ) error {
 	triggerCommand := api.Trigger{
 		Timestamp: time.Now().UnixMicro(),
 		ProcessId: int64(measurementID.ProcessId),
 		ChunkId:   int64(measurementID.ChunkId),
+		IsSetter:  is_setter,
 	}
 	triggerCommandData, err := json.Marshal(triggerCommand)
 	if err != nil {
