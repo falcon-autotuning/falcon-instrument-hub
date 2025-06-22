@@ -428,13 +428,13 @@ class InstrumentDaemon:
             process_id: The ID of the proces that requested the data
             chunk_id: The ID of the chunk that indexes the data
         """
+        await self.log("Processing return data...")
         self._instrument._process_return_data()
         # Add debugging for the queue state
         await self.log("Checking return data queue...")
-        if not self._instrument._return_data:
-            await self.log("_return_data is None")
+        if self._instrument._return_data._message_queue.empty():
+            await self.log("There is nothing to process in the return data queue.")
             return
-        await self.log("_return_data object exists, checking queue...")
         queue_size = self._instrument._return_data._message_queue.qsize()
         await self.log(f"Queue size: {queue_size}")
 
