@@ -582,7 +582,9 @@ class InstrumentDaemon:
             f"Trigger dictionary missing required 'index' key: {raw_trigger_indexes}"
         )
         setters = raw_trigger_indexes["setter"]
+        await self.log(f"DEBUG: Found setter triggers in the ARM command {setters}")
         getters = raw_trigger_indexes["getter"]
+        await self.log(f"DEBUG: Found getter triggers in the ARM command {getters}")
         self.set_instrument_queue(
             trigger_indexes=setters,
             triggers=self._instrument._setter_triggers,
