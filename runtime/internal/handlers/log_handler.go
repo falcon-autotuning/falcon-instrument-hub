@@ -129,7 +129,7 @@ func (h *LogHandler) handleStructuredLog(channel string, apiLog *api.Log) {
 	h.logWithTimestamp(level, "EXTERNAL", formattedMessage, channel, timestamp)
 
 	// Also log to NATS message log
-	h.logger.LogNATSMessage(channel, fmt.Sprintf("JSON: %s", apiLog.Message))
+	// h.logger.LogNATSMessage(channel, fmt.Sprintf("JSON: %s", apiLog.Message))
 }
 
 // handlePlainTextLog processes a plain text log message (backward
