@@ -15,7 +15,7 @@ import (
 // handleReturnData processes RETURN_DATA responses from buffered measurements
 func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	var returnData api.ReturnData
-	h.log.Debug("Received %s: %s", ReturnDataMessage, string(msg.Data))
+	h.log.Debug("Received %s", ReturnDataMessage)
 	if err := json.Unmarshal(msg.Data, &returnData); err != nil {
 		h.log.Error("Failed to unmarshal %s: %v", ReturnDataMessage, err)
 		return
@@ -100,8 +100,9 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		return
 	}
 	if !scheduler.containsGetter(port) {
-		h.log.Error("Port %s not found in getters for %+v",
+		h.log.Error("Port %s not found in getters %v for %+v",
 			port,
+			scheduler.GetterDeployment.GetPorts(),
 			measurementID,
 		)
 		return

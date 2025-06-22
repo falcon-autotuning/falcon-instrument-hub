@@ -47,20 +47,30 @@ func convertToJsonPorts(strs []string) ([]instrument.JsonPort, error) {
 	var errorMsgs []string
 
 	for i, s := range strs {
-		fixed_bytes, err1 := json.Marshal(s)
+		// we need to fix json issue by cycling inputs through Go json to remove
+		// spaces
+		port := instrument.PortObject{}
+		err1 := json.Unmarshal([]byte(s), &port)
+		fixed_bytes, err2 := json.Marshal(port)
+		result[i] = instrument.JsonPort(string(fixed_bytes))
 		if err1 != nil {
-			errorMsgs = append(errorMsgs,
-				fmt.Sprintf("marshal error for string %d (%q): %v", i, s, err1),
-			)
-			continue
-		}
-
-		err2 := json.Unmarshal(fixed_bytes, &result[i])
-		if err2 != nil {
 			errorMsgs = append(
 				errorMsgs,
 				fmt.Sprintf(
 					"unmarshal error for string %d (%q): %v",
+					i,
+					s,
+					err1,
+				),
+			)
+			continue
+		}
+
+		if err2 != nil {
+			errorMsgs = append(
+				errorMsgs,
+				fmt.Sprintf(
+					"marshal error for string %d (%q): %v",
 					i,
 					s,
 					err2,
