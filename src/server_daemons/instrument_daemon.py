@@ -385,13 +385,14 @@ class InstrumentDaemon:
             # Start the trigger process concurrently
             async def run_trigger():
                 try:
-                    await self.log("Starting process_trigger in executor...")
                     if is_setter:
+                        await self.log("Starting process_setter_trigger in executor...")
                         await self._loop.run_in_executor(
                             None,
                             self._instrument._process_setter_triggers,
                         )
                     else:
+                        await self.log("Starting process_getter_trigger in executor...")
                         await self._loop.run_in_executor(
                             None,
                             self._instrument._process_getter_triggers,
