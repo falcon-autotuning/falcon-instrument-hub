@@ -646,8 +646,8 @@ class InstrumentDaemon:
             property_name = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
             index = data.get(DRIVER_RUNTIME_COMMANDS.SET.INDEX)
             value = data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
-            process_id = int(data.get(DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID))
-            chunk_id = int(data.get(DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID))
+            process_id = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID)
+            chunk_id = data.get(DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID)
 
             if not all([property_name, index, value is not None]):
                 await self.log(

@@ -64,7 +64,7 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 	}
 	if scheduler.SetterDeployment.Contains(instrumentName) {
 		h.log.Info(
-			"Instrument %s has been triggered and is running for %+v",
+			"instrument %s has been triggered and is running for %+v",
 			instrumentName,
 			measurementID,
 		)
