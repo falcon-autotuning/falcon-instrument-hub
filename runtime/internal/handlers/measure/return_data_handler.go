@@ -47,11 +47,10 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	}
 
 	h.log.Debug(
-		"Processing %s: property=%s, index=%d, data=%v, measurementID=%+v",
+		"Processing %s: property=%s, index=%d, measurementID=%+v",
 		ReturnDataMessage,
 		returnData.Property,
 		returnData.Index,
-		returnData.Data,
 		measurementID,
 	)
 
