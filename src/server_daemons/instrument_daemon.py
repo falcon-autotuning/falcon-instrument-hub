@@ -459,7 +459,7 @@ class InstrumentDaemon:
                     ),
                     message=json.dumps(return_data),
                 )
-                await self.log(f"Sent return data: {return_data}")
+                await self.log(f"Sent return data")
             except Exception as e:
                 await self.log(f"Error processing return data: {e}")
         await self.log("No messages found in queue after trigger timeout")
