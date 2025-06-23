@@ -15,7 +15,7 @@ type Logger struct {
 	filePath string
 }
 
-const timeFormat = "2006-01-02 15:04:05.000000"
+const TimeFormat = "2006-01-02 15:04:05.000000"
 
 // LogEntry represents a single log entry
 type LogEntry struct {
@@ -66,7 +66,7 @@ func (l *Logger) LogWithChannel(level, source, message, channel string) {
 	var logLine string
 	if channel != "" {
 		logLine = fmt.Sprintf("[%s] [%s] [%s] [%s] %s\n",
-			timestamp.Format(timeFormat),
+			timestamp.Format(TimeFormat),
 			level,
 			source,
 			channel,
@@ -74,7 +74,7 @@ func (l *Logger) LogWithChannel(level, source, message, channel string) {
 		)
 	} else {
 		logLine = fmt.Sprintf("[%s] [%s] [%s] %s\n",
-			timestamp.Format(timeFormat),
+			timestamp.Format(TimeFormat),
 			level,
 			source,
 			message,
@@ -144,7 +144,7 @@ func (l *Logger) Close() error {
 		// Write shutdown message directly without using the logger methods to
 		// avoid recursion
 		shutdownMsg := fmt.Sprintf("[%s] [%s] [%s] %s\n",
-			time.Now().Format(timeFormat),
+			time.Now().Format(TimeFormat),
 			"INFO",
 			"SYSTEM",
 			"Logger shutting down")
