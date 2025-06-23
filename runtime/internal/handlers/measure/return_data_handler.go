@@ -55,7 +55,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	)
 
 	// Find the port directly using instrument name, property, and index
-	port, err := h.instrumentHandler.FindPortByInstrumentPropertyIndex(
+	jsonPort, err := h.instrumentHandler.FindPortByInstrumentPropertyIndex(
 		instrumentName,
 		instrument.PropertyName(returnData.Property),
 		instrument.Index(strconv.FormatInt(returnData.Index, 10)),
@@ -71,10 +71,18 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		)
 		return
 	}
+	port := instrument.PortObject{}
+	err = port.FromInterface(jsonPort)
+	if err != nil {
+		h.log.Error(
+			"Failed to convert port to object for %s",
+			jsonPort,
+		)
+	}
 
 	h.log.Debug(
 		"Found port '%s' for %s (property: %s, index: %d, measurementID: %+v)",
-		port,
+		port.DefaultName,
 		ReturnDataMessage,
 		returnData.Property,
 		returnData.Index,
@@ -98,7 +106,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		h.log.Error("No scheduler found for %+v", measurementID)
 		return
 	}
-	if !scheduler.containsGetter(port) {
+	if !scheduler.containsGetter(jsonPort) {
 		h.log.Error("Port %s not found in getters %v for %+v",
 			port,
 			scheduler.GetterDeployment.GetPorts(),
@@ -106,13 +114,12 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		)
 		return
 	}
-	scheduler.storeData(port, returnData.Data)
-	h.log.Debug("Stored result for port %s, %+v (%d/%d received): %v",
+	scheduler.storeData(jsonPort, returnData.Data)
+	h.log.Debug("Stored result for port %s, %+v (%d/%d received)",
 		port,
 		measurementID,
 		scheduler.ReceivedReturns,
 		scheduler.ExpectedReturns,
-		returnData.Data,
 	)
 	if !scheduler.allDataHere() {
 		return

@@ -12,6 +12,7 @@ from .dependancies import (
     LabelledMeasuredArray,
     LabelledMeasuredArrays,
     MeasuredArray,
+    MeasuredArray1D,
     MeasurementRequest,
     MeasurementResponse,
     Path,
@@ -719,9 +720,15 @@ class InterpreterDaemon:
             )
             data_payload = json.loads(raw_data_payload)
             assert isinstance(data_payload, dict), "data_payload must be a dictionary."
+            modified_payload = {}
+            for key, value in data_payload.items():
+                modified_payload[key] = MeasuredArray1D(value)
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
-            entry = DataEntry(timestamp=timestamp, data=data_payload)
+            entry = DataEntry(
+                timestamp=timestamp,
+                data=modified_payload,
+            )
             queue = self.data_queue[id]
             queue.append(entry)
             await self.log("Data added to queue ....")
