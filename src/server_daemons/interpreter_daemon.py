@@ -690,7 +690,7 @@ class InterpreterDaemon:
             return
         for i, step in enumerate(self.measurement_groups[measurement_id]):
             await self.log(
-                f"Step {i} of {len(self.measurement_groups[measurement_id])} deploying for measurement {measurement_id}."
+                f"Step {i} of {len(self.measurement_groups[measurement_id]) - 1} deploying for measurement {measurement_id}."
             )
             await self.deploy_measurement(
                 id=measurement_id,
