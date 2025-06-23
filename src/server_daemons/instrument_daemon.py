@@ -32,7 +32,7 @@ class InstrumentDaemon:
     _instrument: "BaseInstrumentDriver"
     _debug: bool
     _set_queue: asyncio.Queue
-    _is_locked: bool
+    _is_unlocked: asyncio.Event
     _mutex: asyncio.Lock
 
     def __init__(
@@ -55,7 +55,7 @@ class InstrumentDaemon:
         self._instrument = instrument_driver()
         self._shutdown_event = asyncio.Event()
         self._set_queue = asyncio.Queue()
-        self._is_locked = False
+        self._is_unlocked = asyncio.Event()
 
     async def start(self):
         """The main loop for the daemon."""
@@ -74,6 +74,7 @@ class InstrumentDaemon:
             self._loop.create_task(self.process_set_queue())
             self._loop.create_task(self.publish_status())
             self._loop.create_task(self.message_consumer())
+            self._is_unlocked.set()
         except asyncio.TimeoutError:
             print(f"Failed to connect to NATS at {self._url} within timeout")
         except Exception as e:
@@ -466,42 +467,47 @@ class InstrumentDaemon:
 
     async def process_set_queue(self):
         """Process SET commands from the queue when unlocked."""
-        try:
-            while not self._shutdown_event.is_set():
-                if self._is_locked:
-                    # Queue is locked, wait a bit before checking again
-                    await asyncio.sleep(0.005)
-                    continue
-                try:
-                    # Wait for a SET command with a short timeout
-                    set_data = await asyncio.wait_for(
-                        self._set_queue.get(),
-                        timeout=0.1,
-                    )
 
-                    property_name = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
-                    assert isinstance(property_name, str), (
-                        f"The raw property name must be a string and not {type(property_name)}"
-                    )
+        while not self._shutdown_event.is_set():
+            try:
+                if not self._is_unlocked.is_set():
+                    # Queue is locked, wait for unlock event
+                    await self.log("Queue is locked, waiting for unlock event...")
+                    try:
+                        await asyncio.wait_for(self._is_unlocked.wait(), timeout=0.1)
+                        await self.log("Queue unlock event received!")
+                    except asyncio.TimeoutError:
+                        # Timeout is fine, just continue the loop to check again
+                        continue
+                else:
+                    # Queue is unlocked, process rapidly
+                    try:
+                        # Try to get a command immediately (non-blocking)
+                        command = self._set_queue.get_nowait()
+                        property_name = command.get(
+                            DRIVER_RUNTIME_COMMANDS.SET.PROPERTY
+                        )
+                        assert isinstance(property_name, str), (
+                            f"The raw property name must be a string and not {type(property_name)}"
+                        )
 
-                    if property_name == SUPPORTED_PROPERTIES.ARM:
-                        await self.process_arm_command(set_data=set_data)
+                        if property_name == SUPPORTED_PROPERTIES.ARM:
+                            await self.process_arm_command(set_data=command)
+                            continue
+
+                        await self.process_set_command(
+                            property_name=property_name,
+                            set_data=command,
+                        )
                         continue
 
-                    await self.process_set_command(
-                        property_name=property_name,
-                        set_data=set_data,
-                    )
+                    except asyncio.QueueEmpty:
+                        # No commands available, short sleep before checking again
+                        await asyncio.sleep(0.001)  # 1ms when unlocked and empty
 
-                except asyncio.TimeoutError:
-                    # No items in queue, continue
-                    continue
-
-        except asyncio.CancelledError:
-            await self.log(f"Set queue processor cancelled for {self._instrument_name}")
-            raise
-        except Exception as e:
-            await self.log(f"Error in set queue processor: {e}")
+            except Exception as e:
+                await self.log(f"Error in process_set_queue: {e}")
+                await asyncio.sleep(0.005)  # 5ms on error
 
     async def process_set_command(
         self,
@@ -549,7 +555,7 @@ class InstrumentDaemon:
         )
 
         # If this is an ARM command - if so, lock the queue
-        self._is_locked = True
+        self._is_unlocked.clear()
         await self.fill_trigger_queue(raw_trigger_indexes=json.loads(value))
 
         return_data = {
@@ -625,7 +631,7 @@ class InstrumentDaemon:
         """Unlock the set queue to allow processing SET commands."""
         async with self._mutex:
             if (len(self._unlock_state) == 1) != (name is None):
-                self._is_locked = False
+                self._is_unlocked.set()
                 self._unlock_state.clear()
                 await self.log(f"Queue unlocked for {self._instrument_name}")
             elif name is not None:
