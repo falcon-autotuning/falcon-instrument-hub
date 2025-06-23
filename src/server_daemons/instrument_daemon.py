@@ -467,7 +467,6 @@ class InstrumentDaemon:
 
     async def process_set_queue(self):
         """Process SET commands from the queue when unlocked."""
-
         while not self._shutdown_event.is_set():
             try:
                 if not self._is_unlocked.is_set():
