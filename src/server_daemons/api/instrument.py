@@ -96,8 +96,13 @@ class RETURN_DATA:
         return "RETURN_DATA"
 
     @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
+
+    @property
     def DATA(self) -> str:
-        """The measured data collected on the instrument"""
+        """The measured data as a list of floats collected on the instrument"""
         return "data"
 
     @property
@@ -115,11 +120,6 @@ class RETURN_DATA:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
 
-    @property
-    def CHUNK_ID(self) -> str:
-        """A unique identifier for a particular chunk of a measurement."""
-        return "chunk_id"
-
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
 
@@ -127,16 +127,6 @@ class RETURN_GET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "RETURN_GET"
-
-    @property
-    def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
-        return "value"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
     @property
     def PROPERTY(self) -> str:
@@ -147,6 +137,16 @@ class RETURN_GET:
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
+
+    @property
+    def VALUE(self) -> str:
+        """The argument to be set inside the instrument"""
+        return "value"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -208,11 +208,6 @@ class ARMED:
         return "ARMED"
 
     @property
-    def CHUNK_ID(self) -> str:
-        """A unique identifier for a particular chunk of a measurement."""
-        return "chunk_id"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -221,6 +216,11 @@ class ARMED:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
+
+    @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
 
 class TRIGGER:
     """The substrings necessary for execute a trigger/arm on a buffered instrument."""
