@@ -17,6 +17,8 @@ type LogEntry struct {
 	Content   string
 }
 
+const timeFormat = "2006-01-02 15:04:05.000000"
+
 // LogParser handles parsing of falcon runtime logs
 type LogParser struct {
 	timestampRegex *regexp.Regexp
@@ -61,7 +63,7 @@ func (p *LogParser) ParseFile(filename string) ([]LogEntry, error) {
 			}
 
 			// Parse timestamp
-			timestamp, err := time.Parse("2006-01-02 15:04:05.000", matches[1])
+			timestamp, err := time.Parse(timeFormat, matches[1])
 			if err != nil {
 				return nil, fmt.Errorf(
 					"failed to parse timestamp %s: %w",
@@ -133,8 +135,8 @@ func (p *LogParser) PrintStats(entries []LogEntry) {
 
 	fmt.Printf("Parsed %d log entries\n", len(entries))
 	fmt.Printf("Time range: %s to %s\n",
-		entries[0].Timestamp.Format("2006-01-02 15:04:05.000000"),
-		entries[len(entries)-1].Timestamp.Format("2006-01-02 15:04:05.000000"))
+		entries[0].Timestamp.Format(timeFormat),
+		entries[len(entries)-1].Timestamp.Format(timeFormat))
 
 	duration := entries[len(entries)-1].Timestamp.Sub(entries[0].Timestamp)
 	fmt.Printf("Duration: %s\n", duration)
