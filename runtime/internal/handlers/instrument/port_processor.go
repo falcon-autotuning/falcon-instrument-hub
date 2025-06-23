@@ -405,10 +405,6 @@ func (pp *PortProcessor) GetPortConfiguration(
 		pp.Log.Error("Failed to marshal JsonPort: %v", err)
 	}
 	compactPortName := JsonPort(compactJSON)
-	pp.Log.Debug(
-		"New compact port name: %s",
-		compactPortName,
-	)
 
 	// now check if the port exists
 	if portConfig, exists := portConfigurations[compactPortName]; exists {
