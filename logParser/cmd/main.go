@@ -26,9 +26,9 @@ type LogParser struct {
 
 // NewLogParser creates a new log parser instance
 func NewLogParser() *LogParser {
-	// Regex to match timestamp pattern: [2025-06-23 11:57:15.123]
+	// Regex to match timestamp pattern: [2025-06-23 11:57:15.123456]
 	timestampRegex := regexp.MustCompile(
-		`^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3})\]`,
+		`^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\]`,
 	)
 
 	return &LogParser{
