@@ -470,7 +470,7 @@ class InstrumentDaemon:
             while not self._shutdown_event.is_set():
                 if self._is_locked:
                     # Queue is locked, wait a bit before checking again
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(0.005)
                     continue
                 try:
                     # Wait for a SET command with a short timeout
