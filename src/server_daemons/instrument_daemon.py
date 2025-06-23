@@ -471,7 +471,6 @@ class InstrumentDaemon:
             try:
                 if not self._is_unlocked.is_set():
                     # Queue is locked, wait for unlock event
-                    await self.log("Queue is locked, waiting for unlock event...")
                     try:
                         await asyncio.wait_for(self._is_unlocked.wait(), timeout=0.1)
                         await self.log("Queue unlock event received!")
