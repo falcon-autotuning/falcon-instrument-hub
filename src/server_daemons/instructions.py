@@ -32,15 +32,24 @@ class Instruction:
 
     def __init__(
         self,
-        setters: "Setters" = [],
-        requirements: "Requirements" = {},
-        getters: "Getters" = [],
+        setters: "Setters | None" = None,
+        requirements: "Requirements | None" = None,
+        getters: "Getters | None" = None,
         buffered: bool = False,
     ):
         """Initialize the instruction."""
-        self._getters = getters
-        self._setters = setters
-        self._requirements = requirements
+        if getters is None:
+            self._getters = []
+        else:
+            self._getters = getters
+        if setters is None:
+            self._setters = []
+        else:
+            self._setters = setters
+        if requirements is None:
+            self._requirements = {}
+        else:
+            self._requirements = requirements
         self._buffered = buffered
 
     @property
