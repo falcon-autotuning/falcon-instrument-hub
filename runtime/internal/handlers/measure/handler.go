@@ -274,6 +274,7 @@ func (h *MeasurementReadyHandler) armInstructions(
 	ii []*InstrumentInstructions,
 ) error {
 	scheduler := h.selectScheduler(measurementID)
+	h.log.Debug("The total setter ports are %+v", scheduler.SetterPorts())
 	h.log.Debug("The measurement ID to send is %v", measurementID)
 	for _, instructions := range ii {
 		name := instructions.Name
