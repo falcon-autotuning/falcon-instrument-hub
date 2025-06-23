@@ -64,7 +64,7 @@ func (l *Logger) LogWithChannel(level, source, message, channel string) {
 	var logLine string
 	if channel != "" {
 		logLine = fmt.Sprintf("[%s] [%s] [%s] [%s] %s\n",
-			timestamp.Format("2006-01-02 15:04:05.000"),
+			timestamp.Format("2006-01-02 15:04:05.000000"),
 			level,
 			source,
 			channel,
@@ -72,7 +72,7 @@ func (l *Logger) LogWithChannel(level, source, message, channel string) {
 		)
 	} else {
 		logLine = fmt.Sprintf("[%s] [%s] [%s] %s\n",
-			timestamp.Format("2006-01-02 15:04:05.000"),
+			timestamp.Format("2006-01-02 15:04:05.000000"),
 			level,
 			source,
 			message,
