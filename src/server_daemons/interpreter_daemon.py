@@ -351,8 +351,8 @@ class InterpreterDaemon:
 
     async def readConfigurationPorts(
         self,
-        configuration: dict[str, "PropertyJson"],
-    ) -> dict["InstrumentPort", "PropertyJson"]:
+        configuration: dict[str, dict["PropertyName", "PropertyJson"]],
+    ) -> dict["InstrumentPort", dict["PropertyName", "PropertyJson"]]:
         """Returns unjsoned Instrumentport configurations."""
         return {
             InstrumentPort.from_json(key): value for key, value in configuration.items()
@@ -360,7 +360,7 @@ class InterpreterDaemon:
 
     def find_matching_port(
         self,
-        configuration: dict["InstrumentPort", "PropertyJson"],
+        configuration: dict["InstrumentPort", dict["PropertyName", "PropertyJson"]],
         default_name: str,
         property: "PropertyName",
     ) -> "InstrumentPort | None":
@@ -382,7 +382,7 @@ class InterpreterDaemon:
     async def process_request(
         self,
         request: "MeasurementRequest",
-        configuration: dict["InstrumentPort", "PropertyJson"],
+        configuration: dict["InstrumentPort", dict["PropertyName", "PropertyJson"]],
         id: "ID",
     ) -> tuple[int, tuple[int, ...]]:
         """Processes an incoming request, breaks it down into pieces, and stores the results into measurement groups.
@@ -601,23 +601,23 @@ class InterpreterDaemon:
             data = raw_time_trace.data
             return [data[i : i + 1, :] for i in range(data.shape[0])]
         # Find chunk boundaries where the primary axis stops staircasing
-        primary_axis = raw_time_trace.data[0, :]
+        primary_axis = raw_time_trace.data[:, 0]
         dominate_polarity = np.sign(np.mean(np.sign(np.diff(primary_axis))))
         breaks = np.where(np.sign(np.diff(primary_axis)) != dominate_polarity)[0] + 1
-        chunks = np.split(raw_time_trace.data, breaks, axis=1)
+        chunks = np.split(raw_time_trace.data, breaks, axis=0)
         # in a staircase, all the values on the other axes are the same
         # Check that within each chunk, each non-time axis is constant (column-wise)
         for chunk in chunks:
             if chunk.shape[0] == 0:
                 continue
-            other_axes = chunk[1:, :]
+            other_axes = chunk[:, 1:]
             # For each column, all values must be the same
             if not bool(
-                np.all(np.array([np.all(row == row[0]) for row in other_axes]))
+                np.all(np.array([np.all(col == col[0]) for col in other_axes.T]))
             ):
                 msg = "Within a chunk, each non-time axis must be constant."
                 raise ValueError(msg)
-            first_row = chunk[0, :]
+            first_row = chunk[:, 0]
             assert np.all(np.sign(np.diff(first_row)) == dominate_polarity), (
                 "Chunks must all have the same polarity."
             )
@@ -626,7 +626,9 @@ class InterpreterDaemon:
     async def interject_ramps(
         self,
         instructions: list[Instruction],
-        configuration: dict["InstrumentPort", "PropertyJson"] = {},
+        configuration: dict[
+            "InstrumentPort", dict["PropertyName", "PropertyJson"]
+        ] = {},
     ) -> list[Instruction]:
         """Interjects ramps between each instruction.
 

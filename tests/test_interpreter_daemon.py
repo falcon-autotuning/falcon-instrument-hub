@@ -4,12 +4,26 @@ import asyncio
 import contextlib
 import json
 from pathlib import Path
+from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import numpy as np
 import pytest
-from falcon_core.instrument_interfaces.names import InstrumentPort
-from falcon_core.physics.device_structures import Ohmic, PlungerGate
+from falcon_core.communications.messages import MeasurementRequest
+from falcon_core.constants import INSTRUMENT_TYPES
+from falcon_core.instrument_interfaces.names import InstrumentPort, Knob, Meter, Meters
+from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
+    IdentityTransform,
+)
+from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
+    CartesianWaveform,
+)
+from falcon_core.math.axes import Axes
+from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
+from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
+from falcon_core.math.spaces import CartesianSpace
+from falcon_core.physics.device_structures import BarrierGate, Ohmic, PlungerGate
+from falcon_core.physics.units import Units
 from instrument_templates.constants import SUPPORTED_PROPERTIES
 
 from server_daemons.api.interpreter import (
@@ -17,13 +31,15 @@ from server_daemons.api.interpreter import (
 )
 from server_daemons.data_queue import DataEntry, DataQueue
 from server_daemons.dependancies import (
-    MeasurementRequest,
     MeasurementResponse,
 )
 from server_daemons.instructions import (
     Instruction,
 )
 from server_daemons.interpreter_daemon import InterpreterDaemon
+
+if TYPE_CHECKING:
+    from instrument_templates.typing import PropertyJson, PropertyName
 
 
 class MockMsg:
@@ -360,7 +376,7 @@ class TestInterpreterDaemon:
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon.log = AsyncMock()
-        data = {"device1": [1.0, 2.0, 3.0]}
+        data = {"device1": json.dumps([1.0, 2.0, 3.0])}
 
         # Create a mock message with test data
         test_data = {
@@ -381,7 +397,7 @@ class TestInterpreterDaemon:
         # Verify the message content
         entry = interpreter_daemon.data_queue[345][0]
         assert entry.timestamp == 12345
-        assert entry.data == data
+        assert all(entry.data["device1"].data == json.loads(data["device1"]))  # type: ignore[no-untyped-call]
 
         # Verify log message
         interpreter_daemon.log.assert_called_once_with("Data added to queue ....")
@@ -444,9 +460,14 @@ class TestInterpreterDaemon:
     async def test_load_and_export_data(
         self,
         interpreter_daemon: InterpreterDaemon,
+        mock_nats,
     ):
         """Test the load_and_export_data method."""
         # Mock the necessary methods
+        _, mock_client, jetstream_client = mock_nats
+
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon._js = jetstream_client
         interpreter_daemon.confirm_data_exists = AsyncMock()
         interpreter_daemon.get_data_point_counter_per_queue = MagicMock(return_value=5)
         interpreter_daemon.preprocess_voltage_states = MagicMock(
@@ -518,8 +539,9 @@ class TestInterpreterDaemon:
         # Create mock data array
         data = np.array(
             [
-                [1.0, 2.0, 3.0],
-                [4.0, 5.0, 6.0],
+                [1.0, 4.0],
+                [2.0, 5.0],
+                [3.0, 6.0],
             ]
         )
         mock_array = MagicMock()
@@ -530,9 +552,9 @@ class TestInterpreterDaemon:
 
         # Verify the chunks - for non-buffered, each column becomes a separate chunk
         assert len(chunks) == 3  # 3 columns in the data
-        np.testing.assert_array_equal(chunks[0], data[:, 0:1])
-        np.testing.assert_array_equal(chunks[1], data[:, 1:2])
-        np.testing.assert_array_equal(chunks[2], data[:, 2:3])
+        np.testing.assert_array_equal(chunks[0], data[0:1, :])
+        np.testing.assert_array_equal(chunks[1], data[1:2, :])
+        np.testing.assert_array_equal(chunks[2], data[2:3, :])
 
     @pytest.mark.asyncio
     async def test_simple_chunk_instructions_buffered(
@@ -544,10 +566,16 @@ class TestInterpreterDaemon:
         # For each chunk, non-time axes must be constant
         data = np.array(
             [
-                # First staircase (primary axis increases)
-                [0.0, 1.0, 2.0, 3.0, 4.0, 0.0, 1.0, 2.0, 3.0, 4.0],
-                # Secondary axis constant within each chunk
-                [1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 2.0, 2.0, 2.0, 2.0],
+                [0.0, 1.0],
+                [1.0, 1.0],
+                [2.0, 1.0],
+                [3.0, 1.0],
+                [4.0, 1.0],
+                [0.0, 2.0],
+                [1.0, 2.0],
+                [2.0, 2.0],
+                [3.0, 2.0],
+                [4.0, 2.0],
             ]
         )
 
@@ -559,8 +587,8 @@ class TestInterpreterDaemon:
 
         # Verify the chunks - should split at the point where primary axis resets
         assert len(chunks) == 2
-        np.testing.assert_array_equal(chunks[0], data[:, 0:5])
-        np.testing.assert_array_equal(chunks[1], data[:, 5:10])
+        np.testing.assert_array_equal(chunks[0], data[0:5, :])
+        np.testing.assert_array_equal(chunks[1], data[5:10, :])
 
     @pytest.mark.asyncio
     async def test_chunk_instructions_buffered(
@@ -582,7 +610,7 @@ class TestInterpreterDaemon:
                 x1 + list(2 * np.array(x1)) + list(3 * np.array(x2)),
                 list(5 * np.array(x1)) + list(3 * np.array(x1)) + x2,
             ]
-        )
+        ).T
 
         mock_array = MagicMock()
         mock_array.data = data
@@ -592,9 +620,9 @@ class TestInterpreterDaemon:
 
         # Verify the chunks - should split at the point where primary axis resets
         assert len(chunks) == 3
-        np.testing.assert_array_equal(chunks[0], data[:, 0:5])
-        np.testing.assert_array_equal(chunks[1], data[:, 5:10])
-        np.testing.assert_array_equal(chunks[2], data[:, 10:])
+        np.testing.assert_array_equal(chunks[0], data[0:5, :])
+        np.testing.assert_array_equal(chunks[1], data[5:10, :])
+        np.testing.assert_array_equal(chunks[2], data[10:, :])
 
     @pytest.mark.asyncio
     async def test_negative_chunk_instructions_buffered(
@@ -616,7 +644,7 @@ class TestInterpreterDaemon:
                 x1 + list(2 * np.array(x1)) + list(3 * np.array(x2)),
                 list(5 * np.array(x1)) + list(3 * np.array(x1)) + x2,
             ]
-        )
+        ).T
 
         mock_array = MagicMock()
         mock_array.data = data
@@ -626,9 +654,9 @@ class TestInterpreterDaemon:
 
         # Verify the chunks - should split at the point where primary axis resets
         assert len(chunks) == 3
-        np.testing.assert_array_equal(chunks[0], data[:, 0:5])
-        np.testing.assert_array_equal(chunks[1], data[:, 5:10])
-        np.testing.assert_array_equal(chunks[2], data[:, 10:])
+        np.testing.assert_array_equal(chunks[0], data[0:5, :])
+        np.testing.assert_array_equal(chunks[1], data[5:10, :])
+        np.testing.assert_array_equal(chunks[2], data[10:, :])
 
     @pytest.mark.asyncio
     async def test_interject_ramps(
@@ -683,3 +711,159 @@ class TestInterpreterDaemon:
         await interpreter_daemon.confirm_data_exists(
             id=test_id, data_count=1, max_attempts=1, wait_time=0.1
         )
+
+    @pytest.fixture
+    def knobs(self):
+        """Returns a list of active knobs."""
+        return [
+            Knob(
+                default_name=f"testDAC_##_{SUPPORTED_PROPERTIES.VOLTAGE_STATE}_##_1",
+                pseudo_name=BarrierGate("B3"),
+                instrument_type=INSTRUMENT_TYPES.DC_VOLTAGE_SOURCE,
+            )
+        ]
+
+    @pytest.fixture
+    def meters(self):
+        """Returns a list of active meters."""
+        return [
+            Meter(
+                default_name=f"testADC_##_{SUPPORTED_PROPERTIES.CURRENT_STATE}_##_1",
+                pseudo_name=Ohmic("I_O2"),
+                instrument_type=INSTRUMENT_TYPES.AMNMETER,
+            )
+        ]
+
+    @pytest.fixture
+    def measurement_request(self, knobs: list[Knob], meters: list[Meter]):
+        """Returns a measurement request for testing deployment."""
+        space = CartesianSpace(deltas=[0.1])
+        ckd = CoupledKnobDomain(
+            [
+                KnobDomain.from_knob(
+                    bounds=(0, 0.5),
+                    knob=knobs[0],
+                )
+            ]
+        )
+        sweep_axes = Axes([ckd])
+        space = CartesianDiscreteSpace(space=space, axes=sweep_axes)
+        waveform = CartesianWaveform(space=space, transforms=[])
+        ports: list[Meter] = []
+        ports.extend(meters)
+        ports.append(
+            Meter(
+                default_name="timer",
+                instrument_type=INSTRUMENT_TYPES.CLOCK,
+                units=Units.SECOND,
+            )
+        )
+        transform = IdentityTransform(port=meters[0], ports=Meters(ports))
+        return MeasurementRequest(
+            message="test measurement",
+            measurement_name="integration_test",
+            waveforms=[waveform],
+            meter_transforms=[transform],
+        )
+
+    @pytest.fixture
+    def configuration(self, knobs: list[Knob], meters: list[Meter]):
+        """Returns the server configuration."""
+        outs = {}
+        for knob in knobs:
+            outs[knob] = {
+                SUPPORTED_PROPERTIES.VOLTAGE_STATE: {
+                    "bounds": (-1.0, 1.0),
+                    "unit": "doesnt matter",
+                    "settable": True,
+                }
+            }
+            slope = InstrumentPort(
+                default_name=f"testDAC_##_{SUPPORTED_PROPERTIES.SLOPE}_##_1",
+                instrument_type=INSTRUMENT_TYPES.DC_VOLTAGE_SOURCE,
+            )
+            outs[slope] = {
+                SUPPORTED_PROPERTIES.SLOPE: {
+                    "bounds": (-1.0, 1.0),
+                    "unit": "doesnt matter",
+                    "settable": True,
+                }
+            }
+            timeout = InstrumentPort(
+                default_name=f"testDAC_##_{SUPPORTED_PROPERTIES.TIMEOUT}_##_1",
+                instrument_type=INSTRUMENT_TYPES.DC_VOLTAGE_SOURCE,
+            )
+            outs[timeout] = {
+                SUPPORTED_PROPERTIES.TIMEOUT: {
+                    "bounds": (0, 60.0),
+                    "unit": "doesnt matter",
+                    "settable": True,
+                }
+            }
+
+        for meter in meters:
+            outs[meter] = {
+                SUPPORTED_PROPERTIES.CURRENT_STATE: {
+                    "bounds": (-1.0, 1.0),
+                    "unit": "doesnt matter",
+                    "settable": False,
+                }
+            }
+            num_samp = InstrumentPort(
+                default_name=f"testADC_##_{SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES}_##_1",
+                instrument_type=INSTRUMENT_TYPES.AMNMETER,
+            )
+            outs[num_samp] = {
+                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: {
+                    "bounds": (0, 1000000),
+                    "unit": "doesnt matter",
+                    "settable": True,
+                }
+            }
+            timeout = InstrumentPort(
+                default_name=f"testADC_##_{SUPPORTED_PROPERTIES.TIMEOUT}_##_1",
+                instrument_type=INSTRUMENT_TYPES.DC_VOLTAGE_SOURCE,
+            )
+            outs[timeout] = {
+                SUPPORTED_PROPERTIES.TIMEOUT: {
+                    "bounds": (0, 60.0),
+                    "unit": "doesnt matter",
+                    "settable": True,
+                }
+            }
+        return outs
+
+    @pytest.mark.asyncio
+    async def test_process_request(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        measurement_request: MeasurementRequest,
+        configuration: dict["InstrumentPort", dict["PropertyName", "PropertyJson"]],
+        mock_nats,
+    ):
+        """Test the process_request method."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
+
+        length, shape = await interpreter_daemon.process_request(
+            request=measurement_request,
+            configuration=configuration,
+            id=4,
+        )
+        assert length == 10, "Improper number of measurements"
+        assert all(
+            [
+                len(instruction.getters) == 1
+                for instruction in interpreter_daemon._measurement_groups[
+                    4
+                ].instructions
+            ]
+        ), "Improper number of getters in instruction"
+        assert all(
+            [
+                len(instruction.setters) == 1
+                for instruction in interpreter_daemon._measurement_groups[
+                    4
+                ].instructions
+            ]
+        ), "Improper number of setters in instruction"
