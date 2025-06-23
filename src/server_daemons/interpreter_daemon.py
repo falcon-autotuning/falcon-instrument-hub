@@ -763,6 +763,7 @@ class InterpreterDaemon:
             data_count=data_count,
         )
         name_attribute_maps = self.preprocess_voltage_states(id=id)
+        await self.log(f"The number of bins {number_of_bins}")
         final_data = self.average_shapeless_data(
             id=id,
             number_of_bins=number_of_bins,
