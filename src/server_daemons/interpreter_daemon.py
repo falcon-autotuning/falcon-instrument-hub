@@ -432,7 +432,8 @@ class InterpreterDaemon:
         )
         if buffered:
             await self.log("Buffered measurements enabled.")
-        await self.log("Standard measurement selected.")
+        else:
+            await self.log("Standard measurement selected.")
         raw_time_trace = valid_waveform._space._space._space
         unit_domain = valid_waveform._space._space.domain
         axes_domains = valid_waveform._space._axes
@@ -508,7 +509,7 @@ class InterpreterDaemon:
                                 SUPPORTED_PROPERTIES.TIMEOUT: (
                                     TIMEOUT_SCALE_FACTOR * step_width
                                 )
-                                + (len(raw_space) - 1),  # [sec]
+                                + (len(raw_space) - 1) * step_width,  # [sec]
                                 SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
                                     number_of_samples[meter] * len(raw_space)
                                 ),
@@ -596,9 +597,9 @@ class InterpreterDaemon:
             ValueError: If the data is not staircased correctly.
         """
         if not buffered:
-            # treat each column as a chunk of shape (n_axes, 1)
+            # treat each row as a chunk of shape (1, n_axes)
             data = raw_time_trace.data
-            return [data[:, i : i + 1] for i in range(data.shape[1])]
+            return [data[i : i + 1, :] for i in range(data.shape[0])]
         # Find chunk boundaries where the primary axis stops staircasing
         primary_axis = raw_time_trace.data[0, :]
         dominate_polarity = np.sign(np.mean(np.sign(np.diff(primary_axis))))
