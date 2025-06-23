@@ -722,7 +722,7 @@ class InterpreterDaemon:
             assert isinstance(data_payload, dict), "data_payload must be a dictionary."
             modified_payload = {}
             for key, value in data_payload.items():
-                modified_payload[key] = MeasuredArray1D(value)
+                modified_payload[key] = MeasuredArray1D(np.array(json.loads(value)))
             if id not in self.data_queue:
                 self._data_queue[id] = DataQueue()
             entry = DataEntry(
