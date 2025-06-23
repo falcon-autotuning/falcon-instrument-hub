@@ -2,9 +2,11 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -142,22 +144,125 @@ func (p *LogParser) PrintStats(entries []LogEntry) {
 	fmt.Printf("Duration: %s\n", duration)
 }
 
+// LogFileInfo represents a log file with its parsed timestamp
+type LogFileInfo struct {
+	Path      string
+	Timestamp time.Time
+}
+
+// FindNewestLogFile finds the newest log file in a directory
+func FindNewestLogFile(dir string) (string, error) {
+	// Pattern to match log files: <prefix>_YYYY-MM-DD_HH-MM-SS.log
+	logPattern := regexp.MustCompile(
+		`^(.+)_(\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2})\.log$`,
+	)
+
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read directory %s: %w", dir, err)
+	}
+
+	var logFiles []LogFileInfo
+
+	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
+
+		matches := logPattern.FindStringSubmatch(file.Name())
+		if len(matches) != 3 {
+			continue
+		}
+
+		// Parse timestamp from filename
+		timestampStr := matches[2]
+		timestamp, err := time.Parse("2006-01-02_15-04-05", timestampStr)
+		if err != nil {
+			log.Printf(
+				"Warning: failed to parse timestamp from %s: %v",
+				file.Name(),
+				err,
+			)
+			continue
+		}
+
+		logFiles = append(logFiles, LogFileInfo{
+			Path:      filepath.Join(dir, file.Name()),
+			Timestamp: timestamp,
+		})
+	}
+
+	if len(logFiles) == 0 {
+		return "", fmt.Errorf("no log files found in directory %s", dir)
+	}
+
+	// Sort by timestamp descending (newest first)
+	sort.Slice(logFiles, func(i, j int) bool {
+		return logFiles[i].Timestamp.After(logFiles[j].Timestamp)
+	})
+
+	return logFiles[0].Path, nil
+}
+
 func main() {
-	if len(os.Args) < 2 {
+	var newest bool
+	var outputFile string
+
+	flag.BoolVar(
+		&newest,
+		"newest",
+		false,
+		"Find and parse the newest log file in the specified directory",
+	)
+	flag.StringVar(&outputFile, "output", "", "Output file path (optional)")
+	flag.Parse()
+
+	args := flag.Args()
+
+	if len(args) < 1 {
 		fmt.Fprintf(
 			os.Stderr,
-			"Usage: %s <input_log_file> [output_log_file]\n",
+			"Usage: %s [flags] <input_log_file_or_directory>\n",
+			os.Args[0],
+		)
+		fmt.Fprintf(os.Stderr, "\nFlags:\n")
+		fmt.Fprintf(
+			os.Stderr,
+			"  -newest    Find and parse the newest log file in the specified directory\n",
+		)
+		fmt.Fprintf(
+			os.Stderr,
+			"  -output    Specify output file path (optional)\n",
+		)
+		fmt.Fprintf(os.Stderr, "\nExamples:\n")
+		fmt.Fprintf(os.Stderr, "  %s mylog.log\n", os.Args[0])
+		fmt.Fprintf(os.Stderr, "  %s -newest /path/to/logs/\n", os.Args[0])
+		fmt.Fprintf(
+			os.Stderr,
+			"  %s -newest -output sorted.log /path/to/logs/\n",
 			os.Args[0],
 		)
 		os.Exit(1)
 	}
 
-	inputFile := os.Args[1]
-	outputFile := ""
+	var inputFile string
+	inputPath := args[0]
 
-	if len(os.Args) >= 3 {
-		outputFile = os.Args[2]
+	if newest {
+		// Find newest log file in directory
+		newestFile, err := FindNewestLogFile(inputPath)
+		if err != nil {
+			log.Fatalf("Failed to find newest log file: %v", err)
+		}
+		inputFile = newestFile
+		fmt.Printf("Found newest log file: %s\n", inputFile)
 	} else {
+		// Use provided file path directly
+		inputFile = inputPath
+	}
+
+	// Determine output file path
+	if outputFile == "" {
 		// Default output filename
 		outputFile = strings.TrimSuffix(inputFile, ".log") + "_sorted.log"
 	}
