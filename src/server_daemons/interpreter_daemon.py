@@ -463,7 +463,7 @@ class InterpreterDaemon:
                 f"The resulting number of samples ({num}) must be a whole number."
             )
             number_of_samples[meter] = int(num)
-        for chunk in chunks:
+        for count, chunk in enumerate(chunks):
             instruction = Instruction(
                 getters=getters,
                 buffered=buffered,
@@ -561,7 +561,7 @@ class InterpreterDaemon:
                             ),
                         },
                     )
-            await self.log(f"Adding instruction to the list {instruction}.")
+            await self.log(f"Adding instruction for step {count + 1} to the list .")
             instructions.append(instruction)
 
         collected_measurements = len(instructions)
