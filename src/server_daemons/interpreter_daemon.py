@@ -127,33 +127,6 @@ class PendingMeasurement:
 
         return chunk_data
 
-    def get_concatenated_data(self) -> dict[InstrumentPort, MeasuredArray1D]:
-        """Get data concatenated and ready for processing."""
-        # Sort data by chunk_id first
-        sorted_entries = self.get_sorted_data()
-
-        # Convert collected data back to the format expected by load_and_export_data
-        collected_data = {}
-        for entry in sorted_entries:
-            for key, value in entry.data.items():
-                if key == "timestamp":
-                    continue  # Skip timestamp
-                if key not in collected_data:
-                    collected_data[key] = []
-                collected_data[key].append(value)
-
-        # Process the collected data - concatenate arrays properly
-        for key in collected_data:
-            if isinstance(collected_data[key], list) and len(collected_data[key]) > 0:
-                if isinstance(collected_data[key][0], MeasuredArray1D):
-                    # Concatenate MeasuredArray1D objects
-                    concatenated_data = np.concatenate(
-                        [arr.data for arr in collected_data[key]]
-                    )
-                    collected_data[key] = MeasuredArray1D(concatenated_data)
-
-        return collected_data
-
 
 class InterpreterDaemon:
     """A daemon that processes messages for the measurement interpretter."""
@@ -566,9 +539,6 @@ class InterpreterDaemon:
             await self.log(
                 f"Processing complete measurement {pending.measurement_id} with {len(pending.collected_data)} data points"
             )
-
-            # Get properly formatted data from the PendingMeasurement object
-            pending.get_concatenated_data()
 
             # Use the existing load_and_export_data method
             await self.load_and_export_data(
