@@ -1,11 +1,12 @@
 """A measurement interpreter for the instrument server."""
 
-from typing import TYPE_CHECKING
+import time
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
 from nats.js.api import RetentionPolicy, StorageType, StreamConfig
 
 from .api.interpreter import RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS
-from .data_queue import DataEntry, DataQueue
 from .dependancies import (
     SUPPORTED_PROPERTIES,
     HDF5Data,
@@ -28,15 +29,14 @@ from .typing import (
 )
 
 if TYPE_CHECKING:
+    from nats.aio.client import Client
+    from nats.aio.msg import Msg
     from nats.js import JetStreamContext
 
     from .typing import (
         ID,
-        Any,
         BaseArray,
-        Client,
         Getters,
-        Msg,
         NDArray,
         PropertyJson,
         PropertyName,
@@ -46,7 +46,113 @@ if TYPE_CHECKING:
     )
 TIMEOUT_SCALE_FACTOR = 1.5
 DEFAULT_SLOPE = 100  # [V/sec]
-DEFAULT_SAMPLE_RATE = 10000  # [samples/sec]
+DEFAULT_SAMPLE_RATE = 10_000  # [samples/sec]
+MAX_NUM_DATA_POINTS = 10_000
+STALE_MEASUREMENT_TIMEOUT = 3600  # [sec]
+STALE_MEASUREMENT_CHECKUP = 60.0  # [sec]
+
+
+@dataclass
+class DataEntry:
+    """Represents a single data entry for a measurement."""
+
+    measurement_id: "ID"
+    chunk_id: "ID"
+    data: dict[InstrumentPort, MeasuredArray1D]
+    timestamp: float
+
+
+@dataclass
+class PendingMeasurement:
+    """Represents a measurement that is waiting for data collection to complete."""
+
+    measurement_id: "ID"
+    expected_count: int
+    data_path: Path
+    shape: tuple[int, ...]
+    request: MeasurementRequest
+    collected_data: list[DataEntry] = field(default_factory=list)
+    created_at: int = Time().time
+
+    @property
+    def is_complete(self) -> bool:
+        """Check if enough data has been collected."""
+        return len(self.collected_data) >= self.expected_count
+
+    @property
+    def completion_percentage(self) -> float:
+        """Get completion percentage."""
+        return (
+            (len(self.collected_data) / self.expected_count) * 100
+            if self.expected_count > 0
+            else 0
+        )
+
+    def add_data_entry(
+        self,
+        chunk_id: int,
+        data: dict[InstrumentPort, MeasuredArray1D],
+    ) -> None:
+        """Add a data entry to this measurement."""
+        entry = DataEntry(
+            measurement_id=self.measurement_id,
+            chunk_id=chunk_id,
+            data=data,
+            timestamp=time.time(),
+        )
+        self.collected_data.append(entry)
+
+    def get_sorted_data(self) -> list[DataEntry]:
+        """Get data entries sorted by chunk_id."""
+        return sorted(self.collected_data, key=lambda x: x.chunk_id)
+
+    def get_sorted_chunk_data(self) -> dict[int, dict[InstrumentPort, MeasuredArray1D]]:
+        """Get data organized by chunk_id, preserving the chunk structure."""
+        # Sort data by chunk_id first
+        sorted_entries = self.get_sorted_data()
+
+        # Organize data by chunk_id
+        chunk_data = {}
+        for entry in sorted_entries:
+            chunk_id = entry.chunk_id
+            if chunk_id not in chunk_data:
+                chunk_data[chunk_id] = {}
+
+            # Copy the InstrumentPort -> MeasuredArray1D mapping for this chunk
+            for instrument_port, measured_array in entry.data.items():
+                if isinstance(instrument_port, InstrumentPort) and isinstance(
+                    measured_array, MeasuredArray1D
+                ):
+                    chunk_data[chunk_id][instrument_port] = measured_array
+
+        return chunk_data
+
+    def get_concatenated_data(self) -> dict[InstrumentPort, MeasuredArray1D]:
+        """Get data concatenated and ready for processing."""
+        # Sort data by chunk_id first
+        sorted_entries = self.get_sorted_data()
+
+        # Convert collected data back to the format expected by load_and_export_data
+        collected_data = {}
+        for entry in sorted_entries:
+            for key, value in entry.data.items():
+                if key == "timestamp":
+                    continue  # Skip timestamp
+                if key not in collected_data:
+                    collected_data[key] = []
+                collected_data[key].append(value)
+
+        # Process the collected data - concatenate arrays properly
+        for key in collected_data:
+            if isinstance(collected_data[key], list) and len(collected_data[key]) > 0:
+                if isinstance(collected_data[key][0], MeasuredArray1D):
+                    # Concatenate MeasuredArray1D objects
+                    concatenated_data = np.concatenate(
+                        [arr.data for arr in collected_data[key]]
+                    )
+                    collected_data[key] = MeasuredArray1D(concatenated_data)
+
+        return collected_data
 
 
 class InterpreterDaemon:
@@ -56,12 +162,16 @@ class InterpreterDaemon:
     _nc: "Client"
     _js: "JetStreamContext"
     _loop: asyncio.AbstractEventLoop
-    _data_queue: dict["ID", "DataQueue"]
     _measurement_groups: dict[
         "ID",
         "MeasurementInstructions",
     ]
     _debug: bool
+
+    # Add async queue attributes with proper types
+    _async_data_queue: asyncio.Queue[DataEntry]
+    _pending_measurements: dict["ID", PendingMeasurement]
+    _queue_processor_task: asyncio.Task | None
 
     def __init__(
         self,
@@ -74,10 +184,10 @@ class InterpreterDaemon:
         self._data_queue = {}
         self._measurement_groups = {}
 
-    @property
-    def data_queue(self) -> dict["ID", "DataQueue"]:
-        """Gets the data from the queue."""
-        return self._data_queue
+        # Initialize async queue components with proper types
+        self._async_data_queue = asyncio.Queue(maxsize=MAX_NUM_DATA_POINTS)
+        self._pending_measurements = {}
+        self._queue_processor_task = None
 
     @property
     def measurement_groups(self) -> dict["ID", "MeasurementInstructions"]:
@@ -93,6 +203,12 @@ class InterpreterDaemon:
         await self.setup_jetstream()
         self._loop.create_task(self.publish_status())
 
+        # Start the async queue processor
+        self._queue_processor_task = self._loop.create_task(
+            self._process_async_data_queue()
+        )
+        self._loop.create_task(self._cleanup_stale_measurements())
+
         forever = asyncio.Future()
         try:
             # Wait forever or until the program is interrupted
@@ -101,6 +217,9 @@ class InterpreterDaemon:
             # Handle graceful shutdown if the future is cancelled
             print("Interpreter lost connection, shutting down...")
         finally:
+            # Cancel background tasks
+            if self._queue_processor_task:
+                self._queue_processor_task.cancel()
             # Properly drain the connection when exiting
             await self._nc.drain()
 
@@ -306,15 +425,8 @@ class InterpreterDaemon:
             )
             await self.log(f"Subscribed to channel: {channel}")
 
-    async def handle_request(
-        self,
-        msg: "Msg",
-    ) -> None:
-        """Handle a PROCESS_REQUEST command.
-
-        Args:
-            msg: The NATS message.
-        """
+    async def handle_request(self, msg: "Msg") -> None:
+        """Handle a PROCESS_REQUEST command."""
         try:
             data = json.loads(msg.data.decode())
             request = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST)
@@ -325,25 +437,36 @@ class InterpreterDaemon:
             data_path = Path(
                 data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH)
             )
+
             unpacked_configuration = json.loads(configuration)
-            assert isinstance(unpacked_configuration, dict)
             expanded_config = await self.readConfigurationPorts(unpacked_configuration)
             measurement_request = MeasurementRequest.from_json(request)
+
             await self.log("Measurement unpacked, processing ....")
+
             data_count, shape = await self.process_request(
                 request=measurement_request,
                 configuration=expanded_config,
                 id=id,
             )
+
             await self.log("Request successfully processed and chunked...")
-            await self.deploy_measurements(measurement_id=id)
-            await self.log("Measurement successfully deployed ....")
-            await self.load_and_export_data(
-                request=measurement_request,
+
+            # Register the measurement for async data collection
+            await self._register_measurement(
+                measurement_id=id,
+                expected_count=data_count,
                 data_path=data_path,
                 shape=shape,
-                id=id,
-                data_count=data_count,
+                request=measurement_request,
+            )
+
+            await self.deploy_measurements(measurement_id=id)
+            await self.log("Measurement successfully deployed ....")
+
+            # Log that we're waiting (but don't actually block)
+            await self.log(
+                f"Waiting for more data for id {id} (expected {data_count}, got 0)"
             )
 
         except Exception as e:
@@ -357,6 +480,132 @@ class InterpreterDaemon:
         return {
             InstrumentPort.from_json(key): value for key, value in configuration.items()
         }
+
+    async def _register_measurement(
+        self,
+        measurement_id: "ID",
+        expected_count: int,
+        data_path: Path,
+        shape: tuple[int, ...],
+        request: MeasurementRequest,
+    ) -> None:
+        """Register a measurement for async data collection."""
+        pending = PendingMeasurement(
+            measurement_id=measurement_id,
+            expected_count=expected_count,
+            data_path=data_path,
+            shape=shape,
+            request=request,
+        )
+
+        self._pending_measurements[measurement_id] = pending
+        await self.log(
+            f"Registered measurement {measurement_id}, expecting {expected_count} data points"
+        )
+
+    async def _queue_measurement_data(
+        self,
+        measurement_id: "ID",
+        chunk_id: int,
+        data: dict[InstrumentPort, MeasuredArray1D],
+    ) -> None:
+        """Queue measurement data for async processing."""
+        entry = DataEntry(
+            measurement_id=measurement_id,
+            chunk_id=chunk_id,
+            data=data,
+            timestamp=Time().time,
+        )
+
+        try:
+            # Use put_nowait to immediately detect if queue is full
+            self._async_data_queue.put_nowait(entry)
+        except asyncio.QueueFull:
+            await self.log(
+                f"Data queue full, dropping data for measurement {measurement_id}"
+            )
+
+    async def _process_async_data_queue(self):
+        """Background task that processes incoming data."""
+        while True:
+            try:
+                # Wait for data with timeout
+                entry = await asyncio.wait_for(
+                    self._async_data_queue.get(), timeout=1.0
+                )
+
+                measurement_id = entry.measurement_id
+                if measurement_id not in self._pending_measurements:
+                    # Measurement not registered yet, requeue
+                    await asyncio.sleep(0.1)
+                    await self._async_data_queue.put(entry)
+                    continue
+
+                # Add data to pending measurement
+                pending = self._pending_measurements[measurement_id]
+                pending.collected_data.append(entry)
+
+                await self.log(
+                    f"Collected data {len(pending.collected_data)}/{pending.expected_count} for measurement {measurement_id} ({pending.completion_percentage:.1f}%)"
+                )
+
+                # Check if we have enough data
+                if pending.is_complete:
+                    # Process the complete measurement
+                    await self._process_complete_measurement(pending)
+                    del self._pending_measurements[measurement_id]
+
+            except asyncio.TimeoutError:
+                continue
+            except Exception as e:
+                await self.log(f"Error processing data queue: {e}")
+
+    async def _process_complete_measurement(self, pending: PendingMeasurement):
+        """Process complete measurement data."""
+        try:
+            await self.log(
+                f"Processing complete measurement {pending.measurement_id} with {len(pending.collected_data)} data points"
+            )
+
+            # Get properly formatted data from the PendingMeasurement object
+            pending.get_concatenated_data()
+
+            # Use the existing load_and_export_data method
+            await self.load_and_export_data(
+                request=pending.request,
+                shape=pending.shape,
+                data_path=pending.data_path,
+                id=pending.measurement_id,
+                data_count=len(pending.collected_data),
+                chunk_data=pending.get_sorted_chunk_data(),
+            )
+
+        except Exception as e:
+            await self.log(
+                f"Error processing complete measurement {pending.measurement_id}: {e}"
+            )
+
+    async def _cleanup_stale_measurements(self):
+        """Background task to clean up stale measurements."""
+        while True:
+            try:
+                await asyncio.sleep(STALE_MEASUREMENT_CHECKUP)
+
+                current_time = time.time()
+
+                stale_ids = []
+                for measurement_id, pending in self._pending_measurements.items():
+                    if current_time - pending.created_at > STALE_MEASUREMENT_TIMEOUT:
+                        await self.log(
+                            f"Warning: Measurement {measurement_id} timed out with {len(pending.collected_data)}/{pending.expected_count} data points ({pending.completion_percentage:.1f}%)"
+                        )
+                        stale_ids.append(measurement_id)
+
+                for measurement_id in stale_ids:
+                    del self._pending_measurements[measurement_id]
+
+            except Exception as e:
+                await self.log(f"Error in cleanup task: {e}")
 
     def find_matching_port(
         self,
@@ -706,37 +955,27 @@ class InterpreterDaemon:
         self,
         msg: "Msg",
     ) -> None:
-        """Handle a PROCESS_DATA command.
-
-        Args:
-            msg: The NATS message.
-        """
+        """Handle a PROCESS_DATA command."""
         try:
             data = json.loads(msg.data.decode())
             raw_data_payload = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA)
             id = int(data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID))
-            timestamp = int(
-                data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP)
-            )
-            assert isinstance(raw_data_payload, str), (
-                "raw_data_payload must be a string."
-            )
+            # Extract chunk_id if available, default to 0
+            chunk_id = data.get(INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.CHUNK_ID, 0)
+
+            # Parse the data
             data_payload = json.loads(raw_data_payload)
-            assert isinstance(data_payload, dict), "data_payload must be a dictionary."
             modified_payload = {}
             for key, value in data_payload.items():
-                modified_payload[key] = MeasuredArray1D(np.array(json.loads(value)))
-            if id not in self.data_queue:
-                self._data_queue[id] = DataQueue()
-            entry = DataEntry(
-                timestamp=timestamp,
-                data=modified_payload,
-            )
-            queue = self.data_queue[id]
-            queue.append(entry)
-            await self.log("Data added to queue ....")
+                modified_payload[InstrumentPort.from_json(key)] = MeasuredArray1D(
+                    np.array(json.loads(value))
+                )
+
+            # Queue the data asynchronously
+            await self._queue_measurement_data(id, chunk_id, modified_payload)
+
         except Exception as e:
-            await self.log(f"Error adding data to the queue: {e}")
+            await self.log(f"Error queueing data: {e}")
 
     async def load_and_export_data(
         self,
@@ -745,6 +984,7 @@ class InterpreterDaemon:
         data_path: Path,
         id: "ID",
         data_count: int,
+        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
     ) -> None:
         """Load and export data to a file. Finishes by sending the completed result away.
 
@@ -756,11 +996,8 @@ class InterpreterDaemon:
             data_path: The path to the data file.
             id: The ID of the measurement.
             data_count: The number of data points to load.
+            collected_data: Pre collected data from the async processor.
         """
-        await self.confirm_data_exists(
-            id=id,
-            data_count=data_count,
-        )
         number_of_bins = self.get_data_point_counter_per_queue(
             shape=shape,
             data_count=data_count,
@@ -768,10 +1005,10 @@ class InterpreterDaemon:
         name_attribute_maps = self.preprocess_voltage_states(id=id)
         await self.log(f"The number of bins {number_of_bins}")
         final_data = self.average_shapeless_data(
-            id=id,
             number_of_bins=number_of_bins,
             request=request,
             voltage_state_array=name_attribute_maps,
+            chunk_data=chunk_data,
         )
         response = self.make_response(
             data_arrays=final_data,
@@ -842,11 +1079,11 @@ class InterpreterDaemon:
 
     def average_shapeless_data(
         self,
-        id: "ID",
         number_of_bins: int,
         request: MeasurementRequest,
         voltage_state_array: list[dict[str, float]],
-    ) -> dict["InstrumentPort", list[float]]:
+        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
+    ) -> dict[InstrumentPort, list[float]]:
         """Computes the average over the data and stores it in a 1D array to be reshaped later.
 
         Args:
@@ -859,8 +1096,8 @@ class InterpreterDaemon:
             the computed average data.
         """
         final_data: dict[InstrumentPort, list[float]] = {}
-        for queue in self.data_queue[id]:
-            for port, individual_data in queue.data.items():
+        for collected_data in chunk_data.values():
+            for port, individual_data in collected_data.items():
                 datas = individual_data.even_divisions(divisions=number_of_bins)
                 transform = next(
                     (t for t in request.meter_transforms if t.port == port), None
@@ -965,41 +1202,3 @@ class InterpreterDaemon:
             f"Uneven division {expected_data_points_per_queue}, not sure how many data points to expect"
         )
         return int(expected_data_points_per_queue)
-
-    async def confirm_data_exists(
-        self,
-        id: "ID",
-        data_count: int,
-        max_attempts: int = 10,
-        wait_time=0.5,
-    ) -> None:
-        """Confirms that data exists in the queue.
-
-        Args:
-            max_attempts: The maximum number of attempts to check for data.
-            wait_time: The time to wait between attempts. [sec]
-            id: The ID of the measurement.
-            data_count: The number of data points to check for.
-        """
-        log_attempts = 0
-        while True:
-            queue = self.data_queue.get(id, [])
-            current_count = len(queue)
-            if current_count > data_count:
-                await self.log(
-                    f"Error: Unexpected number of data messages received for {id} (expected {data_count}, got {current_count})"
-                )
-                return
-            if current_count < data_count:
-                if log_attempts >= max_attempts:
-                    await self.log(
-                        f"Error: Not enough data messages received for {id} after waiting (expected {data_count}, got {current_count})"
-                    )
-                    return
-                await self.log(
-                    f"Waiting for more data for id {id} (expected {data_count}, got {current_count})"
-                )
-                log_attempts += 1
-                await asyncio.sleep(wait_time)
-                continue
-            break

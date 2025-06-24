@@ -303,8 +303,8 @@ func (h *MeasurementReadyHandler) sendInstructions(
 	measurementID instrument.MeasurementID,
 	ii []*InstrumentInstructions,
 ) {
+	h.log.Info("Sending %d instructions for %+v", len(ii), measurementID)
 	for _, instructions := range ii {
-		h.log.Debug("The instructions to send are: %#v", *instructions)
 		// Send regular SET instructions
 		for _, setInstruction := range instructions.SetInstructions {
 			h.instrumentHandler.SetProperty(setInstruction, measurementID)

@@ -73,11 +73,6 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
-    def METHOD(self) -> str:
-        """The name of the method that is to be performed"""
-        return "method"
-
-    @property
     def KEYWORD_ARGS(self) -> str:
         """Arbitrary keyword arguments to be passes to the method"""
         return "keyword_args"
@@ -87,6 +82,11 @@ class PERFORM_ARBITRARY_METHOD:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def METHOD(self) -> str:
+        """The name of the method that is to be performed"""
+        return "method"
+
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
 
@@ -94,11 +94,6 @@ class RETURN_DATA:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "RETURN_DATA"
-
-    @property
-    def CHUNK_ID(self) -> str:
-        """A unique identifier for a particular chunk of a measurement."""
-        return "chunk_id"
 
     @property
     def DATA(self) -> str:
@@ -120,6 +115,11 @@ class RETURN_DATA:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
 
+    @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
+
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
 
@@ -127,16 +127,6 @@ class RETURN_GET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "RETURN_GET"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
-
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
 
     @property
     def VALUE(self) -> str:
@@ -148,6 +138,16 @@ class RETURN_GET:
         """When the response was completed"""
         return "timestamp"
 
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
 
@@ -155,6 +155,16 @@ class SET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "SET"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
+
+    @property
+    def VALUE(self) -> str:
+        """The argument to be set inside the instrument"""
+        return "value"
 
     @property
     def PROCESS_ID(self) -> str:
@@ -171,16 +181,6 @@ class SET:
         """The name of the property that is to be set"""
         return "property"
 
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
-
-    @property
-    def VALUE(self) -> str:
-        """The argument to be set inside the instrument"""
-        return "value"
-
 class STATUS:
     """The substrings necessary for provide the status of the process."""
 
@@ -190,14 +190,14 @@ class STATUS:
         return "STATUS"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def STATUS(self) -> str:
         """At compilation of this message the state of the process"""
         return "status"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class ARMED:
     """The substrings necessary for statement from an instrument indicating sets are complete and it is locked from further modifications.."""
@@ -259,11 +259,6 @@ class EXECUTING:
         return "EXECUTING"
 
     @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it."""
-        return "process_id"
-
-    @property
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
@@ -272,6 +267,11 @@ class EXECUTING:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it."""
+        return "process_id"
 
 
 class RUNTIME_COMMANDS:

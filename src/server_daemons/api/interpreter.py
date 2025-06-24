@@ -32,21 +32,6 @@ class MEASUREMENT_READY:
         return "MEASUREMENT_READY"
 
     @property
-    def BUFFERED(self) -> str:
-        """if this is a buffered measurement or not"""
-        return "buffered"
-
-    @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
-        return "process_id"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def GETTERS(self) -> str:
         """the connections that are ready to be measured"""
         return "getters"
@@ -60,6 +45,21 @@ class MEASUREMENT_READY:
     def REQUIREMENTS(self) -> str:
         """the instruments ports that are required to be set"""
         return "requirements"
+
+    @property
+    def BUFFERED(self) -> str:
+        """if this is a buffered measurement or not"""
+        return "buffered"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it"""
+        return "process_id"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -76,8 +76,13 @@ class PROCESS_DATA:
 
     @property
     def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
+        """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
+
+    @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -139,11 +144,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def VALUE(self) -> str:
-        """The quantity"""
-        return "value"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -157,6 +157,11 @@ class UPDATE_DAEMON_PROPERTY:
     def NAME(self) -> str:
         """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
         return "name"
+
+    @property
+    def VALUE(self) -> str:
+        """The quantity"""
+        return "value"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""

@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import json
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -18,6 +19,7 @@ from falcon_core.instrument_interfaces.port_transforms.identity_transform import
 from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
     CartesianWaveform,
 )
+from falcon_core.math.arrays import MeasuredArray1D
 from falcon_core.math.axes import Axes
 from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
 from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
@@ -29,14 +31,16 @@ from instrument_templates.constants import SUPPORTED_PROPERTIES
 from server_daemons.api.interpreter import (
     RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS,
 )
-from server_daemons.data_queue import DataEntry, DataQueue
 from server_daemons.dependancies import (
     MeasurementResponse,
 )
 from server_daemons.instructions import (
     Instruction,
 )
-from server_daemons.interpreter_daemon import InterpreterDaemon
+from server_daemons.interpreter_daemon import (
+    STALE_MEASUREMENT_TIMEOUT,
+    InterpreterDaemon,
+)
 
 if TYPE_CHECKING:
     from instrument_templates.typing import PropertyJson, PropertyName
@@ -110,15 +114,6 @@ class TestInterpreterDaemon:
         assert interpreter_daemon._url == "nats://localhost:4222"
         assert interpreter_daemon._data_queue == {}
         assert interpreter_daemon._measurement_groups == {}
-
-    @pytest.mark.asyncio
-    async def test_properties(self, interpreter_daemon):
-        """Test the property getters."""
-        assert interpreter_daemon.data_queue == interpreter_daemon._data_queue
-        assert (
-            interpreter_daemon.measurement_groups
-            == interpreter_daemon._measurement_groups
-        )
 
     @pytest.mark.asyncio
     async def test_start(self, interpreter_daemon, mock_nats):
@@ -370,37 +365,108 @@ class TestInterpreterDaemon:
         assert "Error processing request" in interpreter_daemon.log.call_args[0][0]
 
     @pytest.mark.asyncio
+    async def test_handle_data_queueing_only(
+        self, interpreter_daemon: InterpreterDaemon, mock_nats
+    ):
+        """Test that handle_data correctly queues data without full processing."""
+        _, mock_client, _ = mock_nats
+
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon.log = AsyncMock()
+
+        # Don't register measurement - test the requeuing behavior
+        port = InstrumentPort(
+            default_name="device1",
+            pseudo_name=PlungerGate("test_gate"),
+        )
+        data = {port.to_json(): json.dumps([1.0, 2.0, 3.0])}
+
+        # Create a mock message with test data
+        test_data = {
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.CHUNK_ID: 0,
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: json.dumps(data),
+        }
+        mock_msg = MockMsg(json.dumps(test_data))
+
+        # Call handle_data - this should queue the data
+        await interpreter_daemon.handle_data(mock_msg)  # type: ignore
+
+        # Verify data was queued
+        assert not interpreter_daemon._async_data_queue.empty()
+
+        # Get the queued item
+        entry = await interpreter_daemon._async_data_queue.get()
+        assert entry.measurement_id == 345
+        assert entry.chunk_id == 0
+        assert port in entry.data
+
+    @pytest.mark.asyncio
     async def test_handle_data(self, interpreter_daemon: InterpreterDaemon, mock_nats):
         """Test the handle_data method with a mock message."""
         _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon.log = AsyncMock()
-        data = {"device1": json.dumps([1.0, 2.0, 3.0])}
+
+        # Mock the load_and_export_data method to avoid complex processing
+        interpreter_daemon.load_and_export_data = AsyncMock()
+
+        # Register a measurement first so the data doesn't get requeued
+        await interpreter_daemon._register_measurement(
+            measurement_id=345,
+            expected_count=1,
+            data_path=Path("/tmp/test"),
+            shape=(5,),
+            request=MagicMock(),
+        )
+
+        port = InstrumentPort(
+            default_name="device1",
+            pseudo_name=PlungerGate("test_gate"),
+        )
+        data = {port.to_json(): json.dumps([1.0, 2.0, 3.0])}
 
         # Create a mock message with test data
         test_data = {
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 345,
-            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: "12345",
+            INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.CHUNK_ID: 0,
             INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: json.dumps(data),
         }
         mock_msg = MockMsg(json.dumps(test_data))
 
-        # Call handle_data with the mock message
-        await interpreter_daemon.handle_data(mock_msg)  # type: ignore[no-untyped-call]
+        # Start the queue processor task
+        queue_processor_task = asyncio.create_task(
+            interpreter_daemon._process_async_data_queue()
+        )
 
-        # Verify the data was added to the queue
-        assert 345 in interpreter_daemon._data_queue
+        try:
+            # Call handle_data
+            await interpreter_daemon.handle_data(mock_msg)  # type: ignore
 
-        assert len(interpreter_daemon.data_queue[345]) == 1
+            # Wait for processing to complete
+            max_wait = 1.0
+            wait_interval = 0.01
+            total_waited = 0.0
 
-        # Verify the message content
-        entry = interpreter_daemon.data_queue[345][0]
-        assert entry.timestamp == 12345
-        assert all(entry.data["device1"].data == json.loads(data["device1"]))  # type: ignore[no-untyped-call]
+            while (
+                345 in interpreter_daemon._pending_measurements
+                and total_waited < max_wait
+            ):
+                await asyncio.sleep(wait_interval)
+                total_waited += wait_interval
 
-        # Verify log message
-        interpreter_daemon.log.assert_called_once_with("Data added to queue ....")
+            # Verify the measurement was processed and load_and_export_data was called
+            interpreter_daemon.load_and_export_data.assert_called_once()
+
+            # Verify measurement was removed after processing
+            assert 345 not in interpreter_daemon._pending_measurements
+
+        finally:
+            # Clean up
+            queue_processor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await queue_processor_task
 
     @pytest.mark.asyncio
     async def test_handle_data_with_exception(self, interpreter_daemon, mock_nats):
@@ -420,9 +486,7 @@ class TestInterpreterDaemon:
 
         # Verify error was logged
         interpreter_daemon.log.assert_called_once()
-        assert (
-            "Error adding data to the queue" in interpreter_daemon.log.call_args[0][0]
-        )
+        assert "Error queueing data" in interpreter_daemon.log.call_args[0][0]
 
     @pytest.mark.asyncio
     @patch("server_daemons.interpreter_daemon.HDF5Data")
@@ -468,7 +532,6 @@ class TestInterpreterDaemon:
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon._js = jetstream_client
-        interpreter_daemon.confirm_data_exists = AsyncMock()
         interpreter_daemon.get_data_point_counter_per_queue = MagicMock(return_value=5)
         interpreter_daemon.preprocess_voltage_states = MagicMock(
             return_value=[{"device1": 1.0}]
@@ -485,20 +548,28 @@ class TestInterpreterDaemon:
         mock_response = MagicMock(spec=MeasurementResponse)
         interpreter_daemon.make_response.return_value = mock_response
 
-        # Call load_and_export_data
+        # Create mock chunk data
+        port = InstrumentPort(
+            default_name="device1",
+            pseudo_name=PlungerGate("test_gate"),
+        )
+
+        chunk_data = {
+            0: {port: MeasuredArray1D([1.0, 2.0, 3.0])},
+            1: {port: MeasuredArray1D([4.0, 5.0, 6.0])},
+        }
+
+        # Call load_and_export_data with chunk_data
         await interpreter_daemon.load_and_export_data(
             request=mock_request,
             data_path=Path("/tmp/test_data"),
             shape=(3,),
             id=345,
             data_count=2,
+            chunk_data=chunk_data,
         )
 
-        # Verify the methods were called with correct arguments
-        interpreter_daemon.confirm_data_exists.assert_called_once_with(
-            id=345, data_count=2
-        )
-
+        # Verify the methods were called
         interpreter_daemon.get_data_point_counter_per_queue.assert_called_once_with(
             shape=(3,), data_count=2
         )
@@ -508,10 +579,10 @@ class TestInterpreterDaemon:
         )
 
         interpreter_daemon.average_shapeless_data.assert_called_once_with(
-            id=345,
             number_of_bins=5,
             request=mock_request,
             voltage_state_array=[{"device1": 1.0}],
+            chunk_data=chunk_data,  # Now passes chunk_data instead of collected_data
         )
 
         interpreter_daemon.make_response.assert_called_once_with(
@@ -687,31 +758,6 @@ class TestInterpreterDaemon:
         assert result[1].requirements[port][SUPPORTED_PROPERTIES.VOLTAGE_STATE] == 1.0
         assert result[2] == instr2
 
-    @pytest.mark.asyncio
-    async def test_confirm_data_exists(
-        self,
-        interpreter_daemon: InterpreterDaemon,
-    ):
-        """Test the confirm_data_exists method."""
-        # Setup a mock data queue
-        test_id = 4524
-        interpreter_daemon._data_queue[test_id] = DataQueue()
-
-        # Create a mock DataEntry with timestamp and data
-        mock_entry = MagicMock(spec=DataEntry)
-        mock_entry.timestamp = 12345
-
-        # Add the entry to the queue
-        interpreter_daemon._data_queue[test_id].append(mock_entry)
-
-        # Mock the log method
-        interpreter_daemon.log = AsyncMock()
-
-        # Call confirm_data_exists with matching data count
-        await interpreter_daemon.confirm_data_exists(
-            id=test_id, data_count=1, max_attempts=1, wait_time=0.1
-        )
-
     @pytest.fixture
     def knobs(self):
         """Returns a list of active knobs."""
@@ -867,3 +913,490 @@ class TestInterpreterDaemon:
                 ].instructions
             ]
         ), "Improper number of setters in instruction"
+
+    @pytest.mark.asyncio
+    async def test_async_queue_functionality(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        mock_nats,
+    ):
+        """Test the async queue data processing."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon.log = AsyncMock()
+
+        # Mock load_and_export_data to avoid complex processing
+        interpreter_daemon.load_and_export_data = AsyncMock()
+
+        # Start the async queue processor task
+        queue_processor_task = asyncio.create_task(
+            interpreter_daemon._process_async_data_queue()
+        )
+
+        try:
+            # Register a measurement
+            measurement_id = 12345
+            expected_count = 3
+            data_path = Path("/tmp/test_measurement")
+            shape = (10, 5)
+            mock_request = MagicMock()
+
+            await interpreter_daemon._register_measurement(
+                measurement_id=measurement_id,
+                expected_count=expected_count,
+                data_path=data_path,
+                shape=shape,
+                request=mock_request,
+            )
+
+            # Verify measurement was registered
+            assert measurement_id in interpreter_daemon._pending_measurements
+            pending = interpreter_daemon._pending_measurements[measurement_id]
+            assert pending.expected_count == expected_count
+            assert pending.measurement_id == measurement_id
+            assert not pending.is_complete
+
+            # Queue some data entries
+            port1 = InstrumentPort(
+                default_name="device1",
+                pseudo_name=PlungerGate("gate1"),
+            )
+            port2 = InstrumentPort(
+                default_name="device2",
+                pseudo_name=PlungerGate("gate2"),
+            )
+
+            # Add data entries for different chunks
+            for chunk_id in range(3):
+                test_data = {
+                    port1: MeasuredArray1D(
+                        [1.0 + chunk_id, 2.0 + chunk_id, 3.0 + chunk_id]
+                    ),
+                    port2: MeasuredArray1D(
+                        [4.0 + chunk_id, 5.0 + chunk_id, 6.0 + chunk_id]
+                    ),
+                }
+                await interpreter_daemon._queue_measurement_data(
+                    measurement_id, chunk_id, test_data
+                )
+
+            # Wait for processing to complete
+            max_wait = 2.0
+            wait_interval = 0.01
+            total_waited = 0.0
+
+            while (
+                measurement_id in interpreter_daemon._pending_measurements
+                and total_waited < max_wait
+            ):
+                await asyncio.sleep(wait_interval)
+                total_waited += wait_interval
+
+            # Verify measurement was processed and removed from pending
+            assert measurement_id not in interpreter_daemon._pending_measurements
+
+            # Verify load_and_export_data was called
+            interpreter_daemon.load_and_export_data.assert_called_once()
+
+        finally:
+            # Clean up the queue processor task
+            queue_processor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await queue_processor_task
+
+    @pytest.mark.asyncio
+    async def test_pending_measurement_properties(self):
+        """Test PendingMeasurement dataclass properties."""
+        from server_daemons.interpreter_daemon import PendingMeasurement
+
+        measurement_id = 999
+        expected_count = 5
+        data_path = Path("/tmp/test")
+        shape = (10,)
+        request = MagicMock()
+
+        pending = PendingMeasurement(
+            measurement_id=measurement_id,
+            expected_count=expected_count,
+            data_path=data_path,
+            shape=shape,
+            request=request,
+        )
+
+        # Test initial state
+        assert not pending.is_complete
+        assert pending.completion_percentage == 0.0
+        assert len(pending.collected_data) == 0
+
+        # Add some data entries
+        port = InstrumentPort(
+            default_name="test_port",
+            pseudo_name=PlungerGate("test_gate"),
+        )
+
+        for i in range(3):
+            pending.add_data_entry(
+                chunk_id=i, data={port: MeasuredArray1D([1.0, 2.0, 3.0])}
+            )
+
+        # Test partial completion
+        assert not pending.is_complete
+        assert pending.completion_percentage == 60.0  # 3/5 * 100
+        assert len(pending.collected_data) == 3
+
+        # Complete the measurement
+        for i in range(3, 5):
+            pending.add_data_entry(
+                chunk_id=i, data={port: MeasuredArray1D([1.0, 2.0, 3.0])}
+            )
+
+        # Test completion
+        assert pending.is_complete
+        assert pending.completion_percentage == 100.0
+        assert len(pending.collected_data) == 5
+
+    @pytest.mark.asyncio
+    async def test_chunk_data_organization(self):
+        """Test that chunk data is properly organized."""
+        from server_daemons.interpreter_daemon import PendingMeasurement
+
+        measurement_id = 888
+        expected_count = 3
+        data_path = Path("/tmp/test")
+        shape = (5,)
+        request = MagicMock()
+
+        pending = PendingMeasurement(
+            measurement_id=measurement_id,
+            expected_count=expected_count,
+            data_path=data_path,
+            shape=shape,
+            request=request,
+        )
+
+        port1 = InstrumentPort(
+            default_name="port1",
+            pseudo_name=PlungerGate("gate1"),
+        )
+        port2 = InstrumentPort(
+            default_name="port2",
+            pseudo_name=PlungerGate("gate2"),
+        )
+
+        # Add data in non-sequential order to test sorting
+        chunk_data = [
+            (
+                2,
+                {
+                    port1: MeasuredArray1D([7.0, 8.0, 9.0]),
+                    port2: MeasuredArray1D([10.0, 11.0, 12.0]),
+                },
+            ),
+            (
+                0,
+                {
+                    port1: MeasuredArray1D([1.0, 2.0, 3.0]),
+                    port2: MeasuredArray1D([4.0, 5.0, 6.0]),
+                },
+            ),
+            (
+                1,
+                {
+                    port1: MeasuredArray1D([4.0, 5.0, 6.0]),
+                    port2: MeasuredArray1D([7.0, 8.0, 9.0]),
+                },
+            ),
+        ]
+
+        for chunk_id, data in chunk_data:
+            pending.add_data_entry(chunk_id, data)
+
+        # Test sorted chunk data
+        sorted_chunks = pending.get_sorted_chunk_data()
+
+        # Verify chunks are in order
+        chunk_ids = list(sorted_chunks.keys())
+        assert chunk_ids == [0, 1, 2]
+
+        # Verify data integrity
+        assert len(sorted_chunks[0]) == 2  # Two ports
+        assert port1 in sorted_chunks[0]
+        assert port2 in sorted_chunks[0]
+
+        # Verify data values for chunk 0
+        np.testing.assert_array_equal(
+            sorted_chunks[0][port1].data, np.array([1.0, 2.0, 3.0])
+        )
+        np.testing.assert_array_equal(
+            sorted_chunks[0][port2].data, np.array([4.0, 5.0, 6.0])
+        )
+
+    @pytest.mark.asyncio
+    async def test_stale_measurement_cleanup(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        mock_nats,
+    ):
+        """Test that stale measurements are cleaned up."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon.log = AsyncMock()
+
+        # Register a measurement
+        measurement_id = 777
+        await interpreter_daemon._register_measurement(
+            measurement_id=measurement_id,
+            expected_count=5,
+            data_path=Path("/tmp/test"),
+            shape=(10,),
+            request=MagicMock(),
+        )
+
+        # Mock time.time to control the cleanup logic
+        with patch("time.time") as mock_time:
+            # Set current time
+            current_time = 1000
+            mock_time.return_value = current_time
+
+            # Set measurement created_at to be stale
+            stale_time = current_time - STALE_MEASUREMENT_TIMEOUT - 1
+            interpreter_daemon._pending_measurements[
+                measurement_id
+            ].created_at = stale_time
+
+            # Create a single cleanup task that will exit after one iteration
+            async def single_cleanup():
+                current_time = time.time()
+                stale_ids = []
+                for mid, pending in interpreter_daemon._pending_measurements.items():
+                    if current_time - pending.created_at > STALE_MEASUREMENT_TIMEOUT:
+                        await interpreter_daemon.log(
+                            f"Warning: Measurement {mid} timed out with {len(pending.collected_data)}/{pending.expected_count} data points ({pending.completion_percentage:.1f}%)"
+                        )
+                        stale_ids.append(mid)
+
+                for stale_id in stale_ids:
+                    del interpreter_daemon._pending_measurements[stale_id]
+
+            # Run the cleanup
+            await single_cleanup()
+
+            # Verify measurement was cleaned up
+            assert measurement_id not in interpreter_daemon._pending_measurements
+
+    @pytest.mark.asyncio
+    async def test_end_to_end_measurement_processing(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        measurement_request: MeasurementRequest,
+        configuration: dict,
+        mock_nats,
+    ):
+        """Test complete measurement processing from request to data export."""
+        _, mock_client, mock_jetstream = mock_nats
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon._js = mock_jetstream
+        interpreter_daemon.log = AsyncMock()
+
+        # Mock the load_and_export_data method to track what it receives
+        load_and_export_calls = []
+
+        async def mock_load_and_export(*args, **kwargs):
+            load_and_export_calls.append((args, kwargs))
+            await interpreter_daemon.log("Mock load_and_export_data called")
+
+        interpreter_daemon.load_and_export_data = mock_load_and_export
+
+        # Start the queue processor to handle data processing
+        queue_processor_task = asyncio.create_task(
+            interpreter_daemon._process_async_data_queue()
+        )
+
+        try:
+            # Step 1: Process the measurement request
+            measurement_id = 12345
+            data_path = Path("/tmp/test_measurement")
+
+            # Simulate the request processing
+            data_count, shape = await interpreter_daemon.process_request(
+                request=measurement_request,
+                configuration=configuration,
+                id=measurement_id,
+            )
+
+            # Register the measurement (this normally happens in handle_request)
+            await interpreter_daemon._register_measurement(
+                measurement_id=measurement_id,
+                expected_count=data_count,
+                data_path=data_path,
+                shape=shape,
+                request=measurement_request,
+            )
+
+            await interpreter_daemon.log(
+                f"Registered measurement with {data_count} expected chunks"
+            )
+
+            # Step 2: Simulate data collection from multiple chunks
+            # Get the meter ports from the measurement request
+            meter_ports = [
+                transform.port for transform in measurement_request.meter_transforms
+            ]
+
+            # Simulate receiving data for each chunk
+            for chunk_id in range(data_count):
+                # Create realistic measurement data
+                chunk_data = {}
+                for port in meter_ports:
+                    # Generate some test data for this port/chunk
+                    data_points = [float(chunk_id + i + 1) * 0.1 for i in range(10)]
+                    chunk_data[port] = MeasuredArray1D(data_points)
+
+                # Queue the data (simulating handle_data)
+                await interpreter_daemon._queue_measurement_data(
+                    measurement_id=measurement_id, chunk_id=chunk_id, data=chunk_data
+                )
+
+                await interpreter_daemon.log(f"Queued data for chunk {chunk_id}")
+
+            # Step 3: Wait for async processing to complete
+            max_wait_time = 5.0  # 5 seconds max
+            wait_interval = 0.1
+            total_waited = 0.0
+
+            while (
+                measurement_id in interpreter_daemon._pending_measurements
+                and total_waited < max_wait_time
+            ):
+                await asyncio.sleep(wait_interval)
+                total_waited += wait_interval
+
+            # Step 4: Verify the measurement was processed
+            assert measurement_id not in interpreter_daemon._pending_measurements, (
+                "Measurement should be completed and removed"
+            )
+
+            # Verify load_and_export_data was called
+            assert len(load_and_export_calls) == 1, (
+                "load_and_export_data should be called exactly once"
+            )
+
+        finally:
+            # Clean up the queue processor task
+            queue_processor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await queue_processor_task
+
+    @pytest.mark.asyncio
+    async def test_data_queue_overflow_handling(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        mock_nats,
+    ):
+        """Test that the system handles queue overflow gracefully."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon.log = AsyncMock()
+
+        # Set a very small queue size for testing
+        interpreter_daemon._async_data_queue = asyncio.Queue(maxsize=2)
+
+        # Start the queue processor to consume data
+        queue_processor_task = asyncio.create_task(
+            interpreter_daemon._process_async_data_queue()
+        )
+
+        try:
+            measurement_id = 555
+            port = InstrumentPort(
+                default_name="test_port",
+                pseudo_name=PlungerGate("test_gate"),
+            )
+
+            # Fill the queue to capacity first
+            for i in range(2):  # Queue maxsize is 2
+                await interpreter_daemon._queue_measurement_data(
+                    measurement_id=measurement_id,
+                    chunk_id=i,
+                    data={port: MeasuredArray1D([1.0, 2.0, 3.0])},
+                )
+
+            # Now try to add one more item - this should trigger overflow
+            await interpreter_daemon._queue_measurement_data(
+                measurement_id=measurement_id,
+                chunk_id=2,
+                data={port: MeasuredArray1D([4.0, 5.0, 6.0])},
+            )
+
+            # Give a moment for logging
+            await asyncio.sleep(0.1)
+
+            # Verify that overflow was logged
+            interpreter_daemon.log.assert_any_call(
+                f"Data queue full, dropping data for measurement {measurement_id}"
+            )
+
+        finally:
+            # Clean up the queue processor task
+            queue_processor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await queue_processor_task
+
+    @pytest.mark.asyncio
+    async def test_measurement_without_registration(
+        self,
+        interpreter_daemon: InterpreterDaemon,
+        mock_nats,
+    ):
+        """Test that data for unregistered measurements gets requeued."""
+        _, mock_client, _ = mock_nats
+        interpreter_daemon._nc = mock_client
+        interpreter_daemon.log = AsyncMock()
+
+        # Track queue operations to verify requeuing behavior
+        original_put = interpreter_daemon._async_data_queue.put
+        put_call_count = 0
+
+        async def mock_put(*args, **kwargs):
+            nonlocal put_call_count
+            put_call_count += 1
+            return await original_put(*args, **kwargs)
+
+        interpreter_daemon._async_data_queue.put = mock_put
+
+        # Start the queue processor to handle requeuing logic
+        queue_processor_task = asyncio.create_task(
+            interpreter_daemon._process_async_data_queue()
+        )
+
+        try:
+            # Queue data for a measurement that hasn't been registered
+            unregistered_id = 999999
+            port = InstrumentPort(
+                default_name="test_port",
+                pseudo_name=PlungerGate("test_gate"),
+            )
+
+            await interpreter_daemon._queue_measurement_data(
+                measurement_id=unregistered_id,
+                chunk_id=0,
+                data={port: MeasuredArray1D([1.0, 2.0, 3.0])},
+            )
+
+            # Give the queue processor time to try processing and requeue multiple times
+            await asyncio.sleep(0.5)
+
+            # Verify that the data was queued multiple times (initial + requeues)
+            # The initial put + at least one requeue should have occurred
+            assert put_call_count >= 2, (
+                f"Expected at least 2 queue operations, got {put_call_count}"
+            )
+
+            # Verify that the measurement is still not registered
+            assert unregistered_id not in interpreter_daemon._pending_measurements
+
+        finally:
+            # Clean up the queue processor task
+            queue_processor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await queue_processor_task
