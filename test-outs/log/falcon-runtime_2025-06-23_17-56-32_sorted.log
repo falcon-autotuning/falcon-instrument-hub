@@ -1,0 +1,812 @@
+[2025-06-23 17:56:32.142543] [INFO] [SYSTEM] Logger initialized
+[2025-06-23 17:56:32.142547] [INFO] [SYSTEM] Log file: /home/tylerk/Documents/instrument-server/test-outs/log/falcon-runtime_2025-06-23_17-56-32.log
+[2025-06-23 17:56:32.143760] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-23 17:56:32.215397] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-23 17:56:32.215416] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-23 17:56:33.023316] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-23 17:56:33.023328] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:33.023333] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-23 17:56:34.461203] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:34.461212] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-23 17:56:34.461226] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-23 17:56:35.848544] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-23 17:56:35.848553] [INFO] [VENV] Installing package with uv: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-23 17:56:35.848557] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main'"
+[2025-06-23 17:56:37.952629] [INFO] [VENV] Successfully installed package: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-23 17:56:37.952639] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:37.952643] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-23 17:56:39.378322] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:39.378331] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-23 17:56:39.378337] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-23 17:56:39.448312] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-23 17:56:39.448323] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-23 17:56:40.238292] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-23 17:56:40.238303] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:40.238310] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-23 17:56:41.732425] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:41.732434] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-23 17:56:41.732447] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-23 17:56:43.158718] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-23 17:56:43.158728] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:43.158735] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-23 17:56:44.570288] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-23 17:56:44.570297] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-23 17:56:44.570476] [INFO] [HANDLER_MANAGER] Starting handler manager
+[2025-06-23 17:56:44.570499] [INFO] [LOG_HANDLER] Subscribed to LOG.> channels
+[2025-06-23 17:56:44.570513] [INFO] [DEVICE_CONFIG_HANDLER] Subscribed to DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-23 17:56:44.570516] [INFO] [INSTRUMENT_HANDLER] Setting up instrument handler subscriptions
+[2025-06-23 17:56:44.570656] [INFO] [INSTRUMENT_HANDLER] Script updated at scripts/launch_instrument_daemon.py
+[2025-06-23 17:56:44.570800] [INFO] [INSTRUMENT_HANDLER] Subscribed to SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.*
+[2025-06-23 17:56:44.570803] [INFO] [INSTRUMENT_HANDLER] Subscribed to DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.*
+[2025-06-23 17:56:44.570806] [INFO] [INSTRUMENT_HANDLER] Subscribed to CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.*
+[2025-06-23 17:56:44.570810] [INFO] [INSTRUMENT_HANDLER] Subscribed to UPDATE_DAEMON_PROPERTY on subject: UPDATE_DAEMON_PROPERTY.instrument-server
+[2025-06-23 17:56:44.570810] [INFO] [INSTRUMENT_HANDLER] Instrument handler subscriptions ready
+[2025-06-23 17:56:44.570812] [INFO] [INTERPRETER_HANDLER] Starting interpreter handler
+[2025-06-23 17:56:44.570865] [INFO] [INTERPRETER_HANDLER] Interpreter script updated at scripts/launch_interpreter.py
+[2025-06-23 17:56:44.570878] [DEBUG] [INTERPRETER_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py
+[2025-06-23 17:56:44.570888] [INFO] [INTERPRETER_HANDLER] Starting interpreter daemon 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py 
+ nats URL nats://localhost:4222
+[2025-06-23 17:56:44.571310] [INFO] [INTERPRETER_HANDLER] Started interpreter with PID 284433
+[2025-06-23 17:56:44.571314] [INFO] [INTERPRETER_HANDLER] Interpreter handler started successfully
+[2025-06-23 17:56:44.571322] [INFO] [BUSY_HANDLER] Subscribed to BUSY.external.* channels
+[2025-06-23 17:56:44.571328] [INFO] [MEASURE_COMMAND_HANDLER] Subscribed to MEASURE_COMMAND.external.> and UPLOAD_DATA
+[2025-06-23 17:56:44.571332] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Subscribed to PERFORM_INSTRUMENT_METHOD.external.instrument-server
+[2025-06-23 17:56:44.571334] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-23 17:56:44.571346] [INFO] [MEASUREMENT_READY_HANDLER] Subscribed to MEASUREMENT_READY, ARMED, EXECUTING, RETURN_DATA
+[2025-06-23 17:56:44.571348] [INFO] [STATUS_HANDLER] Started publishing status messages every 4 seconds
+[2025-06-23 17:56:44.571353] [INFO] [HANDLER_MANAGER] All handlers started successfully
+[2025-06-23 17:56:44.571477] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:56:47.037030] [RAW] [RAW] [2025-06-23 17:56:47.035112] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Connected to NATS server at nats://localhost:4222
+
+[2025-06-23 17:56:47.037053] [RAW] [RAW] [2025-06-23 17:56:47.035464] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_REQUEST
+
+[2025-06-23 17:56:47.037061] [RAW] [RAW] [2025-06-23 17:56:47.035616] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_DATA
+
+[2025-06-23 17:56:48.571875] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:56:52.135717] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1750719412135131}
+[2025-06-23 17:56:52.135811] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 0 instruments
+[2025-06-23 17:56:52.135813] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-23 17:56:52.135814] [DEBUG] [INSTRUMENT_HANDLER] Collected 0 knobs and 0 meters
+[2025-06-23 17:56:52.135846] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-23 17:56:52.135883] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-23 17:56:52.135892] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-23 17:56:52.135935] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-23 17:56:52.135963] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument LargeMultiChannelDAC 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-23 17:56:52.136672] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument LargeMultiChannelDAC 
+ pid 284612
+[2025-06-23 17:56:52.136684] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: LargeMultiChannelDAC
+[2025-06-23 17:56:52.136687] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-23 17:56:52.136732] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-23 17:56:52.136744] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument MultiChannelAmnmeter 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-23 17:56:52.137477] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument MultiChannelAmnmeter 
+ pid 284613
+[2025-06-23 17:56:52.137483] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: MultiChannelAmnmeter
+[2025-06-23 17:56:52.572483] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:56:54.331966] [RAW] [RAW] [2025-06-23 17:56:54.319848] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Connected to NATS successfully
+
+[2025-06-23 17:56:54.332147] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.MultiChannelAmnmeter
+[2025-06-23 17:56:54.332153] [RAW] [RAW] [2025-06-23 17:56:54.330347] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Instrument config released for MultiChannelAmnmeter
+
+[2025-06-23 17:56:54.332193] [RAW] [RAW] [2025-06-23 17:56:54.330744] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Setup all subscriptions for MultiChannelAmnmeter
+
+[2025-06-23 17:56:54.332202] [RAW] [RAW] [2025-06-23 17:56:54.330804] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Daemon MultiChannelAmnmeter running, waiting for shutdown signal...
+
+[2025-06-23 17:56:54.336838] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: MultiChannelAmnmeter
+[2025-06-23 17:56:54.337278] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument MultiChannelAmnmeter
+[2025-06-23 17:56:54.407545] [RAW] [RAW] [2025-06-23 17:56:54.320112] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Connected to NATS successfully
+
+[2025-06-23 17:56:54.408629] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.LargeMultiChannelDAC
+[2025-06-23 17:56:54.408677] [RAW] [RAW] [2025-06-23 17:56:54.405802] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Instrument config released for LargeMultiChannelDAC
+
+[2025-06-23 17:56:54.408695] [RAW] [RAW] [2025-06-23 17:56:54.406197] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Setup all subscriptions for LargeMultiChannelDAC
+
+[2025-06-23 17:56:54.408711] [RAW] [RAW] [2025-06-23 17:56:54.406260] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Daemon LargeMultiChannelDAC running, waiting for shutdown signal...
+
+[2025-06-23 17:56:54.422916] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: LargeMultiChannelDAC
+[2025-06-23 17:56:54.425020] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument LargeMultiChannelDAC
+[2025-06-23 17:56:56.136865] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1750719416136066}
+[2025-06-23 17:56:56.136903] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 2 instruments
+[2025-06-23 17:56:56.137019] [DEBUG] [INSTRUMENT_HANDLER] Collected 100 knobs and 10 meters
+[2025-06-23 17:56:56.137741] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-23 17:56:56.138195] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-23 17:56:56.138376] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-23 17:56:56.572139] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:57:00.166285] [DEBUG] [MEASURE_COMMAND_HANDLER] Received command: {"request": "{\"__class__\": \"MeasurementRequest\", \"__module__\": \"falcon_core.communications.messages.measurement_request\", \"message\": \"test measurement\", \"waveforms\": [{\"__class__\": \"CartesianWaveform\", \"__module__\": \"falcon_core.instrument_interfaces.waveforms.cartesian_waveform\", \"transforms\": [], \"space\": {\"__class__\": \"CartesianDiscreteSpace\", \"__module__\": \"falcon_core.math.discrete_spaces.cartesian_discrete_space\", \"space\": {\"__class__\": \"CartesianSpace\", \"__module__\": \"falcon_core.math.spaces.cartesian_space\", \"axes\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"CartesianDiscretizer\", \"__module__\": \"falcon_core.math.discretizers.cartesian_discretizer\", \"delta_domain\": {\"__class__\": \"Domain\", \"__module__\": \"falcon_core.math.domains.domain\", \"lesser_bound\": -1.0, \"greater_bound\": 1.0, \"lesser_bound_contained\": true, \"greater_bound_contained\": true}, \"delta\": 0.1}]}, \"domain\": {\"__class__\": \"Domain\", \"__module__\": \"falcon_core.math.domains.domain\", \"lesser_bound\": 0, \"greater_bound\": 1, \"lesser_bound_contained\": true, \"greater_bound_contained\": false}, \"ranges\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"ControlArray1D\", \"__module__\": \"falcon_core.math.arrays.control_array_1D\", \"data\": {\"__binary_blob__\": true, \"type\": \"numpy.ndarray\", \"data\": \"gASV2QAAAAAAAACMFm51bXB5Ll9jb3JlLm11bHRpYXJyYXmUjAxfcmVjb25zdHJ1Y3SUk5SMBW51bXB5lIwHbmRhcnJheZSTlEsAhZRDAWKUh5RSlChLAUsKhZRoA4wFZHR5cGWUk5SMAmY4lImIh5RSlChLA4wBPJROTk5K/////0r/////SwB0lGKJQ1AAAAAAAAAAAJqZmZmZmbk/mpmZmZmZyT80MzMzMzPTP5qZmZmZmdk/AAAAAAAA4D80MzMzMzPjP2dmZmZmZuY/mpmZmZmZ6T/NzMzMzMzsP5R0lGIu\", \"shape\": [10], \"dtype\": \"float64\"}, \"alignment\": {\"__class__\": \"IncreasingAlignment\", \"__module__\": \"falcon_core.math.arrays.increasing_alignment\", \"alignment\": true}, \"principle_dimension\": null}]}, \"shape\": [10]}, \"axes\": {\"__class__\": \"Axes\", \"__module__\": \"falcon_core.math.axes\", \"axes\": [{\"__class__\": \"CoupledKnobDomain\", \"__module__\": \"falcon_core.math.domains.coupled_knob_domain\", \"domains\": [{\"__class__\": \"KnobDomain\", \"__module__\": \"falcon_core.math.domains.knob_domain\", \"lesser_bound\": 0, \"greater_bound\": 0.5, \"lesser_bound_contained\": true, \"greater_bound_contained\": true, \"label\": {\"__class__\": \"Knob\", \"__module__\": \"falcon_core.instrument_interfaces.names.knob\", \"default_name\": \"LargeMultiChannelDAC_##_voltage_state_##_5\", \"pseudo_name\": {\"__class__\": \"BarrierGate\", \"__module__\": \"falcon_core.physics.device_structures.barrier_gate\", \"name\": \"B3\"}, \"instrument_type\": \"dc_voltage_source\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"name\": \"volt\", \"symbol\": \"V\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {\"CURRENT\": -1, \"LENGTH\": 2, \"MASS\": 1, \"TIME\": -3}, \"offset\": 0, \"prefix\": \"\", \"scale_factor\": 1}}, \"description\": \"A large multi-channel DAC instrument driver for testing purposes.\"}}]}]}}}], \"meter_transforms\": [{\"__class__\": \"IdentityTransform\", \"__module__\": \"falcon_core.instrument_interfaces.port_transforms.identity_transform\", \"port\": {\"__class__\": \"Meter\", \"__module__\": \"falcon_core.instrument_interfaces.names.meter\", \"default_name\": \"MultiChannelAmnmeter_##_current_state_##_1\", \"pseudo_name\": {\"__class__\": \"Ohmic\", \"__module__\": \"falcon_core.physics.device_structures.ohmic\", \"name\": \"O2\"}, \"instrument_type\": \"amnmeter\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"name\": \"radian\", \"symbol\": \"rad\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {}, \"offset\": 0, \"prefix\": \"\", \"scale_factor\": 1}}, \"description\": \"A DC current sink driver.\"}, \"transform\": {\"__jsonable_function__\": true, \"__function_dill__\": \"gASVWAMAAAAAAACMLGZhbGNvbl9jb3JlLm1hdGguYW5hbHl0aWNfZnVuY3Rpb25zLmlkZW50aXR5lIwISWRlbnRpdHmUk5QpgZR9lCiMBl9wb3J0c5SMLmZhbGNvbl9jb3JlLmluc3RydW1lbnRfaW50ZXJmYWNlcy5uYW1lcy5tZXRlcnOUjAZNZXRlcnOUk5QpgZR9lGgFXZQojC1mYWxjb25fY29yZS5pbnN0cnVtZW50X2ludGVyZmFjZXMubmFtZXMubWV0ZXKUjAVNZXRlcpSTlCmBlH2UKIwNX2RlZmF1bHRfbmFtZZSMKk11bHRpQ2hhbm5lbEFtbm1ldGVyXyMjX2N1cnJlbnRfc3RhdGVfIyNfMZSMDF9wc2V1ZG9fbmFtZZSMK2ZhbGNvbl9jb3JlLnBoeXNpY3MuZGV2aWNlX3N0cnVjdHVyZXMub2htaWOUjAVPaG1pY5STlCmBlH2UjAVfbmFtZZSMAk8ylHNijBBfaW5zdHJ1bWVudF90eXBllIwIYW1ubWV0ZXKUjAZfdW5pdHOUjCVmYWxjb25fY29yZS5waHlzaWNzLnVuaXRzLnN5bWJvbF91bml0lIwKU3ltYm9sVW5pdJSTlCmBlH2UKGgZjAZyYWRpYW6UjAdfc3ltYm9slIwDcmFklIwFX3VuaXSUjB5mYWxjb25fY29yZS5waHlzaWNzLnVuaXRzLnVuaXSUjARVbml0lJOUKYGUfZQojAtfZGltZW5zaW9uc5R9lIwHX29mZnNldJRLAIwHX3ByZWZpeJSMAJSMDV9zY2FsZV9mYWN0b3KUSwF1YnVijAxfZGVzY3JpcHRpb26UjBlBIERDIGN1cnJlbnQgc2luayBkcml2ZXIulHViaA4pgZR9lChoEYwFdGltZXKUaBNOaBuMBWNsb2NrlGgdaCApgZR9lChoJmgpKYGUfZQoaCx9lIwEVElNRZRLAXNoMUc/8AAAAAAAAGguRwAAAAAAAAAAaC9oMHViaCSMAXOUaBmMBnNlY29uZJR1YmgyaDB1YmVzYowJX2Z1bmN0aW9ulGgAjBBJZGVudGl0eUZ1bmN0aW9ulJOUKYGUfZQojAVfcG9ydJRoD4wIX21hcHBpbmeUfZQoaBqMAXiUaDeMAXSUdXVidWIu\"}}], \"time_domain\": {\"__class__\": \"KnobDomain\", \"__module__\": \"falcon_core.math.domains.knob_domain\", \"lesser_bound\": 0, \"greater_bound\": 1, \"lesser_bound_contained\": true, \"greater_bound_contained\": false, \"label\": {\"__class__\": \"Knob\", \"__module__\": \"falcon_core.instrument_interfaces.names.knob\", \"default_name\": \"time\", \"pseudo_name\": null, \"instrument_type\": \"clock\", \"units\": {\"__class__\": \"SymbolUnit\", \"__module__\": \"falcon_core.physics.units.symbol_unit\", \"unit\": {\"__class__\": \"Unit\", \"__module__\": \"falcon_core.physics.units.unit\", \"dimensions\": {\"TIME\": 1}, \"scale_factor\": 1.0, \"offset\": 0.0, \"prefix\": \"\"}, \"symbol\": \"s\", \"name\": \"second\"}, \"description\": \"\"}}, \"measurement_name\": \"integration_test\"}", "hash": 692, "timestamp": 1750719420165359}
+[2025-06-23 17:57:00.166522] [DEBUG] [MEASURE_COMMAND_HANDLER] Set IsBusy flag to true - measurement started
+[2025-06-23 17:57:00.176998] [INFO] [MEASURE_COMMAND_HANDLER] Allocated measurement ID 8 for hash 692
+[2025-06-23 17:57:00.177119] [DEBUG] [INSTRUMENT_HANDLER] Starting port mapping inversion with 2 instruments
+[2025-06-23 17:57:00.177127] [DEBUG] [INSTRUMENT_HANDLER] Processing instrument LargeMultiChannelDAC with 4 properties
+[2025-06-23 17:57:00.177303] [DEBUG] [INSTRUMENT_HANDLER] Processing instrument MultiChannelAmnmeter with 5 properties
+[2025-06-23 17:57:00.177371] [DEBUG] [INSTRUMENT_HANDLER] Port mapping inversion complete. Found 234 port configurations
+[2025-06-23 17:57:00.182443] [INFO] [MEASURE_COMMAND_HANDLER] Sent PROCESS_REQUEST to interpreter for measurement ID 8 with 234 port configurations
+[2025-06-23 17:57:00.264637] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.264720] [RAW] [RAW] [2025-06-23 17:57:00.253566] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Measurement unpacked, processing ....
+
+[2025-06-23 17:57:00.264736] [RAW] [RAW] [2025-06-23 17:57:00.253650] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Compiling waveform ...
+
+[2025-06-23 17:57:00.264744] [RAW] [RAW] [2025-06-23 17:57:00.253826] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waveform compiled successfully.
+
+[2025-06-23 17:57:00.264755] [RAW] [RAW] [2025-06-23 17:57:00.254757] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Standard measurement selected.
+
+[2025-06-23 17:57:00.264765] [RAW] [RAW] [2025-06-23 17:57:00.254793] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Chunking instructions ...
+
+[2025-06-23 17:57:00.264786] [RAW] [RAW] [2025-06-23 17:57:00.255524] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] The raw time trace is: [[0.9]
+ [0.8]
+ [0.7]
+ [0.6]
+ [0.5]
+ [0.4]
+ [0.3]
+ [0.2]
+ [0.1]
+ [0. ]]
+
+[2025-06-23 17:57:00.264797] [RAW] [RAW] [2025-06-23 17:57:00.255611] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Chunks completed
+
+[2025-06-23 17:57:00.264812] [RAW] [RAW] [2025-06-23 17:57:00.256686] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] The chunks are: [array([[0.9]]), array([[0.8]]), array([[0.7]]), array([[0.6]]), array([[0.5]]), array([[0.4]]), array([[0.3]]), array([[0.2]]), array([[0.1]]), array([[0.]])]
+
+[2025-06-23 17:57:00.264819] [RAW] [RAW] [2025-06-23 17:57:00.256732] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Selected getters for the measurement.
+
+[2025-06-23 17:57:00.264827] [RAW] [RAW] [2025-06-23 17:57:00.257975] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 1 to the list .
+
+[2025-06-23 17:57:00.264834] [RAW] [RAW] [2025-06-23 17:57:00.258560] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 2 to the list .
+
+[2025-06-23 17:57:00.264843] [RAW] [RAW] [2025-06-23 17:57:00.259097] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 3 to the list .
+
+[2025-06-23 17:57:00.264850] [RAW] [RAW] [2025-06-23 17:57:00.259661] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 4 to the list .
+
+[2025-06-23 17:57:00.264858] [RAW] [RAW] [2025-06-23 17:57:00.260233] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 5 to the list .
+
+[2025-06-23 17:57:00.264860] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 1. Queue size: 1
+[2025-06-23 17:57:00.264864] [RAW] [RAW] [2025-06-23 17:57:00.260760] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 6 to the list .
+
+[2025-06-23 17:57:00.264871] [RAW] [RAW] [2025-06-23 17:57:00.261320] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 7 to the list .
+
+[2025-06-23 17:57:00.264877] [RAW] [RAW] [2025-06-23 17:57:00.261854] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 8 to the list .
+
+[2025-06-23 17:57:00.264883] [RAW] [RAW] [2025-06-23 17:57:00.262418] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 9 to the list .
+
+[2025-06-23 17:57:00.264889] [RAW] [RAW] [2025-06-23 17:57:00.262947] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Adding instruction for step 10 to the list .
+
+[2025-06-23 17:57:00.264922] [RAW] [RAW] [2025-06-23 17:57:00.262986] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Request successfully processed and chunked...
+
+[2025-06-23 17:57:00.264930] [RAW] [RAW] [2025-06-23 17:57:00.263013] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 1 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.266192] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.266221] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:1} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.266226] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 1 (Setters: 1)
+[2025-06-23 17:57:00.266439] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{1.8, 1.5}}}
+[2025-06-23 17:57:00.266863] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.266872] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 1}
+[2025-06-23 17:57:00.266932] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.266938] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.266991] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.266993] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.267001] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.267002] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.267009] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.267014] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.267020] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=1.8
+[2025-06-23 17:57:00.267021] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.267025] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.267026] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.267031] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.267034] [INFO] [MEASUREMENT_READY_HANDLER] Starting processing of measurement ProcessId 8, ChunkId 1. Remaining in queue: 0
+[2025-06-23 17:57:00.268526] [RAW] [RAW] [2025-06-23 17:57:00.267821] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=1.8
+
+[2025-06-23 17:57:00.268545] [RAW] [RAW] [2025-06-23 17:57:00.267911] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.268558] [RAW] [RAW] [2025-06-23 17:57:00.267954] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.269037] [RAW] [RAW] [2025-06-23 17:57:00.268158] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.269050] [RAW] [RAW] [2025-06-23 17:57:00.268374] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.269548] [RAW] [RAW] [2025-06-23 17:57:00.268465] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.269847] [RAW] [RAW] [2025-06-23 17:57:00.269259] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: number_of_samples=10000
+
+[2025-06-23 17:57:00.270234] [DEBUG] [MEASUREMENT_READY_HANDLER] Received ARMED
+[2025-06-23 17:57:00.270282] [RAW] [RAW] [2025-06-23 17:57:00.269664] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:00.270289] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing ARMED from instrument: MultiChannelAmnmeter for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.270293] [RAW] [RAW] [2025-06-23 17:57:00.269745] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found setter triggers in the ARM command []
+
+[2025-06-23 17:57:00.270294] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked instrument MultiChannelAmnmeter as ready for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.270309] [RAW] [RAW] [2025-06-23 17:57:00.269774] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found getter triggers in the ARM command [{'property': 'current_state', 'index': '1'}]
+
+[2025-06-23 17:57:00.270318] [RAW] [RAW] [2025-06-23 17:57:00.269833] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue locked due to ARM command on MultiChannelAmnmeter
+
+[2025-06-23 17:57:00.270325] [RAW] [RAW] [2025-06-23 17:57:00.269661] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: voltage_state=1.8
+
+[2025-06-23 17:57:00.270916] [DEBUG] [MEASUREMENT_READY_HANDLER] Received ARMED
+[2025-06-23 17:57:00.270953] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing ARMED from instrument: LargeMultiChannelDAC for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.270961] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked instrument LargeMultiChannelDAC as ready for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.270964] [INFO] [MEASUREMENT_READY_HANDLER] All setter instruments ready for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.270967] [DEBUG] [MEASUREMENT_READY_HANDLER] Reset ready checklist for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.271023] [RAW] [RAW] [2025-06-23 17:57:00.270137] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:00.271049] [RAW] [RAW] [2025-06-23 17:57:00.270281] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found setter triggers in the ARM command [{'property': 'voltage_state', 'index': '5'}]
+
+[2025-06-23 17:57:00.271063] [RAW] [RAW] [2025-06-23 17:57:00.270328] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found getter triggers in the ARM command []
+
+[2025-06-23 17:57:00.271073] [RAW] [RAW] [2025-06-23 17:57:00.270427] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue locked due to ARM command on LargeMultiChannelDAC
+
+[2025-06-23 17:57:00.271128] [DEBUG] [MEASUREMENT_READY_HANDLER] Sent TRIGGER command to MultiChannelAmnmeter instrument for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.272303] [RAW] [RAW] [2025-06-23 17:57:00.271827] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Trigger command recieved, starting process...
+
+[2025-06-23 17:57:00.272319] [DEBUG] [MEASUREMENT_READY_HANDLER] Received EXECUTING: {"process_id": 8, "chunk_id": 1, "timestamp": 1750719420271739}
+[2025-06-23 17:57:00.272394] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing EXECUTING from instrument: MultiChannelAmnmeter for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.272400] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked getter instrument MultiChannelAmnmeter as triggered for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.272403] [DEBUG] [MEASUREMENT_READY_HANDLER] Reset triggered getter checklist for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.272431] [INFO] [MEASUREMENT_READY_HANDLER] All getter instruments triggered for {ProcessId:8 ChunkId:1}, triggering 1 setter instruments: [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.272456] [DEBUG] [MEASUREMENT_READY_HANDLER] Sent TRIGGER command to LargeMultiChannelDAC instrument for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.272699] [RAW] [RAW] [2025-06-23 17:57:00.272074] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Starting process_getter_trigger in executor...
+
+[2025-06-23 17:57:00.273642] [DEBUG] [MEASUREMENT_READY_HANDLER] Received EXECUTING: {"process_id": 8, "chunk_id": 1, "timestamp": 1750719420273104}
+[2025-06-23 17:57:00.273656] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing EXECUTING from instrument: LargeMultiChannelDAC for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.273659] [INFO] [MEASUREMENT_READY_HANDLER] instrument LargeMultiChannelDAC has been triggered and is running for {ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:00.273673] [RAW] [RAW] [2025-06-23 17:57:00.273203] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Trigger command recieved, starting process...
+
+[2025-06-23 17:57:00.273885] [RAW] [RAW] [2025-06-23 17:57:00.273416] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Starting process_setter_trigger in executor...
+
+[2025-06-23 17:57:00.274953] [RAW] [RAW] [2025-06-23 17:57:00.274945] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] We set 10000 at 1 for the bins. And it is 10000
+
+[2025-06-23 17:57:00.315802] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.315839] [RAW] [RAW] [2025-06-23 17:57:00.314304] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 2 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.315895] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 2. Queue size: 1
+[2025-06-23 17:57:00.316626] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.316643] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:2} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.316647] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 2 (Setters: 1)
+[2025-06-23 17:57:00.316807] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{1.6, 1.5}}}
+[2025-06-23 17:57:00.317022] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.317027] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 2}
+[2025-06-23 17:57:00.317036] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:00.317041] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.317049] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.317049] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.317053] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.317054] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.317058] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.317062] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.317066] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=1.6
+[2025-06-23 17:57:00.317066] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.317069] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.317069] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.317072] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.317073] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.318458] [RAW] [RAW] [2025-06-23 17:57:00.317739] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.318474] [RAW] [RAW] [2025-06-23 17:57:00.317824] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.318556] [RAW] [RAW] [2025-06-23 17:57:00.317861] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.318983] [RAW] [RAW] [2025-06-23 17:57:00.317912] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=1.6
+
+[2025-06-23 17:57:00.318993] [RAW] [RAW] [2025-06-23 17:57:00.318055] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.319001] [RAW] [RAW] [2025-06-23 17:57:00.318134] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.367370] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.367402] [RAW] [RAW] [2025-06-23 17:57:00.365710] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 3 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.367509] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 3. Queue size: 2
+[2025-06-23 17:57:00.368785] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.368809] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:3} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [LargeMultiChannelDAC MultiChannelAmnmeter]
+[2025-06-23 17:57:00.368814] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 3 (Setters: 1)
+[2025-06-23 17:57:00.369023] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{1.4000000000000001, 1.5}}}
+[2025-06-23 17:57:00.369420] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.369428] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 3}
+[2025-06-23 17:57:00.369444] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:3}
+[2025-06-23 17:57:00.369451] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.369465] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.369466] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.369473] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.369474] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.369481] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.369484] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.369490] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=1.4000000000000001
+[2025-06-23 17:57:00.369490] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.369497] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.369498] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.369503] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.369504] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.371388] [RAW] [RAW] [2025-06-23 17:57:00.370865] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=1.4000000000000001
+
+[2025-06-23 17:57:00.371402] [RAW] [RAW] [2025-06-23 17:57:00.370937] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.371407] [RAW] [RAW] [2025-06-23 17:57:00.370854] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.371410] [RAW] [RAW] [2025-06-23 17:57:00.370933] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.371417] [RAW] [RAW] [2025-06-23 17:57:00.370968] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.371423] [RAW] [RAW] [2025-06-23 17:57:00.370970] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.419234] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.419271] [RAW] [RAW] [2025-06-23 17:57:00.417240] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 4 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.419325] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 4. Queue size: 3
+[2025-06-23 17:57:00.419908] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.419922] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:4} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.419925] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 4 (Setters: 1)
+[2025-06-23 17:57:00.420043] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{1.2000000000000002, 1.5}}}
+[2025-06-23 17:57:00.420316] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.420322] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 4}
+[2025-06-23 17:57:00.420330] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:4}
+[2025-06-23 17:57:00.420334] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.420342] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.420342] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.420347] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.420347] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.420351] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.420353] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.420357] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=1.2000000000000002
+[2025-06-23 17:57:00.420357] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.420359] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.420360] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.420363] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.420363] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.421271] [RAW] [RAW] [2025-06-23 17:57:00.420796] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=1.2000000000000002
+
+[2025-06-23 17:57:00.421281] [RAW] [RAW] [2025-06-23 17:57:00.420864] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.421287] [RAW] [RAW] [2025-06-23 17:57:00.420899] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.421295] [RAW] [RAW] [2025-06-23 17:57:00.420800] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.421299] [RAW] [RAW] [2025-06-23 17:57:00.420880] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.421304] [RAW] [RAW] [2025-06-23 17:57:00.420920] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.470954] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.471013] [RAW] [RAW] [2025-06-23 17:57:00.469345] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 5 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.471106] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 5. Queue size: 4
+[2025-06-23 17:57:00.473275] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.473292] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:5} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.473296] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 5 (Setters: 1)
+[2025-06-23 17:57:00.473432] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{1, 1.5}}}
+[2025-06-23 17:57:00.473644] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.473649] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 5}
+[2025-06-23 17:57:00.473657] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:5}
+[2025-06-23 17:57:00.473661] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.473669] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.473670] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.473674] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.473675] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.473679] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.473682] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.473685] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=1
+[2025-06-23 17:57:00.473685] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.473688] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.473688] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.473691] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.473692] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.474941] [RAW] [RAW] [2025-06-23 17:57:00.474320] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=1
+
+[2025-06-23 17:57:00.474955] [RAW] [RAW] [2025-06-23 17:57:00.474406] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.474967] [RAW] [RAW] [2025-06-23 17:57:00.474442] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.475439] [RAW] [RAW] [2025-06-23 17:57:00.474574] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.475457] [RAW] [RAW] [2025-06-23 17:57:00.474728] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.475470] [RAW] [RAW] [2025-06-23 17:57:00.474805] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.522503] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.522557] [RAW] [RAW] [2025-06-23 17:57:00.520825] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 6 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.522647] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 6. Queue size: 5
+[2025-06-23 17:57:00.523824] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.523842] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:6} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.523846] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 6 (Setters: 1)
+[2025-06-23 17:57:00.524084] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{0.8, 1.5}}}
+[2025-06-23 17:57:00.524518] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.524523] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 6}
+[2025-06-23 17:57:00.524540] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:6}
+[2025-06-23 17:57:00.524545] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.524562] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.524563] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.524568] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.524569] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.524573] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.524576] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.524580] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=0.8
+[2025-06-23 17:57:00.524580] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.524583] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.524584] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.524587] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.524588] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.526187] [RAW] [RAW] [2025-06-23 17:57:00.525492] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=0.8
+
+[2025-06-23 17:57:00.526193] [RAW] [RAW] [2025-06-23 17:57:00.525631] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.526200] [RAW] [RAW] [2025-06-23 17:57:00.525704] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.526205] [RAW] [RAW] [2025-06-23 17:57:00.525481] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.526209] [RAW] [RAW] [2025-06-23 17:57:00.525620] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.526215] [RAW] [RAW] [2025-06-23 17:57:00.525692] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.572404] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:57:00.573922] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.573986] [RAW] [RAW] [2025-06-23 17:57:00.572592] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 7 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.574021] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 7. Queue size: 6
+[2025-06-23 17:57:00.574709] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.574719] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:7} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [LargeMultiChannelDAC MultiChannelAmnmeter]
+[2025-06-23 17:57:00.574721] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 7 (Setters: 1)
+[2025-06-23 17:57:00.574844] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{0.6000000000000001, 1.5}}}
+[2025-06-23 17:57:00.575052] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.575054] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 7}
+[2025-06-23 17:57:00.575063] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:7}
+[2025-06-23 17:57:00.575067] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.575079] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.575080] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.575085] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.575086] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.575090] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.575093] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.575097] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=0.6000000000000001
+[2025-06-23 17:57:00.575098] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.575101] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.575101] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.575104] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.575105] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.576487] [RAW] [RAW] [2025-06-23 17:57:00.575837] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.576508] [RAW] [RAW] [2025-06-23 17:57:00.575920] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.576520] [RAW] [RAW] [2025-06-23 17:57:00.575960] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.576959] [RAW] [RAW] [2025-06-23 17:57:00.576000] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=0.6000000000000001
+
+[2025-06-23 17:57:00.576972] [RAW] [RAW] [2025-06-23 17:57:00.576142] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.576984] [RAW] [RAW] [2025-06-23 17:57:00.576235] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.625572] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.625711] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 8. Queue size: 7
+[2025-06-23 17:57:00.625777] [RAW] [RAW] [2025-06-23 17:57:00.623873] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 8 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.626918] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.626933] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:8} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.626936] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 8 (Setters: 1)
+[2025-06-23 17:57:00.627134] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{0.4, 1.5}}}
+[2025-06-23 17:57:00.628383] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.628389] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 8}
+[2025-06-23 17:57:00.628406] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:8}
+[2025-06-23 17:57:00.628412] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.628558] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.628559] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.628569] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.628570] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.628578] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.628583] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.628590] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=0.4
+[2025-06-23 17:57:00.628591] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.628595] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.628596] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.628601] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.628603] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.629973] [RAW] [RAW] [2025-06-23 17:57:00.629415] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=0.4
+
+[2025-06-23 17:57:00.629987] [RAW] [RAW] [2025-06-23 17:57:00.629492] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.630000] [RAW] [RAW] [2025-06-23 17:57:00.629526] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.630557] [RAW] [RAW] [2025-06-23 17:57:00.629620] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.630569] [RAW] [RAW] [2025-06-23 17:57:00.629768] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.630580] [RAW] [RAW] [2025-06-23 17:57:00.629840] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.677334] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.677393] [RAW] [RAW] [2025-06-23 17:57:00.675507] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 9 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.677466] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 9. Queue size: 8
+[2025-06-23 17:57:00.678647] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.678664] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:9} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.678669] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 9 (Setters: 1)
+[2025-06-23 17:57:00.678861] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{0.2, 1.5}}}
+[2025-06-23 17:57:00.679299] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.679303] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 9}
+[2025-06-23 17:57:00.679317] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:9}
+[2025-06-23 17:57:00.679323] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.679342] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.679344] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.679351] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.679352] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.679359] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.679363] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.679369] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=0.2
+[2025-06-23 17:57:00.679369] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.679374] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.679374] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.679379] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.679380] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.681093] [RAW] [RAW] [2025-06-23 17:57:00.680248] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.681106] [RAW] [RAW] [2025-06-23 17:57:00.680384] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.681124] [RAW] [RAW] [2025-06-23 17:57:00.680431] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.681131] [RAW] [RAW] [2025-06-23 17:57:00.680298] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=0.2
+
+[2025-06-23 17:57:00.681138] [RAW] [RAW] [2025-06-23 17:57:00.680455] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.681147] [RAW] [RAW] [2025-06-23 17:57:00.680517] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.729620] [DEBUG] [MEASUREMENT_READY_HANDLER] Received MEASUREMENT_READY
+[2025-06-23 17:57:00.729689] [RAW] [RAW] [2025-06-23 17:57:00.727047] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Step 10 of 10 deploying for measurement 8.
+
+[2025-06-23 17:57:00.729713] [INFO] [MEASUREMENT_READY_HANDLER] Queued measurement for ProcessId 8 with ChunkId 10. Queue size: 9
+[2025-06-23 17:57:00.730413] [DEBUG] [MEASUREMENT_READY_HANDLER] The setter instruments are [LargeMultiChannelDAC]
+[2025-06-23 17:57:00.730423] [DEBUG] [MEASUREMENT_READY_HANDLER] Created scheduler for {ProcessId:8 ChunkId:10} with setter instruments: [LargeMultiChannelDAC], getter instruments: [MultiChannelAmnmeter], required insturments: [MultiChannelAmnmeter LargeMultiChannelDAC]
+[2025-06-23 17:57:00.730425] [INFO] [MEASUREMENT_READY_HANDLER] Processing SET commands for ProcessId 8, ChunkId 10 (Setters: 1)
+[2025-06-23 17:57:00.730551] [DEBUG] [MEASUREMENT_READY_HANDLER] The total instructions to send are: []measure.Instructions{measure.Instructions{Port:"{\"__class__\":\"InstrumentPort\",\"__module__\":\"falcon_core.instrument_interfaces.names.instrument_port\",\"default_name\":\"MultiChannelAmnmeter_##_number_of_samples_##_1\",\"pseudo_name\":{\"__class__\":\"Ohmic\",\"__module__\":\"falcon_core.physics.device_structures.ohmic\",\"name\":\"O2\"},\"instrument_type\":\"amnmeter\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"radian\",\"symbol\":\"rad\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A DC current sink driver.\"}", Property:[]instrument.PropertyName{"timeout", "number_of_samples"}, Values:[]interface {}{1.5, 10000}}, measure.Instructions{Port:"{\"__class__\":\"Knob\",\"__module__\":\"falcon_core.instrument_interfaces.names.knob\",\"default_name\":\"LargeMultiChannelDAC_##_voltage_state_##_5\",\"pseudo_name\":{\"__class__\":\"BarrierGate\",\"__module__\":\"falcon_core.physics.device_structures.barrier_gate\",\"name\":\"B3\"},\"instrument_type\":\"dc_voltage_source\",\"units\":{\"__class__\":\"SymbolUnit\",\"__module__\":\"falcon_core.physics.units.symbol_unit\",\"name\":\"volt\",\"symbol\":\"V\",\"unit\":{\"__class__\":\"Unit\",\"__module__\":\"falcon_core.physics.units.unit\",\"dimensions\":{\"CURRENT\":-1,\"LENGTH\":2,\"MASS\":1,\"TIME\":-3},\"offset\":0,\"prefix\":\"\",\"scale_factor\":1}},\"description\":\"A large multi-channel DAC instrument driver for testing purposes.\"}", Property:[]instrument.PropertyName{"voltage_state", "timeout"}, Values:[]interface {}{0, 1.5}}}
+[2025-06-23 17:57:00.730784] [DEBUG] [MEASUREMENT_READY_HANDLER] The total setter ports are [{"__class__":"Knob","__module__":"falcon_core.instrument_interfaces.names.knob","default_name":"LargeMultiChannelDAC_##_voltage_state_##_5","pseudo_name":{"__class__":"BarrierGate","__module__":"falcon_core.physics.device_structures.barrier_gate","name":"B3"},"instrument_type":"dc_voltage_source","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"volt","symbol":"V","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{"CURRENT":-1,"LENGTH":2,"MASS":1,"TIME":-3},"offset":0,"prefix":"","scale_factor":1}},"description":"A large multi-channel DAC instrument driver for testing purposes."}]
+[2025-06-23 17:57:00.730786] [DEBUG] [MEASUREMENT_READY_HANDLER] The measurement ID to send is {8 10}
+[2025-06-23 17:57:00.730795] [INFO] [MEASUREMENT_READY_HANDLER] Sending 2 instructions for {ProcessId:8 ChunkId:10}
+[2025-06-23 17:57:00.730799] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property number_of_samples
+[2025-06-23 17:57:00.730811] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=number_of_samples, index=1, value=10000
+[2025-06-23 17:57:00.730812] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.730817] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.730818] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.730822] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.MultiChannelAmnmeter: property=arm, index=-1, value={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+[2025-06-23 17:57:00.730824] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property voltage_state
+[2025-06-23 17:57:00.730826] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=voltage_state, index=5, value=0
+[2025-06-23 17:57:00.730827] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property timeout
+[2025-06-23 17:57:00.730830] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=timeout, index=-1, value=1.5
+[2025-06-23 17:57:00.730830] [DEBUG] [INSTRUMENT_HANDLER] The processId in the set command is 8 for property arm
+[2025-06-23 17:57:00.730833] [INFO] [INSTRUMENT_HANDLER] Successfully sent SET command to SET.LargeMultiChannelDAC: property=arm, index=-1, value={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+[2025-06-23 17:57:00.730834] [DEBUG] [MEASUREMENT_READY_HANDLER] Already processing a measurement, skipping
+[2025-06-23 17:57:00.732035] [RAW] [RAW] [2025-06-23 17:57:00.731464] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: number_of_samples=10000
+
+[2025-06-23 17:57:00.732046] [RAW] [RAW] [2025-06-23 17:57:00.731549] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.732057] [RAW] [RAW] [2025-06-23 17:57:00.731588] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command queued: arm={"setter":[],"getter":[{"property":"current_state","index":"1"}]}
+
+[2025-06-23 17:57:00.732064] [RAW] [RAW] [2025-06-23 17:57:00.731428] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: voltage_state=0
+
+[2025-06-23 17:57:00.732070] [RAW] [RAW] [2025-06-23 17:57:00.731527] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: timeout=1.5
+
+[2025-06-23 17:57:00.732079] [RAW] [RAW] [2025-06-23 17:57:00.731571] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command queued: arm={"setter":[{"property":"voltage_state","index":"5"}],"getter":[]}
+
+[2025-06-23 17:57:00.780468] [RAW] [RAW] [2025-06-23 17:57:00.779501] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Measurement successfully deployed ....
+
+[2025-06-23 17:57:00.780487] [RAW] [RAW] [2025-06-23 17:57:00.779728] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 0)
+
+[2025-06-23 17:57:01.282122] [RAW] [RAW] [2025-06-23 17:57:01.281140] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 0)
+
+[2025-06-23 17:57:01.775223] [RAW] [RAW] [2025-06-23 17:57:01.774049] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue unlocked for LargeMultiChannelDAC
+
+[2025-06-23 17:57:01.775237] [RAW] [RAW] [2025-06-23 17:57:01.774213] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] TRIGGER timeout reached (1.5s)
+
+[2025-06-23 17:57:01.775245] [RAW] [RAW] [2025-06-23 17:57:01.774325] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue unlock event received!
+
+[2025-06-23 17:57:01.775653] [RAW] [RAW] [2025-06-23 17:57:01.774916] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: voltage_state=1.6
+
+[2025-06-23 17:57:01.776113] [DEBUG] [MEASUREMENT_READY_HANDLER] Received ARMED
+[2025-06-23 17:57:01.776158] [RAW] [RAW] [2025-06-23 17:57:01.775478] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:01.776173] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing ARMED from instrument: LargeMultiChannelDAC for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.776179] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked instrument LargeMultiChannelDAC as ready for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.776187] [RAW] [RAW] [2025-06-23 17:57:01.775578] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found setter triggers in the ARM command [{'property': 'voltage_state', 'index': '5'}]
+
+[2025-06-23 17:57:01.776197] [RAW] [RAW] [2025-06-23 17:57:01.775602] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found getter triggers in the ARM command []
+
+[2025-06-23 17:57:01.776204] [RAW] [RAW] [2025-06-23 17:57:01.775651] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue locked due to ARM command on LargeMultiChannelDAC
+
+[2025-06-23 17:57:01.782545] [RAW] [RAW] [2025-06-23 17:57:01.781936] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 0)
+
+[2025-06-23 17:57:01.786323] [RAW] [RAW] [2025-06-23 17:57:01.772032] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue unlocked for MultiChannelAmnmeter
+
+[2025-06-23 17:57:01.786330] [RAW] [RAW] [2025-06-23 17:57:01.772118] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] TRIGGER timeout reached (1.5s)
+
+[2025-06-23 17:57:01.786336] [RAW] [RAW] [2025-06-23 17:57:01.772143] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Processing return data...
+
+[2025-06-23 17:57:01.786340] [RAW] [RAW] [2025-06-23 17:57:01.784233] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Checking return data queue...
+
+[2025-06-23 17:57:01.786344] [RAW] [RAW] [2025-06-23 17:57:01.784277] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue size: 1
+
+[2025-06-23 17:57:01.786350] [RAW] [RAW] [2025-06-23 17:57:01.784317] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Got 1 messages from get_queued_messages()
+
+[2025-06-23 17:57:01.786683] [RAW] [RAW] [2025-06-23 17:57:01.785394] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Sent return data
+
+[2025-06-23 17:57:01.786694] [RAW] [RAW] [2025-06-23 17:57:01.785410] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] No messages found in queue after trigger timeout
+
+[2025-06-23 17:57:01.786700] [RAW] [RAW] [2025-06-23 17:57:01.785497] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue unlock event received!
+
+[2025-06-23 17:57:01.786705] [RAW] [RAW] [2025-06-23 17:57:01.786702] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Processing trigger for index 1
+
+[2025-06-23 17:57:01.786709] [RAW] [RAW] [2025-06-23 17:57:01.786707] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Finished processing trigger for 1
+
+[2025-06-23 17:57:01.786713] [RAW] [RAW] [2025-06-23 17:57:01.786711] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] We set 10000 at 1 for the bins. And it is 10000
+
+[2025-06-23 17:57:01.786718] [RAW] [RAW] [2025-06-23 17:57:01.786309] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: number_of_samples=10000
+
+[2025-06-23 17:57:01.786739] [DEBUG] [MEASUREMENT_READY_HANDLER] Received RETURN_DATA
+[2025-06-23 17:57:01.787017] [DEBUG] [MEASUREMENT_READY_HANDLER] Received ARMED
+[2025-06-23 17:57:01.787040] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing ARMED from instrument: MultiChannelAmnmeter for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787045] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked instrument MultiChannelAmnmeter as ready for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787048] [INFO] [MEASUREMENT_READY_HANDLER] All setter instruments ready for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787049] [DEBUG] [MEASUREMENT_READY_HANDLER] Reset ready checklist for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787074] [RAW] [RAW] [2025-06-23 17:57:01.786598] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:01.787089] [RAW] [RAW] [2025-06-23 17:57:01.786675] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found setter triggers in the ARM command []
+
+[2025-06-23 17:57:01.787095] [DEBUG] [MEASUREMENT_READY_HANDLER] Sent TRIGGER command to MultiChannelAmnmeter instrument for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787100] [RAW] [RAW] [2025-06-23 17:57:01.786704] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found getter triggers in the ARM command [{'property': 'current_state', 'index': '1'}]
+
+[2025-06-23 17:57:01.787107] [RAW] [RAW] [2025-06-23 17:57:01.786752] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue locked due to ARM command on MultiChannelAmnmeter
+
+[2025-06-23 17:57:01.787905] [RAW] [RAW] [2025-06-23 17:57:01.787502] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Trigger command recieved, starting process...
+
+[2025-06-23 17:57:01.787910] [DEBUG] [MEASUREMENT_READY_HANDLER] Received EXECUTING: {"process_id": 8, "chunk_id": 2, "timestamp": 1750719421787456}
+[2025-06-23 17:57:01.787971] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing EXECUTING from instrument: MultiChannelAmnmeter for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787979] [DEBUG] [MEASUREMENT_READY_HANDLER] Marked getter instrument MultiChannelAmnmeter as triggered for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.787980] [RAW] [RAW] [2025-06-23 17:57:01.787647] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Starting process_getter_trigger in executor...
+
+[2025-06-23 17:57:01.787983] [DEBUG] [MEASUREMENT_READY_HANDLER] Reset triggered getter checklist for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.788020] [INFO] [MEASUREMENT_READY_HANDLER] All getter instruments triggered for {ProcessId:8 ChunkId:2}, triggering 1 setter instruments: [LargeMultiChannelDAC]
+[2025-06-23 17:57:01.788043] [DEBUG] [MEASUREMENT_READY_HANDLER] Sent TRIGGER command to LargeMultiChannelDAC instrument for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.789102] [RAW] [RAW] [2025-06-23 17:57:01.788780] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Trigger command recieved, starting process...
+
+[2025-06-23 17:57:01.789104] [DEBUG] [MEASUREMENT_READY_HANDLER] Received EXECUTING: {"process_id": 8, "chunk_id": 2, "timestamp": 1750719421788709}
+[2025-06-23 17:57:01.789126] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing EXECUTING from instrument: LargeMultiChannelDAC for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.789131] [INFO] [MEASUREMENT_READY_HANDLER] instrument LargeMultiChannelDAC has been triggered and is running for {ProcessId:8 ChunkId:2}
+[2025-06-23 17:57:01.789364] [RAW] [RAW] [2025-06-23 17:57:01.788951] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Starting process_setter_trigger in executor...
+
+[2025-06-23 17:57:01.789877] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing RETURN_DATA: property=current_state, index=1, measurementID={ProcessId:8 ChunkId:1}
+[2025-06-23 17:57:01.789887] [DEBUG] [INSTRUMENT_HANDLER] Found port: {"__class__":"Meter","__module__":"falcon_core.instrument_interfaces.names.meter","default_name":"MultiChannelAmnmeter_##_current_state_##_1","pseudo_name":{"__class__":"Ohmic","__module__":"falcon_core.physics.device_structures.ohmic","name":"O2"},"instrument_type":"amnmeter","units":{"__class__":"SymbolUnit","__module__":"falcon_core.physics.units.symbol_unit","name":"radian","symbol":"rad","unit":{"__class__":"Unit","__module__":"falcon_core.physics.units.unit","dimensions":{},"offset":0,"prefix":"","scale_factor":1}},"description":"A DC current sink driver."}
+[2025-06-23 17:57:01.789960] [DEBUG] [MEASUREMENT_READY_HANDLER] Found port 'MultiChannelAmnmeter_##_current_state_##_1' for RETURN_DATA (property: current_state, index: 1, measurementID: {ProcessId:8 ChunkId:1})
+[2025-06-23 17:57:01.790015] [DEBUG] [MEASUREMENT_READY_HANDLER] Stored result for port {Meter falcon_core.instrument_interfaces.names.meter MultiChannelAmnmeter_##_current_state_##_1 {Ohmic falcon_core.physics.device_structures.ohmic O2} amnmeter map[__class__:SymbolUnit __module__:falcon_core.physics.units.symbol_unit name:radian symbol:rad unit:map[__class__:Unit __module__:falcon_core.physics.units.unit dimensions:map[] offset:%!s(float64=0) prefix: scale_factor:%!s(float64=1)]] A DC current sink driver.}, {ProcessId:8 ChunkId:1} (1/1 received)
+[2025-06-23 17:57:01.793080] [INFO] [MEASUREMENT_READY_HANDLER] Sent PROCESS_DATA for buffered measurement {ProcessId:8 ChunkId:1} with 1 results
+[2025-06-23 17:57:01.801839] [RAW] [RAW] [2025-06-23 17:57:01.801231] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Data added to queue ....
+
+[2025-06-23 17:57:02.283253] [RAW] [RAW] [2025-06-23 17:57:02.282613] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:02.784954] [RAW] [RAW] [2025-06-23 17:57:02.784075] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:03.286437] [RAW] [RAW] [2025-06-23 17:57:03.285664] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:03.290701] [RAW] [RAW] [2025-06-23 17:57:03.289835] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue unlocked for LargeMultiChannelDAC
+
+[2025-06-23 17:57:03.290714] [RAW] [RAW] [2025-06-23 17:57:03.289919] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] TRIGGER timeout reached (1.5s)
+
+[2025-06-23 17:57:03.290723] [RAW] [RAW] [2025-06-23 17:57:03.289979] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue unlock event received!
+
+[2025-06-23 17:57:03.291484] [RAW] [RAW] [2025-06-23 17:57:03.290338] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: voltage_state=1.4000000000000001
+
+[2025-06-23 17:57:03.292055] [DEBUG] [MEASUREMENT_READY_HANDLER] Received ARMED
+[2025-06-23 17:57:03.292082] [RAW] [RAW] [2025-06-23 17:57:03.291306] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:03.292096] [RAW] [RAW] [2025-06-23 17:57:03.291454] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found setter triggers in the ARM command [{'property': 'voltage_state', 'index': '5'}]
+
+[2025-06-23 17:57:03.292105] [RAW] [RAW] [2025-06-23 17:57:03.291504] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] DEBUG: Found getter triggers in the ARM command []
+
+[2025-06-23 17:57:03.292112] [RAW] [RAW] [2025-06-23 17:57:03.291586] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Queue locked due to ARM command on LargeMultiChannelDAC
+
+[2025-06-23 17:57:03.292128] [DEBUG] [MEASUREMENT_READY_HANDLER] Processing ARMED from instrument: LargeMultiChannelDAC for {ProcessId:8 ChunkId:3}
+[2025-06-23 17:57:03.321556] [RAW] [RAW] [2025-06-23 17:57:03.288344] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue unlocked for MultiChannelAmnmeter
+
+[2025-06-23 17:57:03.321565] [RAW] [RAW] [2025-06-23 17:57:03.288438] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] TRIGGER timeout reached (1.5s)
+
+[2025-06-23 17:57:03.321569] [RAW] [RAW] [2025-06-23 17:57:03.288468] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Processing return data...
+
+[2025-06-23 17:57:03.321574] [RAW] [RAW] [2025-06-23 17:57:03.318201] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Checking return data queue...
+
+[2025-06-23 17:57:03.321580] [RAW] [RAW] [2025-06-23 17:57:03.318249] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue size: 2
+
+[2025-06-23 17:57:03.321584] [RAW] [RAW] [2025-06-23 17:57:03.318288] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Got 2 messages from get_queued_messages()
+
+[2025-06-23 17:57:03.322002] [RAW] [RAW] [2025-06-23 17:57:03.319355] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Sent return data
+
+[2025-06-23 17:57:03.322638] [RAW] [RAW] [2025-06-23 17:57:03.320586] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Sent return data
+
+[2025-06-23 17:57:03.322651] [RAW] [RAW] [2025-06-23 17:57:03.320600] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] No messages found in queue after trigger timeout
+
+[2025-06-23 17:57:03.322658] [RAW] [RAW] [2025-06-23 17:57:03.320690] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue unlock event received!
+
+[2025-06-23 17:57:03.322665] [RAW] [RAW] [2025-06-23 17:57:03.322662] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Processing trigger for index 1
+
+[2025-06-23 17:57:03.322670] [RAW] [RAW] [2025-06-23 17:57:03.322668] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Finished processing trigger for 1
+
+[2025-06-23 17:57:03.322675] [RAW] [RAW] [2025-06-23 17:57:03.322672] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Processing trigger for index 1
+
+[2025-06-23 17:57:03.322679] [RAW] [RAW] [2025-06-23 17:57:03.322677] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Finished processing trigger for 1
+
+[2025-06-23 17:57:03.322685] [RAW] [RAW] [2025-06-23 17:57:03.322683] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] We set 10000 at 1 for the bins. And it is 10000
+
+[2025-06-23 17:57:03.322691] [RAW] [RAW] [2025-06-23 17:57:03.321282] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: number_of_samples=10000
+
+[2025-06-23 17:57:03.322697] [RAW] [RAW] [2025-06-23 17:57:03.321508] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] SET command executed: timeout=1.5
+
+[2025-06-23 17:57:03.322703] [RAW] [RAW] [2025-06-23 17:57:03.321559] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found setter triggers in the ARM command []
+
+[2025-06-23 17:57:03.322713] [RAW] [RAW] [2025-06-23 17:57:03.321579] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] DEBUG: Found getter triggers in the ARM command [{'property': 'current_state', 'index': '1'}]
+
+[2025-06-23 17:57:03.322719] [RAW] [RAW] [2025-06-23 17:57:03.321616] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Queue locked due to ARM command on MultiChannelAmnmeter
+
+[2025-06-23 17:57:03.787058] [RAW] [RAW] [2025-06-23 17:57:03.786306] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:04.288278] [RAW] [RAW] [2025-06-23 17:57:04.287639] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:04.789682] [RAW] [RAW] [2025-06-23 17:57:04.788984] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:05.291094] [RAW] [RAW] [2025-06-23 17:57:05.290327] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Waiting for more data for id 8 (expected 10, got 1)
+
+[2025-06-23 17:57:05.793102] [RAW] [RAW] [2025-06-23 17:57:05.791154] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Error: Not enough data messages received for 8 after waiting (expected 10, got 1)
+
+[2025-06-23 17:57:05.793116] [RAW] [RAW] [2025-06-23 17:57:05.791385] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] The number of bins 1
+
+[2025-06-23 17:57:05.793125] [RAW] [RAW] [2025-06-23 17:57:05.791601] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Error processing request: Array cannot be evenly divided
+
+[2025-06-23 17:57:09.236007] [INFO] [INSTRUMENT_HANDLER] Received DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.TestExternalProcess
+[2025-06-23 17:57:09.236085] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-23 17:57:09.242540] [INFO] [INSTRUMENT_HANDLER] Instrument LargeMultiChannelDAC stopped gracefully
+[2025-06-23 17:57:09.242547] [INFO] [INSTRUMENT_HANDLER] Received DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.TestExternalProcess
+[2025-06-23 17:57:09.242577] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument LargeMultiChannelDAC 
+ pid 284612 
+ error signal: terminated 
+ exit code -1 
+ runtime 17.105865698 
+ stdout  
+ stderr 
+[2025-06-23 17:57:09.249499] [INFO] [INSTRUMENT_HANDLER] Instrument MultiChannelAmnmeter stopped gracefully
+[2025-06-23 17:57:09.249568] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument MultiChannelAmnmeter 
+ pid 284613 
+ error signal: terminated 
+ exit code -1 
+ runtime 17.112045662 
+ stdout  
+ stderr 
+[2025-06-23 17:57:10.237418] [INFO] [HANDLER_MANAGER] Stopping handler manager
+[2025-06-23 17:57:10.237431] [INFO] [STATUS_HANDLER] Stopped publishing status messages
+[2025-06-23 17:57:10.237461] [INFO] [MEASUREMENT_READY_HANDLER] Unsubscribed from MEASUREMENT_READY, ARMED, EXECUTING, and RETURN_DATA
+[2025-06-23 17:57:10.237467] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external.>
+[2025-06-23 17:57:10.237477] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Unsubscribed from PERFORM_ARBITRARY_METHOD
+[2025-06-23 17:57:10.237503] [DEBUG] [STATUS_HANDLER] Status publishing loop stopped
+[2025-06-23 17:57:10.237707] [INFO] [MEASURE_COMMAND_HANDLER] Unsubscribed from MEASURE_COMMAND.external and UPLOAD_DATA
+[2025-06-23 17:57:10.237716] [INFO] [BUSY_HANDLER] Unsubscribed from BUSY.external.* channels
+[2025-06-23 17:57:10.237718] [INFO] [INTERPRETER_HANDLER] Stopping interpreter handler
+[2025-06-23 17:57:10.237719] [INFO] [INTERPRETER_HANDLER] Stopping interpreter during cleanup
+[2025-06-23 17:57:10.250226] [INFO] [INTERPRETER_HANDLER] Interpreter stopped gracefully
+[2025-06-23 17:57:10.250231] [INFO] [INSTRUMENT_HANDLER] Unsubscribing from instrument handler
+[2025-06-23 17:57:10.250252] [ERROR] [INTERPRETER_HANDLER] Interpreter daemon process exited with error 
+ pid 284433 
+ error waitid: no child processes 
+ exit code -1 
+ runtime 25.678884397 
+ stdout  
+ stderr 
+[2025-06-23 17:57:10.250264] [INFO] [INSTRUMENT_HANDLER] Stopping instrument LargeMultiChannelDAC during cleanup
+[2025-06-23 17:57:10.250272] [ERROR] [INSTRUMENT_HANDLER] Failed to send SIGTERM to LargeMultiChannelDAC: os: process already finished
+[2025-06-23 17:57:10.250294] [INFO] [INSTRUMENT_HANDLER] Instrument LargeMultiChannelDAC stopped gracefully
+[2025-06-23 17:57:10.250295] [INFO] [INSTRUMENT_HANDLER] Stopping instrument MultiChannelAmnmeter during cleanup
+[2025-06-23 17:57:10.250298] [ERROR] [INSTRUMENT_HANDLER] Failed to send SIGTERM to MultiChannelAmnmeter: os: process already finished
+[2025-06-23 17:57:10.250303] [INFO] [INSTRUMENT_HANDLER] Instrument MultiChannelAmnmeter stopped gracefully
+[2025-06-23 17:57:10.250311] [DEBUG] [INSTRUMENT_HANDLER] Cleanup loop stopping
+[2025-06-23 17:57:10.250412] [INFO] [DEVICE_CONFIG_HANDLER] Unsubscribed from DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-23 17:57:10.250418] [INFO] [LOG_HANDLER] Unsubscribed from LOG.* channels
+[2025-06-23 17:57:10.250418] [INFO] [HANDLER_MANAGER] Handler manager stopped
+[2025-06-23 17:57:10.254323] [INFO] [SYSTEM] Logger shutting down
