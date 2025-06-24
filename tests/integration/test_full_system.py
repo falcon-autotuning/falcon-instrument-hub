@@ -604,6 +604,13 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
         measurement_name="integration_test",
         waveforms=[waveform],
         meter_transforms=[transform],
+        time_domain=KnobDomain(
+            default_name="time",
+            bounds=(0, 0.05),
+            instrument_type=INSTRUMENT_TYPES.CLOCK,
+            greater_bound_contained=False,
+            units=Units.SECOND,
+        ),
     )
 
 
