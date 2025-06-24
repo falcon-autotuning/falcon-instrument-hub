@@ -47,35 +47,37 @@ func (h *MeasurementReadyHandler) handleArmed(msg *nats.Msg) {
 	)
 
 	// Update ready checklist for the specific scheduler
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error("No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		return
-	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error("No scheduler found for %+v", measurementID)
-		return
-	}
-	err := scheduler.registerReadyRequirement(instrumentName)
+	scheduler, err := h.selectScheduler(measurementID)
 	if err != nil {
-		h.log.Error("error registering ready ports: %v", err.Error())
+		h.log.Error("Error selecting scheduler: %v", err)
+		return
 	}
+
+	h.mutex.Lock()
+	err = scheduler.registerReadyRequirement(instrumentName)
+	if err != nil {
+		h.mutex.Unlock()
+		h.log.Error("error registering ready ports: %v", err.Error())
+		return
+	}
+	if !scheduler.requirementsAreSatisfied() {
+		h.mutex.Unlock()
+		h.log.Debug("Marked instrument %s as ready for %+v",
+			instrumentName,
+			measurementID,
+		)
+		h.log.Debug("Requirements are not satisfied yet")
+		return
+	}
+	scheduler.resetRequiredReadiness()
+	h.mutex.Unlock()
+
+	getters := scheduler.GetterInstruments()
 	h.log.Debug("Marked instrument %s as ready for %+v",
 		instrumentName,
 		measurementID,
 	)
-	if !scheduler.requirementsAreSatisfied() {
-		return
-	}
-	h.log.Info("All setter instruments ready for %+v", measurementID)
-	scheduler.resetRequiredReadiness()
+	h.log.Info("All setter instruments marked as ready for %+v", measurementID)
 	h.log.Debug("Reset ready checklist for %+v", measurementID)
-	go h.triggerGetterInstruments(measurementID, scheduler.GetterInstruments())
+	go h.triggerGetterInstruments(measurementID, getters)
 }

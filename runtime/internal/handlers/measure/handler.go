@@ -167,19 +167,21 @@ func (h *MeasurementReadyHandler) handleMeasurementReady(msg *nats.Msg) {
 // measurement
 func (h *MeasurementReadyHandler) tryProcessNextMeasurement() {
 	h.mutex.Lock()
-	defer h.mutex.Unlock()
 
 	if h.isProcessing {
+		h.mutex.Unlock()
 		h.log.Debug("Already processing a measurement, skipping")
 		return
 	}
 	stackItem, hasNext := h.measurementStack.Pop()
 	if !hasNext {
+		h.mutex.Unlock()
 		h.log.Debug("No measurements in queue")
 		return
 	}
 	h.isProcessing = true
 	h.currentMeasurement = &stackItem
+	h.mutex.Unlock()
 
 	h.log.Info(
 		"Starting processing of measurement ProcessId %d, ChunkId %d. Remaining in queue: %d",
@@ -273,7 +275,10 @@ func (h *MeasurementReadyHandler) armInstructions(
 	measurementID instrument.MeasurementID,
 	ii []*InstrumentInstructions,
 ) error {
-	scheduler := h.selectScheduler(measurementID)
+	scheduler, err := h.selectScheduler(measurementID)
+	if err != nil {
+		return err
+	}
 	h.log.Debug("The total setter ports are %+v", scheduler.SetterPorts())
 	h.log.Debug("The measurement ID to send is %v", measurementID)
 	for _, instructions := range ii {
@@ -462,8 +467,20 @@ func (h *MeasurementReadyHandler) setScheduler(
 // selectScheduler retrieves the scheduler for a given measurement ID
 func (h *MeasurementReadyHandler) selectScheduler(
 	id instrument.MeasurementID,
-) *MeasurementScheduler {
-	return h.schedulers[id.ProcessId][id.ChunkId]
+) (*MeasurementScheduler, error) {
+	schedulerMap, exists := h.schedulers[id.ProcessId]
+	if !exists {
+		return nil, fmt.Errorf(
+			"no scheduler map found for ProcessId %d",
+			id.ProcessId,
+		)
+	}
+
+	scheduler, exists := schedulerMap[id.ChunkId]
+	if !exists {
+		return nil, fmt.Errorf("no scheduler found for ChunkId %+v", id.ChunkId)
+	}
+	return scheduler, nil
 }
 
 // getUniqueInstruments extracts unique instrument names from a list of ports

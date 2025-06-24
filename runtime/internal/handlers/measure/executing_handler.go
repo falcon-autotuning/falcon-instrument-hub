@@ -46,20 +46,9 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		measurementID,
 	)
 
-	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error("No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		return
-	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error("No scheduler found for %+v", measurementID)
+	scheduler, err := h.selectScheduler(measurementID)
+	if err != nil {
+		h.log.Error("Error selecting scheduler: %v", err)
 		return
 	}
 	if scheduler.SetterDeployment.Contains(instrumentName) {
@@ -77,15 +66,23 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		)
 		return
 	}
+	h.mutex.Lock()
 	scheduler.TriggeredGetterChecklist[instrumentName] = true
+	if !scheduler.gettersAreTriggered() {
+		h.mutex.Unlock()
+		h.log.Debug(
+			"Marked getter instrument %s as triggered for %+v but the instrument was not ready to be triggered",
+			instrumentName,
+			measurementID,
+		)
+		return
+	}
+	scheduler.resetGettersTriggered()
+	h.mutex.Unlock()
 	h.log.Debug("Marked getter instrument %s as triggered for %+v",
 		instrumentName,
 		measurementID,
 	)
-	if !scheduler.gettersAreTriggered() {
-		return
-	}
-	scheduler.resetGettersTriggered()
 	h.log.Debug("Reset triggered getter checklist for %+v", measurementID)
 	go h.handleAllGettersTriggered(
 		measurementID,
