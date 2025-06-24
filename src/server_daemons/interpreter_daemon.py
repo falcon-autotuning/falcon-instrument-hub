@@ -667,21 +667,15 @@ class InterpreterDaemon:
         await self.log(f"The chunks are: {chunks}")
         getters = [transform.port for transform in request.meter_transforms]
         await self.log("Selected getters for the measurement.")
-        number_of_samples: dict[InstrumentPort, int] = {}
-        step_width = request.time_domain.domain.range  # [sec]
-        for meter in getters:
-            sample_rate = configuration[meter].get(
-                SUPPORTED_PROPERTIES.SAMPLE_RATE, DEFAULT_SAMPLE_RATE
-            )
-            assert isinstance(sample_rate, int), (
-                f"Sample rate {sample_rate} must be an integer."
-            )
-            assert sample_rate > 0, f"Sample rate {sample_rate} must be greater than 0."
-            num = step_width * sample_rate
-            assert num.is_integer(), (
-                f"The resulting number of samples ({num}) must be a whole number."
-            )
-            number_of_samples[meter] = int(num)
+        sample_rates = self.collect_sample_rates(
+            configuration=configuration,
+            getters=getters,
+        )
+        step_width = self.collect_step_width(request=request)
+        number_of_samples = self.calculate_number_of_samples_per_step(
+            step_width=step_width,
+            sample_rates=sample_rates,
+        )
         for count, chunk in enumerate(chunks):
             instruction = Instruction(
                 getters=getters,
@@ -715,7 +709,8 @@ class InterpreterDaemon:
                             instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
-                                * step_width,
+                                * step_width
+                                / 1000,  # [sec]
                                 SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
                                     number_of_samples[meter]
                                 ),
@@ -726,9 +721,10 @@ class InterpreterDaemon:
                             instrument=port,
                             properties={
                                 SUPPORTED_PROPERTIES.TIMEOUT: (
-                                    TIMEOUT_SCALE_FACTOR * step_width
+                                    TIMEOUT_SCALE_FACTOR - 1 + len(raw_space)
                                 )
-                                + (len(raw_space) - 1) * step_width,  # [sec]
+                                * step_width
+                                / 1000,  # [sec]
                                 SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
                                     number_of_samples[meter] * len(raw_space)
                                 ),
@@ -746,7 +742,8 @@ class InterpreterDaemon:
                             properties={
                                 SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
                                 SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
-                                * step_width,
+                                * step_width
+                                / 1000,  # [sec]
                             },
                         )
                         continue
@@ -756,7 +753,7 @@ class InterpreterDaemon:
                             properties={
                                 SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
                                 SUPPORTED_PROPERTIES.TIMEOUT: (
-                                    TIMEOUT_SCALE_FACTOR * step_width
+                                    TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
                                 ),
                             },
                         )
@@ -769,14 +766,14 @@ class InterpreterDaemon:
                         instrument=domain.label,
                         properties={
                             SUPPORTED_PROPERTIES.STAIRCASE: (
-                                request.time_domain.domain.range * 1000,  # [msec]
+                                step_width,  # [msec]
                                 len(raw_space),
                                 0,
                                 v_start,
                                 v_stop,
                             ),
                             SUPPORTED_PROPERTIES.TIMEOUT: (
-                                TIMEOUT_SCALE_FACTOR * step_width
+                                TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
                             ),
                         },
                     )
@@ -797,6 +794,50 @@ class InterpreterDaemon:
         shape = valid_waveform._space._space.shape
         assert isinstance(shape, tuple), "Invalid shape for waveform data."
         return (collected_measurements, shape)
+
+    def collect_sample_rates(
+        self,
+        configuration: dict[InstrumentPort, dict["PropertyName", "PropertyJson"]],
+        getters: list[InstrumentPort],
+    ) -> dict[InstrumentPort, int]:
+        """Colleects and enforces that the samples rates must be integer samples per second."""
+        outs = {}
+        for meter in getters:
+            sample_rate = configuration[meter].get(
+                SUPPORTED_PROPERTIES.SAMPLE_RATE, DEFAULT_SAMPLE_RATE
+            )
+            assert isinstance(sample_rate, int), (
+                f"Sample rate {sample_rate} must be an integer."
+            )
+            assert sample_rate > 0, f"Sample rate {sample_rate} must be greater than 0."
+            assert sample_rate % 1000 == 0, (
+                f"Sample rate {sample_rate} must be divisible by 1000."
+            )
+            outs[meter] = sample_rate
+        return outs
+
+    def collect_step_width(self, request: MeasurementRequest) -> int:
+        """Returns the nearest msecond equivalent of the step width."""
+        return int(np.ceil(request.time_domain.domain.range * 1000))  # [msec]
+
+    def calculate_number_of_samples_per_step(
+        self,
+        step_width: int,
+        sample_rates: dict[InstrumentPort, int],
+    ) -> dict[InstrumentPort, int]:
+        """Produces the number of samples per each step of the measurement.
+
+        Args:
+            step_width: the width of each step in milliseconds
+            sample_rates: the various sample rates of the instruments in samples per second. Must be divisible by 1000.
+
+        Returns:
+            the number of samples for each meter
+        """
+        return {
+            meter: int(np.ceil(step_width * sample_rate / 1000))
+            for meter, sample_rate in sample_rates.items()
+        }
 
     def chunk_instructions(
         self,
