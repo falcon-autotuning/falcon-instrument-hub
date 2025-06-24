@@ -91,22 +91,15 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 
 	// Find the scheduler for this measurement
 	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error("No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
+	scheduler, err := h.selectScheduler(measurementID)
+	if err != nil {
+		h.mutex.Unlock()
+		h.log.Error("Error selecting scheduler: %v", err)
 		return
 	}
-
-	scheduler, exists := schedulerMap[measurementID.ChunkId]
-	if !exists {
-		h.log.Error("No scheduler found for %+v", measurementID)
-		return
-	}
+	// Update ready checklist for the specific scheduler
 	if !scheduler.containsGetter(jsonPort) {
+		h.mutex.Unlock()
 		h.log.Error("Port %s not found in getters %v for %+v",
 			port,
 			scheduler.GetterDeployment.GetPorts(),
@@ -115,16 +108,34 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		return
 	}
 	scheduler.storeData(jsonPort, returnData.Data)
+	if !scheduler.allDataHere() {
+		h.mutex.Unlock()
+		h.log.Debug("Stored result for port %s, %+v (%d/%d received)",
+			port,
+			measurementID,
+			scheduler.ReceivedReturns,
+			scheduler.ExpectedReturns,
+		)
+		return
+	}
+	results := scheduler.Results
+	// Clean up the scheduler
+	schedulerMap := h.schedulers[measurementID.ProcessId]
+	delete(schedulerMap, measurementID.ChunkId)
+	if len(schedulerMap) == 0 {
+		delete(h.schedulers, measurementID.ProcessId)
+	}
+	h.mutex.Unlock()
+
 	h.log.Debug("Stored result for port %s, %+v (%d/%d received)",
 		port,
 		measurementID,
 		scheduler.ReceivedReturns,
 		scheduler.ExpectedReturns,
 	)
-	if !scheduler.allDataHere() {
-		return
-	}
-	h.sendProcessDataForBuffered(measurementID, scheduler.Results)
+	h.sendProcessDataForBuffered(measurementID, results)
+
+	h.markMeasurementComplete()
 }
 
 // sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
@@ -132,14 +143,6 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 	measurementID instrument.MeasurementID,
 	results map[instrument.JsonPort]any,
 ) {
-	schedulerMap, exists := h.schedulers[measurementID.ProcessId]
-	if !exists {
-		h.log.Error("No scheduler map found for ProcessId %d",
-			measurementID.ProcessId,
-		)
-		return
-	}
-
 	dataBytes, err := json.Marshal(results)
 	if err != nil {
 		h.log.Error("Failed to marshal buffered results for %+v: %v",
@@ -176,11 +179,4 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 		measurementID,
 		len(results),
 	)
-
-	// Clean up the scheduler
-	delete(schedulerMap, measurementID.ChunkId)
-	if len(schedulerMap) == 0 {
-		delete(h.schedulers, measurementID.ProcessId)
-	}
-	h.markMeasurementComplete()
 }
