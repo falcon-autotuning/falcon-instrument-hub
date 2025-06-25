@@ -1138,6 +1138,8 @@ class InterpreterDaemon:
                         final_data[port] = []
                     final_data[port].append(float(computation))
 
+        await self.log("Final data successfully averaged")
+
         return final_data
 
     async def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
