@@ -441,6 +441,7 @@ class InstrumentDaemon:
         await self.log(f"Queue size: {queue_size}")
 
         # Process any return data from setter instruments
+        messages = []  # Resets the messages list to avoid reprocessing old messages
         messages = self._instrument._return_data.get_queued_messages()
         await self.log(f"Got {len(messages)} messages from get_queued_messages()")
 
@@ -471,6 +472,7 @@ class InstrumentDaemon:
             try:
                 if not self._is_unlocked.is_set():
                     # Queue is locked, wait for unlock event
+                    await self.log("Queue is locked, waiting for unlock event...")
                     try:
                         await asyncio.wait_for(self._is_unlocked.wait(), timeout=0.1)
                         await self.log("Queue unlock event received!")
