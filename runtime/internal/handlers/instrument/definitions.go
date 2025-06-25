@@ -214,40 +214,69 @@ func (jp JsonPort) String() string {
 
 // CollectPortProperties collects port properties from all active instruments
 func (h *Handler) CollectPortProperties() (knobs, meters []JsonPort) {
+	h.Log.Debug(
+		"Collecting port properties from %d instruments",
+		len(h.Instruments),
+	)
 	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-
 	if h.portProcessor != nil {
-		return h.portProcessor.CollectPortProperties(h.Instruments)
+		knobs, meters := h.portProcessor.CollectPortProperties(h.Instruments)
+		h.mutex.RUnlock()
+		h.Log.Debug(
+			"Collected %d knobs and %d meters",
+			len(knobs),
+			len(meters),
+		)
+		return knobs, meters
 	}
+	h.mutex.RUnlock()
 	return nil, nil
 }
 
 // BuildConfigurations creates the configuration mapping by collecting and
 // inverting port mappings
 func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]PortConfiguration, error) {
+	h.Log.Debug(
+		"Building configuration of port properties from %d instruments",
+		len(h.Instruments),
+	)
 	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-
 	if h.portProcessor != nil {
-		return h.portProcessor.BuildConfigurations(h.Instruments)
+
+		config, err := h.portProcessor.BuildConfigurations(h.Instruments)
+		h.mutex.RUnlock()
+		h.Log.Debug(
+			"Port configuration found with %d configurations",
+			len(config),
+		)
+		return config, err
 	}
 
 	// Return empty map if no port processor available
+	h.mutex.RUnlock()
 	return make(map[JsonPort]map[PropertyName]PortConfiguration), nil
 }
 
 // BuildPortConfigurations builds the port configurations mapping
 // Returns a mapping from port names to their configuration details
 func (h *Handler) BuildPortConfigurations() (map[JsonPort]PortOptions, error) {
+	h.Log.Debug(
+		"Building configuration of port properties from %d instruments",
+		len(h.Instruments),
+	)
 	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-
 	if h.portProcessor != nil {
-		return h.portProcessor.BuildPortConfigurations(h.Instruments)
+		config, err := h.portProcessor.BuildPortConfigurations(h.Instruments)
+		h.mutex.RUnlock()
+		h.Log.Debug(
+			"Port configuration found with %d configurations",
+			len(config),
+		)
+		return config, err
 	}
 
 	// Return empty map if no port processor available
+	h.mutex.RUnlock()
 	return make(map[JsonPort]PortOptions), nil
 }
 
@@ -255,14 +284,47 @@ func (h *Handler) BuildPortConfigurations() (map[JsonPort]PortOptions, error) {
 func (h *Handler) GetPortOptions(
 	name JsonPort,
 ) (*PortOptions, error) {
+	var portConfigurations map[JsonPort]PortOptions
+	var data PortObject
 	h.mutex.RLock()
-	defer h.mutex.RUnlock()
-
-	if h.portProcessor != nil {
-		return h.portProcessor.GetPortConfiguration(name, h.Instruments)
+	cached, exists := h.portProcessor.getCachedPortConfigurations()
+	if exists {
+		portConfigurations = cached
+	} else {
+		// Build and cache if not available
+		go h.portProcessor.Log.Debug(
+			"Building the cached port configurations",
+		)
+		portConfigurations = h.portProcessor.buildAndCachePortConfigurations(h.Instruments)
 	}
 
-	return nil, fmt.Errorf("no port processor available")
+	// need to get compact json form:
+	if err := json.Unmarshal([]byte(name), &data); err != nil {
+		h.mutex.RUnlock()
+		return nil, fmt.Errorf("failed to unmarshal JsonPort: %v", err)
+	}
+	compactJSON, err := json.Marshal(data)
+	if err != nil {
+		h.mutex.RUnlock()
+		return nil, fmt.Errorf("failed to marshal JsonPort: %v", err)
+	}
+	compactPortName := JsonPort(compactJSON)
+
+	// now check if the port exists
+	if portConfig, exists := portConfigurations[compactPortName]; exists {
+		return &portConfig, nil
+	}
+	ports := make([]JsonPort, 0, len(portConfigurations))
+	for port := range portConfigurations {
+		ports = append(ports, port)
+	}
+	h.mutex.RUnlock()
+	h.portProcessor.Log.Error(
+		"The current ports in the configuration are: %v",
+		ports,
+	)
+
+	return nil, fmt.Errorf("port %s not found in configurations", name)
 }
 
 // InvalidatePortConfigCache invalidates the cached port configurations
@@ -574,24 +636,27 @@ func (h *Handler) FindPortByInstrumentPropertyIndex(
 ) (JsonPort, error) {
 	// Get the instrument directly
 	h.mutex.RLock()
-	defer h.mutex.RUnlock()
 
 	instrumentProcess, exists := h.Instruments[name]
 	if !exists {
+		h.mutex.RUnlock()
 		return "", fmt.Errorf("instrument %s not found", name)
 	}
 
 	if !instrumentProcess.Initialized || instrumentProcess.Ports == nil {
+		h.mutex.RUnlock()
 		return "", fmt.Errorf("instrument %s not initialized", name)
 	}
 
 	// Look up the port directly: instrument -> property -> index -> port
 	if propertyPorts, exists := instrumentProcess.Ports[property]; exists {
 		if port, exists := propertyPorts[index]; exists {
+			h.mutex.RUnlock()
 			h.Log.Debug("Found port: %s", port)
 			return port, nil
 		}
 	}
+	defer h.mutex.RUnlock()
 	return "", fmt.Errorf(
 		"no port found for instrument %s, property %s, index %s",
 		name,

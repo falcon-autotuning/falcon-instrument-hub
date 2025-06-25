@@ -71,11 +71,7 @@ func (h *Handler) Unsubscribe() error {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	for name, process := range h.Instruments {
-		h.logger.Info(
-			HandlerName,
-			fmt.Sprintf("Stopping instrument %s during cleanup", name),
-		)
+	for _, process := range h.Instruments {
 		h.stopInstrument(process)
 	}
 	h.Instruments = make(map[Name]*InstrumentProcess)

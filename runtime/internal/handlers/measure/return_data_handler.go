@@ -133,19 +133,19 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 		scheduler.ReceivedReturns,
 		scheduler.ExpectedReturns,
 	)
-	h.sendProcessDataForBuffered(measurementID, results)
+	h.sendProcessData(measurementID, results)
 
 	h.markMeasurementComplete()
 }
 
-// sendProcessDataForBuffered sends the collected buffered data as PROCESS_DATA
-func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
+// sendProcessDataForBuffered sends the collected data as PROCESS_DATA
+func (h *MeasurementReadyHandler) sendProcessData(
 	measurementID instrument.MeasurementID,
 	results map[instrument.JsonPort]any,
 ) {
 	dataBytes, err := json.Marshal(results)
 	if err != nil {
-		h.log.Error("Failed to marshal buffered results for %+v: %v",
+		h.log.Error("Failed to marshal results for %+v: %v",
 			measurementID,
 			err,
 		)
@@ -174,7 +174,7 @@ func (h *MeasurementReadyHandler) sendProcessDataForBuffered(
 		)
 		return
 	}
-	h.log.Info("Sent %s for buffered measurement %+v with %d results",
+	h.log.Info("Sent %s for measurement %+v with %d results",
 		ProcessDataMessage,
 		measurementID,
 		len(results),

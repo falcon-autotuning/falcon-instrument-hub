@@ -97,6 +97,8 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 
 // handleConfirmInitialization processes CONFIRM_INITIALIZATION responses
 func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
+	var ports propertyIndexedPorts
+	var configuration map[PropertyName]map[Index]PortConfiguration
 	h.Log.Info(
 		"Received %s on subject: %s",
 		ConfirmInitializationCommand,
@@ -127,10 +129,9 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 
 	// Update the instrument process with initialization data
 	h.mutex.Lock()
-	defer h.mutex.Unlock()
-
-	process, exists := h.Instruments[Name(name)]
+	instrument, exists := h.Instruments[Name(name)]
 	if !exists {
+		h.mutex.Unlock()
 		h.Log.Error(
 			"Received initialization for unknown instrument: %s",
 			name,
@@ -139,8 +140,8 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 	}
 
 	// Unmarshal the JSON strings into proper data structures
-	var ports propertyIndexedPorts
 	if err := json.Unmarshal([]byte(resp.Port), &ports); err != nil {
+		h.mutex.Unlock()
 		h.Log.Error(
 			"Failed to unmarshal ports JSON: %v",
 			err,
@@ -148,8 +149,8 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		return
 	}
 
-	var configuration map[PropertyName]map[Index]PortConfiguration
 	if err := json.Unmarshal([]byte(resp.Init), &configuration); err != nil {
+		h.mutex.Unlock()
 		h.Log.Error(
 			"Failed to unmarshal configuration JSON: %v",
 			err,
@@ -157,9 +158,10 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 		return
 	}
 
-	process.Ports = ports
-	process.Configuration = configuration
-	process.Initialized = true
+	instrument.Ports = ports
+	instrument.Configuration = configuration
+	instrument.Initialized = true
+	h.mutex.Unlock()
 
 	h.Log.Info(
 		"Successfully initialized instrument: %s",
@@ -167,7 +169,7 @@ func (h *Handler) handleConfirmInitialization(msg *nats.Msg) {
 	)
 	// Process the instrument ports to make them human-readable
 	if h.portProcessor != nil {
-		if err := h.portProcessor.ProcessInstrumentPorts(process.Ports, Name(name)); err != nil {
+		if err := h.portProcessor.ProcessInstrumentPorts(instrument.Ports, Name(name)); err != nil {
 			h.Log.Error(
 				"Failed to process ports for instrument %s: %v",
 				name,
