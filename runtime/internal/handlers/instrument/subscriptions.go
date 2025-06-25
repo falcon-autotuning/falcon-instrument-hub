@@ -91,6 +91,7 @@ func (h *Handler) Unsubscribe() error {
 // destroyAllInstruments queues all instruments for destruction and waits for
 // completion
 func (h *Handler) destroyAllInstruments() {
+	h.Log.Info("Attempting to destroy all instruments")
 	h.mutex.RLock()
 	instrumentCount := len(h.Instruments)
 
@@ -138,6 +139,7 @@ func (h *Handler) waitForAllInstrumentsDestroyed() {
 	for {
 		select {
 		case <-timeout:
+			h.Log.Debug("Timeout reached while waiting for instrument")
 			h.mutex.RLock()
 			remaining := len(h.Instruments)
 			h.mutex.RUnlock()
@@ -148,6 +150,7 @@ func (h *Handler) waitForAllInstrumentsDestroyed() {
 			return
 
 		case <-ticker.C:
+			h.Log.Debug("Checking if all instruments are destroyed")
 			h.mutex.RLock()
 			remaining := len(h.Instruments)
 			h.mutex.RUnlock()
@@ -164,6 +167,7 @@ func (h *Handler) waitForAllInstrumentsDestroyed() {
 // destroyInstrumentDirect destroys an instrument directly (fallback when queue
 // is full)
 func (h *Handler) destroyInstrumentDirect(name Name) {
+	h.Log.Debug("Attemping to directly destroy an instrument %s", name)
 	h.mutex.Lock()
 	process, exists := h.Instruments[name]
 	if exists && !process.Completed {

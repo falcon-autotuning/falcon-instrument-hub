@@ -287,6 +287,7 @@ func (h *Handler) GetPortOptions(
 ) (*PortOptions, error) {
 	var portConfigurations map[JsonPort]PortOptions
 	var data PortObject
+	h.Log.Debug("Attempting to find port options for port: %s", name)
 	h.mutex.RLock()
 	cached, exists := h.portProcessor.getCachedPortConfigurations()
 	if exists {
@@ -331,6 +332,7 @@ func (h *Handler) GetPortOptions(
 // InvalidatePortConfigCache invalidates the cached port configurations
 // This should be called when instruments are added, removed, or reconfigured
 func (h *Handler) InvalidatePortConfigCache() {
+	h.Log.Debug("Invalidating the port configuration cache")
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -344,6 +346,7 @@ func (h *Handler) AddInstrument(
 	name Name,
 	instrument *InstrumentProcess,
 ) {
+	h.Log.Debug("Adding an instrument: %s", name)
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -357,6 +360,7 @@ func (h *Handler) AddInstrument(
 
 // RemoveInstrument removes an instrument and invalidates port cache
 func (h *Handler) RemoveInstrument(name Name) {
+	h.Log.Debug("Removing an instrument: %s", name)
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -374,6 +378,7 @@ func (h *Handler) UpdateInstrumentConfiguration(
 	name Name,
 	config map[PropertyName]map[Index]PortConfiguration,
 ) {
+	h.Log.Debug("Updating configuration for the instrument %s", name)
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -393,6 +398,7 @@ func (h *Handler) SetInstrumentInitialized(
 	name Name,
 	initialized bool,
 ) {
+	h.Log.Debug("Instrument %s initialized %v", name, initialized)
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
@@ -407,6 +413,7 @@ func (h *Handler) SetInstrumentInitialized(
 }
 
 func (h *Handler) IsInstrumentMaster(instrumentName Name) (bool, error) {
+	h.Log.Debug("Checking if instrument %s is master", instrumentName)
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -431,6 +438,7 @@ func (h *Handler) IsInstrumentMaster(instrumentName Name) (bool, error) {
 }
 
 func (h *Handler) FindMasterInstrument(instruments []Name) (Name, error) {
+	h.Log.Debug("Trying to find the master instruments in %+v", instruments)
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -481,6 +489,7 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	var targetInstrument Name
 	var targetIndex Index
 	found := false
+	h.Log.Debug("Preparing to SET an instruction")
 	h.mutex.RLock()
 
 	for instrumentName, process := range h.Instruments {
@@ -636,6 +645,12 @@ func (h *Handler) FindPortByInstrumentPropertyIndex(
 	index Index,
 ) (JsonPort, error) {
 	// Get the instrument directly
+	h.Log.Debug(
+		"Attempting to find an instrument port with the name of %s and the property %s and the index %s",
+		name,
+		property,
+		index,
+	)
 	h.mutex.RLock()
 
 	instrumentProcess, exists := h.Instruments[name]

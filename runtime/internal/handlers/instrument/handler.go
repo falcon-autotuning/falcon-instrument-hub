@@ -77,6 +77,7 @@ func (h *Handler) destroyWorker() {
 
 // GetActiveInstruments returns a list of currently running instruments
 func (h *Handler) GetActiveInstruments() []Name {
+	h.Log.Debug("Fetching all the active instrument")
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
@@ -90,6 +91,7 @@ func (h *Handler) GetActiveInstruments() []Name {
 // CleanupCompletedProcesses removes completed processes from the map
 // This should be called periodically to prevent memory leaks
 func (h *Handler) CleanupCompletedProcesses() {
+	h.Log.Debug("Attempting to cleanup all the completed processes")
 	h.mutex.Lock()
 
 	names := make([]Name, 0)
@@ -116,6 +118,7 @@ func (h *Handler) CleanupCompletedProcesses() {
 func (h *Handler) GetProcessStatus(
 	name Name,
 ) (status string, exists bool) {
+	h.Log.Debug("Trying to get the status of instrument %s", name)
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
