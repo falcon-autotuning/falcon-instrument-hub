@@ -1117,22 +1117,24 @@ class InterpreterDaemon:
                 analytic_transform = transform
                 time_bounds = request.time_domain.domain.bounds
                 num_points = len(datas[0])
-                await self.log(f"The number of points in the data is {num_points}")
                 await self.log(f"The time bounds are {time_bounds}")
                 t_array = np.linspace(
                     start=time_bounds[0],
                     stop=time_bounds[1],
                     num=num_points,
                 )
+                await self.log(f"The length of the split data is {len(datas)}")
                 for j, data in enumerate(datas):
-                    data_arr = np.array(data)
                     vectorized_transform = np.vectorize(
                         lambda t: analytic_transform.transform(
                             t=t, **voltage_state_array[j]
                         )  # type : ignore[reportOptionalMemberAccess]
                     )
                     transformed = vectorized_transform(t_array)
-                    masked = (transformed * data_arr)[transformed != 0]
+                    await self.log(
+                        f"The data was transformed successfully for sub-chunk {j}"
+                    )
+                    masked = (transformed * data)[transformed != 0]
                     computation = np.mean(masked) if masked.size > 0 else 0.0
                     if port not in final_data:
                         final_data[port] = []
