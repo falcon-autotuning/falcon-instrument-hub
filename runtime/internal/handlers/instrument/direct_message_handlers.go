@@ -65,7 +65,7 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 
 	// Find and stop the instrument
 	h.mutex.Lock()
-	process, exists := h.Instruments[Name(req.Name)]
+	instrument, exists := h.Instruments[Name(req.Name)]
 	if !exists {
 		h.mutex.Unlock()
 		h.Log.Warn(
@@ -74,13 +74,14 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 		)
 		return
 	}
-	h.mutex.Unlock()
 
 	// Check if process already completed
-	if process.Completed {
+	if instrument.Completed {
+		completedTime := instrument.CompletedAt
+		h.mutex.Unlock()
 		h.Log.Info(
 			"Instrument already completed at %v, cleaning up %s",
-			process.CompletedAt,
+			completedTime,
 			req.Name,
 		)
 
@@ -92,7 +93,8 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 		return
 	}
 
-	h.stopInstrument(process)
+	h.stopInstrument(instrument)
+	h.mutex.Unlock()
 }
 
 // handleConfirmInitialization processes CONFIRM_INITIALIZATION responses
