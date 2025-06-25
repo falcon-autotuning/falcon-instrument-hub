@@ -314,6 +314,7 @@ func (h *Handler) GetPortOptions(
 
 	// now check if the port exists
 	if portConfig, exists := portConfigurations[compactPortName]; exists {
+		h.mutex.RUnlock()
 		return &portConfig, nil
 	}
 	ports := make([]JsonPort, 0, len(portConfigurations))
@@ -532,6 +533,12 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 		)
 		return
 	}
+	h.Log.Debug(
+		"A property was found for instrument %s with property name %s at index %s",
+		req.Name,
+		req.Property,
+		targetIndex,
+	)
 
 	// Create DirectSetInstruction and send it
 	directInstruction := DirectSetInstruction{
