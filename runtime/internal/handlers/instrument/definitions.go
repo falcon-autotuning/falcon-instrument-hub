@@ -127,6 +127,7 @@ type Handler struct {
 	portProcessor     *PortProcessor
 	pythonInterpreter string
 	cleanupStop       chan struct{}
+	destroyQueue      chan Name
 }
 
 // subscriptionConfig represents a subscription configuration

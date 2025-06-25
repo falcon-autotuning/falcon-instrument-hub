@@ -63,38 +63,16 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 		return
 	}
 
-	// Find and stop the instrument
-	h.mutex.Lock()
-	instrument, exists := h.Instruments[Name(req.Name)]
-	if !exists {
-		h.mutex.Unlock()
-		h.Log.Warn(
-			"Attempted to destroy non-existent instrument %s",
+	// Queue for async destruction - no mutex needed, no blocking
+	select {
+	case h.destroyQueue <- Name(req.Name):
+		h.Log.Info("Queued instrument %s for destruction", req.Name)
+	default:
+		h.Log.Error(
+			"Destruction queue full - cannot destroy instrument %s",
 			req.Name,
 		)
-		return
 	}
-
-	// Check if process already completed
-	if instrument.Completed {
-		completedTime := instrument.CompletedAt
-		h.mutex.Unlock()
-		h.Log.Info(
-			"Instrument already completed at %v, cleaning up %s",
-			completedTime,
-			req.Name,
-		)
-
-		// Remove from map since it's already dead
-		h.mutex.Lock()
-		delete(h.Instruments, Name(req.Name))
-		h.mutex.Unlock()
-
-		return
-	}
-
-	h.stopInstrument(instrument)
-	h.mutex.Unlock()
 }
 
 // handleConfirmInitialization processes CONFIRM_INITIALIZATION responses

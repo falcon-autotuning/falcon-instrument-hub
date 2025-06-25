@@ -33,8 +33,46 @@ func NewHandler(
 		portProcessor:     portProcessor,
 		pythonInterpreter: pythonInterpreter,
 		cleanupStop:       make(chan struct{}),
+		destroyQueue:      make(chan Name, 100),
 	}
+	go h.destroyWorker()
 	return h, nil
+}
+
+// destroyWorker processes instrument destruction requests asynchronously
+func (h *Handler) destroyWorker() {
+	h.Log.Debug("Destroy worker started")
+
+	for name := range h.destroyQueue {
+		h.Log.Info("Processing destruction request for instrument: %s", name)
+
+		h.mutex.Lock()
+		process, exists := h.Instruments[name]
+		if !exists {
+			h.mutex.Unlock()
+			h.Log.Warn("Attempted to destroy non-existent instrument %s", name)
+			continue
+		}
+
+		// Check if already completed
+		if process.Completed {
+			h.Log.Info("Instrument %s already completed, cleaning up", name)
+			delete(h.Instruments, name)
+			h.mutex.Unlock()
+			continue
+		}
+
+		// Remove from map and unlock before stopping (which may take time)
+		delete(h.Instruments, name)
+		h.mutex.Unlock()
+
+		// Stop the instrument outside the critical section
+		h.Log.Info("Stopping instrument: %s", name)
+		h.stopInstrument(process)
+		h.Log.Info("Successfully destroyed instrument: %s", name)
+	}
+
+	h.Log.Debug("Destroy worker stopped")
 }
 
 // GetActiveInstruments returns a list of currently running instruments
