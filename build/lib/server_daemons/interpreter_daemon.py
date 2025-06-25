@@ -707,7 +707,7 @@ class InterpreterDaemon:
             shape=shape,
             data_count=data_count,
         )
-        name_attribute_maps = self.preprocess_voltage_states(id=id)
+        name_attribute_maps = await self.preprocess_voltage_states(id=id)
         final_data = self.average_shapeless_data(
             id=id,
             number_of_bins=number_of_bins,
@@ -844,7 +844,8 @@ class InterpreterDaemon:
         """
         name_attribute_maps: list[dict[str, float]] = []
         for instr in self.measurement_groups[id]:
-            if not instr.getters:
+            if not instr.setters:
+                await self.log(f"No setters were found for instrument {instr}, skipping processing it...")
                 continue
             first_property_map = list(instr.setters.values())[0]
             if SUPPORTED_PROPERTIES.STAIRCASE in first_property_map:
