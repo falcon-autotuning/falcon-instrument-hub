@@ -53,19 +53,24 @@ func (h *Handler) GetActiveInstruments() []Name {
 // This should be called periodically to prevent memory leaks
 func (h *Handler) CleanupCompletedProcesses() {
 	h.mutex.Lock()
-	defer h.mutex.Unlock()
+
+	names := make([]Name, 0)
 
 	for name, process := range h.Instruments {
 		if process.Completed {
 			// Keep completed processes for a while for debugging
 			if time.Since(process.CompletedAt) > 5*time.Minute {
-				h.Log.Debug(
-					"Cleaning up completed process %s",
-					name,
-				)
+				names = append(names, name)
 				delete(h.Instruments, name)
 			}
 		}
+	}
+	h.mutex.Unlock()
+	for _, name := range names {
+		h.Log.Debug(
+			"Cleaned up completed process %s",
+			name,
+		)
 	}
 }
 
@@ -76,21 +81,21 @@ func (h *Handler) GetProcessStatus(
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
-	process, exists := h.Instruments[name]
+	instrument, exists := h.Instruments[name]
 	if !exists {
 		return "not_found", false
 	}
 
-	if process.Completed {
-		if process.ExitError != nil {
+	if instrument.Completed {
+		if instrument.ExitError != nil {
 			return "completed_with_error", true
 		}
 		return "completed_successfully", true
 	}
 
 	// Check if process is still alive
-	if process.Cmd.Process != nil {
-		err := process.Cmd.Process.Signal(syscall.Signal(0))
+	if instrument.Cmd.Process != nil {
+		err := instrument.Cmd.Process.Signal(syscall.Signal(0))
 		if err != nil {
 			return "dead", true
 		}

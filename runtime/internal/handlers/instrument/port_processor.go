@@ -1,7 +1,6 @@
 package instrument
 
 import (
-	"encoding/json"
 	"fmt"
 	"maps"
 	"strings"
@@ -196,11 +195,6 @@ func (pp *PortProcessor) CollectPortProperties(
 		MeterIdentifier = "Meter"
 	)
 
-	pp.Log.Debug(
-		"Collecting port properties from %d instruments",
-		len(instruments),
-	)
-
 	// Collect ports from all active instruments (processing should already be
 	// done)
 	for _, instrument := range instruments {
@@ -221,11 +215,6 @@ func (pp *PortProcessor) CollectPortProperties(
 		}
 	}
 
-	pp.Log.Debug(
-		"Collected %d knobs and %d meters",
-		len(knobs),
-		len(meters),
-	)
 	// pp.Log.Debug(
 	// 	"The collections are knobs: %v and meters: %v",
 	// 	knobs,
@@ -290,18 +279,7 @@ func (pp *PortProcessor) InvertPortMappings(
 ) map[JsonPort]PortOptions {
 	outs := make(map[JsonPort]PortOptions)
 
-	pp.Log.Debug(
-		"Starting port mapping inversion with %d instruments",
-		len(instrumentPorts),
-	)
-
 	for instrumentName, properties := range instrumentPorts {
-		pp.Log.Debug(
-			"Processing instrument %s with %d properties",
-			instrumentName,
-			len(properties),
-		)
-
 		for property, indices := range properties {
 			for index, port := range indices {
 				if existingConfig, exists := outs[port]; !exists {
@@ -320,13 +298,6 @@ func (pp *PortProcessor) InvertPortMappings(
 			}
 		}
 	}
-	pp.logger.Debug(
-		HandlerName,
-		fmt.Sprintf(
-			"Port mapping inversion complete. Found %d port configurations",
-			len(outs),
-		),
-	)
 
 	return outs
 }
@@ -376,50 +347,6 @@ func (pp *PortProcessor) BuildPortConfigurations(
 	// Build and cache if not available
 	portConfigurations := pp.buildAndCachePortConfigurations(instruments)
 	return portConfigurations, nil
-}
-
-// GetPortConfiguration finds the configuration for a specific port
-func (pp *PortProcessor) GetPortConfiguration(
-	name JsonPort,
-	instruments map[Name]*InstrumentProcess,
-) (*PortOptions, error) {
-	// Check cache first
-	var portConfigurations map[JsonPort]PortOptions
-	if cached, exists := pp.getCachedPortConfigurations(); exists {
-		portConfigurations = cached
-	} else {
-		// Build and cache if not available
-		pp.Log.Debug(
-			"Building the cached port configurations",
-		)
-		portConfigurations = pp.buildAndCachePortConfigurations(instruments)
-	}
-
-	// need to get compact json form:
-	var data PortObject
-	if err := json.Unmarshal([]byte(name), &data); err != nil {
-		pp.Log.Error("Failed to unmarshal JsonPort: %v", err)
-	}
-	compactJSON, err := json.Marshal(data)
-	if err != nil {
-		pp.Log.Error("Failed to marshal JsonPort: %v", err)
-	}
-	compactPortName := JsonPort(compactJSON)
-
-	// now check if the port exists
-	if portConfig, exists := portConfigurations[compactPortName]; exists {
-		return &portConfig, nil
-	}
-	ports := make([]JsonPort, 0, len(portConfigurations))
-	for port := range portConfigurations {
-		ports = append(ports, port)
-	}
-	pp.Log.Error(
-		"The current ports in the configuration are: %v",
-		ports,
-	)
-
-	return nil, fmt.Errorf("port %s not found in configurations", name)
 }
 
 // InvalidatePortConfigCache invalidates the cached port configurations
