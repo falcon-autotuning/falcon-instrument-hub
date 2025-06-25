@@ -96,6 +96,8 @@ src/server_daemons/api/__pycache__/interpreter.cpython-313.pyc
 test-outs/device_config.yaml
 test-outs/wiremap.yaml
 test-outs/datacache/measurements.db
+test-outs/datacache/measurements.db-shm
+test-outs/datacache/measurements.db-wal
 test-outs/log/falcon-runtime_2025-06-23_12-57-33.log
 test-outs/log/falcon-runtime_2025-06-23_12-57-33_sorted.log
 test-outs/log/falcon-runtime_2025-06-23_13-14-04.log
@@ -122,6 +124,8 @@ test-outs/log/falcon-runtime_2025-06-24_15-39-31.log
 test-outs/log/falcon-runtime_2025-06-24_15-39-31_sorted.log
 test-outs/log/falcon-runtime_2025-06-24_17-38-38.log
 test-outs/log/falcon-runtime_2025-06-24_17-38-38_sorted.log
+test-outs/log/falcon-runtime_2025-06-24_19-23-01.log
+test-outs/log/falcon-runtime_2025-06-24_19-23-01_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py
