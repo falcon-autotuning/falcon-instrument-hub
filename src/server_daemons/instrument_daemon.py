@@ -1,6 +1,7 @@
 """An instrument daemon that runs instrument drivers."""
 
 import contextlib
+import copy
 from typing import TYPE_CHECKING
 
 from instrument_templates.constants import SUPPORTED_PROPERTIES
@@ -404,12 +405,14 @@ class InstrumentDaemon:
             self._loop.create_task(run_trigger())
 
             await asyncio.sleep(timeout)
+            getter_triggers = copy.deepcopy(self._instrument._getter_triggers)
             await self.try_to_leave(name=is_setter)
             await self.log(f"TRIGGER timeout reached ({timeout}s)")
             if not is_setter:
                 await self.process_return_data(
                     process_id=process_id,
                     chunk_id=chunk_id,
+                    getter_triggers=getter_triggers,
                 )
 
         except Exception as e:
@@ -423,15 +426,17 @@ class InstrumentDaemon:
         self,
         process_id: int,
         chunk_id: int,
+        getter_triggers: list[Trigger],
     ) -> None:
         """Process return data and sends it away.
 
         Args:
             process_id: The ID of the proces that requested the data
             chunk_id: The ID of the chunk that indexes the data
+            getter_triggers: The list of old getter triggers to use when returning data
         """
         await self.log("Processing return data...")
-        self._instrument._process_return_data()
+        self._instrument._process_return_data(getter_triggers=getter_triggers)
         # Add debugging for the queue state
         await self.log("Checking return data queue...")
         if self._instrument._return_data._message_queue.empty():
@@ -556,6 +561,8 @@ class InstrumentDaemon:
 
         # If this is an ARM command - if so, lock the queue
         self._is_unlocked.clear()
+        self._instrument._setter_triggers.clear()
+        self._instrument._getter_triggers.clear()
         await self.fill_trigger_queue(raw_trigger_indexes=json.loads(value))
 
         return_data = {
