@@ -831,7 +831,7 @@ class InterpreterDaemon:
 
         return final_data
 
-    def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
+    async def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
         """Preprocesses the voltage states for the measurement.
 
         Modifies the setup stored in teh measurement_groups.
@@ -848,6 +848,7 @@ class InterpreterDaemon:
                 continue
             first_property_map = list(instr.setters.values())[0]
             if SUPPORTED_PROPERTIES.STAIRCASE in first_property_map:
+                await self.log(f"Found staircase property for instrument {instr}")
                 staircase = first_property_map[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
                     "STAIRCASE must be a tuple of numbers."
@@ -876,6 +877,7 @@ class InterpreterDaemon:
                         ) + float(staircase[3])
                     name_attribute_maps.append(map)
             elif SUPPORTED_PROPERTIES.VOLTAGE_STATE in first_property_map:
+                await self.log(f"Found voltage state property for instrument {instr}")
                 map = {}
                 for port, property_map in instr.setters.items():
                     value = property_map[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
