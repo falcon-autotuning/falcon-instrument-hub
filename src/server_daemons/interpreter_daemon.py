@@ -1013,9 +1013,9 @@ class InterpreterDaemon:
             shape=shape,
             data_count=data_count,
         )
-        name_attribute_maps = self.preprocess_voltage_states(id=id)
+        name_attribute_maps = await self.preprocess_voltage_states(id=id)
         await self.log(f"The number of bins {number_of_bins}")
-        final_data = self.average_shapeless_data(
+        final_data = await self.average_shapeless_data(
             number_of_bins=number_of_bins,
             request=request,
             voltage_state_array=name_attribute_maps,
@@ -1088,7 +1088,7 @@ class InterpreterDaemon:
             )
         )
 
-    def average_shapeless_data(
+    async def average_shapeless_data(
         self,
         number_of_bins: int,
         request: MeasurementRequest,
@@ -1117,6 +1117,8 @@ class InterpreterDaemon:
                 analytic_transform = transform
                 time_bounds = request.time_domain.domain.bounds
                 num_points = len(datas[0])
+                await self.log(f"The number of points in the data is {num_points}")
+                await self.log(f"The time bounds are {time_bounds}")
                 t_array = np.linspace(
                     start=time_bounds[0],
                     stop=time_bounds[1],
@@ -1138,7 +1140,7 @@ class InterpreterDaemon:
 
         return final_data
 
-    def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
+    async def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
         """Preprocesses the voltage states for the measurement.
 
         Modifies the setup stored in teh measurement_groups.
@@ -1150,6 +1152,11 @@ class InterpreterDaemon:
             the preprocessed voltage states.
         """
         name_attribute_maps: list[dict[str, float]] = []
+        await self.log(
+            f"Beginning to preprocess voltage states for measurement id {id}"
+        )
+        measurement_group = self.measurement_groups[id]
+        await self.log(f"Selected the measurement_group {measurement_group}")
         for instr in self.measurement_groups[id]:
             if not instr.getters:
                 continue
@@ -1162,7 +1169,7 @@ class InterpreterDaemon:
                 assert isinstance(staircase[1], int), (
                     "STAIRCASE[1] (num_steps)  must be an integer."
                 )
-                num_steps = int(staircase[1])
+                num_steps = staircase[1]
                 for step in range(num_steps):
                     map = {}
                     for port, property_map in instr.requirements.items():
@@ -1170,24 +1177,24 @@ class InterpreterDaemon:
                         assert isinstance(staircase, tuple), (
                             "STAIRCASE must be a tuple of numbers."
                         )
-                        assert isinstance(staircase[4], float), (
+                        v_stop = staircase[4]
+                        assert isinstance(v_stop, float), (
                             "STAIRCASE[4] (v_stop) must be a float."
                         )
-                        assert isinstance(staircase[3], float), (
+                        v_start = staircase[3]
+                        assert isinstance(v_start, float), (
                             "STAIRCASE[3] (v_start) must be a float."
                         )
                         map[port.instrument_facing_name()] = (
-                            (float(staircase[4]) - float(staircase[3]))
-                            * step
-                            / (num_steps - 1)
-                        ) + float(staircase[3])
+                            (v_stop - v_start) * step / (num_steps - 1)
+                        ) + v_start
                     name_attribute_maps.append(map)
             elif SUPPORTED_PROPERTIES.VOLTAGE_STATE in first_property_map:
                 map = {}
                 for port, property_map in instr.requirements.items():
-                    value = property_map[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
-                    assert isinstance(value, float), "Invalid set command."
-                    map[port.instrument_facing_name()] = value
+                    v_state = property_map[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
+                    assert isinstance(v_state, float), "Invalid set command."
+                    map[port.instrument_facing_name()] = v_state
                 name_attribute_maps.append(map)
         return name_attribute_maps
 
