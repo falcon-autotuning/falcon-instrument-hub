@@ -359,7 +359,7 @@ class InterpreterDaemon:
         """
         message = json.dumps(
             {
-                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response,
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response.to_json(),
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
@@ -689,7 +689,6 @@ class InterpreterDaemon:
         axes_domains = valid_waveform._space._axes
         instructions = []
         await self.log("Chunking instructions ...")
-        await self.log(f"The raw time trace is: {raw_time_trace.data}")
         chunks = self.chunk_instructions(
             raw_time_trace=raw_time_trace,
             buffered=buffered,
@@ -1047,7 +1046,6 @@ class InterpreterDaemon:
         name_attribute_maps = await self.preprocess_voltage_states(id=id)
         await self.log(f"The name attribute maps are {name_attribute_maps}")
         await self.log(f"The number of bins {number_of_bins}")
-        await self.log(f"The raw chunk data is {chunk_data}")
         aligned_sub_chunks = self.divide_to_sub_chunks(
             chunk_data=chunk_data,
             number_of_bins=number_of_bins,
