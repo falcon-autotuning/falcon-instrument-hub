@@ -371,11 +371,16 @@ class InterpreterDaemon:
             message.encode(),
             stream="MEASUREMENT_DATA",
         )
-        notification = json.dumps(
+        data = json.dumps(
             {
                 "data_channel": "measurement." + str(id),
                 "stream_name": "MEASUREMENT_DATA",
-                "timestamp": Time().time,
+            }
+        )
+        notification = json.dumps(
+            {
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: data,
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.PROCESS_ID: id,
             }
         )
