@@ -108,6 +108,7 @@ test-outs/data/2025/06/26/22.h5
 test-outs/data/2025/06/26/23.h5
 test-outs/data/2025/06/26/24.h5
 test-outs/data/2025/06/26/25.h5
+test-outs/data/2025/06/26/26.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-06-25_17-26-20.log
 test-outs/log/falcon-runtime_2025-06-25_17-26-20_sorted.log
@@ -152,6 +153,7 @@ test-outs/log/falcon-runtime_2025-06-26_13-13-12.log
 test-outs/log/falcon-runtime_2025-06-26_13-22-09.log
 test-outs/log/falcon-runtime_2025-06-26_13-24-42.log
 test-outs/log/falcon-runtime_2025-06-26_13-38-50.log
+test-outs/log/falcon-runtime_2025-06-26_13-43-56.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py

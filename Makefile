@@ -1,7 +1,7 @@
 # Build configuration
 GO_BINARY := runtime/bin/instrument-server
 PYTHON_ENV := .venv
-NATS_CONTAINER := nats-test
+NATS_CONTAINER := nats
 
 # Default target
 .PHONY: all

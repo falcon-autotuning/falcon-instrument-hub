@@ -1,5 +1,3 @@
-"""Full system integration tests."""
-
 import asyncio
 import json
 import os
@@ -12,25 +10,14 @@ import pytest
 import pytest_asyncio
 import yaml
 from falcon_core.communications import Time
-from falcon_core.communications.messages import MeasurementRequest
-from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
-from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
-    IdentityTransform,
-)
-from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
-    CartesianWaveform,
-)
-from falcon_core.math.axes import Axes
-from falcon_core.math.discrete_spaces import CartesianDiscreteSpace
-from falcon_core.math.domains import CoupledKnobDomain, KnobDomain
-from falcon_core.math.spaces import CartesianSpace
-from falcon_core.physics.units import Units
+from falcon_core.communications.messages.measurement_response import MeasurementResponse
+from falcon_core.instrument_interfaces.names import Knob, Meter
 
 from .server_api import RUNTIME_COMMANDS
 
 if TYPE_CHECKING:
     from falcon_core.instrument_interfaces.names import InstrumentPort
+    from instrument_templates.typing import Index
 
 
 @pytest.fixture(scope="module")
@@ -38,24 +25,10 @@ def temp_dir():
     """Yields a temporary directory for test files."""
     temp_path = Path("~/Documents/instrument-server/test-outs").expanduser()
     temp_path.mkdir(parents=True, exist_ok=True)  # Create directory if it doesn't exist
+    # Create plotting directory
+    plot_dir = temp_path / "test_plotted_data"
+    plot_dir.mkdir(exist_ok=True)
     return str(temp_path)
-
-    # with tempfile.TemporaryDirectory() as temp_dir:
-    #     yield temp_dir
-    #     # Check for Go application logs
-    #     log_dir = Path(temp_dir) / "log"
-    #     print(f"Checking for logs in: {log_dir}")
-    #     if log_dir.exists():
-    #         print(f"Log directory contents: {list(log_dir.iterdir())}")
-    #         for log_file in log_dir.glob("*.log"):
-    #             print(f"Log file: {log_file}")
-    #             try:
-    #                 content = log_file.read_text()
-    #                 print(f"Contents of {log_file.name}:\n{content}")
-    #             except Exception as e:
-    #                 print(f"Could not read {log_file}: {e}")
-    #     else:
-    #         print("Log directory does not exist")
 
 
 @pytest.fixture
@@ -82,152 +55,14 @@ def expectedDaemons(expectedInstruments, serverName):
     return expectedInstruments + [serverName, "interpreter"]
 
 
-@pytest.fixture(scope="module")
-def test_config_files(temp_dir):
+@pytest.fixture
+def test_config_files(temp_dir, deviceConfig, wiremap):
     """Returns temporary config files for testing."""
     temp_path = Path(temp_dir)
 
-    device_config = {
-        "ScreeningGates": "S1;S2;S3",
-        "PlungerGates": "P1;P2;P3;P4",
-        "Ohmics": "O1;O2;O3;O4",
-        "BarrierGates": "B1;B2;B3;B4;B5;B6",
-        "ReservoirGates": "R1;R2;R3;R4",
-        "num-unique-channels": 2,
-        "groups": {
-            "group1": {
-                "Name": "I_O1",
-                "NumDots": 3,
-                "ScreeningGates": "S1;S2",
-                "ReservoirGates": "R1;R2",
-                "PlungerGates": "P1;P2;P3",
-                "BarrierGates": "B1;B2;B3:B4",
-                "Order": "O1;R1;B1;P1;B2;P2;B3;P3;B4;R2;O2",
-            },
-            "group2": {
-                "Name": "I_O3",
-                "NumDots": 1,
-                "ScreeningGates": "S2;S3",
-                "ReservoirGates": "R3;R4",
-                "PlungerGates": "P4",
-                "BarrierGates": "B5;B6",
-                "Order": "O3;R3;B5;P4;B6;R4;O4",
-            },
-        },
-        "wiringDC": {
-            "S1": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "S2": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "S3": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "P1": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "P2": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "P3": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "P4": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "O1": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "O2": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "O3": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "O4": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "R1": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "R2": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "R3": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "R4": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B1": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B2": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B3": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B4": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B5": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-            "B6": {
-                "resistance": 1000.0,
-                "capacitance": 1e-12,
-            },
-        },
-    }
-
     device_config_path = temp_path / "device_config.yaml"
     with Path.open(device_config_path, "w", encoding="utf-8") as f:
-        yaml.dump(device_config, f)
-
-    # Create wiremap
-    wiremap = {
-        "LargeMultiChannelDAC.0": "S1",
-        "LargeMultiChannelDAC.1": "S2",
-        "LargeMultiChannelDAC.2": "S3",
-        "LargeMultiChannelDAC.3": "B1",
-        "LargeMultiChannelDAC.4": "B2",
-        "LargeMultiChannelDAC.5": "B3",
-        "LargeMultiChannelDAC.6": "B4",
-        "LargeMultiChannelDAC.7": "B5",
-        "LargeMultiChannelDAC.8": "B6",
-        "LargeMultiChannelDAC.9": "P1",
-        "LargeMultiChannelDAC.10": "P2",
-        "LargeMultiChannelDAC.11": "P3",
-        "LargeMultiChannelDAC.12": "P4",
-        "LargeMultiChannelDAC.13": "R1",
-        "LargeMultiChannelDAC.14": "R2",
-        "LargeMultiChannelDAC.15": "R3",
-        "LargeMultiChannelDAC.16": "R4",
-        "MultiChannelAmnmeter.1": "O2",
-        "MultiChannelAmnmeter.2": "O4",
-    }
+        yaml.dump(deviceConfig, f)
 
     wiremap_path = temp_path / "wiremap.yaml"
     with Path.open(wiremap_path, "w", encoding="utf-8") as f:
@@ -430,6 +265,7 @@ async def setup_instruments(
     expectedInstruments,
     setup_port_payload,
     port_request_sender,
+    inject_amnmeter_data,
 ):
     """Setup instruments for testing."""
     max_wait_time = 30.0
@@ -466,7 +302,56 @@ async def setup_instruments(
     if not (active_knobs or active_meters):
         pytest.fail(f"No instruments became available after {elapsed_time:.1f}s")
 
+    inject_amnmeter_data
+
     return active_knobs, active_meters
+
+
+@pytest.fixture
+def datapoints_time() -> float:
+    """The time for each datapoint in seconds.
+    Note: This only supports millisecond resolution.
+    """
+    return 0.05
+
+
+@pytest.fixture
+def sampleRate() -> float:
+    """The fixed default sample rate for the amnmeter is 10000 samples per second."""
+    return 10000
+
+
+@pytest.fixture
+def injectionData() -> dict["Index", list[float]]:
+    """Returns the default injection data for the amnmeter, which is empty."""
+    return {}
+
+
+@pytest_asyncio.fixture
+async def inject_amnmeter_data(injectionData: dict["Index", list[float]], nats_client):
+    """Injects the amnmeter data into the test environment if supplied.
+
+    Args:
+        injectionData: The data to inject per index of the amnmeter.
+        nats_client: The NATS client for publishing messages.
+    """
+    try:
+        for index, data in injectionData.items():
+            measurement_msg = {
+                "index": index,
+                "values": data,
+            }
+
+            await nats_client.publish(
+                "amnmeter.data",
+                json.dumps(measurement_msg).encode(),
+            )
+            print(f"📊 Injected data for amnmeter index {index}: {len(data)} values")
+            await asyncio.sleep(0.01)  # Allow some time for processing
+        return True
+    except Exception as e:
+        print(f"❌ Failed to inject amnmeter data: {e}")
+        return False
 
 
 @pytest_asyncio.fixture(scope="function", autouse=False)
@@ -548,74 +433,8 @@ async def daemon_health_monitoring(
     return active_knobs, active_meters
 
 
-@pytest.fixture
-def knobs(daemon_health_monitoring: tuple[list[Knob], list[Meter]]):
-    """Returns a list of active knobs."""
-    selected_knobs = []
-    active_knobs, active_meters = daemon_health_monitoring
-    for knob in active_knobs:
-        if knob.instrument_facing_name() == "B3":
-            selected_knobs.append(knob)
-
-    print(f"Selected knobs for measurement: {selected_knobs}")
-    return selected_knobs
-
-
-@pytest.fixture
-def meters(daemon_health_monitoring: tuple[list[Knob], list[Meter]]):
-    """Returns a list of active meters."""
-    selected_meters = []
-    active_knobs, active_meters = daemon_health_monitoring
-    for meter in active_meters:
-        if meter.instrument_facing_name() == "O2":
-            selected_meters.append(meter)
-
-    print(f"Selected meters for measurement: {selected_meters}")
-    return selected_meters
-
-
-@pytest.fixture
-def measurement_request(knobs: list[Knob], meters: list[Meter]):
-    """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[0.1])
-    ckd = CoupledKnobDomain(
-        [
-            KnobDomain.from_knob(
-                bounds=(0, 0.5),
-                knob=knobs[0],
-            )
-        ]
-    )
-    sweep_axes = Axes([ckd])
-    space = CartesianDiscreteSpace(space=space, axes=sweep_axes)
-    waveform = CartesianWaveform(space=space, transforms=[])
-    ports: list[Meter] = []
-    ports.extend(meters)
-    ports.append(
-        Meter(
-            default_name="timer",
-            instrument_type=INSTRUMENT_TYPES.CLOCK,
-            units=Units.SECOND,
-        )
-    )
-    transform = IdentityTransform(port=meters[0], ports=Meters(ports))
-    return MeasurementRequest(
-        message="test measurement",
-        measurement_name="integration_test",
-        waveforms=[waveform],
-        meter_transforms=[transform],
-        time_domain=KnobDomain(
-            default_name="time",
-            bounds=(0, 0.05),
-            instrument_type=INSTRUMENT_TYPES.CLOCK,
-            greater_bound_contained=False,
-            units=Units.SECOND,
-        ),
-    )
-
-
-@pytest.mark.asyncio
-async def test_full_measurement_flow(
+@pytest_asyncio.fixture
+async def measurement_response(
     nats_client,
     measurement_request,
     externalProcessName,
@@ -631,29 +450,6 @@ async def test_full_measurement_flow(
 
     # Create JetStream context
     nats_client.jetstream()
-
-    async def data_handler(data_msg):
-        """Handle the actual measurement data from JetStream."""
-        try:
-            nonlocal measurement_response, jetstream_data
-            jetstream_data = json.loads(data_msg.data.decode())
-            print(
-                f"📊 Received measurement data from JetStream: {list(jetstream_data.keys())}"
-            )
-
-            # Extract the actual measurement response
-            if "data" in jetstream_data:
-                measurement_response = jetstream_data["data"]
-                print(
-                    f"✅ Extracted measurement response with keys: {list(measurement_response.keys()) if isinstance(measurement_response, dict) else type(measurement_response)}"
-                )
-            else:
-                measurement_response = jetstream_data
-                print("✅ Using full JetStream data as measurement response")
-
-        except Exception as e:
-            print(f"❌ Error processing JetStream data: {e}")
-            print(f"Raw JetStream message: {data_msg.data.decode()}")
 
     async def upload_handler(msg):
         """Handle upload notifications and extract data from JetStream."""
@@ -842,3 +638,4 @@ async def test_full_measurement_flow(
     assert measurement_response is not None, (
         "Should retrieve measurement response from JetStream"
     )
+    return MeasurementResponse.from_json(measurement_response)
