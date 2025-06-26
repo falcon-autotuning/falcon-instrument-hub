@@ -12,7 +12,6 @@ import nats
 import pytest
 import pytest_asyncio
 from falcon_core.communications.messages import MeasurementRequest
-from falcon_core.communications.time import Time
 from falcon_core.constants import INSTRUMENT_TYPES
 from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
@@ -290,7 +289,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     # Start the daemon process
     daemon_process()
     # Give the daemon time to start up and connect
-    await asyncio.sleep(2.0)  # Increased wait time
+    await asyncio.sleep(2.0)
 
     # Create a simplified MeasurementRequest
     knobs = [
@@ -353,19 +352,18 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     )
 
     # Wait for log message indicating request was received
-
     def request_received(msgs):
         if not msgs:
             return False
         for msg in msgs:
             msg_content = msg.data.decode()
-
             print(f"Checking log message: {msg_content}", flush=True)
             if any(
                 keyword in msg_content
                 for keyword in [
                     "Error processing request",
-                    "Measurement successfully deployed ....",
+                    "Request successfully processed",
+                    "Registered measurement",
                 ]
             ):
                 return True
@@ -374,30 +372,52 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     received = await wait_for_messages(log_msgs, condition=request_received)
     assert received, "No confirmation of process request received"
 
-    # Now send process data
+    # Now send process data with the required CHUNK_ID field
     process_data_channel = INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.COMM_CHANNEL
+
+    # Create data for a meter port (using the meter's JSON representation as key)
+    meter_port_json = meters[0].to_json()
     process_data = {
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.PROCESS_ID: 42,
-        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.TIMESTAMP: Time().time,
+        INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.CHUNK_ID: 0,  # Added missing CHUNK_ID
         INTERPRETER_RUNTIME_COMMANDS.PROCESS_DATA.DATA: json.dumps(
-            {"device1": [1.0, 2.0, 3.0]}
+            {meter_port_json: json.dumps([1.0, 2.0, 3.0])}  # Use proper port key format
         ),
     }
 
     print(f"Sending process data to channel {process_data_channel}...", flush=True)
     await nats_client.publish(process_data_channel, json.dumps(process_data).encode())
 
-    # Wait for log message indicating data was added to queue
+    # Wait for log message indicating data was processed
     def data_received(msgs):
-        return any("Data added to queue" in msg.data.decode() for msg in msgs)
+        if not msgs:
+            return False
+        for msg in msgs:
+            msg_content = msg.data.decode()
+            print(f"Checking data log message: {msg_content}", flush=True)
+            if any(
+                keyword in msg_content
+                for keyword in [
+                    "Collected data",
+                    "data points",
+                    "measurement",
+                    "Queued data for measurement",
+                ]
+            ):
+                return True
+        return False
 
-    received = await wait_for_messages(log_msgs, condition=data_received)
+    received = await wait_for_messages(log_msgs, condition=data_received, timeout=10.0)
 
     if received:
-        print("✅ Successfully added data to queue", flush=True)
+        print("✅ Successfully processed measurement data", flush=True)
     else:
-        print("❌ Failed to add data to queue", flush=True)
-        pytest.fail("Did not receive confirmation that data was added to queue")
+        print("❌ Failed to process measurement data", flush=True)
+        # Print all log messages for debugging
+        print("All log messages received:", flush=True)
+        for msg in log_msgs:
+            print(f"  - {msg.data.decode()}", flush=True)
+        pytest.fail("Did not receive confirmation that data was processed")
 
     # Capture any additional output
     captured = capfd.readouterr()

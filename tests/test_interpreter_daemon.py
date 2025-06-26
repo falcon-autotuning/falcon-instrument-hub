@@ -532,12 +532,12 @@ class TestInterpreterDaemon:
 
         interpreter_daemon._nc = mock_client
         interpreter_daemon._js = jetstream_client
-        interpreter_daemon.get_data_point_counter_per_queue = MagicMock(return_value=5)
-        interpreter_daemon.preprocess_voltage_states = MagicMock(
+        interpreter_daemon.get_data_point_counter_per_queue = MagicMock(return_value=3)
+        interpreter_daemon.preprocess_voltage_states = AsyncMock(
             return_value=[{"device1": 1.0}]
         )
-        interpreter_daemon.average_shapeless_data = MagicMock(
-            return_value={"device1": [1.0, 2.0, 3.0]}
+        interpreter_daemon.average_shapeless_data = AsyncMock(
+            return_value={"device1": np.array([1.0, 2.0, 3.0])}
         )
         interpreter_daemon.make_response = MagicMock()
         interpreter_daemon.store_in_database = MagicMock()
@@ -555,8 +555,8 @@ class TestInterpreterDaemon:
         )
 
         chunk_data = {
-            0: {port: MeasuredArray1D([1.0, 2.0, 3.0])},
-            1: {port: MeasuredArray1D([4.0, 5.0, 6.0])},
+            0: {port: MeasuredArray1D(np.array([1.0, 2.0, 3.0]))},
+            1: {port: MeasuredArray1D(np.array([4.0, 5.0, 6.0]))},
         }
 
         # Call load_and_export_data with chunk_data
@@ -579,15 +579,30 @@ class TestInterpreterDaemon:
         )
 
         interpreter_daemon.average_shapeless_data.assert_called_once_with(
-            number_of_bins=5,
+            number_of_bins=3,
             request=mock_request,
             voltage_state_array=[{"device1": 1.0}],
-            chunk_data=chunk_data,  # Now passes chunk_data instead of collected_data
+            aligned_sub_chunks=[
+                {port: np.array([1.0])},
+                {port: np.array([2.0])},
+                {port: np.array([3.0])},
+                {port: np.array([4.0])},
+                {port: np.array([5.0])},
+                {port: np.array([6.0])},
+            ],
         )
 
-        interpreter_daemon.make_response.assert_called_once_with(
-            data_arrays={"device1": [1.0, 2.0, 3.0]}, shape=(3,)
-        )
+        # Check that make_response was called
+        interpreter_daemon.make_response.assert_called_once()
+
+        # Verify the call arguments manually
+        make_response_args = interpreter_daemon.make_response.call_args
+        assert make_response_args[1]["shape"] == (3,)
+
+        # Verify data_arrays structure and values
+        data_arrays = make_response_args[1]["data_arrays"]
+        assert "device1" in data_arrays
+        np.testing.assert_array_equal(data_arrays["device1"], np.array([1.0, 2.0, 3.0]))
 
         interpreter_daemon.store_in_database.assert_called_once_with(
             response=mock_response,
