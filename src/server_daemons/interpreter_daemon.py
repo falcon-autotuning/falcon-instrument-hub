@@ -376,6 +376,7 @@ class InterpreterDaemon:
                 "data_channel": "measurement." + str(id),
                 "stream_name": "MEASUREMENT_DATA",
                 "timestamp": Time().time,
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.PROCESS_ID: id,
             }
         )
 
