@@ -540,6 +540,7 @@ class InterpreterDaemon:
             await self.log(
                 f"Processing complete measurement {pending.measurement_id} with {len(pending.collected_data)} data points"
             )
+            await self.log(f"The pending data is {pending.collected_data}")
 
             # Use the existing load_and_export_data method
             await self.load_and_export_data(
