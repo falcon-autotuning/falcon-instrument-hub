@@ -14,20 +14,20 @@ type Log struct {
 
 // MeasurementReady: Indicates that a meassurement is ready for the server to perform
 type MeasurementReady struct {
-    Requirements []string `yaml:"requirements" json:"requirements"` // the instruments ports that are required to be set
-    Buffered bool `yaml:"buffered" json:"buffered"` // if this is a buffered measurement or not
-    ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Getters []string `yaml:"getters" json:"getters"` // the connections that are ready to be measured
     Setters []string `yaml:"setters" json:"setters"` // the connections that are to be set for the measurement
+    Requirements []string `yaml:"requirements" json:"requirements"` // the instruments ports that are required to be set
+    Buffered bool `yaml:"buffered" json:"buffered"` // if this is a buffered measurement or not
+    ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 }
 
 // ProcessData: Used by interpreter to handle the need to collect some data
 type ProcessData struct {
+    Data string `yaml:"data" json:"data"` // the data taken from the instruments for interpretation
     ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
     ChunkId int64 `yaml:"chunk_id" json:"chunk_id"` // A unique identifier for a particular chunk of a measurement.
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
-    Data string `yaml:"data" json:"data"` // the data taken from the instruments for interpretation
 }
 
 // ProcessRequest: A request to the interpreter to process an incoming measurement
@@ -46,16 +46,17 @@ type Status struct {
 
 // UpdateDaemonProperty: Issued to selectively update an instruments property in a daemon
 type UpdateDaemonProperty struct {
-    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Property string `yaml:"property" json:"property"` // The main subclass of property
     Name string `yaml:"name" json:"name"` // The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique
     Value interface{} `yaml:"value" json:"value"` // The quantity
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // UploadData: Used by the interpreter to hand data off the the runtime for FAlCon
 type UploadData struct {
     Data string `yaml:"data" json:"data"` // the jsonable measurement request for the FAlCon to unpack and use
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it
 }
 
 // ConfirmInitialization: Confirm initialization of a daemon and provide configuration
@@ -67,8 +68,8 @@ type ConfirmInitialization struct {
 
 // Get: Execute a get instruction on a sandboxed instrument
 type Get struct {
-    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
     Property string `yaml:"property" json:"property"` // The name of the property that is to be set
+    Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
 }
 
 // PerformArbitraryMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
@@ -89,27 +90,27 @@ type ReturnData struct {
 
 // ReturnGet: Response from a get instruction on a sandboxed instrument
 type ReturnGet struct {
+    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Property string `yaml:"property" json:"property"` // The name of the property that is to be set
     Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
-    Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
 }
 
 // Set: Execute a set instruction on a sandboxed instrument
 type Set struct {
-    Property string `yaml:"property" json:"property"` // The name of the property that is to be set
     Index int64 `yaml:"index" json:"index"` // The particular index of a instrument that is to be set
     Value interface{} `yaml:"value" json:"value"` // The argument to be set inside the instrument
     ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
     ChunkId int64 `yaml:"chunk_id" json:"chunk_id"` // A unique identifier for a particular chunk of a measurement.
+    Property string `yaml:"property" json:"property"` // The name of the property that is to be set
 }
 
 // Trigger: Execute a trigger/arm on a buffered instrument
 type Trigger struct {
-    IsSetter bool `yaml:"is_setter" json:"is_setter"` // if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger.
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
     ChunkId int64 `yaml:"chunk_id" json:"chunk_id"` // A unique identifier for a particular chunk of a measurement.
+    IsSetter bool `yaml:"is_setter" json:"is_setter"` // if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger.
 }
 
 // Armed: Statement from an instrument indicating sets are complete and it is locked from further modifications.
@@ -158,9 +159,9 @@ type PortRequest struct {
 
 // PortPayload: All of the current instrument ports
 type PortPayload struct {
+    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
     Knobs string `yaml:"knobs" json:"knobs"` // All of the knobs attached to the instrument server
     Meters string `yaml:"meters" json:"meters"` // All of the meters attached to the instrument server
-    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // DeviceConfigRequest: A request for the device configuration
@@ -170,8 +171,8 @@ type DeviceConfigRequest struct {
 
 // DeviceConfigResponse: A response containing the device configuration
 type DeviceConfigResponse struct {
-    Response string `yaml:"response" json:"response"` // The device config for use understanding the device layout
     Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
+    Response string `yaml:"response" json:"response"` // The device config for use understanding the device layout
 }
 
 // MeasureCommand: issued to runtime to request a measurement from the instrument server

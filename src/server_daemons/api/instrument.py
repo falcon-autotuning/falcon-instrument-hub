@@ -9,6 +9,11 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
+
+    @property
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
@@ -17,11 +22,6 @@ class CONFIRM_INITIALIZATION:
     def PORT(self) -> str:
         """the configuration of the instrument ports"""
         return "port"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -96,16 +96,6 @@ class RETURN_DATA:
         return "RETURN_DATA"
 
     @property
-    def DATA(self) -> str:
-        """The measured data as a list of floats collected on the instrument"""
-        return "data"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
-
-    @property
     def INDEX(self) -> str:
         """The particular index of a instrument that is to be set"""
         return "index"
@@ -120,6 +110,16 @@ class RETURN_DATA:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
 
+    @property
+    def DATA(self) -> str:
+        """The measured data as a list of floats collected on the instrument"""
+        return "data"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
 class RETURN_GET:
     """The substrings necessary for response from a get instruction on a sandboxed instrument."""
 
@@ -127,6 +127,16 @@ class RETURN_GET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "RETURN_GET"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
+
+    @property
+    def INDEX(self) -> str:
+        """The particular index of a instrument that is to be set"""
+        return "index"
 
     @property
     def VALUE(self) -> str:
@@ -138,16 +148,6 @@ class RETURN_GET:
         """When the response was completed"""
         return "timestamp"
 
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
-
-    @property
-    def INDEX(self) -> str:
-        """The particular index of a instrument that is to be set"""
-        return "index"
-
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
 
@@ -155,6 +155,11 @@ class SET:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "SET"
+
+    @property
+    def PROPERTY(self) -> str:
+        """The name of the property that is to be set"""
+        return "property"
 
     @property
     def INDEX(self) -> str:
@@ -175,11 +180,6 @@ class SET:
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
-
-    @property
-    def PROPERTY(self) -> str:
-        """The name of the property that is to be set"""
-        return "property"
 
 class STATUS:
     """The substrings necessary for provide the status of the process."""
@@ -231,16 +231,6 @@ class TRIGGER:
         return "TRIGGER"
 
     @property
-    def IS_SETTER(self) -> str:
-        """if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger."""
-        return "is_setter"
-
-    @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
@@ -249,6 +239,16 @@ class TRIGGER:
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
+
+    @property
+    def IS_SETTER(self) -> str:
+        """if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger."""
+        return "is_setter"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class EXECUTING:
     """The substrings necessary for statement from an instrument indicating it is successfully triggered and executing a measurement.."""
@@ -259,11 +259,6 @@ class EXECUTING:
         return "EXECUTING"
 
     @property
-    def CHUNK_ID(self) -> str:
-        """A unique identifier for a particular chunk of a measurement."""
-        return "chunk_id"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -272,6 +267,11 @@ class EXECUTING:
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
+
+    @property
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
 
 
 class RUNTIME_COMMANDS:

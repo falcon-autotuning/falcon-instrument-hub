@@ -360,6 +360,7 @@ class InterpreterDaemon:
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response.to_json(),
+                INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.PROCESS_ID: id,
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.TIMESTAMP: Time().time,
             }
         )
@@ -864,6 +865,7 @@ class InterpreterDaemon:
         Returns:
             the number of samples for each meter
         """
+        # TODO: unlock this from only multiples of 1000
         return {
             meter: int(np.ceil(step_width * sample_rate / 1000))
             for meter, sample_rate in sample_rates.items()

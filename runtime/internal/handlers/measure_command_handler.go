@@ -239,17 +239,14 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 
 	// We need to identify which measurement this belongs to
 	// For now, we'll assume the latest pending measurement
-	h.mutex.Lock()
-	var pendingMeasurement PendingMeasurement
 	var found bool
-
-	// Find the first pending measurement (in a real implementation,
-	// you'd need a better correlation mechanism)
-	for pid, pm := range h.pendingMeasurements {
-		pendingMeasurement = pm
+	var pendingMeasurement PendingMeasurement
+	id := instrument.ID(uploadData.ProcessId)
+	h.mutex.Lock()
+	if pM, exists := h.pendingMeasurements[id]; exists {
+		pendingMeasurement = pM
 		found = true
-		delete(h.pendingMeasurements, pid)
-		break
+		delete(h.pendingMeasurements, id)
 	}
 	h.mutex.Unlock()
 
