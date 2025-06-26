@@ -1143,6 +1143,7 @@ class InterpreterDaemon:
                     final_data[port].append(float(computation))
 
         await self.log("Final data successfully averaged")
+        await self.log(f"The final data is {final_data}")
 
         return final_data
 
