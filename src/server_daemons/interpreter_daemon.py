@@ -358,7 +358,7 @@ class InterpreterDaemon:
             id: The ID of the measurement.
         """
         await self.log(f"Preparing to upload data for ProcessID: {id}")
-        data_channel = f"measurement.{id}"
+        data_channel = f"measurement.data.{id}"
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response.to_json(),
