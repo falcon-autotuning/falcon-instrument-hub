@@ -500,39 +500,68 @@ class InterpreterDaemon:
             )
 
     async def _process_async_data_queue(self):
-        """Background task that processes incoming data."""
+        """Process data entries from the async queue."""
         while True:
             try:
-                # Wait for data with timeout
-                entry = await asyncio.wait_for(
-                    self._async_data_queue.get(), timeout=1.0
-                )
+                # Get data from queue (blocks until data is available)
+                entry = await self._async_data_queue.get()
 
                 measurement_id = entry.measurement_id
+                chunk_id = entry.chunk_id
+                data = entry.data
+
+                # Check if we have a registered measurement for this ID
                 if measurement_id not in self._pending_measurements:
-                    # Measurement not registered yet, requeue
-                    await asyncio.sleep(0.1)
+                    await self.log(
+                        f"Received data for unregistered measurement {measurement_id}, requeuing..."
+                    )
+                    # Requeue the data - it might arrive before the measurement registration
+                    await asyncio.sleep(0.1)  # Small delay to prevent tight loop
                     await self._async_data_queue.put(entry)
                     continue
 
-                # Add data to pending measurement
                 pending = self._pending_measurements[measurement_id]
-                pending.collected_data.append(entry)
+
+                # Check if this chunk ID is already collected
+                existing_chunk_ids = [
+                    entry.chunk_id for entry in pending.collected_data
+                ]
+                if chunk_id in existing_chunk_ids:
+                    await self.log(
+                        f"Received duplicate data for measurement {measurement_id}, chunk {chunk_id}, throwing it away"
+                    )
+                    continue
+
+                # Add the data to the pending measurement
+                pending.add_data_entry(chunk_id, data)
 
                 await self.log(
                     f"Collected data {len(pending.collected_data)}/{pending.expected_count} for measurement {measurement_id} ({pending.completion_percentage:.1f}%)"
                 )
 
-                # Check if we have enough data
+                # Check if measurement is complete
                 if pending.is_complete:
-                    # Process the complete measurement
-                    await self._process_complete_measurement(pending)
+                    await self.log(
+                        f"Measurement {measurement_id} complete, processing..."
+                    )
+
+                    # Get sorted chunk data and remove from pending
+                    chunk_data = pending.get_sorted_chunk_data()
                     del self._pending_measurements[measurement_id]
 
-            except asyncio.TimeoutError:
-                continue
+                    # Process the complete measurement
+                    await self.load_and_export_data(
+                        request=pending.request,
+                        data_path=pending.data_path,
+                        shape=pending.shape,
+                        id=measurement_id,
+                        data_count=pending.expected_count,
+                        chunk_data=chunk_data,
+                    )
+
             except Exception as e:
-                await self.log(f"Error processing data queue: {e}")
+                await self.log(f"Error processing data from queue: {e}")
+                await asyncio.sleep(0.1)  # Prevent tight error loop
 
     async def _process_complete_measurement(self, pending: PendingMeasurement):
         """Process complete measurement data."""
