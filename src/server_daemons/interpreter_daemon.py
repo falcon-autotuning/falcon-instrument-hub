@@ -1017,12 +1017,12 @@ class InterpreterDaemon:
         name_attribute_maps = await self.preprocess_voltage_states(id=id)
         await self.log(f"The name attribute maps are {name_attribute_maps}")
         await self.log(f"The number of bins {number_of_bins}")
+        await self.log(f"The raw chunk data is {chunk_data}")
         aligned_sub_chunks = self.divide_to_sub_chunks(
             chunk_data=chunk_data,
             number_of_bins=number_of_bins,
         )
         final_data = await self.average_shapeless_data(
-            number_of_bins=number_of_bins,
             request=request,
             voltage_state_array=name_attribute_maps,
             aligned_sub_chunks=aligned_sub_chunks,
@@ -1127,7 +1127,6 @@ class InterpreterDaemon:
 
     async def average_shapeless_data(
         self,
-        number_of_bins: int,
         request: MeasurementRequest,
         voltage_state_array: list[dict[str, float]],
         aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
@@ -1188,9 +1187,6 @@ class InterpreterDaemon:
                 if port not in final_data:
                     final_data[port] = []
                 final_data[port].append(float(computation))
-
-        await self.log("Final data successfully averaged")
-        await self.log(f"The final data is {final_data}")
 
         await self.log("Final data successfully averaged")
         await self.log(f"The final data is {final_data}")
