@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         PropertyValue,
         Requirements,
         Setters,
+        array1D,
     )
 TIMEOUT_SCALE_FACTOR = 1.5
 DEFAULT_SLOPE = 100  # [V/sec]
@@ -1014,12 +1015,17 @@ class InterpreterDaemon:
             data_count=data_count,
         )
         name_attribute_maps = await self.preprocess_voltage_states(id=id)
+        await self.log(f"The name attribute maps are {name_attribute_maps}")
         await self.log(f"The number of bins {number_of_bins}")
+        aligned_sub_chunks = self.divide_to_sub_chunks(
+            chunk_data=chunk_data,
+            number_of_bins=number_of_bins,
+        )
         final_data = await self.average_shapeless_data(
             number_of_bins=number_of_bins,
             request=request,
             voltage_state_array=name_attribute_maps,
-            chunk_data=chunk_data,
+            aligned_sub_chunks=aligned_sub_chunks,
         )
         response = self.make_response(
             data_arrays=final_data,
@@ -1088,12 +1094,43 @@ class InterpreterDaemon:
             )
         )
 
+    @staticmethod
+    def divide_to_sub_chunks(
+        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
+        number_of_bins: int,
+    ) -> list[dict[InstrumentPort, "array1D"]]:
+        """Divides each chunk of data into sub-chunks.
+
+        In the case of a standard measurement, this will do nothing.
+
+        Returns:
+            an ordered list of the measured data for each sub_chunk.
+        """
+        outs: list[dict[InstrumentPort, array1D]] = []
+        # Process chunks in sorted order by ID
+        for chunk_id in sorted(chunk_data.keys()):
+            collected_data = chunk_data[chunk_id]
+            divided_chunks: dict[InstrumentPort, tuple[array1D, ...]] = {}
+            for port, individual_data in collected_data.items():
+                divided_chunks[port] = individual_data.even_divisions(
+                    divisions=number_of_bins
+                )
+
+            # Unravel the divided chunks and append them to outs
+            for i in range(number_of_bins):
+                sub_chunk: dict[InstrumentPort, array1D] = {}
+                for port, divisions in divided_chunks.items():
+                    sub_chunk[port] = divisions[i]
+                outs.append(sub_chunk)
+
+        return outs
+
     async def average_shapeless_data(
         self,
         number_of_bins: int,
         request: MeasurementRequest,
         voltage_state_array: list[dict[str, float]],
-        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
+        aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
     ) -> dict[InstrumentPort, list[float]]:
         """Computes the average over the data and stores it in a 1D array to be reshaped later.
 
@@ -1107,45 +1144,87 @@ class InterpreterDaemon:
             the computed average data.
         """
         final_data: dict[InstrumentPort, list[float]] = {}
-        for collected_data in chunk_data.values():
-            for port, individual_data in collected_data.items():
-                divided_chunks = individual_data.even_divisions(
-                    divisions=number_of_bins
+        time_bounds = request.time_domain.domain.bounds
+        await self.log(f"The time bounds are {time_bounds}")
+        num_states = len(voltage_state_array)
+        num_sub_chunks = len(aligned_sub_chunks)
+        assert num_states == num_sub_chunks, (
+            f"The number of voltage states must match the number of end measurement points, {num_states} != {num_sub_chunks}"
+        )
+
+        # Precompute all transforms for all possible ports in sub_chunks
+        all_ports = set()
+        for sub_chunk in aligned_sub_chunks:
+            all_ports.update(sub_chunk.keys())
+
+        port_transforms: dict[InstrumentPort, Any] = {}
+        for port in all_ports:
+            transform = next(
+                (t for t in request.meter_transforms if t.port == port), None
+            )
+            assert transform is not None, f"Transform not found for port {port}"
+            port_transforms[port] = transform
+
+        data_length = self.sub_chunk_length(aligned_sub_chunks=aligned_sub_chunks)
+
+        # Generate time array once since all data has the same length
+        assert data_length is not None, "No data found in sub_chunks"
+        t_array = self.generate_time_array(
+            time_bounds=time_bounds,
+            num_points=data_length,
+        )
+
+        for sub_chunk, voltage_states in zip(aligned_sub_chunks, voltage_state_array):
+            for port, data in sub_chunk.items():
+                vectorized_transform = np.vectorize(
+                    lambda t: port_transforms[port].transform(
+                        t=t,
+                        **voltage_states,
+                    )  # type : ignore[reportOptionalMemberAccess]
                 )
-                transform = next(
-                    (t for t in request.meter_transforms if t.port == port), None
-                )
-                assert transform is not None, f"Transform not found for port {port}"
-                analytic_transform = transform
-                time_bounds = request.time_domain.domain.bounds
-                num_points = len(divided_chunks[0])
-                await self.log(f"The time bounds are {time_bounds}")
-                t_array = np.linspace(
-                    start=time_bounds[0],
-                    stop=time_bounds[1],
-                    num=num_points,
-                )
-                await self.log(f"The length of the split data is {len(divided_chunks)}")
-                for j, data in enumerate(divided_chunks):
-                    vectorized_transform = np.vectorize(
-                        lambda t: analytic_transform.transform(
-                            t=t, **voltage_state_array[j]
-                        )  # type : ignore[reportOptionalMemberAccess]
-                    )
-                    transformed = vectorized_transform(t_array)
-                    await self.log(
-                        f"The data was transformed successfully for sub-chunk {j}"
-                    )
-                    masked = (transformed * data)[transformed != 0]
-                    computation = np.mean(masked) if masked.size > 0 else 0.0
-                    if port not in final_data:
-                        final_data[port] = []
-                    final_data[port].append(float(computation))
+                transformed = vectorized_transform(t_array)
+                masked = (transformed * data)[transformed != 0]
+                computation = np.mean(masked) if masked.size > 0 else 0.0
+                if port not in final_data:
+                    final_data[port] = []
+                final_data[port].append(float(computation))
+
+        await self.log("Final data successfully averaged")
+        await self.log(f"The final data is {final_data}")
 
         await self.log("Final data successfully averaged")
         await self.log(f"The final data is {final_data}")
 
         return final_data
+
+    @staticmethod
+    def sub_chunk_length(
+        aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
+    ) -> int:
+        """Returns the length of the sub-chunks and enforces consistent length."""
+        data_length = 0
+        for sub_chunk in aligned_sub_chunks:
+            for port, data in sub_chunk.items():
+                if data_length is None:
+                    data_length = len(data)
+                else:
+                    assert len(data) == data_length, (
+                        f"All data arrays must have the same length. Expected {data_length}, got {len(data)} for port {port}"
+                    )
+
+        return data_length
+
+    @staticmethod
+    def generate_time_array(
+        time_bounds: tuple[float, float],
+        num_points: int,
+    ) -> np.ndarray:
+        """Returns a time array based on the bounds and the number of points."""
+        return np.linspace(
+            start=time_bounds[0],
+            stop=time_bounds[1],
+            num=num_points,
+        )
 
     async def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
         """Preprocesses the voltage states for the measurement.
