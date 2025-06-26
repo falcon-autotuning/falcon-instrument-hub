@@ -614,58 +614,6 @@ def measurement_request(knobs: list[Knob], meters: list[Meter]):
     )
 
 
-# @pytest.mark.asyncio
-# async def test_interpreter_flow(
-#     nats_client,
-#     measurement_request,
-#     daemon_health_monitoring,
-#     temp_dir,
-# ):
-#     """Test a complete interpreter flow from request to data upload."""
-#     max_wait_time = 34.0
-#     check_interval = 0.5
-#     elapsed_time = 0.0
-#     upload_msgs = []
-#
-#     async def upload_handler(msg):
-#         upload_msgs.append(json.loads(msg.data.decode()))
-#
-#     await nats_client.subscribe(
-#         RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
-#         cb=upload_handler,
-#     )
-#
-#     print(daemon_health_monitoring)
-#
-#     process_request = {
-#         RUNTIME_COMMANDS.PROCESS_REQUEST.REQUEST: measurement_request.to_json(),
-#         RUNTIME_COMMANDS.PROCESS_REQUEST.PROCESS_ID: 1,
-#         RUNTIME_COMMANDS.PROCESS_REQUEST.CONFIGURATIONS: json.dumps({}),
-#         RUNTIME_COMMANDS.PROCESS_REQUEST.DATA_PATH: str(Path(temp_dir) / "data"),
-#     }
-#
-#     await nats_client.publish(
-#         RUNTIME_COMMANDS.PROCESS_REQUEST.COMM_CHANNEL,
-#         json.dumps(process_request).encode(),
-#     )
-#     while elapsed_time < max_wait_time:
-#         print(f"⏱️  {elapsed_time:.1f}s - Upload messages received:")
-#         print(f"  {len(upload_msgs)} messages")
-#         if upload_msgs:
-#             print("✅ Upload message received!")
-#             break
-#         await asyncio.sleep(check_interval)
-#         elapsed_time += check_interval
-#
-#     # Show final summary
-#     print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
-#     print("Collected list of upload messages:", upload_msgs)
-#     assert upload_msgs, (
-#         f"Should receive a upload message, got None in {elapsed_time:.1f}s"
-#     )
-#
-
-
 @pytest.mark.asyncio
 async def test_full_measurement_flow(
     nats_client,
@@ -674,14 +622,118 @@ async def test_full_measurement_flow(
     cleanup_instruments,
 ):
     """Test a complete measurement flow from request to data upload."""
-    max_wait_time = 2.2
+    max_wait_time = 5.0
     check_interval = 0.1
     elapsed_time = 0.0
     upload_msgs = []
+    measurement_response = None
+    jetstream_data = None
+
+    # Create JetStream context
+    js = nats_client.jetstream()
 
     async def upload_handler(msg):
-        upload_msgs.append(json.loads(msg.data.decode()))
+        """Handle upload notifications and extract data from JetStream."""
+        try:
+            upload_data = json.loads(msg.data.decode())
+            upload_msgs.append(upload_data)
 
+            print(f"📦 Received upload notification: {upload_data}")
+
+            # Extract JetStream parameters
+            data_channel = upload_data.get("data_channel")
+            stream_name = upload_data.get("stream_name")
+
+            if data_channel and stream_name:
+                print(
+                    f"🌊 JetStream info - Channel: {data_channel}, Stream: {stream_name}"
+                )
+
+                try:
+                    # Subscribe to the data channel to get the measurement data
+                    print(f"📡 Subscribing to data channel: {data_channel}")
+
+                    async def data_handler(data_msg):
+                        """Handle the actual measurement data from JetStream."""
+                        try:
+                            nonlocal measurement_response, jetstream_data
+                            jetstream_data = json.loads(data_msg.data.decode())
+                            print(
+                                f"📊 Received measurement data from JetStream: {list(jetstream_data.keys())}"
+                            )
+
+                            # Extract the actual measurement response
+                            if "data" in jetstream_data:
+                                measurement_response = jetstream_data["data"]
+                                print(
+                                    f"✅ Extracted measurement response with keys: {list(measurement_response.keys()) if isinstance(measurement_response, dict) else type(measurement_response)}"
+                                )
+                            else:
+                                measurement_response = jetstream_data
+                                print(
+                                    "✅ Using full JetStream data as measurement response"
+                                )
+
+                        except Exception as e:
+                            print(f"❌ Error processing JetStream data: {e}")
+                            print(f"Raw JetStream message: {data_msg.data.decode()}")
+
+                    # Subscribe to the data channel
+                    sub = await js.subscribe(data_channel, cb=data_handler)
+                    print(
+                        f"✅ Successfully subscribed to JetStream channel: {data_channel}"
+                    )
+
+                    # Try to pull any existing messages from the stream
+                    try:
+                        # Get stream info to see if there are messages
+                        stream_info = await js.stream_info(stream_name)
+                        print(
+                            f"📊 Stream info: {stream_info.state.messages} messages in stream {stream_name}"
+                        )
+
+                        if stream_info.state.messages > 0:
+                            print(
+                                "📥 Attempting to fetch existing messages from stream"
+                            )
+                            # Pull messages manually if subscription doesn't catch them
+                            consumer_info = await js.consumer_info(
+                                stream_name, sub._consumer
+                            )
+                            print(f"📥 Consumer info: {consumer_info}")
+
+                    except Exception as stream_error:
+                        print(f"ℹ️  Could not get stream info: {stream_error}")
+
+                except Exception as js_error:
+                    print(f"❌ Error setting up JetStream subscription: {js_error}")
+                    # Try alternative approach - direct message retrieval
+                    try:
+                        print(
+                            f"🔄 Trying direct message retrieval from stream {stream_name}"
+                        )
+                        stream_info = await js.stream_info(stream_name)
+                        if stream_info.state.messages > 0:
+                            # Get the latest message
+                            msg = await js.get_last_msg(stream_name, data_channel)
+                            nonlocal measurement_response, jetstream_data
+                            jetstream_data = json.loads(msg.data.decode())
+                            measurement_response = jetstream_data.get(
+                                "data", jetstream_data
+                            )
+                            print("✅ Retrieved message directly from stream")
+                    except Exception as direct_error:
+                        print(f"❌ Direct retrieval also failed: {direct_error}")
+            else:
+                print(
+                    f"⚠️  Missing JetStream parameters - data_channel: {data_channel}, stream_name: {stream_name}"
+                )
+
+        except Exception as e:
+            print(f"❌ Error processing upload message: {e}")
+            print(f"Raw message: {msg.data.decode()}")
+
+    # Subscribe to upload notifications
     await nats_client.subscribe(
         RUNTIME_COMMANDS.MEASURE_RESPONSE.COMM_CHANNEL
         + ".external."
@@ -689,30 +741,85 @@ async def test_full_measurement_flow(
         cb=upload_handler,
     )
 
+    # Send measurement request
     process_request = {
         RUNTIME_COMMANDS.MEASURE_COMMAND.REQUEST: measurement_request.to_json(),
         RUNTIME_COMMANDS.MEASURE_COMMAND.HASH: 692,
         RUNTIME_COMMANDS.MEASURE_COMMAND.TIMESTAMP: Time().time,
     }
 
+    print("🚀 Sending measurement request...")
     await nats_client.publish(
         RUNTIME_COMMANDS.MEASURE_COMMAND.COMM_CHANNEL
         + ".external."
         + externalProcessName,
         json.dumps(process_request).encode(),
     )
+
+    # Wait for upload messages and measurement completion
     while elapsed_time < max_wait_time:
-        print(f"⏱️  {elapsed_time:.1f}s - Upload messages received:")
-        print(f"  {len(upload_msgs)} messages")
+        print(f"⏱️  {elapsed_time:.1f}s - Upload messages: {len(upload_msgs)}")
+
         if upload_msgs:
-            print("✅ Upload message received!")
-            break
+            print("📨 Upload notification received!")
+            # Give some time for JetStream data to arrive
+            await asyncio.sleep(0.5)
+
+            if measurement_response:
+                print("✅ Complete measurement response received!")
+                break
+
         await asyncio.sleep(check_interval)
         elapsed_time += check_interval
 
-    # Show final summary
-    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
-    print("Collected list of upload messages:", upload_msgs)
+    # Verify we received upload notifications
     assert upload_msgs, (
-        f"Should receive a upload message, got None in {elapsed_time:.1f}s"
+        f"Should receive upload messages, got None in {elapsed_time:.1f}s"
+    )
+
+    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
+    print(f"📦 Upload notifications: {len(upload_msgs)}")
+
+    for i, msg in enumerate(upload_msgs):
+        print(
+            f"  Notification {i + 1}: data_channel={msg.get('data_channel')}, stream_name={msg.get('stream_name')}"
+        )
+
+    # Verify we got measurement data
+    if measurement_response:
+        print("✅ Measurement response successfully retrieved from JetStream")
+        print(f"📊 Response type: {type(measurement_response)}")
+
+        if isinstance(measurement_response, dict):
+            print(f"📋 Response keys: {list(measurement_response.keys())}")
+
+            # Check for measurement data
+            if "measurement_name" in measurement_response:
+                print(
+                    f"📝 Measurement name: {measurement_response['measurement_name']}"
+                )
+
+            if "data_arrays" in measurement_response:
+                data_arrays = measurement_response["data_arrays"]
+                print(
+                    f"📈 Data arrays found: {list(data_arrays.keys()) if isinstance(data_arrays, dict) else type(data_arrays)}"
+                )
+
+        print("✅ Full measurement flow completed successfully!")
+
+    else:
+        print("❌ No measurement response retrieved from JetStream")
+        if jetstream_data:
+            print(f"🔍 Raw JetStream data received: {jetstream_data}")
+        else:
+            print("🔍 No JetStream data received at all")
+
+        # Print upload notifications for debugging
+        for i, msg in enumerate(upload_msgs):
+            print(f"  Upload notification {i + 1}: {msg}")
+
+    # Final assertions
+    assert upload_msgs, "Should receive at least one upload notification"
+    assert measurement_response is not None, (
+        "Should retrieve measurement response from JetStream"
     )
