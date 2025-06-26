@@ -357,6 +357,7 @@ class InterpreterDaemon:
             response: The measurement response to send.
             id: The ID of the measurement.
         """
+        data_channel = f"measurement.data.{id}"
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.DATA: response.to_json(),
@@ -365,8 +366,9 @@ class InterpreterDaemon:
             }
         )
         await self._js.publish(
-            INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL,
+            data_channel,
             message.encode(),
+            stream="MEASUREMENT_DATA",
         )
         notification = json.dumps(
             {
