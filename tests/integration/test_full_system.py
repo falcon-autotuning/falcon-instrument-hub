@@ -641,8 +641,9 @@ async def test_full_measurement_flow(
             print(f"📦 Received upload notification: {upload_data}")
 
             # Extract JetStream parameters
-            data_channel = upload_data.get("data_channel")
-            stream_name = upload_data.get("stream_name")
+            data = upload_data.get(RUNTIME_COMMANDS.UPLOAD_DATA.DATA)
+            data_channel = data.get("data_channel")
+            stream_name = data.get("stream_name")
 
             if data_channel and stream_name:
                 print(
