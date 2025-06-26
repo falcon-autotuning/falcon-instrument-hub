@@ -1228,7 +1228,7 @@ class InterpreterDaemon:
         aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
     ) -> int:
         """Returns the length of the sub-chunks and enforces consistent length."""
-        data_length = 0
+        data_length = None
         for sub_chunk in aligned_sub_chunks:
             for port, data in sub_chunk.items():
                 if data_length is None:
@@ -1237,7 +1237,9 @@ class InterpreterDaemon:
                     assert len(data) == data_length, (
                         f"All data arrays must have the same length. Expected {data_length}, got {len(data)} for port {port}"
                     )
-
+        assert isinstance(data_length, int), (
+            "No sub_chunks were available to compare against"
+        )
         return data_length
 
     @staticmethod
