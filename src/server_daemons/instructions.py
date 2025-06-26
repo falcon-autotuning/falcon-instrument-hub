@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from .dependancies import SUPPORTED_PROPERTIES
+
 if TYPE_CHECKING:
     from .typing import (
         Getters,
@@ -100,6 +102,71 @@ class Instruction:
             f"Instruction(setters={self._setters}, getters={self._getters}, "
             f"buffered={self._buffered})"
         )
+
+    def retrieve_voltage_states(self) -> dict[str, float]:
+        """Unpacks the requirements to get any setters that are setting voltage states."""
+        map: dict[str, float] = {}
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.VOLTAGE_STATE in requirements:
+                v_state = requirements[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
+                assert isinstance(v_state, float)
+                map[port.instrument_facing_name()] = v_state
+
+        return map
+
+    def contains_buffered_measurement(self) -> int:
+        """Flag that indicates a buffered measurement is present."""
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.STAIRCASE in requirements:
+                staircase = requirements[SUPPORTED_PROPERTIES.STAIRCASE]
+                assert isinstance(staircase, tuple), (
+                    "STAIRCASE must be a tuple of numbers."
+                )
+                assert isinstance(staircase[1], int), (
+                    "STAIRCASE[1] (num_steps)  must be an integer."
+                )
+                return staircase[1]
+        return 0
+
+    def seperate_buffered_requirements(self) -> list[tuple[str, "PropertyValue"]]:
+        """Seperates the buffered measurements from the rest."""
+        outs: list[tuple[str, PropertyValue]] = []
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.STAIRCASE in requirements:
+                name = port.instrument_facing_name()
+                staircase = requirements[SUPPORTED_PROPERTIES.STAIRCASE]
+                outs.append((name, staircase))
+
+        return outs
+
+    def retrieve_buffered_voltage_states(
+        self, num_steps: int
+    ) -> list[dict[str, float]]:
+        """Unpacks the requirements to get any setters that are setting buffered voltage states."""
+        maps: list[dict[str, float]] = []
+        for i in range(num_steps):
+            for name, staircase in self.seperate_buffered_requirements():
+                map: dict[str, float] = {}
+                assert isinstance(staircase, tuple), (
+                    "STAIRCASE must be a tuple of numbers."
+                )
+                v_stop = staircase[4]
+                assert isinstance(v_stop, float), (
+                    "STAIRCASE[4] (v_stop) must be a float."
+                )
+                v_start = staircase[3]
+                assert isinstance(v_start, float), (
+                    "STAIRCASE[3] (v_start) must be a float."
+                )
+                map[name] = ((v_stop - v_start) * i / (num_steps - 1)) + v_start
+                maps.append(map)
+        return maps
 
 
 class MeasurementInstructions:

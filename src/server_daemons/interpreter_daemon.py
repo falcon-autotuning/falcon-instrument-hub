@@ -1109,22 +1109,24 @@ class InterpreterDaemon:
         final_data: dict[InstrumentPort, list[float]] = {}
         for collected_data in chunk_data.values():
             for port, individual_data in collected_data.items():
-                datas = individual_data.even_divisions(divisions=number_of_bins)
+                divided_chunks = individual_data.even_divisions(
+                    divisions=number_of_bins
+                )
                 transform = next(
                     (t for t in request.meter_transforms if t.port == port), None
                 )
                 assert transform is not None, f"Transform not found for port {port}"
                 analytic_transform = transform
                 time_bounds = request.time_domain.domain.bounds
-                num_points = len(datas[0])
+                num_points = len(divided_chunks[0])
                 await self.log(f"The time bounds are {time_bounds}")
                 t_array = np.linspace(
                     start=time_bounds[0],
                     stop=time_bounds[1],
                     num=num_points,
                 )
-                await self.log(f"The length of the split data is {len(datas)}")
-                for j, data in enumerate(datas):
+                await self.log(f"The length of the split data is {len(divided_chunks)}")
+                for j, data in enumerate(divided_chunks):
                     vectorized_transform = np.vectorize(
                         lambda t: analytic_transform.transform(
                             t=t, **voltage_state_array[j]
@@ -1164,42 +1166,16 @@ class InterpreterDaemon:
         for instr in self.measurement_groups[id]:
             if not instr.getters:
                 continue
-            first_property_map = list(instr.requirements.values())[0]
-            if SUPPORTED_PROPERTIES.STAIRCASE in first_property_map:
-                staircase = first_property_map[SUPPORTED_PROPERTIES.STAIRCASE]
-                assert isinstance(staircase, tuple), (
-                    "STAIRCASE must be a tuple of numbers."
-                )
-                assert isinstance(staircase[1], int), (
-                    "STAIRCASE[1] (num_steps)  must be an integer."
-                )
-                num_steps = staircase[1]
-                for step in range(num_steps):
-                    map = {}
-                    for port, property_map in instr.requirements.items():
-                        staircase = property_map[SUPPORTED_PROPERTIES.STAIRCASE]
-                        assert isinstance(staircase, tuple), (
-                            "STAIRCASE must be a tuple of numbers."
-                        )
-                        v_stop = staircase[4]
-                        assert isinstance(v_stop, float), (
-                            "STAIRCASE[4] (v_stop) must be a float."
-                        )
-                        v_start = staircase[3]
-                        assert isinstance(v_start, float), (
-                            "STAIRCASE[3] (v_start) must be a float."
-                        )
-                        map[port.instrument_facing_name()] = (
-                            (v_stop - v_start) * step / (num_steps - 1)
-                        ) + v_start
-                    name_attribute_maps.append(map)
-            elif SUPPORTED_PROPERTIES.VOLTAGE_STATE in first_property_map:
-                map = {}
-                for port, property_map in instr.requirements.items():
-                    v_state = property_map[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
-                    assert isinstance(v_state, float), "Invalid set command."
-                    map[port.instrument_facing_name()] = v_state
-                name_attribute_maps.append(map)
+            buffered_maps = []
+            standard_set_map = instr.retrieve_voltage_states()
+            if num_divisions := instr.contains_buffered_measurement():
+                buffered_maps = instr.retrieve_buffered_voltage_states(num_divisions)
+            if buffered_maps:
+                for map in buffered_maps:
+                    total = {**standard_set_map, **map}
+                    name_attribute_maps.append(total)
+            else:
+                name_attribute_maps.append(standard_set_map)
         return name_attribute_maps
 
     def get_data_point_counter_per_queue(
