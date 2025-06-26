@@ -253,7 +253,12 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 	if !found {
 		h.logger.Error(
 			MeasureCommandHandlerName,
-			"Received "+UploadDataName+" but no pending measurements found",
+			fmt.Sprintf(
+				"Received %s but no pending measurements found for ProcessId %d. The available IDs are %v",
+				UploadDataName,
+				id,
+				getKeys(h.pendingMeasurements),
+			),
 		)
 		return
 	}
@@ -309,6 +314,14 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 			pendingMeasurement.Hash,
 		),
 	)
+}
+
+func getKeys[K comparable, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	return keys
 }
 
 // sendProcessRequest sends a PROCESS_REQUEST to the interpreter

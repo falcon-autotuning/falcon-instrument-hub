@@ -357,6 +357,7 @@ class InterpreterDaemon:
             response: The measurement response to send.
             id: The ID of the measurement.
         """
+        await self.log(f"Preparing to upload data for ProcessID: {id}")
         data_channel = f"measurement.data.{id}"
         message = json.dumps(
             {
@@ -1063,6 +1064,7 @@ class InterpreterDaemon:
             data_arrays=final_data,
             shape=shape,
         )
+        await self.log(f"Finishing making a response for ProcessId {id}")
         self.store_in_database(
             response=response,
             request=request,
