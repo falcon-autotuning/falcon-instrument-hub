@@ -630,108 +630,126 @@ async def test_full_measurement_flow(
     jetstream_data = None
 
     # Create JetStream context
-    js = nats_client.jetstream()
+    nats_client.jetstream()
+
+    async def data_handler(data_msg):
+        """Handle the actual measurement data from JetStream."""
+        try:
+            nonlocal measurement_response, jetstream_data
+            jetstream_data = json.loads(data_msg.data.decode())
+            print(
+                f"📊 Received measurement data from JetStream: {list(jetstream_data.keys())}"
+            )
+
+            # Extract the actual measurement response
+            if "data" in jetstream_data:
+                measurement_response = jetstream_data["data"]
+                print(
+                    f"✅ Extracted measurement response with keys: {list(measurement_response.keys()) if isinstance(measurement_response, dict) else type(measurement_response)}"
+                )
+            else:
+                measurement_response = jetstream_data
+                print("✅ Using full JetStream data as measurement response")
+
+        except Exception as e:
+            print(f"❌ Error processing JetStream data: {e}")
+            print(f"Raw JetStream message: {data_msg.data.decode()}")
 
     async def upload_handler(msg):
         """Handle upload notifications and extract data from JetStream."""
         try:
             upload_data = json.loads(msg.data.decode())
             upload_msgs.append(upload_data)
-
             print(f"📦 Received upload notification: {upload_data}")
 
-            # Extract JetStream parameters
-            data = upload_data.get(RUNTIME_COMMANDS.UPLOAD_DATA.DATA)
-            data_channel = data.get("data_channel")
-            stream_name = data.get("stream_name")
+            # First, check if we have response data
+            response_data = upload_data.get(RUNTIME_COMMANDS.MEASURE_RESPONSE.RESPONSE)
+            if not response_data:
+                print("⚠️  No response data found in upload notification")
+                print(f"Available keys: {list(upload_data.keys())}")
+                return
 
-            if data_channel and stream_name:
+            # Try to parse the response data
+            try:
+                unpacked_data = json.loads(response_data)
+            except json.JSONDecodeError as e:
+                print(f"❌ Failed to parse response data as JSON: {e}")
+                print(f"Raw response data: {response_data}")
+                return
+
+            # Check for required JetStream parameters
+            data_channel = unpacked_data.get("data_channel")
+            stream_name = unpacked_data.get("stream_name")
+
+            if not data_channel:
+                print("⚠️  Missing data_channel in response")
+                print(f"Available keys in response: {list(unpacked_data.keys())}")
+                return
+
+            if not stream_name:
+                print("⚠️  Missing stream_name in response")
+                print(f"Available keys in response: {list(unpacked_data.keys())}")
+                return
+
+            print(f"🌊 JetStream info - Channel: {data_channel}, Stream: {stream_name}")
+
+            # Now try to access JetStream
+            try:
+                js = nats_client.jetstream()
+                print("✅ JetStream context created")
+            except Exception as js_setup_error:
+                print(f"❌ Failed to create JetStream context: {js_setup_error}")
+                return
+
+            # Check if stream exists
+            try:
+                stream_info = await js.stream_info(stream_name)
                 print(
-                    f"🌊 JetStream info - Channel: {data_channel}, Stream: {stream_name}"
+                    f"📊 Stream info: {stream_info.state.messages} messages in stream {stream_name}"
                 )
+            except Exception as stream_info_error:
+                print(
+                    f"❌ Failed to get stream info for {stream_name}: {stream_info_error}"
+                )
+                return
 
-                try:
-                    # Subscribe to the data channel to get the measurement data
-                    print(f"📡 Subscribing to data channel: {data_channel}")
+            # Check if there are messages
+            if stream_info.state.messages == 0:
+                print("⚠️  No messages found in stream")
+                return
 
-                    async def data_handler(data_msg):
-                        """Handle the actual measurement data from JetStream."""
-                        try:
-                            nonlocal measurement_response, jetstream_data
-                            jetstream_data = json.loads(data_msg.data.decode())
-                            print(
-                                f"📊 Received measurement data from JetStream: {list(jetstream_data.keys())}"
-                            )
+            # Try to get the message
+            try:
+                print(f"📥 Attempting to fetch message from subject: {data_channel}")
+                msg_data = await js.get_last_msg(stream_name, data_channel)
+                print("✅ Successfully retrieved message from JetStream")
+            except Exception as fetch_error:
+                print(f"❌ Failed to fetch message: {fetch_error}")
+                return
 
-                            # Extract the actual measurement response
-                            if "data" in jetstream_data:
-                                measurement_response = jetstream_data["data"]
-                                print(
-                                    f"✅ Extracted measurement response with keys: {list(measurement_response.keys()) if isinstance(measurement_response, dict) else type(measurement_response)}"
-                                )
-                            else:
-                                measurement_response = jetstream_data
-                                print(
-                                    "✅ Using full JetStream data as measurement response"
-                                )
+            # Parse the JetStream message
+            try:
+                nonlocal measurement_response, jetstream_data
+                jetstream_data = json.loads(msg_data.data.decode())
+                print(f"📊 JetStream message keys: {list(jetstream_data.keys())}")
+            except json.JSONDecodeError as parse_error:
+                print(f"❌ Failed to parse JetStream message: {parse_error}")
+                print(f"Raw message data: {msg_data.data.decode()}")
+                return
 
-                        except Exception as e:
-                            print(f"❌ Error processing JetStream data: {e}")
-                            print(f"Raw JetStream message: {data_msg.data.decode()}")
-
-                    # Subscribe to the data channel
-                    sub = await js.subscribe(data_channel, cb=data_handler)
-                    print(
-                        f"✅ Successfully subscribed to JetStream channel: {data_channel}"
-                    )
-
-                    # Try to pull any existing messages from the stream
-                    try:
-                        # Get stream info to see if there are messages
-                        stream_info = await js.stream_info(stream_name)
-                        print(
-                            f"📊 Stream info: {stream_info.state.messages} messages in stream {stream_name}"
-                        )
-
-                        if stream_info.state.messages > 0:
-                            print(
-                                "📥 Attempting to fetch existing messages from stream"
-                            )
-                            # Pull messages manually if subscription doesn't catch them
-                            consumer_info = await js.consumer_info(
-                                stream_name, sub._consumer
-                            )
-                            print(f"📥 Consumer info: {consumer_info}")
-
-                    except Exception as stream_error:
-                        print(f"ℹ️  Could not get stream info: {stream_error}")
-
-                except Exception as js_error:
-                    print(f"❌ Error setting up JetStream subscription: {js_error}")
-                    # Try alternative approach - direct message retrieval
-                    try:
-                        print(
-                            f"🔄 Trying direct message retrieval from stream {stream_name}"
-                        )
-                        stream_info = await js.stream_info(stream_name)
-                        if stream_info.state.messages > 0:
-                            # Get the latest message
-                            msg = await js.get_last_msg(stream_name, data_channel)
-                            nonlocal measurement_response, jetstream_data
-                            jetstream_data = json.loads(msg.data.decode())
-                            measurement_response = jetstream_data.get(
-                                "data", jetstream_data
-                            )
-                            print("✅ Retrieved message directly from stream")
-                    except Exception as direct_error:
-                        print(f"❌ Direct retrieval also failed: {direct_error}")
+            # Extract measurement data
+            if "data" in jetstream_data:
+                measurement_response = jetstream_data["data"]
+                print("✅ Extracted measurement data from 'data' key")
             else:
-                print(
-                    f"⚠️  Missing JetStream parameters - data_channel: {data_channel}, stream_name: {stream_name}"
-                )
+                measurement_response = jetstream_data
+                print("✅ Using full JetStream message as measurement response")
 
+        except json.JSONDecodeError as json_error:
+            print(f"❌ Failed to parse upload notification: {json_error}")
+            print(f"Raw message: {msg.data.decode()}")
         except Exception as e:
-            print(f"❌ Error processing upload message: {e}")
+            print(f"❌ Unexpected error processing upload message: {e}")
             print(f"Raw message: {msg.data.decode()}")
 
     # Subscribe to upload notifications
