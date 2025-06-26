@@ -154,6 +154,7 @@ func (h *MeasurementReadyHandler) sendProcessData(
 	processData := api.ProcessData{
 		Data:      string(dataBytes),
 		ProcessId: int64(measurementID.ProcessId),
+		ChunkId:   int64(measurementID.ChunkId),
 		Timestamp: time.Now().UnixMicro(),
 	}
 	processDataBytes, err := json.Marshal(processData)

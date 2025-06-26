@@ -674,8 +674,8 @@ async def test_full_measurement_flow(
     cleanup_instruments,
 ):
     """Test a complete measurement flow from request to data upload."""
-    max_wait_time = 8.2
-    check_interval = 1.0
+    max_wait_time = 2.2
+    check_interval = 0.1
     elapsed_time = 0.0
     upload_msgs = []
 
