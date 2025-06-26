@@ -108,6 +108,8 @@ test-outs/log/falcon-runtime_2025-06-25_17-44-22.log
 test-outs/log/falcon-runtime_2025-06-25_17-44-22_sorted.log
 test-outs/log/falcon-runtime_2025-06-25_20-00-25.log
 test-outs/log/falcon-runtime_2025-06-25_20-00-25_sorted.log
+test-outs/log/falcon-runtime_2025-06-26_09-38-30.log
+test-outs/log/falcon-runtime_2025-06-26_09-38-30_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py
