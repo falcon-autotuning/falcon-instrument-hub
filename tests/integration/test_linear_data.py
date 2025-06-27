@@ -10,8 +10,8 @@ from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
 from falcon_core.instrument_interfaces.names import Knob, Meters
 from falcon_core.instrument_interfaces.names.ports import Ports
-from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
-    IdentityTransform,
+from falcon_core.instrument_interfaces.port_transforms.constant_transform import (
+    ConstantTransform,
 )
 from falcon_core.instrument_interfaces.waveforms.cartesian_waveform import (
     CartesianWaveform,
@@ -283,7 +283,7 @@ def measurement_request(
             units=Units.SECOND,
         )
     )
-    transform = IdentityTransform(port=meters[0], ports=Ports(knobs + [meters[0]]))
+    transform = ConstantTransform(ports=Ports(knobs + [meters[0]]), scale=1.0)
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
