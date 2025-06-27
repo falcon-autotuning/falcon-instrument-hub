@@ -127,8 +127,9 @@ test-outs/data/2025/06/27/41.h5
 test-outs/data/2025/06/27/42.h5
 test-outs/data/2025/06/27/43.h5
 test-outs/data/2025/06/27/44.h5
+test-outs/data/2025/06/27/45.h5
+test-outs/data/2025/06/27/46.h5
 test-outs/datacache/measurements.db
-test-outs/log/falcon-runtime_2025-06-25_17-26-20.log
 test-outs/log/falcon-runtime_2025-06-25_17-26-20_sorted.log
 test-outs/log/falcon-runtime_2025-06-25_17-30-28.log
 test-outs/log/falcon-runtime_2025-06-25_17-30-28_sorted.log
@@ -198,6 +199,9 @@ test-outs/log/falcon-runtime_2025-06-27_09-38-08_sorted.log
 test-outs/log/falcon-runtime_2025-06-27_09-46-29.log
 test-outs/log/falcon-runtime_2025-06-27_09-47-00.log
 test-outs/log/falcon-runtime_2025-06-27_09-47-00_sorted.log
+test-outs/log/falcon-runtime_2025-06-27_09-50-58.log
+test-outs/log/falcon-runtime_2025-06-27_09-51-29.log
+test-outs/log/falcon-runtime_2025-06-27_09-51-29_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_standard_linear_measurement.png
