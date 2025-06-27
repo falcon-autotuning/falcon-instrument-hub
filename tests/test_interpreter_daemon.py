@@ -12,7 +12,13 @@ import numpy as np
 import pytest
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import InstrumentPort, Knob, Meter, Meters
+from falcon_core.instrument_interfaces.names import (
+    InstrumentPort,
+    Knob,
+    Knobs,
+    Meter,
+    Meters,
+)
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
     IdentityTransform,
 )
@@ -515,9 +521,19 @@ class TestInterpreterDaemon:
             # Call upload_data
             await interpreter_daemon.upload_data(response, id=1)
 
-            # Verify the correct message was published
-            mock_client.publish.assert_called_once()
-            args = mock_client.publish.call_args[0]
+            # Verify the correct message was published to UPLOAD_DATA channel
+            # The method may also call log(), so we need to check for the specific call
+            upload_calls = [
+                call
+                for call in mock_client.publish.call_args_list
+                if call[0][0] == INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL
+            ]
+            assert len(upload_calls) == 1, (
+                f"Expected 1 UPLOAD_DATA call, got {len(upload_calls)}"
+            )
+
+            # Verify the upload call has correct arguments
+            args = upload_calls[0][0]
             assert args[0] == INTERPRETER_RUNTIME_COMMANDS.UPLOAD_DATA.COMM_CHANNEL
 
     @pytest.mark.asyncio
@@ -579,7 +595,6 @@ class TestInterpreterDaemon:
         )
 
         interpreter_daemon.average_shapeless_data.assert_called_once_with(
-            number_of_bins=3,
             request=mock_request,
             voltage_state_array=[{"device1": 1.0}],
             aligned_sub_chunks=[
@@ -819,10 +834,18 @@ class TestInterpreterDaemon:
                 units=Units.SECOND,
             )
         )
-        transform = IdentityTransform(port=meters[0], ports=Meters(ports))
+        knobs.append(
+            Knob(
+                default_name="clock",
+                instrument_type=INSTRUMENT_TYPES.CLOCK,
+                units=Units.SECOND,
+            )
+        )
+        transform = IdentityTransform(port=knobs[0], ports=Knobs(knobs))
         return MeasurementRequest(
             message="test measurement",
             measurement_name="integration_test",
+            getters=Meters(meters),
             waveforms=[waveform],
             meter_transforms=[transform],
         )
