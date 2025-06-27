@@ -847,7 +847,7 @@ class TestInterpreterDaemon:
             measurement_name="integration_test",
             getters=Meters(meters),
             waveforms=[waveform],
-            meter_transforms=[transform],
+            meter_transforms={meters[0]: transform},
         )
 
     @pytest.fixture
@@ -1277,15 +1277,13 @@ class TestInterpreterDaemon:
 
             # Step 2: Simulate data collection from multiple chunks
             # Get the meter ports from the measurement request
-            meter_ports = [
-                transform.port for transform in measurement_request.meter_transforms
-            ]
+            meters = measurement_request.getters
 
             # Simulate receiving data for each chunk
             for chunk_id in range(data_count):
                 # Create realistic measurement data
                 chunk_data = {}
-                for port in meter_ports:
+                for port in meters:
                     # Generate some test data for this port/chunk
                     data_points = [float(chunk_id + i + 1) * 0.1 for i in range(10)]
                     chunk_data[port] = MeasuredArray1D(data_points)

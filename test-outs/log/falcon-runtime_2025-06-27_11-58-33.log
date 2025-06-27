@@ -1,0 +1,171 @@
+[2025-06-27 11:58:33.612367] [INFO] [SYSTEM] Logger initialized
+[2025-06-27 11:58:33.612369] [INFO] [SYSTEM] Log file: /home/tylerk/Documents/instrument-server/test-outs/log/falcon-runtime_2025-06-27_11-58-33.log
+[2025-06-27 11:58:33.612876] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-27 11:58:33.641710] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-27 11:58:33.641721] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-27 11:58:34.366542] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-27 11:58:34.366547] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:34.366549] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-27 11:58:35.699707] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:35.699713] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-27 11:58:35.699715] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-27 11:58:36.979694] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-27 11:58:36.979699] [INFO] [VENV] Installing package with uv: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-27 11:58:36.979702] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main'"
+[2025-06-27 11:58:38.852864] [INFO] [VENV] Successfully installed package: instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main
+[2025-06-27 11:58:38.852872] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:38.852875] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-27 11:58:40.084378] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:40.084384] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv
+[2025-06-27 11:58:40.084389] [INFO] [VENV] Creating Python virtual environment at: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-27 11:58:40.111355] [INFO] [VENV] Installing package with uv: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-27 11:58:40.111365] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev'"
+[2025-06-27 11:58:40.792730] [INFO] [VENV] Successfully installed package: falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
+[2025-06-27 11:58:40.792735] [INFO] [VENV] Installing package with uv: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:40.792738] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-27 11:58:42.020083] [INFO] [VENV] Successfully installed package: instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:42.020088] [INFO] [VENV] Installing package with uv: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-27 11:58:42.020096] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev'"
+[2025-06-27 11:58:43.266253] [INFO] [VENV] Successfully installed package: server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev
+[2025-06-27 11:58:43.266257] [INFO] [VENV] Installing package with uv: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:43.266260] [INFO] [VENV] Executing: sh -c ". /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/activate && uv pip install 'instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev'"
+[2025-06-27 11:58:44.498886] [INFO] [VENV] Successfully installed package: instrument-templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+[2025-06-27 11:58:44.498891] [INFO] [VENV] Python virtual environment packages installed in: /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv
+[2025-06-27 11:58:44.498957] [DEBUG] [INSTRUMENT_HANDLER] Destroy worker started
+[2025-06-27 11:58:44.498960] [INFO] [HANDLER_MANAGER] Starting handler manager
+[2025-06-27 11:58:44.498973] [INFO] [LOG_HANDLER] Subscribed to LOG.> channels
+[2025-06-27 11:58:44.498985] [INFO] [DEVICE_CONFIG_HANDLER] Subscribed to DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-27 11:58:44.498987] [INFO] [INSTRUMENT_HANDLER] Setting up instrument handler subscriptions
+[2025-06-27 11:58:44.499090] [INFO] [INSTRUMENT_HANDLER] Script updated at scripts/launch_instrument_daemon.py
+[2025-06-27 11:58:44.499186] [INFO] [INSTRUMENT_HANDLER] Subscribed to SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.*
+[2025-06-27 11:58:44.499219] [INFO] [INSTRUMENT_HANDLER] Subscribed to DESTROY_INSTRUMENT on subject: DESTROY_INSTRUMENT.external.*
+[2025-06-27 11:58:44.499222] [INFO] [INSTRUMENT_HANDLER] Subscribed to CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.*
+[2025-06-27 11:58:44.499225] [INFO] [INSTRUMENT_HANDLER] Subscribed to UPDATE_DAEMON_PROPERTY on subject: UPDATE_DAEMON_PROPERTY.instrument-server
+[2025-06-27 11:58:44.499225] [INFO] [INSTRUMENT_HANDLER] Instrument handler subscriptions ready
+[2025-06-27 11:58:44.499228] [INFO] [INTERPRETER_HANDLER] Starting interpreter handler
+[2025-06-27 11:58:44.499327] [INFO] [INTERPRETER_HANDLER] Interpreter script updated at scripts/launch_interpreter.py
+[2025-06-27 11:58:44.499341] [DEBUG] [INTERPRETER_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py
+[2025-06-27 11:58:44.499364] [INFO] [INTERPRETER_HANDLER] Starting interpreter daemon 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/interpreter_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_interpreter.py 
+ nats URL nats://localhost:4222
+[2025-06-27 11:58:44.499907] [INFO] [INTERPRETER_HANDLER] Started interpreter with PID 42019
+[2025-06-27 11:58:44.499910] [INFO] [INTERPRETER_HANDLER] Interpreter handler started successfully
+[2025-06-27 11:58:44.499917] [INFO] [BUSY_HANDLER] Subscribed to BUSY.external.* channels
+[2025-06-27 11:58:44.499925] [INFO] [MEASURE_COMMAND_HANDLER] Subscribed to MEASURE_COMMAND.external.> and UPLOAD_DATA
+[2025-06-27 11:58:44.499928] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Subscribed to PERFORM_INSTRUMENT_METHOD.external.instrument-server
+[2025-06-27 11:58:44.499930] [INFO] [PORT_REQUEST_HANDLER] Subscribed to PORT_REQUEST.external.>
+[2025-06-27 11:58:44.499945] [INFO] [MEASUREMENT_READY_HANDLER] Subscribed to MEASUREMENT_READY, ARMED, EXECUTING, RETURN_DATA
+[2025-06-27 11:58:44.499948] [INFO] [STATUS_HANDLER] Started publishing status messages every 4 seconds
+[2025-06-27 11:58:44.499956] [INFO] [HANDLER_MANAGER] All handlers started successfully
+[2025-06-27 11:58:44.500061] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-27 11:58:45.160180] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Connected to NATS server at nats://localhost:4222
+[2025-06-27 11:58:45.160348] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_REQUEST
+[2025-06-27 11:58:45.160424] [INFO] [EXTERNAL] [LOG.interpreter] [HASH:0] Subscribed to channel: PROCESS_DATA
+[2025-06-27 11:58:48.500357] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-27 11:58:49.615957] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1751043529615721}
+[2025-06-27 11:58:49.616008] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 0 instruments
+[2025-06-27 11:58:49.616009] [DEBUG] [INSTRUMENT_HANDLER] Collected 0 knobs and 0 meters
+[2025-06-27 11:58:49.616023] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-27 11:58:49.616035] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-27 11:58:49.616039] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-27 11:58:49.616067] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-27 11:58:49.616131] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-27 11:58:49.616151] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument LargeMultiChannelDAC 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-27 11:58:49.616697] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument LargeMultiChannelDAC 
+ pid 42171
+[2025-06-27 11:58:49.616701] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: LargeMultiChannelDAC
+[2025-06-27 11:58:49.616703] [INFO] [INSTRUMENT_HANDLER] Received SETUP_INSTRUMENT on subject: SETUP_INSTRUMENT.external.TestExternalProcess
+[2025-06-27 11:58:49.616726] [DEBUG] [INSTRUMENT_HANDLER] Using script path: /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py
+[2025-06-27 11:58:49.616728] [INFO] [INSTRUMENT_HANDLER] Starting instrument daemon 
+ instrument MultiChannelAmnmeter 
+ python interpreter /home/tylerk/Documents/instrument-server/test-outs/instrument_env/venv/bin/python 
+ script path /home/tylerk/Documents/instrument-server/test-outs/scripts/launch_instrument_daemon.py 
+ nats URL nats://localhost:4222
+[2025-06-27 11:58:49.617393] [INFO] [INSTRUMENT_HANDLER] Instrument daemon started successfully 
+ instrument MultiChannelAmnmeter 
+ pid 42172
+[2025-06-27 11:58:49.617395] [INFO] [INSTRUMENT_HANDLER] Successfully started instrument: MultiChannelAmnmeter
+[2025-06-27 11:58:50.297482] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Connected to NATS successfully
+[2025-06-27 11:58:50.301003] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Instrument config released for MultiChannelAmnmeter
+[2025-06-27 11:58:50.301889] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.MultiChannelAmnmeter
+[2025-06-27 11:58:50.301085] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Setup all subscriptions for MultiChannelAmnmeter
+[2025-06-27 11:58:50.301102] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] Daemon MultiChannelAmnmeter running, waiting for shutdown signal...
+[2025-06-27 11:58:50.301903] [INFO] [EXTERNAL] [LOG.MultiChannelAmnmeter] [HASH:0] NATS connected: listening on amnmeter.data
+[2025-06-27 11:58:50.302767] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: MultiChannelAmnmeter
+[2025-06-27 11:58:50.302974] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument MultiChannelAmnmeter
+[2025-06-27 11:58:50.291949] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Connected to NATS successfully
+[2025-06-27 11:58:50.312697] [INFO] [INSTRUMENT_HANDLER] Received CONFIRM_INITIALIZATION on subject: CONFIRM_INITIALIZATION.LargeMultiChannelDAC
+[2025-06-27 11:58:50.311617] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Instrument config released for LargeMultiChannelDAC
+[2025-06-27 11:58:50.311727] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Setup all subscriptions for LargeMultiChannelDAC
+[2025-06-27 11:58:50.311744] [INFO] [EXTERNAL] [LOG.LargeMultiChannelDAC] [HASH:0] Daemon LargeMultiChannelDAC running, waiting for shutdown signal...
+[2025-06-27 11:58:50.317579] [INFO] [INSTRUMENT_HANDLER] Successfully initialized instrument: LargeMultiChannelDAC
+[2025-06-27 11:58:50.317943] [DEBUG] [INSTRUMENT_HANDLER] Successfully processed ports for instrument LargeMultiChannelDAC
+[2025-06-27 11:58:52.500584] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-27 11:58:53.617654] [DEBUG] [PORT_REQUEST_HANDLER] Received PORT_REQUEST : {"timestamp": 1751043533617014}
+[2025-06-27 11:58:53.617682] [DEBUG] [INSTRUMENT_HANDLER] Collecting port properties from 2 instruments
+[2025-06-27 11:58:53.617749] [DEBUG] [INSTRUMENT_HANDLER] Collected 100 knobs and 10 meters
+[2025-06-27 11:58:53.618032] [DEBUG] [PORT_REQUEST_HANDLER] Marshalling response
+[2025-06-27 11:58:53.618285] [DEBUG] [PORT_REQUEST_HANDLER] Finished marshalling response
+[2025-06-27 11:58:53.618400] [DEBUG] [PORT_REQUEST_HANDLER] Sent  PORT_PAYLOAD 
+[2025-06-27 11:58:56.500348] [INFO] [STATUS_HANDLER] Published status: true
+[2025-06-27 11:58:58.637856] [INFO] [HANDLER_MANAGER] Stopping handler manager
+[2025-06-27 11:58:58.637865] [INFO] [STATUS_HANDLER] Stopped publishing status messages
+[2025-06-27 11:58:58.637890] [INFO] [MEASUREMENT_READY_HANDLER] Unsubscribed from MEASUREMENT_READY, ARMED, EXECUTING, and RETURN_DATA
+[2025-06-27 11:58:58.637892] [INFO] [PORT_REQUEST_HANDLER] Unsubscribed from PORT_REQUEST.external.>
+[2025-06-27 11:58:58.637900] [INFO] [PERFORM_INSTRUMENT_METHOD_HANDLER] Unsubscribed from PERFORM_ARBITRARY_METHOD
+[2025-06-27 11:58:58.637902] [INFO] [MEASURE_COMMAND_HANDLER] Unsubscribed from MEASURE_COMMAND.external and UPLOAD_DATA
+[2025-06-27 11:58:58.637904] [INFO] [BUSY_HANDLER] Unsubscribed from BUSY.external.* channels
+[2025-06-27 11:58:58.637906] [INFO] [INTERPRETER_HANDLER] Stopping interpreter handler
+[2025-06-27 11:58:58.637906] [INFO] [INTERPRETER_HANDLER] Stopping interpreter during cleanup
+[2025-06-27 11:58:58.637985] [DEBUG] [STATUS_HANDLER] Status publishing loop stopped
+[2025-06-27 11:58:58.643394] [INFO] [INTERPRETER_HANDLER] Interpreter stopped gracefully
+[2025-06-27 11:58:58.643397] [INFO] [INSTRUMENT_HANDLER] Unsubscribing from instrument handler
+[2025-06-27 11:58:58.643398] [INFO] [INSTRUMENT_HANDLER] Attempting to destroy all instruments
+[2025-06-27 11:58:58.643399] [INFO] [INSTRUMENT_HANDLER] Queuing 2 instruments for destruction
+[2025-06-27 11:58:58.643404] [DEBUG] [INSTRUMENT_HANDLER] Queued instrument LargeMultiChannelDAC for destruction
+[2025-06-27 11:58:58.643405] [DEBUG] [INSTRUMENT_HANDLER] Queued instrument MultiChannelAmnmeter for destruction
+[2025-06-27 11:58:58.643424] [INFO] [INSTRUMENT_HANDLER] Processing destruction request for instrument: LargeMultiChannelDAC
+[2025-06-27 11:58:58.643426] [INFO] [INSTRUMENT_HANDLER] Stopping instrument: LargeMultiChannelDAC
+[2025-06-27 11:58:58.643495] [ERROR] [INTERPRETER_HANDLER] Interpreter daemon process exited with error 
+ pid 42019 
+ error waitid: no child processes 
+ exit code -1 
+ runtime 14.143557918 
+ stdout  
+ stderr 
+[2025-06-27 11:58:58.646965] [INFO] [INSTRUMENT_HANDLER] Instrument LargeMultiChannelDAC stopped gracefully
+[2025-06-27 11:58:58.646966] [INFO] [INSTRUMENT_HANDLER] Successfully destroyed instrument: LargeMultiChannelDAC
+[2025-06-27 11:58:58.646967] [INFO] [INSTRUMENT_HANDLER] Processing destruction request for instrument: MultiChannelAmnmeter
+[2025-06-27 11:58:58.646969] [INFO] [INSTRUMENT_HANDLER] Stopping instrument: MultiChannelAmnmeter
+[2025-06-27 11:58:58.647112] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument LargeMultiChannelDAC 
+ pid 42171 
+ error signal: terminated 
+ exit code -1 
+ runtime 9.030397544 
+ stdout  
+ stderr 
+[2025-06-27 11:58:58.649776] [INFO] [INSTRUMENT_HANDLER] Instrument MultiChannelAmnmeter stopped gracefully
+[2025-06-27 11:58:58.649777] [INFO] [INSTRUMENT_HANDLER] Successfully destroyed instrument: MultiChannelAmnmeter
+[2025-06-27 11:58:58.649823] [ERROR] [INSTRUMENT_HANDLER] Instrument daemon process exited with error 
+ instrument MultiChannelAmnmeter 
+ pid 42172 
+ error signal: terminated 
+ exit code -1 
+ runtime 9.032395445 
+ stdout  
+ stderr 
+[2025-06-27 11:58:58.744253] [DEBUG] [INSTRUMENT_HANDLER] Checking if all instruments are destroyed
+[2025-06-27 11:58:58.744254] [INFO] [INSTRUMENT_HANDLER] All instruments successfully destroyed
+[2025-06-27 11:58:58.744268] [INFO] [INSTRUMENT_HANDLER] Successfully unsubscribed from all instrument handler subscriptions
+[2025-06-27 11:58:58.744271] [INFO] [DEVICE_CONFIG_HANDLER] Unsubscribed from DEVICE_CONFIG_REQUEST.external.* channels
+[2025-06-27 11:58:58.744273] [INFO] [LOG_HANDLER] Unsubscribed from LOG.* channels
+[2025-06-27 11:58:58.744273] [INFO] [HANDLER_MANAGER] Handler manager stopped
+[2025-06-27 11:58:58.744355] [DEBUG] [INSTRUMENT_HANDLER] Destroy worker stopped
+[2025-06-27 11:58:58.745772] [INFO] [SYSTEM] Logger shutting down

@@ -1170,7 +1170,7 @@ class InterpreterDaemon:
     async def average_shapeless_data(
         self,
         request: MeasurementRequest,
-        voltage_state_array: list[dict[str, float]],
+        voltage_state_array: list[dict[InstrumentPort, float]],
         aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
     ) -> dict[InstrumentPort, list[float]]:
         """Computes the average over the data and stores it in a 1D array to be reshaped later.
@@ -1201,7 +1201,12 @@ class InterpreterDaemon:
         port_transforms: dict[InstrumentPort, PortTransform] = {}
         for port in all_ports:
             transform = next(
-                (t for t in request.meter_transforms if t.port == port), None
+                (
+                    t
+                    for indexport, t in request.meter_transforms.items()
+                    if indexport == port
+                ),
+                None,
             )
             assert transform is not None, f"Transform not found for port {port}"
             port_transforms[port] = transform
@@ -1229,7 +1234,10 @@ class InterpreterDaemon:
                 vectorized_transform = np.vectorize(
                     lambda t: port_transforms[port].transform(
                         t=t,
-                        **voltage_states,
+                        **{
+                            name.instrument_facing_name(): potential
+                            for name, potential in voltage_states.items()
+                        },
                     )  # type : ignore[reportOptionalMemberAccess]
                 )
                 transformed = vectorized_transform(t_array)
@@ -1280,7 +1288,9 @@ class InterpreterDaemon:
             num=num_points,
         )
 
-    async def preprocess_voltage_states(self, id: "ID") -> list[dict[str, float]]:
+    async def preprocess_voltage_states(
+        self, id: "ID"
+    ) -> list[dict[InstrumentPort, float]]:
         """Preprocesses the voltage states for the measurement.
 
         Modifies the setup stored in teh measurement_groups.
@@ -1291,7 +1301,7 @@ class InterpreterDaemon:
         Returns:
             the preprocessed voltage states.
         """
-        name_attribute_maps: list[dict[str, float]] = []
+        name_attribute_maps: list[dict[InstrumentPort, float]] = []
         await self.log(
             f"Beginning to preprocess voltage states for measurement id {id}"
         )

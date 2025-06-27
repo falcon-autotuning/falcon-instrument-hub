@@ -103,16 +103,16 @@ class Instruction:
             f"buffered={self._buffered})"
         )
 
-    def retrieve_voltage_states(self) -> dict[str, float]:
+    def retrieve_voltage_states(self) -> dict["InstrumentPort", float]:
         """Unpacks the requirements to get any setters that are setting voltage states."""
-        map: dict[str, float] = {}
+        map: dict[InstrumentPort, float] = {}
         for port, requirements in self.requirements.items():
             if port not in self.setters:
                 continue
             if SUPPORTED_PROPERTIES.VOLTAGE_STATE in requirements:
                 v_state = requirements[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
                 assert isinstance(v_state, float)
-                map[port.instrument_facing_name()] = v_state
+                map[port] = v_state
 
         return map
 
@@ -132,27 +132,28 @@ class Instruction:
                 return staircase[1]
         return 0
 
-    def seperate_buffered_requirements(self) -> list[tuple[str, "PropertyValue"]]:
+    def seperate_buffered_requirements(
+        self,
+    ) -> list[tuple["InstrumentPort", "PropertyValue"]]:
         """Seperates the buffered measurements from the rest."""
-        outs: list[tuple[str, PropertyValue]] = []
+        outs: list[tuple[InstrumentPort, PropertyValue]] = []
         for port, requirements in self.requirements.items():
             if port not in self.setters:
                 continue
             if SUPPORTED_PROPERTIES.STAIRCASE in requirements:
-                name = port.instrument_facing_name()
                 staircase = requirements[SUPPORTED_PROPERTIES.STAIRCASE]
-                outs.append((name, staircase))
+                outs.append((port, staircase))
 
         return outs
 
     def retrieve_buffered_voltage_states(
         self, num_steps: int
-    ) -> list[dict[str, float]]:
+    ) -> list[dict["InstrumentPort", float]]:
         """Unpacks the requirements to get any setters that are setting buffered voltage states."""
-        maps: list[dict[str, float]] = []
+        maps: list[dict[InstrumentPort, float]] = []
         for i in range(num_steps):
             for name, staircase in self.seperate_buffered_requirements():
-                map: dict[str, float] = {}
+                map: dict[InstrumentPort, float] = {}
                 assert isinstance(staircase, tuple), (
                     "STAIRCASE must be a tuple of numbers."
                 )

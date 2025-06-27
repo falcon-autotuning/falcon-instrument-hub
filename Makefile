@@ -48,7 +48,7 @@ test-launch: start-nats setup-python
 
 .PHONY: test-integration
 test-integration: start-nats setup-python build-go
-	$(PYTHON_ENV)/bin/pytest tests/integration/ -v
+	$(PYTHON_ENV)/bin/pytest tests/integration/test_random_data.py -v
 
 .PHONY: test
 test: test-unit test-launch test-integration

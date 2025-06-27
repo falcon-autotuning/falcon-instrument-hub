@@ -331,7 +331,7 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
         getters=Meters(meters),
         measurement_name="integration_test",
         waveforms=[waveform],
-        meter_transforms=[transform],
+        meter_transforms={meters[0]: transform},
     )
 
     # Send process request
