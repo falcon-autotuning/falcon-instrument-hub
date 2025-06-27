@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import Knobs, Meter, Meters
+from falcon_core.instrument_interfaces.names import Knob, Knobs, Meters
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
     IdentityTransform,
 )
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     from falcon_core.communications.messages.measurement_response import (
         MeasurementResponse,
     )
-    from falcon_core.instrument_interfaces.names import Knob
+    from falcon_core.instrument_interfaces.names import Meter
     from instrument_templates.typing import Index
 
 
@@ -175,7 +175,7 @@ def wiremap():
 
 
 @pytest.fixture
-def knobs(daemon_health_monitoring: tuple[list["Knob"], list[Meter]]):
+def knobs(daemon_health_monitoring: tuple[list["Knob"], list["Meter"]]):
     """Returns a list of active knobs."""
     selected_knobs = []
     active_knobs, _ = daemon_health_monitoring
@@ -188,7 +188,7 @@ def knobs(daemon_health_monitoring: tuple[list["Knob"], list[Meter]]):
 
 
 @pytest.fixture
-def meters(daemon_health_monitoring: tuple[list["Knob"], list[Meter]]):
+def meters(daemon_health_monitoring: tuple[list["Knob"], list["Meter"]]):
     """Returns a list of active meters."""
     selected_meters = []
     _, active_meters = daemon_health_monitoring
@@ -256,7 +256,7 @@ def fullPointCount() -> int:
 @pytest.fixture
 def measurement_request(
     knobs: list["Knob"],
-    meters: list[Meter],
+    meters: list["Meter"],
     datapoints_time: float,
     fullPointCount: int,
 ):
@@ -275,9 +275,9 @@ def measurement_request(
     waveform = CartesianWaveform(space=space, transforms=[])
     ports: list[Meter] = []
     ports.extend(meters)
-    ports.append(
-        Meter(
-            default_name="timer",
+    knobs.append(
+        Knob(
+            default_name="clock",
             instrument_type=INSTRUMENT_TYPES.CLOCK,
             units=Units.SECOND,
         )
@@ -302,7 +302,7 @@ def measurement_request(
 @pytest.mark.asyncio
 async def test_linear_measurement(
     measurement_response: "MeasurementResponse",
-    meters: list[Meter],
+    meters: list["Meter"],
     temp_dir: Path,
     cleanup_instruments,  # needs to be there to ensure instruments are clearned up after tests
 ):
