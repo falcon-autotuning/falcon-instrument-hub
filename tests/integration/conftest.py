@@ -302,7 +302,7 @@ async def setup_instruments(
     if not (active_knobs or active_meters):
         pytest.fail(f"No instruments became available after {elapsed_time:.1f}s")
 
-    inject_amnmeter_data
+    await inject_amnmeter_data()
 
     return active_knobs, active_meters
 
@@ -327,31 +327,37 @@ def injectionData() -> dict["Index", list[float]]:
     return {}
 
 
-@pytest_asyncio.fixture
-async def inject_amnmeter_data(injectionData: dict["Index", list[float]], nats_client):
+@pytest.fixture
+def inject_amnmeter_data(injectionData: dict["Index", list[float]], nats_client):
     """Injects the amnmeter data into the test environment if supplied.
 
     Args:
         injectionData: The data to inject per index of the amnmeter.
         nats_client: The NATS client for publishing messages.
     """
-    try:
-        for index, data in injectionData.items():
-            measurement_msg = {
-                "index": index,
-                "values": data,
-            }
 
-            await nats_client.publish(
-                "amnmeter.data",
-                json.dumps(measurement_msg).encode(),
-            )
-            print(f"📊 Injected data for amnmeter index {index}: {len(data)} values")
-            await asyncio.sleep(0.01)  # Allow some time for processing
-        return True
-    except Exception as e:
-        print(f"❌ Failed to inject amnmeter data: {e}")
-        return False
+    async def inject_data():
+        try:
+            for index, data in injectionData.items():
+                measurement_msg = {
+                    "index": index,
+                    "values": data,
+                }
+
+                await nats_client.publish(
+                    "amnmeter.data",
+                    json.dumps(measurement_msg).encode(),
+                )
+                print(
+                    f"📊 Injected data for amnmeter index {index}: {len(data)} values"
+                )
+                await asyncio.sleep(0.01)  # Allow some time for processing
+            return True
+        except Exception as e:
+            print(f"❌ Failed to inject amnmeter data: {e}")
+            return False
+
+    return inject_data
 
 
 @pytest_asyncio.fixture(scope="function", autouse=False)

@@ -234,6 +234,7 @@ def injectionData(
     outs: dict[Index, list[float]] = {}
     time_points_per_datapoint = int(sampleRate * datapoints_time)
     for index in indexes:
+        outs[index] = []
         inter0 = intercepts[index][0]
         inter1 = intercepts[index][1]
         m = (inter1[1] - inter0[1]) / (inter1[0] - inter0[0])
@@ -241,7 +242,7 @@ def injectionData(
         for x in range(fullPointCount):
             y = m * x + b
             y_rand = y + np.random.uniform(-10, 10, size=time_points_per_datapoint)
-            outs[index] = y_rand.tolist()
+            outs[index].extend(y_rand.tolist())
 
     return outs
 
