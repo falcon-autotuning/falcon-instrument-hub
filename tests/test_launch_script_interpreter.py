@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import Knob, Meter, Meters
+from falcon_core.instrument_interfaces.names import Knob, Knobs, Meter, Meters
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
     IdentityTransform,
 )
@@ -318,16 +318,17 @@ async def test_process_request_and_data(nats_client, daemon_process, capfd):
     waveform = CartesianWaveform(space=space, transforms=[])
     ports: list[Meter] = []
     ports.extend(meters)
-    ports.append(
-        Meter(
-            default_name="timer",
+    knobs.append(
+        Knob(
+            default_name="clock",
             instrument_type=INSTRUMENT_TYPES.CLOCK,
             units=Units.SECOND,
         )
     )
-    transform = IdentityTransform(port=meters[0], ports=Meters(ports))
+    transform = IdentityTransform(port=knobs[0], ports=Knobs(knobs))
     request = MeasurementRequest(
         message="test measurement",
+        getters=Meters(meters),
         measurement_name="integration_test",
         waveforms=[waveform],
         meter_transforms=[transform],

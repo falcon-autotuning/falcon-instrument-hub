@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import Meter, Meters, Knobs
+from falcon_core.instrument_interfaces.names import Knobs, Meter, Meters
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
     IdentityTransform,
 )

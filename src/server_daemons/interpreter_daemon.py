@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         PropertyName,
         PropertyValue,
         Requirements,
+        Sequence,
         Setters,
         array1D,
     )
@@ -706,11 +707,11 @@ class InterpreterDaemon:
         )
         await self.log("Chunks completed")
         await self.log(f"The chunks are: {chunks}")
-        getters = [transform.port for transform in request.meter_transforms]
+        getters = request.getters
         await self.log("Selected getters for the measurement.")
         sample_rates = self.collect_sample_rates(
             configuration=configuration,
-            getters=getters,
+            getters=getters.ports,
         )
         step_width = self.collect_step_width(request=request)
         number_of_samples = self.calculate_number_of_samples_per_step(
@@ -719,7 +720,7 @@ class InterpreterDaemon:
         )
         for count, chunk in enumerate(chunks):
             instruction = Instruction(
-                getters=getters,
+                getters=getters.ports,
                 buffered=buffered,
             )
             for i, couple_domain in enumerate(axes_domains):
@@ -839,7 +840,7 @@ class InterpreterDaemon:
     def collect_sample_rates(
         self,
         configuration: dict[InstrumentPort, dict["PropertyName", "PropertyJson"]],
-        getters: list[InstrumentPort],
+        getters: "Sequence[InstrumentPort]",
     ) -> dict[InstrumentPort, int]:
         """Colleects and enforces that the samples rates must be integer samples per second."""
         outs = {}

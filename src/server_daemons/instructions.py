@@ -64,7 +64,7 @@ class Instruction:
         instrument: "InstrumentPort",
     ) -> None:
         """Add a getter to the instruction."""
-        self._getters.append(instrument)
+        self._getters = [*self._getters, instrument]
 
     @property
     def setters(self) -> "Setters":
@@ -76,7 +76,7 @@ class Instruction:
         instrument: "InstrumentPort",
     ) -> None:
         """Add a setter to the instruction."""
-        self._setters.append(instrument)
+        self._setters = [*self._setters, instrument]
 
     @property
     def requirements(self) -> "Requirements":

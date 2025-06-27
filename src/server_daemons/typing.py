@@ -1,6 +1,6 @@
 """Typing for the messaging daemon module."""
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
 from falcon_core.instrument_interfaces.names import InstrumentPort
@@ -36,11 +36,12 @@ type Domains = dict[DimensionIndex, Domain]
 type Dimensions = dict[DimensionIndex, Dimension]
 type Metadata = dict[str, str | int | float]
 type ID = int
-type Getters = list[InstrumentPort]
-type Setters = list[InstrumentPort]
+type Getters = Sequence[InstrumentPort]
+type Setters = Sequence[InstrumentPort]
 type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
+    "Sequence",
     "PortTransform",
     "array1D",
     "BaseArray",
