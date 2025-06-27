@@ -1194,7 +1194,7 @@ class InterpreterDaemon:
         )
 
         # Precompute all transforms for all possible ports in sub_chunks
-        all_ports = set()
+        all_ports: set[InstrumentPort] = set()
         for sub_chunk in aligned_sub_chunks:
             all_ports.update(sub_chunk.keys())
 
