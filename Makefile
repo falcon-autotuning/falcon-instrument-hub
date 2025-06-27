@@ -51,7 +51,7 @@ test-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/test_random_data.py -v
 
 .PHONY: test-linear-integration
-test-integration: start-nats setup-python build-go
+test-linear-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/test_linear_data.py -v
 
 .PHONY: test
