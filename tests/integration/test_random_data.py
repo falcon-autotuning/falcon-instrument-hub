@@ -225,7 +225,7 @@ def measurement_request(
             units=Units.SECOND,
         )
     )
-    transform = ConstantTransform(ports=Ports(knobs + [meters[0]]), scale=1.0)
+    transform = ConstantTransform(ports=Ports(knobs), scale=1.0)
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
