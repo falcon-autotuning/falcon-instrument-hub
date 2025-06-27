@@ -229,7 +229,7 @@ def measurement_request(
         message="test measurement",
         measurement_name="integration_test",
         waveforms=[waveform],
-        meter_transforms=[transform],
+        meter_transforms={meters[0]: transform},
         getters=Meters(meters),
         time_domain=KnobDomain(
             default_name="time",
