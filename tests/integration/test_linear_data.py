@@ -8,7 +8,8 @@ import numpy as np
 import pytest
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
-from falcon_core.instrument_interfaces.names import Knob, Knobs, Meters
+from falcon_core.instrument_interfaces.names import Knob, Meters
+from falcon_core.instrument_interfaces.names.ports import Ports
 from falcon_core.instrument_interfaces.port_transforms.identity_transform import (
     IdentityTransform,
 )
@@ -282,7 +283,7 @@ def measurement_request(
             units=Units.SECOND,
         )
     )
-    transform = IdentityTransform(port=knobs[0], ports=Knobs(knobs))
+    transform = IdentityTransform(port=meters[0], ports=Ports(knobs + [meters[0]]))
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
