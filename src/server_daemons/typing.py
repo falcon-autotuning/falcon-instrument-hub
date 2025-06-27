@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from falcon_core.instrument_interfaces.names import InstrumentPort
+from falcon_core.instrument_interfaces.port_transforms import PortTransform
 from falcon_core.math.arrays.base_array import BaseArray
 from falcon_core.math.arrays.measured_array_1D import MeasuredArray1D
 from falcon_core.physics.device_structures import Connection
@@ -40,6 +41,7 @@ type Setters = list[InstrumentPort]
 type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
+    "PortTransform",
     "array1D",
     "BaseArray",
     "MeasuredArray1D",

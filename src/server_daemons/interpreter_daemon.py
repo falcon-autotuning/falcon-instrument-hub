@@ -38,6 +38,7 @@ if TYPE_CHECKING:
         BaseArray,
         Getters,
         NDArray,
+        PortTransform,
         PropertyJson,
         PropertyName,
         PropertyValue,
@@ -1196,7 +1197,7 @@ class InterpreterDaemon:
         for sub_chunk in aligned_sub_chunks:
             all_ports.update(sub_chunk.keys())
 
-        port_transforms: dict[InstrumentPort, Any] = {}
+        port_transforms: dict[InstrumentPort, PortTransform] = {}
         for port in all_ports:
             transform = next(
                 (t for t in request.meter_transforms if t.port == port), None
@@ -1216,6 +1217,14 @@ class InterpreterDaemon:
         for sub_chunk, voltage_states in zip(aligned_sub_chunks, voltage_state_array):
             for port, data in sub_chunk.items():
                 await self.log(f"Data before averaging {data}")
+                await self.log(f"The port we are investigating is {port}")
+                await self.log(
+                    f"The port transform is for {port_transforms[port].port}"
+                )
+                await self.log(f"The voltage states are {voltage_states}")
+                await self.log(
+                    f"The instrument facing name for the port is {port.instrument_facing_name()}"
+                )
                 vectorized_transform = np.vectorize(
                     lambda t: port_transforms[port].transform(
                         t=t,
