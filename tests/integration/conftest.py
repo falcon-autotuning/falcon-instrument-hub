@@ -308,6 +308,18 @@ async def setup_instruments(
 
 
 @pytest.fixture
+def meterIndexes(
+    human_readable_meter_names: list[str], wiremap: dict[str, str]
+) -> list[int]:
+    """Returns the list of used indexes for the ammeter."""
+    outs: list[int] = []
+    for key, value in wiremap.items():
+        if value in human_readable_meter_names:
+            outs.append(int(key.split(".")[-1]))
+    return outs
+
+
+@pytest.fixture
 def knobs(
     daemon_health_monitoring: tuple[list["Knob"], list["Meter"]],
     human_readable_knob_names: list[str],
