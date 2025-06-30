@@ -308,6 +308,38 @@ async def setup_instruments(
 
 
 @pytest.fixture
+def knobs(
+    daemon_health_monitoring: tuple[list["Knob"], list["Meter"]],
+    human_readable_knob_names: list[str],
+):
+    """Returns a list of active knobs."""
+    selected_knobs = []
+    active_knobs, _ = daemon_health_monitoring
+    for knob in active_knobs:
+        if knob.instrument_facing_name() in human_readable_knob_names:
+            selected_knobs.append(knob)
+
+    print(f"Selected knobs for measurement: {selected_knobs}")
+    return selected_knobs
+
+
+@pytest.fixture
+def meters(
+    daemon_health_monitoring: tuple[list["Knob"], list["Meter"]],
+    human_readable_meter_names: list[str],
+):
+    """Returns a list of active meters."""
+    selected_meters = []
+    _, active_meters = daemon_health_monitoring
+    for meter in active_meters:
+        if meter.instrument_facing_name() in human_readable_meter_names:
+            selected_meters.append(meter)
+
+    print(f"Selected meters for measurement: {selected_meters}")
+    return selected_meters
+
+
+@pytest.fixture
 def datapoints_time() -> float:
     """The time for each datapoint in seconds.
     Note: This only supports millisecond resolution.

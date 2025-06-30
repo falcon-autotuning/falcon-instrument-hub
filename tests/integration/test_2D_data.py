@@ -1,4 +1,4 @@
-"""Full system integration test for linear data."""
+"""Full system integration test for collection of 2D dataset."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -177,7 +177,7 @@ def wiremap():
 @pytest.fixture
 def human_readable_knob_names() -> list[str]:
     """Returns the human readable knob names selected."""
-    return ["B3"]
+    return ["B3", "B4"]
 
 
 @pytest.fixture
