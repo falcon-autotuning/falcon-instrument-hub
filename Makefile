@@ -26,7 +26,9 @@ setup-python:
 # Test infrastructure
 .PHONY: start-nats
 start-nats:
-	docker run -d --name $(NATS_CONTAINER) -p 4222:4222 -p 8222:8222 nats --http_port 8222 -js || true
+	docker stop $(NATS_CONTAINER) || true
+	docker rm $(NATS_CONTAINER) || true
+	docker run -d --name $(NATS_CONTAINER) -p 4222:4222 -p 8222:8222 nats --http_port 8222 -js
 	sleep 2
 
 .PHONY: stop-nats
