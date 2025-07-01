@@ -1,5 +1,4 @@
 import asyncio
-import contextlib
 import json
 import os
 import subprocess
@@ -218,31 +217,41 @@ async def go_runtime_process(
         yield status_msgs
 
     finally:
-        # Cancel output monitoring
+        # Cancel output monitoring FIRST
+        print("Cancelling output monitoring...")
         output_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await output_task
 
-        # Check if process died during execution
-        if process.poll() is not None and process.returncode != 0:
-            print(f"Go process died. Exit code: {process.returncode}")
+        # Wait briefly for cancellation, then move on
+        try:
+            await asyncio.wait_for(output_task, timeout=1.0)
+        except TimeoutError:
+            print("Output monitoring cancelled/timed out - proceeding with termination")
 
-        # Read any remaining output
+        # Terminate the process immediately
+        print("Terminating Go process...")
+        if process.poll() is None:
+            process.terminate()
+
+        # Try to read remaining output briefly, then give up
         try:
             if process.stdout is not None:
-                remaining_output = process.stdout.read()
+                remaining_output = await asyncio.wait_for(
+                    asyncio.to_thread(process.stdout.read), timeout=1.0
+                )
                 if remaining_output:
                     print(f"REMAINING OUTPUT:\n{remaining_output}")
-        except Exception as e:
-            print(f"Error reading remaining output: {e}")
+        except TimeoutError:
+            print("Timeout/error reading remaining output - skipping")
 
-        # Cleanup
-        process.terminate()
+        # Wait briefly for clean termination, then force kill
         try:
-            process.wait(timeout=5)
-        except subprocess.TimeoutExpired:
+            await asyncio.wait_for(asyncio.to_thread(process.wait), timeout=2.0)
+            print("Go process terminated cleanly")
+        except TimeoutError:
+            print("Process didn't terminate cleanly - force killing")
             process.kill()
-            process.wait()
+            process.wait()  # This should be immediate after kill
+            print("Go process force killed")
 
 
 @pytest_asyncio.fixture

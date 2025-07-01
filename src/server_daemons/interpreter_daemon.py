@@ -1291,7 +1291,6 @@ class InterpreterDaemon:
 
         for sub_chunk, voltage_states in zip(aligned_sub_chunks, voltage_state_array):
             for port, data in sub_chunk.items():
-                await self.log(f"Data before averaging {data}")
                 await self.log(f"The port we are investigating is {port}")
                 await self.log(
                     f"The port transform is for {port_transforms[port].port}"
