@@ -136,10 +136,10 @@ def measurement_request(
     knobs: list["Knob"],
     meters: list["Meter"],
     datapoints_time: float,
-    fullPointCount: int,
+    fullPointCount: tuple[int, ...],
 ):
     """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[1 / fullPointCount])
+    space = CartesianSpace(deltas=[1 / index for index in fullPointCount])
     ckd1 = CoupledKnobDomain(
         [
             KnobDomain.from_knob(
