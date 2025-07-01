@@ -511,7 +511,12 @@ async def measurement_response(
     for dim in fullPointCount:
         total_points *= dim
 
-    max_wait_time = total_points * measurement_request.time_domain.domain.range + 3.0
+    WORST_CASE_COMM = 0.01
+
+    max_wait_time = (
+        total_points * (measurement_request.time_domain.domain.range + WORST_CASE_COMM)
+        + 5.0
+    )
     check_interval = 1.1
     elapsed_time = 0.0
     upload_msgs = []
