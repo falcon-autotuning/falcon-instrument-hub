@@ -768,7 +768,7 @@ class InterpreterDaemon:
             for i, couple_domain in enumerate(axes_domains):
                 buffered_dimension = buffered and (i == 0)
                 await self.log("Selecting a chunk")
-                raw_space = chunk[i, :]
+                raw_space = np.array(chunk[:, i])
                 await self.log("Selected a chunk")
                 for domain in couple_domain:
                     properties = self.knob_property_generation(
