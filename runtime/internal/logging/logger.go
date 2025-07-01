@@ -17,6 +17,24 @@ type Logger struct {
 	logQueue chan LogEntry
 	done     chan struct{}
 	wg       sync.WaitGroup
+
+	// Performance monitoring
+	stats   LoggerStats
+	statsMu sync.RWMutex
+}
+
+// LoggerStats tracks logger performance metrics
+type LoggerStats struct {
+	TotalEnqueued     int64
+	TotalDropped      int64
+	TotalBatches      int64
+	TotalEntries      int64
+	QueueLength       int
+	LastBatchTime     time.Time
+	LastBatchSize     int
+	LastFlushDuration time.Duration
+	MaxFlushDuration  time.Duration
+	QueueFullEvents   int64
 }
 
 // LogEntry represents a buffered log entry with pre-captured timestamp
@@ -116,6 +134,8 @@ func (l *Logger) asyncWriter() {
 
 // flushBatch writes a batch of log entries
 func (l *Logger) flushBatch(batch []LogEntry) {
+	start := time.Now()
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -130,6 +150,25 @@ func (l *Logger) flushBatch(batch []LogEntry) {
 	// Sync to disk after batch
 	if err := l.file.Sync(); err != nil {
 		fmt.Printf("Error syncing log file: %v\n", err)
+	}
+
+	// Update performance stats
+	flushDuration := time.Since(start)
+	l.updateStats(len(batch), flushDuration)
+}
+
+func (l *Logger) updateStats(batchSize int, duration time.Duration) {
+	l.statsMu.Lock()
+	defer l.statsMu.Unlock()
+
+	l.stats.TotalBatches++
+	l.stats.TotalEntries += int64(batchSize)
+	l.stats.LastBatchTime = time.Now()
+	l.stats.LastBatchSize = batchSize
+	l.stats.LastFlushDuration = duration
+
+	if duration > l.stats.MaxFlushDuration {
+		l.stats.MaxFlushDuration = duration
 	}
 }
 
@@ -198,11 +237,26 @@ func (l *Logger) queueLogEntry(level, source, message, channel string) {
 	select {
 	case l.logQueue <- entry:
 		// Successfully queued
+		l.statsMu.Lock()
+		l.stats.TotalEnqueued++
+		l.statsMu.Unlock()
 	default:
 		// Queue full, drop the log entry to avoid blocking
-		// Could optionally write directly to stdout as fallback
-		fmt.Printf("LOG QUEUE FULL: [%s] [%s] [%s] %s\n",
-			entry.Timestamp.Format(TimeFormat), level, source, message)
+		l.statsMu.Lock()
+		l.stats.TotalDropped++
+		l.stats.QueueFullEvents++
+		queueLen := len(l.logQueue)
+		l.statsMu.Unlock()
+
+		// Enhanced logging with queue diagnostics
+		fmt.Printf(
+			"LOG QUEUE FULL (len=%d): [%s] [%s] [%s] %s\n",
+			queueLen,
+			entry.Timestamp.Format(TimeFormat),
+			level,
+			source,
+			message,
+		)
 	}
 }
 
@@ -294,6 +348,32 @@ func (l *Logger) Close() error {
 		return err
 	}
 	return nil
+}
+
+// GetStats returns current logger performance statistics
+func (l *Logger) GetStats() LoggerStats {
+	l.statsMu.RLock()
+	defer l.statsMu.RUnlock()
+
+	stats := l.stats
+	stats.QueueLength = len(l.logQueue)
+	return stats
+}
+
+// LogStats writes current performance statistics to the log
+func (l *Logger) LogStats() {
+	stats := l.GetStats()
+	l.Info("LOGGER_STATS", fmt.Sprintf(
+		"Enqueued: %d, Dropped: %d, Batches: %d, Entries: %d, QueueLen: %d, LastFlush: %v, MaxFlush: %v, QueueFull: %d",
+		stats.TotalEnqueued,
+		stats.TotalDropped,
+		stats.TotalBatches,
+		stats.TotalEntries,
+		stats.QueueLength,
+		stats.LastFlushDuration,
+		stats.MaxFlushDuration,
+		stats.QueueFullEvents,
+	))
 }
 
 // GetLogPath returns the current log file path
