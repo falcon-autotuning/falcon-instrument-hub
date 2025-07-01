@@ -514,7 +514,10 @@ async def measurement_response(
     WORST_CASE_COMM = 0.01
 
     max_wait_time = (
-        total_points * (measurement_request.time_domain.domain.range + WORST_CASE_COMM)
+        3
+        * total_points
+        * (measurement_request.time_domain.domain.range + WORST_CASE_COMM)
+        / 2
         + 5.0
     )
     check_interval = 1.1
