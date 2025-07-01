@@ -641,6 +641,38 @@ class InterpreterDaemon:
                 return key
         return None
 
+    def parse_default_name(self, name: str) -> list[str]:
+        """Returns the defualt name broken doen into parts."""
+        name_parts = name.split("_##_")
+        assert len(name_parts) == 3, (
+            f"The formatting of the default name {name} is incorrect, expected 3 parts."
+        )
+        return name_parts
+
+    def find_similar_port(
+        self,
+        similar_port_name: str,
+        configuration: dict["InstrumentPort", dict["PropertyName", "PropertyJson"]],
+    ) -> InstrumentPort:
+        """Returns a similar port to the selected one in the configuration."""
+        name_parts = self.parse_default_name(similar_port_name)
+        default_name = (
+            name_parts[0]
+            + "_##_"
+            + SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES
+            + "_##_"
+            + name_parts[2]
+        )
+        port = self.find_matching_port(
+            configuration=configuration,
+            default_name=default_name,
+            property=SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES,
+        )
+        assert port is not None, (
+            f"Failed to find a matching port in the configuration. Search for {default_name} and property {SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES}"
+        )
+        return port
+
     async def process_request(
         self,
         request: "MeasurementRequest",
@@ -726,87 +758,40 @@ class InterpreterDaemon:
             for i, couple_domain in enumerate(axes_domains):
                 raw_space = chunk[i, :]
                 for meter in getters:
-                    default_name = meter.default_name
-                    name_parts = default_name.split("_##_")
-                    assert len(name_parts) == 3, (
-                        f"The formatting of the default name {default_name} is incorrect, expected 3 parts."
+                    properties = self.meter_property_generation(
+                        step_width=step_width,
+                        number_of_samples=number_of_samples[meter],
+                        buffered=buffered,
                     )
-                    default_name = (
-                        name_parts[0]
-                        + "_##_"
-                        + SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES
-                        + "_##_"
-                        + name_parts[2]
-                    )
-                    port = self.find_matching_port(
+                    port = self.find_similar_port(
+                        similar_port_name=meter.default_name,
                         configuration=configuration,
-                        default_name=default_name,
-                        property=SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES,
                     )
-                    assert port is not None, (
-                        f"Failed to find a matching port in the configuration. Search for {default_name} and property {SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES}"
+                    instruction.add_requirement(
+                        instrument=port,
+                        properties=properties,
                     )
-                    if not buffered:
-                        instruction.add_requirement(
-                            instrument=port,
-                            properties={
-                                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
-                                * step_width
-                                / 1000,  # [sec]
-                                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
-                                    number_of_samples[meter]
-                                ),
-                            },
-                        )
-                    else:
-                        instruction.add_requirement(
-                            instrument=port,
-                            properties={
-                                SUPPORTED_PROPERTIES.TIMEOUT: (
-                                    TIMEOUT_SCALE_FACTOR - 1 + len(raw_space)
-                                )
-                                * step_width
-                                / 1000,  # [sec]
-                                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
-                                    number_of_samples[meter] * len(raw_space)
-                                ),
-                            },
-                        )
+                    await self.log(f"Made it through meter {meter}")
                 for domain in couple_domain:
                     v_start = unit_domain.transform(
                         value=raw_space[0],
                         other=domain.domain,
                     )
                     instruction.add_setter(domain.label)
-                    if not buffered:
-                        instruction.add_requirement(
-                            instrument=domain.label,
-                            properties={
-                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
-                                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
-                                * step_width
-                                / 1000,  # [sec]
-                            },
+                    properties: dict[PropertyName, PropertyValue] = {}
+                    if not buffered or (i != 0):
+                        properties = {
+                            SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
+                            SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
+                            * step_width
+                            / 1000,  # [sec]
+                        }
+                    else:
+                        v_stop = unit_domain.transform(
+                            value=raw_space[-1],
+                            other=domain.domain,
                         )
-                        continue
-                    if i != 0:
-                        instruction.add_requirement(
-                            instrument=domain.label,
-                            properties={
-                                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
-                                SUPPORTED_PROPERTIES.TIMEOUT: (
-                                    TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
-                                ),
-                            },
-                        )
-                        continue
-                    v_stop = unit_domain.transform(
-                        value=raw_space[-1],
-                        other=domain.domain,
-                    )
-                    instruction.add_requirement(
-                        instrument=domain.label,
-                        properties={
+                        properties = {
                             SUPPORTED_PROPERTIES.STAIRCASE: (
                                 step_width,  # [msec]
                                 len(raw_space),
@@ -817,7 +802,11 @@ class InterpreterDaemon:
                             SUPPORTED_PROPERTIES.TIMEOUT: (
                                 TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
                             ),
-                        },
+                        }
+
+                    instruction.add_requirement(
+                        instrument=domain.label,
+                        properties=properties,
                     )
             await self.log(f"Adding instruction for step {count + 1} to the list .")
             instructions.append(instruction)
@@ -836,6 +825,42 @@ class InterpreterDaemon:
         shape = valid_waveform._space._space.shape
         assert isinstance(shape, tuple), "Invalid shape for waveform data."
         return (collected_measurements, shape)
+
+    def meter_property_generation(
+        self,
+        step_width: float,
+        number_of_samples: int,
+        buffered: bool = False,
+        num_x_points: int = 1,
+    ) -> dict["PropertyName", "PropertyValue"]:
+        """Generates the properties for a meter based on the step width and number of samples.
+
+        Args:
+            step_width: The width of each step in milliseconds.
+            number_of_samples: The number of samples to take.
+            buffered: Whether the measurement is buffered or not.
+            num_x_points: The number of x points in the measurement.
+
+        Returns:
+            the properties for the meter.
+        """
+        if not buffered:
+            properties = {
+                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
+                * step_width
+                / 1000,  # [sec]
+                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: number_of_samples,
+            }
+        else:
+            properties = {
+                SUPPORTED_PROPERTIES.TIMEOUT: (TIMEOUT_SCALE_FACTOR - 1 + num_x_points)
+                * step_width
+                / 1000,  # [sec]
+                SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
+                    number_of_samples * num_x_points
+                ),
+            }
+        return properties
 
     def collect_sample_rates(
         self,
