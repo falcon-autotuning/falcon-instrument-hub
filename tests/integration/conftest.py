@@ -16,6 +16,9 @@ from falcon_core.instrument_interfaces.names import Knob, Meter
 from .server_api import RUNTIME_COMMANDS
 
 if TYPE_CHECKING:
+    from falcon_core.communications.messages.measurement_request import (
+        MeasurementRequest,
+    )
     from falcon_core.instrument_interfaces.names import InstrumentPort
     from instrument_templates.typing import Index
 
@@ -320,6 +323,18 @@ def meterIndexes(
 
 
 @pytest.fixture
+def fullPointCount() -> tuple[int, ...]:
+    """Returns the number of data points on each primary axis of the measurement."""
+    return (1,)
+
+
+@pytest.fixture
+def deltas(fullPointCount: tuple[int, ...]) -> list[float]:
+    """Returns the deltas used to create the cartesian unit space."""
+    return [1 / index for index in fullPointCount]
+
+
+@pytest.fixture
 def knobs(
     daemon_health_monitoring: tuple[list["Knob"], list["Meter"]],
     human_readable_knob_names: list[str],
@@ -486,13 +501,18 @@ async def daemon_health_monitoring(
 @pytest_asyncio.fixture
 async def measurement_response(
     nats_client,
-    measurement_request,
+    measurement_request: "MeasurementRequest",
     externalProcessName,
+    fullPointCount: list[int],
     cleanup_instruments,
 ):
     """Test a complete measurement flow from request to data upload."""
-    max_wait_time = 5.0
-    check_interval = 0.1
+    total_points = 1
+    for dim in fullPointCount:
+        total_points *= dim
+
+    max_wait_time = total_points * measurement_request.time_domain.domain.range + 3.0
+    check_interval = 1.1
     elapsed_time = 0.0
     upload_msgs = []
     measurement_response = None
