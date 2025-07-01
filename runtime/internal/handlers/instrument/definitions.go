@@ -281,47 +281,100 @@ func (h *Handler) BuildPortConfigurations() (map[JsonPort]PortOptions, error) {
 	return make(map[JsonPort]PortOptions), nil
 }
 
-// GetPortConfiguration finds the configuration for a specific port
+// GetPortOptions finds the configuration for a specific port
 func (h *Handler) GetPortOptions(
 	name JsonPort,
 ) (*PortOptions, error) {
-	var portConfigurations map[JsonPort]PortOptions
-	var data PortObject
-	h.Log.Debug("Attempting to find port options for port: %s", name)
+	portConfigurations, err := h.getPortConfigurations()
+	if err != nil {
+		return nil, err
+	}
+
+	return h.findPortInConfigurations(name, portConfigurations)
+}
+
+// GetMultiplePortOptions finds configurations for multiple ports efficiently
+func (h *Handler) GetMultiplePortOptions(
+	names []JsonPort,
+) (map[JsonPort]*PortOptions, error) {
+	h.Log.Debug("Attempting to find port options for %d ports", len(names))
+
+	if len(names) == 0 {
+		return make(map[JsonPort]*PortOptions), nil
+	}
+
 	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+
+	portConfigurations, err := h.getPortConfigurations()
+	if err != nil {
+		return nil, err
+	}
+
+	results := make(map[JsonPort]*PortOptions, len(names))
+	var errors []string
+
+	for _, name := range names {
+		if portOptions, err := h.findPortInConfigurations(name, portConfigurations); err != nil {
+			errors = append(errors, fmt.Sprintf("port %s: %v", name, err))
+		} else {
+			results[name] = portOptions
+		}
+	}
+
+	if len(errors) > 0 {
+		return results, fmt.Errorf(
+			"failed to find some ports: %s",
+			strings.Join(errors, "; "),
+		)
+	}
+
+	return results, nil
+}
+
+// getPortConfigurations gets the current port configurations (shared helper)
+func (h *Handler) getPortConfigurations() (map[JsonPort]PortOptions, error) {
+	if h.portProcessor == nil {
+		return make(map[JsonPort]PortOptions), nil
+	}
+
 	cached, exists := h.portProcessor.getCachedPortConfigurations()
 	if exists {
-		portConfigurations = cached
-	} else {
-		// Build and cache if not available
-		go h.portProcessor.Log.Debug(
-			"Building the cached port configurations",
-		)
-		portConfigurations = h.portProcessor.buildAndCachePortConfigurations(h.Instruments)
+		return cached, nil
 	}
+
+	// Build and cache if not available
+	h.portProcessor.Log.Debug("Building the cached port configurations")
+	return h.portProcessor.buildAndCachePortConfigurations(h.Instruments), nil
+}
+
+// findPortInConfigurations finds a port in the given configurations (shared
+// helper)
+func (h *Handler) findPortInConfigurations(
+	name JsonPort,
+	portConfigurations map[JsonPort]PortOptions,
+) (*PortOptions, error) {
+	var data PortObject
 
 	// need to get compact json form:
 	if err := json.Unmarshal([]byte(name), &data); err != nil {
-		h.mutex.RUnlock()
 		return nil, fmt.Errorf("failed to unmarshal JsonPort: %v", err)
 	}
 	compactJSON, err := json.Marshal(data)
 	if err != nil {
-		h.mutex.RUnlock()
 		return nil, fmt.Errorf("failed to marshal JsonPort: %v", err)
 	}
 	compactPortName := JsonPort(compactJSON)
 
 	// now check if the port exists
 	if portConfig, exists := portConfigurations[compactPortName]; exists {
-		h.mutex.RUnlock()
 		return &portConfig, nil
 	}
+
 	ports := make([]JsonPort, 0, len(portConfigurations))
 	for port := range portConfigurations {
 		ports = append(ports, port)
 	}
-	h.mutex.RUnlock()
 	h.portProcessor.Log.Error(
 		"The current ports in the configuration are: %v",
 		ports,
