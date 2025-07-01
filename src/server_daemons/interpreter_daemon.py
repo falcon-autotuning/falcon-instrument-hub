@@ -764,12 +764,9 @@ class InterpreterDaemon:
                     instrument=port,
                     properties=properties,
                 )
-                await self.log(f"Made it through meter {meter}")
             for i, couple_domain in enumerate(axes_domains):
                 buffered_dimension = buffered and (i == 0)
-                await self.log("Selecting a chunk")
                 raw_space = np.array(chunk[:, i])
-                await self.log("Selected a chunk")
                 for domain in couple_domain:
                     properties = self.knob_property_generation(
                         unit_domain=unit_domain,
@@ -783,7 +780,6 @@ class InterpreterDaemon:
                         properties=properties,
                     )
                     instruction.add_setter(domain.label)
-                    await self.log(f"Made it through knob {domain.label}")
             await self.log(f"Adding instruction for step {count + 1} to the list .")
             instructions.append(instruction)
 
