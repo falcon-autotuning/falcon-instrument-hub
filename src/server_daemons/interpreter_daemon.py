@@ -4,6 +4,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from falcon_core.math.domains import Domain
 from nats.js.api import RetentionPolicy, StorageType, StreamConfig
 
 from .api.interpreter import RUNTIME_COMMANDS as INTERPRETER_RUNTIME_COMMANDS
@@ -29,6 +30,7 @@ from .typing import (
 )
 
 if TYPE_CHECKING:
+    from falcon_core.math.domains import Domain
     from nats.aio.client import Client
     from nats.aio.msg import Msg
     from nats.js import JetStreamContext
@@ -36,6 +38,8 @@ if TYPE_CHECKING:
     from .typing import (
         ID,
         BaseArray,
+        BaseLabelledDomain,
+        BaseWaveform,
         Getters,
         NDArray,
         PortTransform,
@@ -715,19 +719,10 @@ class InterpreterDaemon:
             raise RuntimeError(msg)
 
         # Prioritize buffered whenever possible
-        buffered = all(
-            [
-                configuration[knob].get(
-                    SUPPORTED_PROPERTIES.SUPPORTS_BUFFERED_MEASUREMENTS, False
-                )
-                for domain in valid_waveform._space._axes
-                for knob in domain.knobs
-            ]
+        buffered = await self.decide_buffered(
+            valid_waveform=valid_waveform,
+            configuration=configuration,
         )
-        if buffered:
-            await self.log("Buffered measurements enabled.")
-        else:
-            await self.log("Standard measurement selected.")
         raw_time_trace = valid_waveform._space._space._space
         unit_domain = valid_waveform._space._space.domain
         axes_domains = valid_waveform._space._axes
@@ -756,6 +751,7 @@ class InterpreterDaemon:
                 buffered=buffered,
             )
             for i, couple_domain in enumerate(axes_domains):
+                buffered_dimension = buffered and (i == 0)
                 raw_space = chunk[i, :]
                 for meter in getters:
                     properties = self.meter_property_generation(
@@ -773,41 +769,23 @@ class InterpreterDaemon:
                     )
                     await self.log(f"Made it through meter {meter}")
                 for domain in couple_domain:
-                    v_start = unit_domain.transform(
+                    unit_domain.transform(
                         value=raw_space[0],
                         other=domain.domain,
                     )
-                    instruction.add_setter(domain.label)
-                    properties: dict[PropertyName, PropertyValue] = {}
-                    if not buffered or (i != 0):
-                        properties = {
-                            SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
-                            SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
-                            * step_width
-                            / 1000,  # [sec]
-                        }
-                    else:
-                        v_stop = unit_domain.transform(
-                            value=raw_space[-1],
-                            other=domain.domain,
-                        )
-                        properties = {
-                            SUPPORTED_PROPERTIES.STAIRCASE: (
-                                step_width,  # [msec]
-                                len(raw_space),
-                                0,
-                                v_start,
-                                v_stop,
-                            ),
-                            SUPPORTED_PROPERTIES.TIMEOUT: (
-                                TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
-                            ),
-                        }
-
+                    properties = self.knob_property_generation(
+                        unit_domain=unit_domain,
+                        raw_space=raw_space,
+                        domain=domain,
+                        step_width=step_width,
+                        buffered_dimension=buffered_dimension,
+                    )
                     instruction.add_requirement(
                         instrument=domain.label,
                         properties=properties,
                     )
+                    instruction.add_setter(domain.label)
+                    await self.log(f"Made it through knob {domain.label}")
             await self.log(f"Adding instruction for step {count + 1} to the list .")
             instructions.append(instruction)
 
@@ -825,6 +803,27 @@ class InterpreterDaemon:
         shape = valid_waveform._space._space.shape
         assert isinstance(shape, tuple), "Invalid shape for waveform data."
         return (collected_measurements, shape)
+
+    async def decide_buffered(
+        self,
+        valid_waveform: "BaseWaveform",
+        configuration: dict[InstrumentPort, dict["PropertyName", "PropertyJson"]],
+    ) -> bool:
+        """Returns a flag indicating if a buffered measurement was selected or not to be performed."""
+        buffered = all(
+            [
+                configuration[knob].get(
+                    SUPPORTED_PROPERTIES.SUPPORTS_BUFFERED_MEASUREMENTS, False
+                )
+                for domain in valid_waveform._space._axes
+                for knob in domain.knobs
+            ]
+        )
+        if buffered:
+            await self.log("Buffered measurements enabled.")
+        else:
+            await self.log("Standard measurement selected.")
+        return buffered
 
     def meter_property_generation(
         self,
@@ -858,6 +857,57 @@ class InterpreterDaemon:
                 / 1000,  # [sec]
                 SUPPORTED_PROPERTIES.NUMBER_OF_SAMPLES: int(
                     number_of_samples * num_x_points
+                ),
+            }
+        return properties
+
+    def knob_property_generation(
+        self,
+        unit_domain: "Domain",
+        raw_space: "array1D",
+        domain: "BaseLabelledDomain",
+        step_width: float,
+        buffered_dimension: bool,
+    ) -> dict["PropertyName", "PropertyValue"]:
+        """Generates the properties for a knob in the measurement.
+
+        Args:
+            unit_domain: The unit domain to transform the values.
+            raw_space: The array "time-trace" to pull times from
+            domain: The combination of the label and voltage bounds for this knob.
+            step_width: The time width of this step in msec.
+            buffered_dimension: A flag indicating if this is a legal buffered dimension.
+
+        Returns:
+            The properties collected for this knob.
+        """
+        v_start = unit_domain.transform(
+            value=raw_space[0],
+            other=domain.domain,
+        )
+        properties: dict[PropertyName, PropertyValue] = {}
+        if not buffered_dimension:
+            properties = {
+                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
+                SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
+                * step_width
+                / 1000,  # [sec]
+            }
+        else:
+            v_stop = unit_domain.transform(
+                value=raw_space[-1],
+                other=domain.domain,
+            )
+            properties = {
+                SUPPORTED_PROPERTIES.STAIRCASE: (
+                    step_width,  # [msec]
+                    len(raw_space),
+                    0,
+                    v_start,
+                    v_stop,
+                ),
+                SUPPORTED_PROPERTIES.TIMEOUT: (
+                    TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
                 ),
             }
         return properties
