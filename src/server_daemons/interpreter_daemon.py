@@ -780,8 +780,8 @@ class InterpreterDaemon:
                         properties=properties,
                     )
                     instruction.add_setter(domain.label)
-            await self.log(f"Adding instruction for step {count + 1} to the list .")
             instructions.append(instruction)
+        await self.log(f"All {len(chunks)} chunks were added")
 
         collected_measurements = len(instructions)
         if buffered:
