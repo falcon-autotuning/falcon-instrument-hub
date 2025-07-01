@@ -19,7 +19,10 @@ type LogEntry struct {
 	Content   string
 }
 
-const timeFormat = "2006-01-02 15:04:05.000000"
+const (
+	maxCapacity = 1024 * 1024 // 1MB
+	timeFormat  = "2006-01-02 15:04:05.000000"
+)
 
 // LogParser handles parsing of falcon runtime logs
 type LogParser struct {
@@ -50,6 +53,8 @@ func (p *LogParser) ParseFile(filename string) ([]LogEntry, error) {
 	var currentEntry *LogEntry
 
 	scanner := bufio.NewScanner(file)
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
 
 	for scanner.Scan() {
 		line := scanner.Text()

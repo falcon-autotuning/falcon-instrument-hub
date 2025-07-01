@@ -1310,13 +1310,8 @@ class InterpreterDaemon:
                     )  # type : ignore[reportOptionalMemberAccess]
                 )
                 transformed = vectorized_transform(t_array)
-                await self.log(
-                    f"The vectorized transform for the data is {transformed}"
-                )
                 masked = (transformed * data)[transformed != 0]
-                await self.log(f"The masked data is {masked}")
                 computation = np.mean(masked) if masked.size > 0 else 0.0
-                await self.log(f"The result of the averaging is {computation}")
                 if port not in final_data:
                     final_data[port] = []
                 final_data[port].append(float(computation))
