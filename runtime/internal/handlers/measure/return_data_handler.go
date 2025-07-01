@@ -136,6 +136,7 @@ func (h *MeasurementReadyHandler) handleReturnData(msg *nats.Msg) {
 	h.sendProcessData(measurementID, results)
 
 	h.markMeasurementComplete()
+	h.logger.LogStats()
 }
 
 // sendProcessDataForBuffered sends the collected data as PROCESS_DATA
