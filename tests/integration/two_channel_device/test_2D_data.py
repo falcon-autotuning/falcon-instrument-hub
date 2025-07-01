@@ -186,7 +186,7 @@ def measurement_request(
 
 
 @pytest.mark.asyncio
-async def test_linear_measurement(
+async def test_2D_measurement(
     measurement_response: "MeasurementResponse",
     meters: list["Meter"],
     fullPointCount: tuple[int, ...],
