@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     )
     from falcon_core.instrument_interfaces.names import InstrumentPort
     from instrument_templates.typing import Index
+INJECTION_DATA_CHUNK_SIZE = 1000
 
 
 @pytest.fixture(scope="module")
@@ -159,24 +160,33 @@ async def go_runtime_process(
     # Function to continuously read and print stdout
     async def monitor_output():
         """Monitor Go process output in real-time."""
-        while process.poll() is None:
-            try:
-                # Check if stdout is available
-                if process.stdout is None:
-                    await asyncio.sleep(0.1)
-                    continue
+        try:
+            while process.poll() is None:
+                try:
+                    # Check if stdout is available
+                    if process.stdout is None:
+                        await asyncio.sleep(0.1)
+                        continue
 
-                # Read with timeout to avoid blocking
-                line = await asyncio.wait_for(
-                    asyncio.to_thread(process.stdout.readline), timeout=0.1
-                )
-                if line:
-                    print(f"[GO_OUTPUT] {line.rstrip()}")
-            except TimeoutError:
-                continue
-            except Exception as e:
-                print(f"Error reading Go output: {e}")
-                break
+                    # Read with timeout to avoid blocking
+                    line = await asyncio.wait_for(
+                        asyncio.to_thread(process.stdout.readline), timeout=0.1
+                    )
+                    if line:
+                        print(f"[GO_OUTPUT] {line.rstrip()}")
+                except TimeoutError:
+                    continue
+                except asyncio.CancelledError:
+                    # Task was cancelled, exit cleanly
+                    break
+                except Exception as e:
+                    print(f"Error reading Go output: {e}")
+                    break
+        except asyncio.CancelledError:
+            # Handle cancellation at the outer level too
+            pass
+        except Exception as e:
+            print(f"Monitor output error: {e}")
 
     # Start monitoring output in background
     output_task = asyncio.create_task(monitor_output())
@@ -437,19 +447,54 @@ def inject_amnmeter_data(injectionData: dict["Index", list[float]], nats_client)
     async def inject_data():
         try:
             for index, data in injectionData.items():
-                measurement_msg = {
-                    "index": index,
-                    "values": data,
-                }
+                # Calculate number of chunks needed
+                total_chunks = (
+                    len(data) + INJECTION_DATA_CHUNK_SIZE - 1
+                ) // INJECTION_DATA_CHUNK_SIZE
 
-                await nats_client.publish(
-                    "amnmeter.data",
-                    json.dumps(measurement_msg).encode(),
-                )
                 print(
-                    f"📊 Injected data for amnmeter index {index}: {len(data)} values"
+                    f"📊 Injecting {len(data)} values in {total_chunks} chunks of {INJECTION_DATA_CHUNK_SIZE} each"
                 )
-                await asyncio.sleep(0.01)  # Allow some time for processing
+                # Send data in chunks
+                for chunk_idx in range(total_chunks):
+                    start_idx = chunk_idx * INJECTION_DATA_CHUNK_SIZE
+                    end_idx = min(start_idx + INJECTION_DATA_CHUNK_SIZE, len(data))
+                    chunk_data = data[start_idx:end_idx]
+
+                    payload = {
+                        "index": index,
+                        "values": chunk_data,
+                    }
+
+                    try:
+                        payload_json = json.dumps(payload)
+                        payload_size = len(payload_json.encode("utf-8"))
+                        max_safe_payload = 800000
+
+                        # Check if this chunk is still too large
+                        if payload_size > max_safe_payload:
+                            print(
+                                f"⚠️  Chunk {chunk_idx + 1} is {payload_size} bytes, may need smaller chunks"
+                            )
+
+                        await nats_client.publish(
+                            "amnmeter.data",
+                            payload_json.encode(),
+                        )
+                        print(
+                            f"✅ Sent chunk {chunk_idx + 1}/{total_chunks} ({len(chunk_data)} values, {payload_size} bytes)"
+                        )
+
+                        # Small delay between chunks to avoid overwhelming the receiver
+                        await asyncio.sleep(0.01)
+
+                    except Exception as e:
+                        print(f"❌ Failed to send chunk {chunk_idx + 1}: {e}")
+                        raise
+
+                print(
+                    f"🎉 Successfully injected all {len(data)} values for index {index}"
+                )
             return True
         except Exception as e:
             print(f"❌ Failed to inject amnmeter data: {e}")
