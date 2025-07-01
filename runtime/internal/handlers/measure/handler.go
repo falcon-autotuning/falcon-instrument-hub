@@ -231,6 +231,32 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 		h.log.Error("Failed to collect all set instructions: %s", err)
 	}
 
+	// Extract all unique ports from instructions
+	seen := make(map[instrument.JsonPort]bool)
+	ports := make([]instrument.JsonPort, 0, len(totalInstructions))
+	for _, instruction := range totalInstructions {
+		if !seen[instruction.Port] {
+			seen[instruction.Port] = true
+			ports = append(ports, instruction.Port)
+		}
+	}
+
+	// Get all port options in a single batch call
+	portOptionsMap, err := h.instrumentHandler.GetMultiplePortOptions(ports)
+	if err != nil {
+		h.log.Error("Failed to get port configurations for ports: %v", err)
+		return
+	}
+
+	// Group instructions by port
+	instructionsByPort := make(map[instrument.JsonPort][]Instructions)
+	for _, instruction := range totalInstructions {
+		instructionsByPort[instruction.Port] = append(
+			instructionsByPort[instruction.Port],
+			instruction,
+		)
+	}
+
 	// Begin sorting the instructions by instrument
 	sortedInstructions := make(
 		[]*InstrumentInstructions,
@@ -241,16 +267,8 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 
 	// Create InstrumentInstructions for each unique instrument
 	instrumentMap := make(map[instrument.Name]*InstrumentInstructions)
-	for _, instruction := range totalInstructions {
-		options, err := h.instrumentHandler.GetPortOptions(instruction.Port)
+	for port, options := range portOptionsMap {
 		instrumentName := options.Instrument
-		if err != nil {
-			h.log.Error("Failed to get port configuration for port %s: %v",
-				instruction.Port,
-				err,
-			)
-			continue
-		}
 
 		// Create InstrumentInstructions if it doesn't exist
 		if _, exists := instrumentMap[instrumentName]; !exists {
@@ -262,7 +280,11 @@ func (h *MeasurementReadyHandler) processMeasurementSets(
 				instrumentMap[instrumentName],
 			)
 		}
-		instrumentMap[instrumentName].append(instruction)
+
+		// Add all instructions for this port
+		for _, instruction := range instructionsByPort[port] {
+			instrumentMap[instrumentName].append(instruction)
+		}
 	}
 	err = h.armInstructions(measurementID, sortedInstructions)
 	if err != nil {
