@@ -25,16 +25,14 @@ type Logger struct {
 
 // LoggerStats tracks logger performance metrics
 type LoggerStats struct {
-	TotalEnqueued     int64
-	TotalDropped      int64
-	TotalBatches      int64
-	TotalEntries      int64
-	QueueLength       int
-	LastBatchTime     time.Time
-	LastBatchSize     int
-	LastFlushDuration time.Duration
-	MaxFlushDuration  time.Duration
-	QueueFullEvents   int64
+	TotalEnqueued   int64
+	TotalDropped    int64
+	TotalBatches    int64
+	TotalEntries    int64
+	QueueLength     int
+	LastBatchTime   time.Time
+	LastBatchSize   int
+	QueueFullEvents int64
 }
 
 // LogEntry represents a buffered log entry with pre-captured timestamp
@@ -46,7 +44,12 @@ type LogEntry struct {
 	Channel   string
 }
 
-const TimeFormat = "2006-01-02 15:04:05.000000"
+// TODO: generalize this pageSize ot get it from the OS directly instead of
+// asserting
+const (
+	TimeFormat = "2006-01-02 15:04:05.000000"
+	pageSize   = 4096 // OS page size
+)
 
 // NewLogger creates a new logger instance
 func NewLogger(outputPath string) (*Logger, error) {
@@ -69,7 +72,14 @@ func NewLogger(outputPath string) (*Logger, error) {
 
 	// Start async writer goroutine
 	logger.wg.Add(1)
-	go logger.asyncWriter()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("PANIC in asyncWriter: %v\n", r)
+			}
+		}()
+		logger.asyncWriter()
+	}()
 
 	// Write initial log entry
 	logger.Info("SYSTEM", "Logger initialized")
@@ -82,146 +92,195 @@ func NewLogger(outputPath string) (*Logger, error) {
 func (l *Logger) asyncWriter() {
 	defer l.wg.Done()
 
-	// Batch writes for better performance
-	batch := make([]LogEntry, 0, 100)
-	ticker := time.NewTicker(50 * time.Millisecond) // Flush every 50ms
+	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
+	var stringBuilder strings.Builder
+	stringBuilder.Grow(pageSize * 4) // Pre-allocate buffer for efficiency
+
+	fmt.Printf(
+		"[ASYNC_DEBUG] AsyncWriter started at %s\n",
+		time.Now().Format(TimeFormat),
+	)
+
+	tickerCount := 0
+	for {
+		select {
+		case <-ticker.C:
+			tickerCount++
+			fmt.Printf("[ASYNC_DEBUG] Ticker fired #%d at %s, queue len: %d\n",
+				tickerCount, time.Now().Format(TimeFormat), len(l.logQueue))
+
+			// Every 50ms, drain the entire queue and write to file
+			l.drainQueueAndWrite(&stringBuilder, pageSize)
+
+			fmt.Printf(
+				"[ASYNC_DEBUG] Completed draining queue, processed batch #%d\n",
+				tickerCount,
+			)
+
+		case <-l.done:
+			fmt.Printf("[ASYNC_DEBUG] Shutdown signal received\n")
+			// Shutdown signal - drain everything and exit
+			l.drainQueueAndWrite(&stringBuilder, pageSize)
+
+			// Write any remaining content in buffer
+			if stringBuilder.Len() > 0 {
+				l.writeStringToFile(stringBuilder.String())
+			}
+			fmt.Printf("[ASYNC_DEBUG] AsyncWriter exiting\n")
+			return
+		}
+	}
+}
+
+// drainQueueAndWrite empties the entire logQueue and writes to file in
+// page-sized chunks
+func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
+	entriesProcessed := 0
+	writeCount := 0
+
+	fmt.Printf(
+		"[DRAIN_DEBUG] Starting to drain queue, current len: %d\n",
+		len(l.logQueue),
+	)
+
+	// Drain the entire queue
 	for {
 		select {
 		case entry, ok := <-l.logQueue:
 			if !ok {
-				// Channel closed, flush remaining and exit
-				if len(batch) > 0 {
-					l.flushBatch(batch)
+				fmt.Printf(
+					"[DRAIN_DEBUG] Channel closed, processed %d entries\n",
+					entriesProcessed,
+				)
+				// Channel closed
+				if builder.Len() > 0 {
+					l.writeStringToFile(builder.String())
+					writeCount++
+					builder.Reset()
 				}
 				return
 			}
 
-			batch = append(batch, entry)
+			// Format the log entry and add to string builder
+			logLine := l.formatLogEntry(entry)
+			builder.WriteString(logLine)
+			entriesProcessed++
 
-			// Flush batch when it gets large
-			if len(batch) >= 100 {
-				l.flushBatch(batch)
-				batch = batch[:0]
+			// If we've accumulated enough for a page, write it
+			if builder.Len() >= pageSize {
+				fmt.Printf(
+					"[DRAIN_DEBUG] Writing chunk #%d (size: %d bytes)\n",
+					writeCount+1,
+					builder.Len(),
+				)
+				l.writeStringToFile(builder.String())
+				writeCount++
+				builder.Reset()
 			}
 
-		case <-ticker.C:
-			// Periodic flush even if batch isn't full
-			if len(batch) > 0 {
-				l.flushBatch(batch)
-				batch = batch[:0]
-			}
-
-		case <-l.done:
-			// Shutdown signal received - drain queue and exit
-			if len(batch) > 0 {
-				l.flushBatch(batch)
-			}
-
-			// Drain remaining queue
-			for {
-				select {
-				case entry := <-l.logQueue:
-					l.writeEntry(entry)
-				default:
-					return
-				}
-			}
+		default:
+			// No more entries in queue, break
+			fmt.Printf(
+				"[DRAIN_DEBUG] Queue empty, processed %d entries, made %d writes\n",
+				entriesProcessed,
+				writeCount,
+			)
+			goto escapeNoEntries
 		}
 	}
+escapeNoEntries:
+
+	// Write any remaining content that's less than a page
+	if builder.Len() > 0 {
+		fmt.Printf("[DRAIN_DEBUG] Writing final chunk (size: %d bytes)\n", builder.Len())
+		l.writeStringToFile(builder.String())
+		writeCount++
+		builder.Reset()
+	}
+
+	// Update stats
+	l.updateBatchStats(entriesProcessed)
+	fmt.Printf(
+		"[DRAIN_DEBUG] Updated stats: %d entries processed\n",
+		entriesProcessed,
+	)
 }
 
-// flushBatch writes a batch of log entries
-func (l *Logger) flushBatch(batch []LogEntry) {
-	start := time.Now()
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.file == nil {
-		return
-	}
-
-	for _, entry := range batch {
-		l.writeEntryUnsafe(entry)
-	}
-
-	// Sync to disk after batch
-	if err := l.file.Sync(); err != nil {
-		fmt.Printf("Error syncing log file: %v\n", err)
-	}
-
-	// Update performance stats
-	flushDuration := time.Since(start)
-	l.updateStats(len(batch), flushDuration)
-}
-
-func (l *Logger) updateStats(batchSize int, duration time.Duration) {
-	l.statsMu.Lock()
-	defer l.statsMu.Unlock()
-
-	l.stats.TotalBatches++
-	l.stats.TotalEntries += int64(batchSize)
-	l.stats.LastBatchTime = time.Now()
-	l.stats.LastBatchSize = batchSize
-	l.stats.LastFlushDuration = duration
-
-	if duration > l.stats.MaxFlushDuration {
-		l.stats.MaxFlushDuration = duration
-	}
-}
-
-// writeEntry writes a single entry (used during shutdown)
-func (l *Logger) writeEntry(entry LogEntry) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if l.file == nil {
-		return
-	}
-
-	l.writeEntryUnsafe(entry)
-	l.file.Sync()
-}
-
-// writeEntryUnsafe writes without acquiring mutex (caller must hold mutex)
-func (l *Logger) writeEntryUnsafe(entry LogEntry) {
-	var logLine string
-
+// formatLogEntry formats a single log entry into a string with newline
+func (l *Logger) formatLogEntry(entry LogEntry) string {
 	// Handle raw entries differently - just write the message as-is
 	if entry.Level == "RAW" && entry.Source == "RAW" {
-		logLine = entry.Message
+		logLine := entry.Message
 		// Ensure raw messages end with newline if they don't already
 		if !strings.HasSuffix(logLine, "\n") {
 			logLine += "\n"
 		}
-	} else {
-		// Format structured log entries
-		if entry.Channel != "" {
-			logLine = fmt.Sprintf("[%s] [%s] [%s] [%s] %s\n",
-				entry.Timestamp.Format(TimeFormat),
-				entry.Level,
-				entry.Source,
-				entry.Channel,
-				entry.Message,
-			)
-		} else {
-			logLine = fmt.Sprintf("[%s] [%s] [%s] %s\n",
-				entry.Timestamp.Format(TimeFormat),
-				entry.Level,
-				entry.Source,
-				entry.Message,
-			)
-		}
+		return logLine
 	}
 
-	if _, err := l.file.WriteString(logLine); err != nil {
+	// Format structured log entries
+	if entry.Channel != "" {
+		return fmt.Sprintf("[%s] [%s] [%s] [%s] %s\n",
+			entry.Timestamp.Format(TimeFormat),
+			entry.Level,
+			entry.Source,
+			entry.Channel,
+			entry.Message,
+		)
+	} else {
+		return fmt.Sprintf("[%s] [%s] [%s] %s\n",
+			entry.Timestamp.Format(TimeFormat),
+			entry.Level,
+			entry.Source,
+			entry.Message,
+		)
+	}
+}
+
+// writeStringToFile writes a string to the log file and syncs
+func (l *Logger) writeStringToFile(content string) {
+	fmt.Printf("[WRITE_DEBUG] Starting write of %d bytes\n", len(content))
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if l.file == nil {
+		fmt.Printf("[WRITE_DEBUG] File is nil, aborting write\n")
+		return
+	}
+
+	// Write the entire string at once
+	if _, err := l.file.WriteString(content); err != nil {
 		fmt.Printf("Error writing to log file: %v\n", err)
+		return
 	}
 
 	// Also print to stdout for debugging
-	fmt.Print(logLine)
+	fmt.Print(content)
+
+	// Sync to disk
+	if err := l.file.Sync(); err != nil {
+		fmt.Printf("Error syncing log file: %v\n", err)
+	}
+
+	fmt.Printf("[WRITE_DEBUG] Completed write and sync\n")
+}
+
+// updateBatchStats updates statistics for batch processing
+func (l *Logger) updateBatchStats(entriesProcessed int) {
+	if entriesProcessed == 0 {
+		return
+	}
+
+	l.statsMu.Lock()
+	defer l.statsMu.Unlock()
+
+	l.stats.TotalBatches++
+	l.stats.TotalEntries += int64(entriesProcessed)
+	l.stats.LastBatchTime = time.Now()
+	l.stats.LastBatchSize = entriesProcessed
 }
 
 // queueLogEntry adds a log entry to the async queue (non-blocking for callers)
@@ -256,6 +315,16 @@ func (l *Logger) queueLogEntry(level, source, message, channel string) {
 			level,
 			source,
 			message,
+		)
+		// Also check if asyncWriter is still alive
+		fmt.Printf(
+			"QUEUE STATS: Cap=%d, Len=%d, Enqueued=%d, Batches=%d\n",
+			cap(
+				l.logQueue,
+			),
+			len(l.logQueue),
+			l.stats.TotalEnqueued,
+			l.stats.TotalBatches,
 		)
 	}
 }
@@ -364,14 +433,12 @@ func (l *Logger) GetStats() LoggerStats {
 func (l *Logger) LogStats() {
 	stats := l.GetStats()
 	l.Info("LOGGER_STATS", fmt.Sprintf(
-		"Enqueued: %d, Dropped: %d, Batches: %d, Entries: %d, QueueLen: %d, LastFlush: %v, MaxFlush: %v, QueueFull: %d",
+		"Enqueued: %d, Dropped: %d, Batches: %d, Entries: %d, QueueLen: %d, QueueFull: %d",
 		stats.TotalEnqueued,
 		stats.TotalDropped,
 		stats.TotalBatches,
 		stats.TotalEntries,
 		stats.QueueLength,
-		stats.LastFlushDuration,
-		stats.MaxFlushDuration,
 		stats.QueueFullEvents,
 	))
 }

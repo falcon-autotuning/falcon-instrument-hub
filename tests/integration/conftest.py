@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 import json
 import os
 import subprocess
@@ -147,72 +148,101 @@ async def go_runtime_process(
         ],
         env=env,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.STDOUT,  # Merge stderr into stdout
         text=True,
+        bufsize=1,  # Line buffered
+        universal_newlines=True,
     )
+
     print("🔍 Monitoring for instrument-server")
     print("Waiting for status messages...")
 
-    # Wait for multiple status messages with early exit
-    while elapsed_time < max_wait_time:
-        print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
-        print(f"  {serverName}: {len(status_msgs[serverName])} messages")
-        if len(status_msgs[serverName]) >= min_msg_count:
-            print("✅ Server reported multiple status messages!")
-            break
-        await asyncio.sleep(check_interval)
-        elapsed_time += check_interval
+    # Function to continuously read and print stdout
+    async def monitor_output():
+        """Monitor Go process output in real-time."""
+        while process.poll() is None:
+            try:
+                # Check if stdout is available
+                if process.stdout is None:
+                    await asyncio.sleep(0.1)
+                    continue
 
-    # Show final summary
-    print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
-    status_count = len(status_msgs[serverName])
-    print(f"  {serverName}: {status_count} status")
+                # Read with timeout to avoid blocking
+                line = await asyncio.wait_for(
+                    asyncio.to_thread(process.stdout.readline), timeout=0.1
+                )
+                if line:
+                    print(f"[GO_OUTPUT] {line.rstrip()}")
+            except TimeoutError:
+                continue
+            except Exception as e:
+                print(f"Error reading Go output: {e}")
+                break
 
-    assert len(status_msgs[serverName]) >= min_msg_count, (
-        f"Should receive multiple status messages, got {status_msgs[serverName]} in {elapsed_time:.1f}s"
-    )
+    # Start monitoring output in background
+    output_task = asyncio.create_task(monitor_output())
 
-    latest_status = status_msgs[serverName][-1]
-    assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
-    assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
+    try:
+        # Wait for multiple status messages with early exit
+        while elapsed_time < max_wait_time:
+            print(f"⏱️  {elapsed_time:.1f}s - Status messages received:")
+            print(f"  {serverName}: {len(status_msgs[serverName])} messages")
+            if len(status_msgs[serverName]) >= min_msg_count:
+                print("✅ Server reported multiple status messages!")
+                break
+            await asyncio.sleep(check_interval)
+            elapsed_time += check_interval
 
-    print("✅ Server is healthy and reporting status")
+        # Show final summary
+        print(f"\n📋 Final Summary after {elapsed_time:.1f}s:")
+        status_count = len(status_msgs[serverName])
+        print(f"  {serverName}: {status_count} status")
 
-    # Cleanup - show logs if process died unexpectedly
-    if process.poll() is not None and process.returncode != 0:
-        print(f"Go process failed to start. Exit code: {process.returncode}")
-        # Process has already terminated, safe to get output
-        try:
-            stdout, stderr = process.communicate(timeout=1)
-        except subprocess.TimeoutExpired:
-            stdout, stderr = "", ""
-
-        print(f"STDOUT:\n{stdout}")
-        print(f"STDERR:\n{stderr}")
-
-        pytest.fail(
-            f"Go runtime process failed to start with exit code {process.returncode}"
+        assert len(status_msgs[serverName]) >= min_msg_count, (
+            f"Should receive multiple status messages, got {status_msgs[serverName]} in {elapsed_time:.1f}s"
         )
 
-    yield status_msgs
+        latest_status = status_msgs[serverName][-1]
+        assert RUNTIME_COMMANDS.STATUS.TIMESTAMP in latest_status
+        assert RUNTIME_COMMANDS.STATUS.STATUS in latest_status
 
-    if process.poll() is not None and process.returncode != 0:
-        print(f"Go process died. Exit code: {process.returncode}")
+        print("✅ Server is healthy and reporting status")
 
-    try:
-        stdout, stderr = process.communicate(timeout=1)
-    except subprocess.TimeoutExpired:
-        stdout, stderr = "", ""
+        # Check if process died unexpectedly
+        if process.poll() is not None and process.returncode != 0:
+            print(f"Go process failed to start. Exit code: {process.returncode}")
+            pytest.fail(
+                f"Go runtime process failed to start with exit code {process.returncode}"
+            )
 
-    print(f"STDOUT:\n{stdout}")
-    print(f"STDERR:\n{stderr}")
+        yield status_msgs
 
-    # Cleanup
-    process.terminate()
-    try:
-        process.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        process.kill()
+    finally:
+        # Cancel output monitoring
+        output_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await output_task
+
+        # Check if process died during execution
+        if process.poll() is not None and process.returncode != 0:
+            print(f"Go process died. Exit code: {process.returncode}")
+
+        # Read any remaining output
+        try:
+            if process.stdout is not None:
+                remaining_output = process.stdout.read()
+                if remaining_output:
+                    print(f"REMAINING OUTPUT:\n{remaining_output}")
+        except Exception as e:
+            print(f"Error reading remaining output: {e}")
+
+        # Cleanup
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
 
 
 @pytest_asyncio.fixture
