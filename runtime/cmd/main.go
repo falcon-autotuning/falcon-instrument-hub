@@ -199,6 +199,8 @@ func setupHandlers(services *coreServices) error {
 		return fmt.Errorf("failed to setup interpreter environment: %w", err)
 	}
 
+	services.logger.LogStats()
+
 	// create handler manager from handlers package
 	services.handlerManager = handlers.NewManager(
 		cfg,
