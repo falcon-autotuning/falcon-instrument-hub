@@ -98,29 +98,15 @@ func (l *Logger) asyncWriter() {
 	var stringBuilder strings.Builder
 	stringBuilder.Grow(pageSize * 4) // Pre-allocate buffer for efficiency
 
-	fmt.Printf(
-		"[ASYNC_DEBUG] AsyncWriter started at %s\n",
-		time.Now().Format(TimeFormat),
-	)
-
 	tickerCount := 0
 	for {
 		select {
 		case <-ticker.C:
 			tickerCount++
-			fmt.Printf("[ASYNC_DEBUG] Ticker fired #%d at %s, queue len: %d\n",
-				tickerCount, time.Now().Format(TimeFormat), len(l.logQueue))
-
 			// Every 50ms, drain the entire queue and write to file
 			l.drainQueueAndWrite(&stringBuilder, pageSize)
 
-			fmt.Printf(
-				"[ASYNC_DEBUG] Completed draining queue, processed batch #%d\n",
-				tickerCount,
-			)
-
 		case <-l.done:
-			fmt.Printf("[ASYNC_DEBUG] Shutdown signal received\n")
 			// Shutdown signal - drain everything and exit
 			l.drainQueueAndWrite(&stringBuilder, pageSize)
 
@@ -128,7 +114,6 @@ func (l *Logger) asyncWriter() {
 			if stringBuilder.Len() > 0 {
 				l.writeStringToFile(stringBuilder.String())
 			}
-			fmt.Printf("[ASYNC_DEBUG] AsyncWriter exiting\n")
 			return
 		}
 	}
@@ -140,20 +125,11 @@ func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
 	entriesProcessed := 0
 	writeCount := 0
 
-	fmt.Printf(
-		"[DRAIN_DEBUG] Starting to drain queue, current len: %d\n",
-		len(l.logQueue),
-	)
-
 	// Drain the entire queue
 	for {
 		select {
 		case entry, ok := <-l.logQueue:
 			if !ok {
-				fmt.Printf(
-					"[DRAIN_DEBUG] Channel closed, processed %d entries\n",
-					entriesProcessed,
-				)
 				// Channel closed
 				if builder.Len() > 0 {
 					l.writeStringToFile(builder.String())
@@ -170,11 +146,6 @@ func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
 
 			// If we've accumulated enough for a page, write it
 			if builder.Len() >= pageSize {
-				fmt.Printf(
-					"[DRAIN_DEBUG] Writing chunk #%d (size: %d bytes)\n",
-					writeCount+1,
-					builder.Len(),
-				)
 				l.writeStringToFile(builder.String())
 				writeCount++
 				builder.Reset()
@@ -182,11 +153,6 @@ func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
 
 		default:
 			// No more entries in queue, break
-			fmt.Printf(
-				"[DRAIN_DEBUG] Queue empty, processed %d entries, made %d writes\n",
-				entriesProcessed,
-				writeCount,
-			)
 			goto escapeNoEntries
 		}
 	}
@@ -194,7 +160,6 @@ escapeNoEntries:
 
 	// Write any remaining content that's less than a page
 	if builder.Len() > 0 {
-		fmt.Printf("[DRAIN_DEBUG] Writing final chunk (size: %d bytes)\n", builder.Len())
 		l.writeStringToFile(builder.String())
 		writeCount++
 		builder.Reset()
@@ -202,10 +167,6 @@ escapeNoEntries:
 
 	// Update stats
 	l.updateBatchStats(entriesProcessed)
-	fmt.Printf(
-		"[DRAIN_DEBUG] Updated stats: %d entries processed\n",
-		entriesProcessed,
-	)
 }
 
 // formatLogEntry formats a single log entry into a string with newline
@@ -241,31 +202,18 @@ func (l *Logger) formatLogEntry(entry LogEntry) string {
 
 // writeStringToFile writes a string to the log file and syncs
 func (l *Logger) writeStringToFile(content string) {
-	fmt.Printf("[WRITE_DEBUG] Starting write of %d bytes\n", len(content))
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
-
-	if l.file == nil {
-		fmt.Printf("[WRITE_DEBUG] File is nil, aborting write\n")
-		return
-	}
 
 	// Write the entire string at once
 	if _, err := l.file.WriteString(content); err != nil {
 		fmt.Printf("Error writing to log file: %v\n", err)
 		return
 	}
-
-	// Also print to stdout for debugging
-	fmt.Print(content)
-
 	// Sync to disk
 	if err := l.file.Sync(); err != nil {
 		fmt.Printf("Error syncing log file: %v\n", err)
 	}
-
-	fmt.Printf("[WRITE_DEBUG] Completed write and sync\n")
 }
 
 // updateBatchStats updates statistics for batch processing

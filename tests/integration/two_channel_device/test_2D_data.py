@@ -49,9 +49,9 @@ def intercepts(
     outs = {}
     for index in meterIndexes:
         if index == 1:
-            outs[index] = ((1, 1, -7), (5, 5, 2), (1, 5, -1))
+            outs[index] = ((1, 1, 0), (5, 5, 0), (1, 5, -9))
         elif index == 2:
-            outs[index] = ((2, 2, 2), (6, 5, -1), (2, 6, 3))
+            outs[index] = ((2, 2, 0), (6, 5, 0), (2, 6, 8))
         else:
             outs[index] = ((1, 1, 1), (6, 6, 1), (2, 2, 1))
     return outs
@@ -71,29 +71,22 @@ def plane_from_points(
         A function that takes (x, y) and returns z value on the plane
     """
     # Convert points to vectors
-    x1, y1, z1 = p1
-    x2, y2, z2 = p2
-    x3, y3, z3 = p3
+    np1 = np.array(p1)
+    np2 = np.array(p2)
+    np3 = np.array(p3)
 
     # Calculate plane equation: ax + by + cz + d = 0
     # Using cross product of two vectors in the plane
-    v1 = (x2 - x1, y2 - y1, z2 - z1)
-    v2 = (x3 - x1, y3 - y1, z3 - z1)
+    v1 = np2 - np1
+    v2 = np3 - np1
 
     # Normal vector (a, b, c) = v1 × v2
-    a = v1[1] * v2[2] - v1[2] * v2[1]
-    b = v1[2] * v2[0] - v1[0] * v2[2]
-    c = v1[0] * v2[1] - v1[1] * v2[0]
-
-    # d = -(ax1 + by1 + cz1)
-    d = -(a * x1 + b * y1 + c * z1)
+    normal = np.cross(v1, v2)
+    d = np.dot(normal, np1)
 
     def plane_function(x: float, y: float) -> float:
         """Calculate z value for given x, y coordinates on the plane."""
-        if c == 0:
-            # Plane is vertical, return average z
-            return (z1 + z2 + z3) / 3
-        return -(a * x + b * y + d) / c
+        return -(normal[0] * x + normal[1] * y - d) / normal[2]
 
     return plane_function
 
@@ -119,7 +112,9 @@ def injectionData(
             for x in range(fullPointCount[0]):
                 # Generate a 2D linear function
                 z = plane(x, y)
-                z_rand = z + np.random.uniform(-10, 10, size=time_points_per_datapoint)
+                z_rand = z * np.ones(time_points_per_datapoint) + np.random.uniform(
+                    -10, 10, size=time_points_per_datapoint
+                )
                 outs[index].extend(z_rand.tolist())
 
     return outs

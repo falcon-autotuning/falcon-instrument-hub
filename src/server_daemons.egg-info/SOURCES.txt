@@ -58,7 +58,6 @@ runtime/internal/handlers/scripts/launch_interpreter.py
 runtime/internal/logging/logger.go
 runtime/internal/manageVenv/venv.go
 runtime/internal/manageVenv/venv_test.go
-runtime/internal/measurements/?_busy_timeout=10000&_journal_mode=WAL&_sync=NORMAL&_txlock=immediate
 runtime/internal/measurements/database.go
 runtime/internal/measurements/database_test.go
 runtime/internal/measurements/hdf5.go
@@ -93,6 +92,17 @@ src/server_daemons/api/interpreter.py
 src/server_daemons/api/__pycache__/__init__.cpython-313.pyc
 src/server_daemons/api/__pycache__/instrument.cpython-313.pyc
 src/server_daemons/api/__pycache__/interpreter.cpython-313.pyc
+test-outs/device_config.yaml
+test-outs/wiremap.yaml
+test-outs/data/2025/07/01/1.h5
+test-outs/data/2025/07/01/2.h5
+test-outs/datacache/measurements.db
+test-outs/log/falcon-runtime_2025-07-01_13-18-17.log
+test-outs/log/falcon-runtime_2025-07-01_13-18-17_sorted.log
+test-outs/log/falcon-runtime_2025-07-01_13-30-14.log
+test-outs/scripts/launch_instrument_daemon.py
+test-outs/scripts/launch_interpreter.py
+test-outs/test_plotted_data/test_standard_2D_measurement.png
 tests/__init__.py
 tests/test_daemon_simple.py
 tests/test_instrument_daemon_shutdown.py
