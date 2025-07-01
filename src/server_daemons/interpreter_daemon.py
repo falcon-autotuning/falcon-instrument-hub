@@ -750,29 +750,27 @@ class InterpreterDaemon:
                 getters=getters.ports,
                 buffered=buffered,
             )
+            for meter in getters:
+                properties = self.meter_property_generation(
+                    step_width=step_width,
+                    number_of_samples=number_of_samples[meter],
+                    buffered=buffered,
+                )
+                port = self.find_similar_port(
+                    similar_port_name=meter.default_name,
+                    configuration=configuration,
+                )
+                instruction.add_requirement(
+                    instrument=port,
+                    properties=properties,
+                )
+                await self.log(f"Made it through meter {meter}")
             for i, couple_domain in enumerate(axes_domains):
                 buffered_dimension = buffered and (i == 0)
+                await self.log("Selecting a chunk")
                 raw_space = chunk[i, :]
-                for meter in getters:
-                    properties = self.meter_property_generation(
-                        step_width=step_width,
-                        number_of_samples=number_of_samples[meter],
-                        buffered=buffered,
-                    )
-                    port = self.find_similar_port(
-                        similar_port_name=meter.default_name,
-                        configuration=configuration,
-                    )
-                    instruction.add_requirement(
-                        instrument=port,
-                        properties=properties,
-                    )
-                    await self.log(f"Made it through meter {meter}")
+                await self.log("Selected a chunk")
                 for domain in couple_domain:
-                    unit_domain.transform(
-                        value=raw_space[0],
-                        other=domain.domain,
-                    )
                     properties = self.knob_property_generation(
                         unit_domain=unit_domain,
                         raw_space=raw_space,
