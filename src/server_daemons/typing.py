@@ -5,8 +5,10 @@ from typing import Any
 
 from falcon_core.instrument_interfaces.names import InstrumentPort
 from falcon_core.instrument_interfaces.port_transforms import PortTransform
+from falcon_core.instrument_interfaces.waveforms.base_waveform import BaseWaveform
 from falcon_core.math.arrays.base_array import BaseArray
 from falcon_core.math.arrays.measured_array_1D import MeasuredArray1D
+from falcon_core.math.domains.base_labelled_domain import BaseLabelledDomain
 from falcon_core.physics.device_structures import Connection
 from falcon_core.typing import Instrument, array1D
 from instrument_templates.base_instrument_driver import BaseInstrumentDriver
@@ -41,8 +43,10 @@ type Setters = Sequence[InstrumentPort]
 type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
+    "BaseWaveform",
     "Sequence",
     "PortTransform",
+    "BaseLabelledDomain",
     "array1D",
     "BaseArray",
     "MeasuredArray1D",
