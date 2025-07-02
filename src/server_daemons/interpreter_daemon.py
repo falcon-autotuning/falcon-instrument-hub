@@ -27,6 +27,7 @@ from .dependancies import (
 from .instructions import Instruction, MeasurementInstructions
 from .typing import (
     InstrumentPort,
+    Meter,
 )
 
 if TYPE_CHECKING:
@@ -41,6 +42,7 @@ if TYPE_CHECKING:
         BaseLabelledDomain,
         BaseWaveform,
         Getters,
+        Knob,
         NDArray,
         PortTransform,
         PropertyJson,
@@ -113,7 +115,7 @@ class PendingMeasurement:
         """Get data entries sorted by chunk_id."""
         return sorted(self.collected_data, key=lambda x: x.chunk_id)
 
-    def get_sorted_chunk_data(self) -> dict[int, dict[InstrumentPort, MeasuredArray1D]]:
+    def get_sorted_chunk_data(self) -> dict[int, dict[Meter, MeasuredArray1D]]:
         """Get data organized by chunk_id, preserving the chunk structure."""
         # Sort data by chunk_id first
         sorted_entries = self.get_sorted_data()
@@ -127,7 +129,7 @@ class PendingMeasurement:
 
             # Copy the InstrumentPort -> MeasuredArray1D mapping for this chunk
             for instrument_port, measured_array in entry.data.items():
-                if isinstance(instrument_port, InstrumentPort) and isinstance(
+                if isinstance(instrument_port, Meter) and isinstance(
                     measured_array, MeasuredArray1D
                 ):
                     chunk_data[chunk_id][instrument_port] = measured_array
@@ -1016,7 +1018,7 @@ class InterpreterDaemon:
                 }
             new_instruction = Instruction(
                 requirements=requirements,
-                setters=list(requirements.keys()),
+                setters=list(requirements.keys()),  # type: ignore[]
                 buffered=True,
             )
             new_instructions.append(new_instruction)
@@ -1084,7 +1086,7 @@ class InterpreterDaemon:
         data_path: Path,
         id: "ID",
         data_count: int,
-        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
+        chunk_data: dict["ID", dict[Meter, MeasuredArray1D]],
     ) -> None:
         """Load and export data to a file. Finishes by sending the completed result away.
 
@@ -1183,9 +1185,9 @@ class InterpreterDaemon:
 
     @staticmethod
     def divide_to_sub_chunks(
-        chunk_data: dict["ID", dict[InstrumentPort, MeasuredArray1D]],
+        chunk_data: dict["ID", dict["Meter", MeasuredArray1D]],
         number_of_bins: int,
-    ) -> list[dict[InstrumentPort, "array1D"]]:
+    ) -> list[dict["Meter", "array1D"]]:
         """Divides each chunk of data into sub-chunks.
 
         In the case of a standard measurement, this will do nothing.
@@ -1193,11 +1195,11 @@ class InterpreterDaemon:
         Returns:
             an ordered list of the measured data for each sub_chunk.
         """
-        outs: list[dict[InstrumentPort, array1D]] = []
+        outs: list[dict[Meter, array1D]] = []
         # Process chunks in sorted order by ID
         for chunk_id in sorted(chunk_data.keys()):
             collected_data = chunk_data[chunk_id]
-            divided_chunks: dict[InstrumentPort, tuple[array1D, ...]] = {}
+            divided_chunks: dict[Meter, tuple[array1D, ...]] = {}
             for port, individual_data in collected_data.items():
                 divided_chunks[port] = individual_data.even_divisions(
                     divisions=number_of_bins
@@ -1205,7 +1207,7 @@ class InterpreterDaemon:
 
             # Unravel the divided chunks and append them to outs
             for i in range(number_of_bins):
-                sub_chunk: dict[InstrumentPort, array1D] = {}
+                sub_chunk: dict[Meter, array1D] = {}
                 for port, divisions in divided_chunks.items():
                     sub_chunk[port] = divisions[i]
                 outs.append(sub_chunk)
@@ -1215,8 +1217,8 @@ class InterpreterDaemon:
     async def average_shapeless_data(
         self,
         request: MeasurementRequest,
-        voltage_state_array: list[dict[InstrumentPort, float]],
-        aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
+        voltage_state_array: list[dict["Knob", float]],
+        aligned_sub_chunks: list[dict["Meter", "array1D"]],
     ) -> dict[InstrumentPort, list[float]]:
         """Computes the average over the data and stores it in a 1D array to be reshaped later.
 
@@ -1310,7 +1312,7 @@ class InterpreterDaemon:
 
     @staticmethod
     def sub_chunk_length(
-        aligned_sub_chunks: list[dict[InstrumentPort, "array1D"]],
+        aligned_sub_chunks: list[dict["Meter", "array1D"]],
     ) -> int:
         """Returns the length of the sub-chunks and enforces consistent length."""
         data_length = None
@@ -1339,9 +1341,7 @@ class InterpreterDaemon:
             num=num_points,
         )
 
-    async def preprocess_voltage_states(
-        self, id: "ID"
-    ) -> list[dict[InstrumentPort, float]]:
+    async def preprocess_voltage_states(self, id: "ID") -> list[dict["Knob", float]]:
         """Preprocesses the voltage states for the measurement.
 
         Modifies the setup stored in teh measurement_groups.
@@ -1352,7 +1352,7 @@ class InterpreterDaemon:
         Returns:
             the preprocessed voltage states.
         """
-        name_attribute_maps: list[dict[InstrumentPort, float]] = []
+        name_attribute_maps: list[dict[Knob, float]] = []
         await self.log(
             f"Beginning to preprocess voltage states for measurement id {id}"
         )

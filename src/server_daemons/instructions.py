@@ -3,11 +3,15 @@
 from typing import TYPE_CHECKING
 
 from .dependancies import SUPPORTED_PROPERTIES
+from .typing import (
+    Knob,
+)
 
 if TYPE_CHECKING:
     from .typing import (
         Getters,
         InstrumentPort,
+        Meter,
         PropertyName,
         PropertyValue,
         Requirements,
@@ -61,7 +65,7 @@ class Instruction:
 
     def add_getter(
         self,
-        instrument: "InstrumentPort",
+        instrument: "Meter",
     ) -> None:
         """Add a getter to the instruction."""
         self._getters = [*self._getters, instrument]
@@ -73,7 +77,7 @@ class Instruction:
 
     def add_setter(
         self,
-        instrument: "InstrumentPort",
+        instrument: "Knob",
     ) -> None:
         """Add a setter to the instruction."""
         self._setters = [*self._setters, instrument]
@@ -103,15 +107,18 @@ class Instruction:
             f"buffered={self._buffered})"
         )
 
-    def retrieve_voltage_states(self) -> dict["InstrumentPort", float]:
+    def retrieve_voltage_states(self) -> dict["Knob", float]:
         """Unpacks the requirements to get any setters that are setting voltage states."""
-        map: dict[InstrumentPort, float] = {}
+        map: dict[Knob, float] = {}
         for port, requirements in self.requirements.items():
             if port not in self.setters:
                 continue
             if SUPPORTED_PROPERTIES.VOLTAGE_STATE in requirements:
                 v_state = requirements[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
                 assert isinstance(v_state, float)
+                assert isinstance(port, Knob), (
+                    "The port used in the sweep was not a knob"
+                )
                 map[port] = v_state
 
         return map
