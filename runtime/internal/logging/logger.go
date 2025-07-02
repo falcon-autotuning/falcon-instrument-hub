@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"time"
@@ -90,30 +91,79 @@ func NewLogger(outputPath string) (*Logger, error) {
 
 // asyncWriter processes log entries from the queue
 func (l *Logger) asyncWriter() {
-	defer l.wg.Done()
+	defer func() {
+		if r := recover(); r != nil {
+			// Write panic to stderr since normal logging is broken
+			fmt.Fprintf(
+				os.Stderr,
+				"[LOGGER_PANIC] AsyncWriter panicked: %v\n",
+				r,
+			)
+			debug.PrintStack()
+		}
+		l.wg.Done()
+	}()
 
 	ticker := time.NewTicker(50 * time.Millisecond)
 	defer ticker.Stop()
 
 	var stringBuilder strings.Builder
-	stringBuilder.Grow(pageSize * 4) // Pre-allocate buffer for efficiency
+	stringBuilder.Grow(pageSize * 4)
+
+	// Write startup message directly to stderr
+	fmt.Fprintf(
+		os.Stderr,
+		"[LOGGER_DEBUG] AsyncWriter started at %s\n",
+		time.Now().Format(TimeFormat),
+	)
 
 	tickerCount := 0
+	lastStatsTime := time.Now()
+
 	for {
 		select {
 		case <-ticker.C:
 			tickerCount++
+			now := time.Now()
+
+			// Log detailed stats every 10 ticks (500ms)
+			if tickerCount%10 == 0 || now.Sub(lastStatsTime) > 5*time.Second {
+				queueLen := len(l.logQueue)
+				fmt.Fprintf(
+					os.Stderr,
+					"[LOGGER_DEBUG] Tick #%d, queue len: %d, time: %s\n",
+					tickerCount,
+					queueLen,
+					now.Format(TimeFormat),
+				)
+				lastStatsTime = now
+
+				// Check for potential issues
+				if queueLen > 9000 {
+					fmt.Fprintf(
+						os.Stderr,
+						"[LOGGER_WARNING] Queue nearly full: %d/10000\n",
+						queueLen,
+					)
+				}
+			}
+
 			// Every 50ms, drain the entire queue and write to file
-			l.drainQueueAndWrite(&stringBuilder, pageSize)
+			l.drainQueueAndWrite(&stringBuilder, pageSize, tickerCount)
 
 		case <-l.done:
+			fmt.Fprintf(os.Stderr, "[LOGGER_DEBUG] Shutdown signal received\n")
 			// Shutdown signal - drain everything and exit
-			l.drainQueueAndWrite(&stringBuilder, pageSize)
+			l.drainQueueAndWrite(&stringBuilder, pageSize, -1)
 
 			// Write any remaining content in buffer
 			if stringBuilder.Len() > 0 {
-				l.writeStringToFile(stringBuilder.String())
+				l.writeStringToFile(stringBuilder.String(), -1)
 			}
+			fmt.Fprintf(
+				os.Stderr,
+				"[LOGGER_DEBUG] AsyncWriter exiting normally\n",
+			)
 			return
 		}
 	}
@@ -121,9 +171,13 @@ func (l *Logger) asyncWriter() {
 
 // drainQueueAndWrite empties the entire logQueue and writes to file in
 // page-sized chunks
-func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
+func (l *Logger) drainQueueAndWrite(
+	builder *strings.Builder,
+	pageSize, tickNumber int,
+) {
 	entriesProcessed := 0
 	writeCount := 0
+	startTime := time.Now()
 
 	// Drain the entire queue
 	for {
@@ -132,7 +186,7 @@ func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
 			if !ok {
 				// Channel closed
 				if builder.Len() > 0 {
-					l.writeStringToFile(builder.String())
+					l.writeStringToFile(builder.String(), tickNumber)
 					writeCount++
 					builder.Reset()
 				}
@@ -146,27 +200,40 @@ func (l *Logger) drainQueueAndWrite(builder *strings.Builder, pageSize int) {
 
 			// If we've accumulated enough for a page, write it
 			if builder.Len() >= pageSize {
-				l.writeStringToFile(builder.String())
+				l.writeStringToFile(builder.String(), tickNumber)
 				writeCount++
 				builder.Reset()
 			}
 
 		default:
 			// No more entries in queue, break
-			goto escapeNoEntries
+			goto drainComplete
 		}
 	}
-escapeNoEntries:
 
+drainComplete:
 	// Write any remaining content that's less than a page
 	if builder.Len() > 0 {
-		l.writeStringToFile(builder.String())
+		l.writeStringToFile(builder.String(), tickNumber)
 		writeCount++
 		builder.Reset()
 	}
 
 	// Update stats
 	l.updateBatchStats(entriesProcessed)
+
+	// Log processing time if it takes too long
+	duration := time.Since(startTime)
+	if duration > 10*time.Millisecond || entriesProcessed > 100 {
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_DEBUG] Tick %d: processed %d entries, %d writes, took %v\n",
+			tickNumber,
+			entriesProcessed,
+			writeCount,
+			duration,
+		)
+	}
 }
 
 // formatLogEntry formats a single log entry into a string with newline
@@ -201,18 +268,72 @@ func (l *Logger) formatLogEntry(entry LogEntry) string {
 }
 
 // writeStringToFile writes a string to the log file and syncs
-func (l *Logger) writeStringToFile(content string) {
+func (l *Logger) writeStringToFile(content string, tickNumber int) {
+	startTime := time.Now()
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	// Write the entire string at once
-	if _, err := l.file.WriteString(content); err != nil {
-		fmt.Printf("Error writing to log file: %v\n", err)
+	if l.file == nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_ERROR] File is nil during write (tick %d)\n",
+			tickNumber,
+		)
 		return
 	}
+
+	// Check file status
+	if stat, err := l.file.Stat(); err != nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_ERROR] Cannot stat file (tick %d): %v\n",
+			tickNumber,
+			err,
+		)
+		return
+	} else if stat.Size() > 100*1024*1024 { // 100MB
+		fmt.Fprintf(os.Stderr, "[LOGGER_WARNING] Log file getting large: %d bytes\n", stat.Size())
+	}
+
+	// Write the entire string at once
+	bytesWritten, err := l.file.WriteString(content)
+	if err != nil {
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_ERROR] Write failed (tick %d): %v\n",
+			tickNumber,
+			err,
+		)
+		return
+	}
+
+	// Also print to stdout for debugging (first few entries only)
+	if tickNumber <= 5 || tickNumber%100 == 0 {
+		fmt.Print(content)
+	}
+
 	// Sync to disk
 	if err := l.file.Sync(); err != nil {
-		fmt.Printf("Error syncing log file: %v\n", err)
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_ERROR] Sync failed (tick %d): %v\n",
+			tickNumber,
+			err,
+		)
+		return
+	}
+
+	// Log slow writes
+	duration := time.Since(startTime)
+	if duration > 50*time.Millisecond {
+		fmt.Fprintf(
+			os.Stderr,
+			"[LOGGER_WARNING] Slow write (tick %d): %d bytes in %v\n",
+			tickNumber,
+			bytesWritten,
+			duration,
+		)
 	}
 }
 
