@@ -91,6 +91,8 @@ src/server_daemons/api/__pycache__/instrument.cpython-313.pyc
 src/server_daemons/api/__pycache__/interpreter.cpython-313.pyc
 test-outs/device_config.yaml
 test-outs/wiremap.yaml
+test-outs/data/2025/07/02/10.h5
+test-outs/data/2025/07/02/14.h5
 test-outs/data/2025/07/02/4.h5
 test-outs/data/2025/07/02/6.h5
 test-outs/data/2025/07/02/8.h5
@@ -104,6 +106,13 @@ test-outs/log/falcon-runtime_2025-07-02_13-17-01.log
 test-outs/log/falcon-runtime_2025-07-02_13-17-30.log
 test-outs/log/falcon-runtime_2025-07-02_13-22-42.log
 test-outs/log/falcon-runtime_2025-07-02_13-23-11.log
+test-outs/log/falcon-runtime_2025-07-02_13-42-35.log
+test-outs/log/falcon-runtime_2025-07-02_13-43-01.log
+test-outs/log/falcon-runtime_2025-07-02_13-48-08.log
+test-outs/log/falcon-runtime_2025-07-02_13-57-14.log
+test-outs/log/falcon-runtime_2025-07-02_14-01-37.log
+test-outs/log/falcon-runtime_2025-07-02_14-02-03.log
+test-outs/log/falcon-runtime_2025-07-02_14-03-55.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_standard_linear_measurement.png
