@@ -67,7 +67,7 @@ class DataEntry:
 
     measurement_id: "ID"
     chunk_id: "ID"
-    data: dict[InstrumentPort, MeasuredArray1D]
+    data: dict[Meter, MeasuredArray1D]
     timestamp: float
 
 
@@ -100,7 +100,7 @@ class PendingMeasurement:
     def add_data_entry(
         self,
         chunk_id: int,
-        data: dict[InstrumentPort, MeasuredArray1D],
+        data: dict[Meter, MeasuredArray1D],
     ) -> None:
         """Add a data entry to this measurement."""
         entry = DataEntry(
@@ -499,7 +499,7 @@ class InterpreterDaemon:
         self,
         measurement_id: "ID",
         chunk_id: int,
-        data: dict[InstrumentPort, MeasuredArray1D],
+        data: dict[Meter, MeasuredArray1D],
     ) -> None:
         """Queue measurement data for async processing."""
         entry = DataEntry(
@@ -1069,7 +1069,7 @@ class InterpreterDaemon:
             data_payload = json.loads(raw_data_payload)
             modified_payload = {}
             for key, value in data_payload.items():
-                modified_payload[InstrumentPort.from_json(key)] = MeasuredArray1D(
+                modified_payload[Meter.from_json(key)] = MeasuredArray1D(
                     np.array(json.loads(value))
                 )
 
@@ -1252,6 +1252,9 @@ class InterpreterDaemon:
                     port_transforms[port] = transform
                     break
             else:
+                await self.log(
+                    f"The type of the port we are searching for is {type(port)}"
+                )
                 msg = f"Transform not found for port {port} in the available ports {all_ports}"
                 raise ValueError(msg)
 
