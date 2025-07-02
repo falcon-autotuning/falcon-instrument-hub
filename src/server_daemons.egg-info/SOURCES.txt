@@ -96,6 +96,7 @@ test-outs/device_config.yaml
 test-outs/wiremap.yaml
 test-outs/data/2025/07/01/1.h5
 test-outs/data/2025/07/01/10.h5
+test-outs/data/2025/07/01/12.h5
 test-outs/data/2025/07/01/2.h5
 test-outs/data/2025/07/01/3.h5
 test-outs/data/2025/07/01/4.h5
@@ -104,6 +105,7 @@ test-outs/data/2025/07/01/6.h5
 test-outs/data/2025/07/01/7.h5
 test-outs/data/2025/07/01/8.h5
 test-outs/data/2025/07/01/9.h5
+test-outs/data/2025/07/02/14.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-01_13-45-04_sorted.log
 test-outs/log/falcon-runtime_2025-07-01_13-52-56.log
@@ -115,6 +117,13 @@ test-outs/log/falcon-runtime_2025-07-01_15-36-47.log
 test-outs/log/falcon-runtime_2025-07-01_15-42-55.log
 test-outs/log/falcon-runtime_2025-07-01_15-46-34.log
 test-outs/log/falcon-runtime_2025-07-01_15-46-34_sorted.log
+test-outs/log/falcon-runtime_2025-07-01_15-57-56.log
+test-outs/log/falcon-runtime_2025-07-01_16-25-06.log
+test-outs/log/falcon-runtime_2025-07-01_16-25-06_sorted.log
+test-outs/log/falcon-runtime_2025-07-02_09-32-31.log
+test-outs/log/falcon-runtime_2025-07-02_09-32-31_sorted.log
+test-outs/log/falcon-runtime_2025-07-02_10-06-30.log
+test-outs/log/falcon-runtime_2025-07-02_10-08-00.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_standard_2D_measurement.png
@@ -145,8 +154,10 @@ tests/integration/__pycache__/test_linear_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/__pycache__/test_random_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/conftest.py
 tests/integration/two_channel_device/test_2D_data.py
+tests/integration/two_channel_device/test_3D_data.py
 tests/integration/two_channel_device/test_linear_data.py
 tests/integration/two_channel_device/test_random_data.py
 tests/integration/two_channel_device/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__pycache__/test_2D_data.cpython-313-pytest-8.2.1.pyc
+tests/integration/two_channel_device/__pycache__/test_3D_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__pycache__/test_linear_data.cpython-313-pytest-8.2.1.pyc
