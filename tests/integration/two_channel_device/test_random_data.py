@@ -40,11 +40,20 @@ def human_readable_meter_names() -> list[str]:
 
 
 @pytest.fixture
+def fullPointCount() -> tuple[int, ...]:
+    """Returns the number of points in the averaged measurement."""
+    return (10,)
+
+
+@pytest.fixture
 def measurement_request(
-    knobs: list["Knob"], meters: list["Meter"], datapoints_time: float
+    knobs: list["Knob"],
+    meters: list["Meter"],
+    datapoints_time: float,
+    fullPointCount: tuple[int, ...],
 ):
     """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[0.1])
+    space = CartesianSpace(deltas=[1 / count for count in fullPointCount])
     ckd = CoupledKnobDomain(
         [
             KnobDomain.from_knob(
