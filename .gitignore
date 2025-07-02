@@ -1,2 +1,3 @@
 .aider*
-.test-outs*
+.test-outs/*
+*/__pycache__/*
