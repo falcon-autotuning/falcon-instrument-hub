@@ -119,6 +119,7 @@ def measurement_request(
     )
     transform = ConstantTransform(ports=Knobs(knobs), scale=1.0)
     transforms = {meter: transform for meter in meters}
+    print(f"The selected transforms are : {transforms}")
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",

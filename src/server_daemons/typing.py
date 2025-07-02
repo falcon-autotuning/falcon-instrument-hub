@@ -3,10 +3,9 @@
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
-from falcon_core.instrument_interfaces.names import InstrumentPort
+from falcon_core.instrument_interfaces.names import InstrumentPort, Knob, Meter
 from falcon_core.instrument_interfaces.port_transforms import PortTransform
 from falcon_core.instrument_interfaces.waveforms.base_waveform import BaseWaveform
-from falcon_core.instrument_interfaces.names import Meter, Knob
 from falcon_core.math.arrays.base_array import BaseArray
 from falcon_core.math.arrays.measured_array_1D import MeasuredArray1D
 from falcon_core.math.domains.base_labelled_domain import BaseLabelledDomain
@@ -39,8 +38,8 @@ type Domains = dict[DimensionIndex, Domain]
 type Dimensions = dict[DimensionIndex, Dimension]
 type Metadata = dict[str, str | int | float]
 type ID = int
-type Getters = Sequence[InstrumentPort]
-type Setters = Sequence[InstrumentPort]
+type Getters = Sequence[Meter]
+type Setters = Sequence[Knob]
 type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",

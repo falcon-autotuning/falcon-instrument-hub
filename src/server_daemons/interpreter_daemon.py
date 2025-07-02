@@ -433,6 +433,7 @@ class InterpreterDaemon:
             unpacked_configuration = json.loads(configuration)
             expanded_config = await self.readConfigurationPorts(unpacked_configuration)
             measurement_request = MeasurementRequest.from_json(request)
+            await self.log(f"[DEBUG] the measurement request is {measurement_request}")
 
             await self.log("Measurement unpacked, processing ....")
 
