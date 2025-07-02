@@ -92,12 +92,15 @@ src/server_daemons/api/__pycache__/interpreter.cpython-313.pyc
 test-outs/device_config.yaml
 test-outs/wiremap.yaml
 test-outs/data/2025/07/02/4.h5
+test-outs/data/2025/07/02/6.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-02_12-37-25.log
 test-outs/log/falcon-runtime_2025-07-02_12-40-54.log
 test-outs/log/falcon-runtime_2025-07-02_12-59-55.log
 test-outs/log/falcon-runtime_2025-07-02_13-05-51.log
 test-outs/log/falcon-runtime_2025-07-02_13-06-21.log
+test-outs/log/falcon-runtime_2025-07-02_13-17-01.log
+test-outs/log/falcon-runtime_2025-07-02_13-17-30.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_standard_linear_measurement.png
