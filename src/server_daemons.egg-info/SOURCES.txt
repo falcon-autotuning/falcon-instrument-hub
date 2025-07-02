@@ -94,6 +94,7 @@ test-outs/wiremap.yaml
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-02_12-37-25.log
 test-outs/log/falcon-runtime_2025-07-02_12-40-54.log
+test-outs/log/falcon-runtime_2025-07-02_12-59-55.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 tests/__init__.py
