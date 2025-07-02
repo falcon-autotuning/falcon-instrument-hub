@@ -1126,7 +1126,6 @@ class InterpreterDaemon:
             data_count=data_count,
         )
         name_attribute_maps = await self.preprocess_voltage_states(id=id)
-        await self.log(f"The name attribute maps are {name_attribute_maps}")
         await self.log(f"The number of bins {number_of_bins}")
         aligned_sub_chunks = self.divide_to_sub_chunks(
             chunk_data=chunk_data,
