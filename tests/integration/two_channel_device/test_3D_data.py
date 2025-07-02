@@ -242,10 +242,10 @@ async def test_3D_measurement(
             fullPointCount[0],
         )
 
-        # Create 4D hyperplane visualization
+        # Create 3D data visualization
         fig = plt.figure(figsize=(15, 10))
 
-        # Plot 1: 3D scatter with color-coded 4th dimension
+        # Plot 1: 3D scatter with color-coded measured values
         ax1 = Axes3D(fig, rect=[0.02, 0.52, 0.46, 0.46])
 
         # Create coordinate grids
@@ -259,12 +259,31 @@ async def test_3D_measurement(
         # Flatten coordinates and data
         x_flat = x_coords.ravel()
         y_flat = y_coords.ravel()
-        z_flat = z_coords.ravel().astype(float)
-        w_flat = data_3d.ravel()
+        z_flat = z_coords.ravel()
+        values_flat = data_3d.ravel()
 
-        # 3D scatter plot with color representing 4th dimension
+        # Create size variation based on both Z layer and measured values
+        # Larger points for higher Z values to make layering visible
+        base_sizes = 10 + z_flat * 2  # Size increases with Z
+        value_range = values_flat.max() - values_flat.min()
+        if value_range > 0:
+            value_sizes = 20 * (values_flat - values_flat.min()) / value_range
+        else:
+            value_sizes = np.zeros_like(values_flat)
+
+        point_sizes = base_sizes + value_sizes
+
+        # 3D scatter plot with varying sizes and colors
         scatter = ax1.scatter(
-            x_flat, y_flat, z_flat, c=w_flat, cmap="viridis", s=20, alpha=0.6
+            x_flat,
+            y_flat,
+            z_flat,
+            c=values_flat,
+            s=point_sizes,
+            cmap="viridis",
+            alpha=0.7,
+            edgecolors="black",
+            linewidth=0.3,
         )
         ax1.set_xlabel("X Index")
         ax1.set_ylabel("Y Index")
@@ -316,8 +335,6 @@ async def test_3D_measurement(
         ax4.set_ylabel("Y Index")
         ax4.set_title(f"{connection.name} - Z-averaged Contour")
         plt.colorbar(contour, ax=ax4)
-
-        plt.tight_layout()
 
         # Export the plot
         plot_path = plot_dir / f"test_4D_hyperplane_{connection.name}.png"

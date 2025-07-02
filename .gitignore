@@ -1,4 +1,3 @@
 .aider*
-test-outs/*
 */__pycache__/*
 */bin/*

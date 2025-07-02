@@ -90,8 +90,13 @@ tests/test_signal_handling.py
 tests/integration/__init__.py
 tests/integration/conftest.py
 tests/integration/server_api.py
+tests/integration/__pycache__/__init__.cpython-313.pyc
+tests/integration/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
+tests/integration/__pycache__/server_api.cpython-313.pyc
 tests/integration/two_channel_device/conftest.py
 tests/integration/two_channel_device/test_2D_data.py
 tests/integration/two_channel_device/test_3D_data.py
 tests/integration/two_channel_device/test_linear_data.py
 tests/integration/two_channel_device/test_random_data.py
+tests/integration/two_channel_device/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
+tests/integration/two_channel_device/__pycache__/test_3D_data.cpython-313-pytest-8.2.1.pyc
