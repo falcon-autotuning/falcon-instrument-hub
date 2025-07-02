@@ -1288,28 +1288,34 @@ class InterpreterDaemon:
             num_points=data_length,
         )
 
+        voltage_state_keys = {
+            name: name.instrument_facing_name() for name in voltage_state_array[0]
+        }
         for sub_chunk, voltage_states in zip(aligned_sub_chunks, voltage_state_array):
+            voltage_state_dict = {
+                voltage_state_keys[name]: potential
+                for name, potential in voltage_states.items()
+            }
             for port, data in sub_chunk.items():
-                await self.log(f"The port we are investigating is {port}")
-                await self.log(
-                    f"The port transform is for {port_transforms[port].port}"
+                asyncio.create_task(
+                    self.log(
+                        f"The instrument facing name for the port is {port.instrument_facing_name()} and the voltage states are {voltage_states}"
+                    )
                 )
-                await self.log(f"The voltage states are {voltage_states}")
-                await self.log(
-                    f"The instrument facing name for the port is {port.instrument_facing_name()}"
+
+                transform_func = port_transforms[port].transform
+                vectorized_func = np.frompyfunc(
+                    lambda t: transform_func(t=t, **voltage_state_dict), 1, 1
                 )
-                vectorized_transform = np.vectorize(
-                    lambda t: port_transforms[port].transform(
-                        t=t,
-                        **{
-                            name.instrument_facing_name(): potential
-                            for name, potential in voltage_states.items()
-                        },
-                    )  # type : ignore[reportOptionalMemberAccess]
-                )
-                transformed = vectorized_transform(t_array)
-                masked = (transformed * data)[transformed != 0]
-                computation = np.mean(masked) if masked.size > 0 else 0.0
+                transformed = vectorized_func(t_array).astype(np.float64)
+
+                # Use numpy boolean indexing efficiently
+                nonzero_indices = transformed != 0
+                if np.any(nonzero_indices):
+                    computation = np.mean((transformed * data)[nonzero_indices])
+                else:
+                    computation = 0.0
+
                 if port not in final_data:
                     final_data[port] = []
                 final_data[port].append(float(computation))
