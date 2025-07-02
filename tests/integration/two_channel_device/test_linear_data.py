@@ -61,7 +61,7 @@ def intercepts(
 def injectionData(
     sampleRate: int,
     datapoints_time: float,
-    fullPointCount: int,
+    fullPointCount: tuple[int, ...],
     intercepts: dict[int, tuple[tuple[float, float], tuple[float, float]]],
     meterIndexes: list[int],
 ) -> dict["Index", list[float]]:
@@ -74,7 +74,7 @@ def injectionData(
         inter1 = intercepts[index][1]
         m = (inter1[1] - inter0[1]) / (inter1[0] - inter0[0])
         b = inter1[1] - m * inter1[0]
-        for x in range(fullPointCount):
+        for x in range(fullPointCount[0]):
             y = m * x + b
             y_rand = y + np.random.uniform(-10, 10, size=time_points_per_datapoint)
             outs[index].extend(y_rand.tolist())
@@ -83,9 +83,9 @@ def injectionData(
 
 
 @pytest.fixture
-def fullPointCount() -> int:
+def fullPointCount() -> tuple[int]:
     """Returns the number of points in the averaged measurement."""
-    return 10
+    return (10,)
 
 
 @pytest.fixture
@@ -93,10 +93,10 @@ def measurement_request(
     knobs: list["Knob"],
     meters: list["Meter"],
     datapoints_time: float,
-    fullPointCount: int,
+    fullPointCount: tuple[int, ...],
 ):
     """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[1 / fullPointCount])
+    space = CartesianSpace(deltas=[1 / count for count in fullPointCount])
     ckd = CoupledKnobDomain(
         [
             KnobDomain.from_knob(
@@ -118,12 +118,13 @@ def measurement_request(
         )
     )
     transform = ConstantTransform(ports=Knobs(knobs), scale=1.0)
+    transforms = {meter: transform for meter in meters}
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
         waveforms=[waveform],
         getters=Meters(meters),
-        meter_transforms={meters[0]: transform},
+        meter_transforms=transforms,
         time_domain=KnobDomain(
             default_name="time",
             bounds=(0, datapoints_time),
