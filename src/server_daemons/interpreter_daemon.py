@@ -1248,7 +1248,7 @@ class InterpreterDaemon:
         port_transforms: dict[InstrumentPort, PortTransform] = {}
         for port in all_ports:
             for indexport, transform in request.meter_transforms.items():
-                if indexport == port:
+                if indexport.default_name == port.default_name:
                     port_transforms[port] = transform
                     break
             else:
