@@ -579,29 +579,6 @@ class InterpreterDaemon:
                 await self.log(f"Error processing data from queue: {e}")
                 await asyncio.sleep(0.1)  # Prevent tight error loop
 
-    async def _process_complete_measurement(self, pending: PendingMeasurement):
-        """Process complete measurement data."""
-        try:
-            await self.log(
-                f"Processing complete measurement {pending.measurement_id} with {len(pending.collected_data)} data points"
-            )
-            await self.log(f"The pending data is {pending.collected_data}")
-
-            # Use the existing load_and_export_data method
-            await self.load_and_export_data(
-                request=pending.request,
-                shape=pending.shape,
-                data_path=pending.data_path,
-                id=pending.measurement_id,
-                data_count=len(pending.collected_data),
-                chunk_data=pending.get_sorted_chunk_data(),
-            )
-
-        except Exception as e:
-            await self.log(
-                f"Error processing complete measurement {pending.measurement_id}: {e}"
-            )
-
     async def _cleanup_stale_measurements(self):
         """Background task to clean up stale measurements."""
         while True:
@@ -1247,7 +1224,7 @@ class InterpreterDaemon:
             id: The ID of the measurement.
             number_of_bins: The number of bins to average over.
             request: The measurement request.
-            voltage_state_array: The different votlage states to use when computing the average.
+            voltage_state_array: The different voltage states to use when computing the average.
 
         Returns:
             the computed average data.
@@ -1268,6 +1245,13 @@ class InterpreterDaemon:
 
         port_transforms: dict[InstrumentPort, PortTransform] = {}
         for port in all_ports:
+            for indexport, transform in request.meter_transforms.items():
+                if indexport == port:
+                    port_transforms[port] = transform
+                    break
+            else:
+                msg = f"Transform not found for port {port}"
+                raise ValueError(msg)
             transform = next(
                 (
                     t

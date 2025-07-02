@@ -70,7 +70,7 @@ def measurement_request(
         message="test measurement",
         measurement_name="integration_test",
         waveforms=[waveform],
-        meter_transforms={meters[0]: transform},
+        meter_transforms={meter: transform for meter in meters},
         getters=Meters(meters),
         time_domain=KnobDomain(
             default_name="time",
@@ -102,7 +102,7 @@ async def test_standard_random_measurement(
         ax.plot(array.array.data)
         ax.set_ylabel(connection.name)
 
-    # Export the plot to the directory
-    plot_path = plot_dir / "test_standard_random_double.png"
-    fig.savefig(plot_path)
-    plt.close(fig)  # Clean up to the figure
+        # Export the plot to the directory
+        plot_path = plot_dir / f"test_standard_random_double_{connection.name}.png"
+        fig.savefig(plot_path)
+        plt.close(fig)  # Clean up to the figure

@@ -54,15 +54,15 @@ test-integration: start-nats setup-python build-go
 
 .PHONY: test-linear-integration
 test-linear-integration: start-nats setup-python build-go
-	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_linear_data.py -v -s
+	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_linear_data.py tests/integration/two_channel_device/test_linear_data_double.py -v -s
 
 .PHONY: test-2D-integration
 test-2D-integration: start-nats setup-python build-go
-	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_2D_data.py -v -s
+	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_2D_data.py tests/integration/two_channel_device/test_2D_data_double.py -v -s
 
 .PHONY: test-3D-integration
 test-3D-integration: start-nats setup-python build-go
-	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_3D_data.py -v -s
+	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_3D_data.py tests/integration/two_channel_device/test_3D_data_double.py -v -s
 
 .PHONY: test
 test: test-unit test-launch test-integration

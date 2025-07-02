@@ -213,7 +213,7 @@ async def test_2D_measurement(
         # Add colorbar
         plt.colorbar(im, ax=ax)
 
-    # Export the plot to the directory
-    plot_path = plot_dir / "test_standard_2D_double.png"
-    fig.savefig(plot_path)
-    plt.close(fig)  # Clean up the figure
+        # Export the plot to the directory
+        plot_path = plot_dir / f"test_standard_2D_double_{connection.name}.png"
+        fig.savefig(plot_path)
+        plt.close(fig)  # Clean up the figure
