@@ -1255,7 +1255,7 @@ class InterpreterDaemon:
                 await self.log(
                     f"The type of the port we are searching for is {type(port)}"
                 )
-                msg = f"Transform not found for port {port} in the available ports {all_ports}"
+                msg = f"Transform not found for port {port} in the available ports {request.meter_transforms.keys()}"
                 raise ValueError(msg)
 
         data_length = self.sub_chunk_length(aligned_sub_chunks=aligned_sub_chunks)
