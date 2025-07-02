@@ -13,7 +13,11 @@ build: build-go setup-python
 
 .PHONY: build-go
 build-go:
+ifeq ($(OS),Windows_NT)
+	cd runtime && go build -o bin/instrument-server.exe cmd/main.go
+else
 	cd runtime && go build -o bin/instrument-server cmd/main.go
+endif
 
 .PHONY: setup-python
 setup-python:
@@ -51,6 +55,10 @@ test-launch: start-nats setup-python
 .PHONY: test-integration
 test-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/ -v -s
+
+.PHONY: test-buffered
+test-buffered: start-nats setup-python build-go
+	$(PYTHON_ENV)/bin/pytest tests/integration/buffered_two_channel/test_random_data.py -v -s
 
 .PHONY: test-linear-integration
 test-linear-integration: start-nats setup-python build-go

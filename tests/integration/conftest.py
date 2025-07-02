@@ -42,12 +42,6 @@ def externalProcessName():
 
 
 @pytest.fixture
-def expectedInstruments():
-    """Returns a list of instruments that should be running."""
-    return ["LargeMultiChannelDAC", "MultiChannelAmnmeter"]
-
-
-@pytest.fixture
 def serverName():
     """Returns the name of the server."""
     return "instrument-server"
