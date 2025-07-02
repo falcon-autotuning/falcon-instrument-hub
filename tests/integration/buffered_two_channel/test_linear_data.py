@@ -156,6 +156,6 @@ async def test_linear_measurement(
         ax.set_ylabel(connection.name)
 
     # Export the plot to the directory
-    plot_path = plot_dir / "test_standard_linear_measurement.png"
+    plot_path = plot_dir / "test_buffered_linear_measurement.png"
     fig.savefig(plot_path)
     plt.close(fig)  # Clean up the figure

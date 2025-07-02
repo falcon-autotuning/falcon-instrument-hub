@@ -374,6 +374,6 @@ async def test_3D_measurement(
         plt.colorbar(scatter, ax=ax, label="W Value")
 
         # Export the discrete plot
-        plot_path2 = plot_dir / f"test_4D_discrete_{connection.name}.png"
+        plot_path2 = plot_dir / f"test_4D_buffered_discrete_{connection.name}.png"
         fig2.savefig(plot_path2, dpi=150, bbox_inches="tight")
         plt.close(fig2)

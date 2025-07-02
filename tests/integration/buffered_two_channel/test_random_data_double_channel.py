@@ -40,11 +40,20 @@ def human_readable_meter_names() -> list[str]:
 
 
 @pytest.fixture
+def fullPointCount() -> tuple[int, ...]:
+    """Returns the number of points in the averaged measurement."""
+    return (10,)
+
+
+@pytest.fixture
 def measurement_request(
-    knobs: list["Knob"], meters: list["Meter"], datapoints_time: float
+    knobs: list["Knob"],
+    meters: list["Meter"],
+    datapoints_time: float,
+    fullPointCount: tuple[int, ...],
 ):
     """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[0.1])
+    space = CartesianSpace(deltas=[1 / count for count in fullPointCount])
     ckd = CoupledKnobDomain(
         [
             KnobDomain.from_knob(
@@ -103,6 +112,6 @@ async def test_standard_random_measurement(
         ax.set_ylabel(connection.name)
 
         # Export the plot to the directory
-        plot_path = plot_dir / f"test_standard_random_double_{connection.name}.png"
+        plot_path = plot_dir / f"test_buffered_random_double_{connection.name}.png"
         fig.savefig(plot_path)
         plt.close(fig)  # Clean up to the figure
