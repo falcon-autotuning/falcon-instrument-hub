@@ -1250,7 +1250,7 @@ class InterpreterDaemon:
                     port_transforms[port] = transform
                     break
             else:
-                msg = f"Transform not found for port {port}"
+                msg = f"Transform not found for port {port} in the available ports {all_ports}"
                 raise ValueError(msg)
             transform = next(
                 (
