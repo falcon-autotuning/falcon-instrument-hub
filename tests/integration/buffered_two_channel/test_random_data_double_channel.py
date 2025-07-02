@@ -1,10 +1,9 @@
-"""Full system integration test for linear data."""
+"""Full system integration test for random data with mean 0."""
 
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pytest
 from falcon_core.communications.messages import MeasurementRequest
 from falcon_core.constants import INSTRUMENT_TYPES
@@ -26,7 +25,6 @@ if TYPE_CHECKING:
         MeasurementResponse,
     )
     from falcon_core.instrument_interfaces.names import Meter
-    from instrument_templates.typing import Index
 
 
 @pytest.fixture
@@ -42,61 +40,11 @@ def human_readable_meter_names() -> list[str]:
 
 
 @pytest.fixture
-def intercepts(
-    meterIndexes: list[int],
-) -> dict[int, tuple[tuple[float, float], tuple[float, float]]]:
-    """The intercepts for the linear data line."""
-    outs = {}
-    for index in meterIndexes:
-        if index == 1:
-            outs[index] = ((1, -7), (5, 2))
-        elif index == 2:
-            outs[index] = ((2, 2), (6, -1))
-        else:
-            outs[index] = ((1, 1), (1, 1))
-    return outs
-
-
-@pytest.fixture
-def injectionData(
-    sampleRate: int,
-    datapoints_time: float,
-    fullPointCount: tuple[int, ...],
-    intercepts: dict[int, tuple[tuple[float, float], tuple[float, float]]],
-    meterIndexes: list[int],
-) -> dict["Index", list[float]]:
-    """Returns the default injection data for the ammeter, which is empty."""
-    outs: dict[Index, list[float]] = {}
-    time_points_per_datapoint = int(sampleRate * datapoints_time)
-    for index in meterIndexes:
-        outs[index] = []
-        inter0 = intercepts[index][0]
-        inter1 = intercepts[index][1]
-        m = (inter1[1] - inter0[1]) / (inter1[0] - inter0[0])
-        b = inter1[1] - m * inter1[0]
-        for x in range(fullPointCount[0]):
-            y = m * x + b
-            y_rand = y + np.random.uniform(-10, 10, size=time_points_per_datapoint)
-            outs[index].extend(y_rand.tolist())
-
-    return outs
-
-
-@pytest.fixture
-def fullPointCount() -> tuple[int, ...]:
-    """Returns the number of points in the averaged measurement."""
-    return (10,)
-
-
-@pytest.fixture
 def measurement_request(
-    knobs: list["Knob"],
-    meters: list["Meter"],
-    datapoints_time: float,
-    fullPointCount: tuple[int, ...],
+    knobs: list["Knob"], meters: list["Meter"], datapoints_time: float
 ):
     """Returns a measurement request for testing deployment."""
-    space = CartesianSpace(deltas=[1 / count for count in fullPointCount])
+    space = CartesianSpace(deltas=[0.1])
     ckd = CoupledKnobDomain(
         [
             KnobDomain.from_knob(
@@ -118,13 +66,12 @@ def measurement_request(
         )
     )
     transform = ConstantTransform(ports=Knobs(knobs), scale=1.0)
-    transforms = {meter: transform for meter in meters}
     return MeasurementRequest(
         message="test measurement",
         measurement_name="integration_test",
         waveforms=[waveform],
+        meter_transforms={meter: transform for meter in meters},
         getters=Meters(meters),
-        meter_transforms=transforms,
         time_domain=KnobDomain(
             default_name="time",
             bounds=(0, datapoints_time),
@@ -136,7 +83,7 @@ def measurement_request(
 
 
 @pytest.mark.asyncio
-async def test_linear_measurement(
+async def test_standard_random_measurement(
     measurement_response: "MeasurementResponse",
     meters: list["Meter"],
     temp_dir: Path,
@@ -154,7 +101,8 @@ async def test_linear_measurement(
         assert connection is not None, "Connection should not be None."
         ax.plot(array.array.data)
         ax.set_ylabel(connection.name)
+
         # Export the plot to the directory
-        plot_path = plot_dir / f"test_standard_linear_double_{connection.name}.png"
+        plot_path = plot_dir / f"test_standard_random_double_{connection.name}.png"
         fig.savefig(plot_path)
-        plt.close(fig)  # Clean up the figure
+        plt.close(fig)  # Clean up to the figure

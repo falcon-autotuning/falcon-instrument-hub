@@ -38,7 +38,7 @@ def human_readable_knob_names() -> list[str]:
 @pytest.fixture
 def human_readable_meter_names() -> list[str]:
     """Returns the human readable meter names selected."""
-    return ["O2", "O4"]
+    return ["O2"]
 
 
 @pytest.fixture
@@ -83,7 +83,7 @@ def injectionData(
 
 
 @pytest.fixture
-def fullPointCount() -> tuple[int, ...]:
+def fullPointCount() -> tuple[int]:
     """Returns the number of points in the averaged measurement."""
     return (10,)
 
@@ -154,7 +154,8 @@ async def test_linear_measurement(
         assert connection is not None, "Connection should not be None."
         ax.plot(array.array.data)
         ax.set_ylabel(connection.name)
-        # Export the plot to the directory
-        plot_path = plot_dir / f"test_standard_linear_double_{connection.name}.png"
-        fig.savefig(plot_path)
-        plt.close(fig)  # Clean up the figure
+
+    # Export the plot to the directory
+    plot_path = plot_dir / "test_standard_linear_measurement.png"
+    fig.savefig(plot_path)
+    plt.close(fig)  # Clean up the figure
