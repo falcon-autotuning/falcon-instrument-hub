@@ -1241,7 +1241,7 @@ class InterpreterDaemon:
         )
 
         # Precompute all transforms for all possible ports in sub_chunks
-        all_ports: set[InstrumentPort] = set()
+        all_ports: set[Meter] = set()
         for sub_chunk in aligned_sub_chunks:
             all_ports.update(sub_chunk.keys())
 
@@ -1254,16 +1254,6 @@ class InterpreterDaemon:
             else:
                 msg = f"Transform not found for port {port} in the available ports {all_ports}"
                 raise ValueError(msg)
-            transform = next(
-                (
-                    t
-                    for indexport, t in request.meter_transforms.items()
-                    if indexport == port
-                ),
-                None,
-            )
-            assert transform is not None, f"Transform not found for port {port}"
-            port_transforms[port] = transform
 
         data_length = self.sub_chunk_length(aligned_sub_chunks=aligned_sub_chunks)
 
