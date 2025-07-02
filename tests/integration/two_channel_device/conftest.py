@@ -4,6 +4,12 @@ import pytest
 
 
 @pytest.fixture
+def expectedInstruments():
+    """Returns a list of instruments that should be running."""
+    return ["LargeMultiChannelDAC", "MultiChannelAmnmeter"]
+
+
+@pytest.fixture
 def deviceConfig():
     """Returns the device configuration for testing."""
     return {
