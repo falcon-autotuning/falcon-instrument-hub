@@ -1316,7 +1316,6 @@ class InterpreterDaemon:
                 final_data[port].append(float(computation))
 
         await self.log("Final data successfully averaged")
-        await self.log(f"The final data is {final_data}")
 
         return final_data
 
@@ -1368,8 +1367,6 @@ class InterpreterDaemon:
         await self.log(
             f"Beginning to preprocess voltage states for measurement id {id}"
         )
-        measurement_group = self.measurement_groups[id]
-        await self.log(f"Selected the measurement_group {measurement_group}")
         for instr in self.measurement_groups[id]:
             if not instr.getters:
                 continue
