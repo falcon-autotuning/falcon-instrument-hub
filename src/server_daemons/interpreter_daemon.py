@@ -320,6 +320,7 @@ class InterpreterDaemon:
         getters: "Getters",
         setters: "Setters",
         requirements: "Requirements",
+        buffered: bool = False,
     ) -> None:
         """Deploys a measurement to the local runtime server.
 
@@ -327,10 +328,13 @@ class InterpreterDaemon:
             id: The ID of the measurement.
             getters: The getters to deploy.
             setters: The setters to deploy.
+            buffered: A flag indicating a buffered measurement
+            requirements: The different requirements that have to be set before performing a measurement
         """
         message = json.dumps(
             {
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.PROCESS_ID: id,
+                INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.BUFFERED: buffered,
                 INTERPRETER_RUNTIME_COMMANDS.MEASUREMENT_READY.GETTERS: [
                     getter.to_json() for getter in getters
                 ],
@@ -1082,6 +1086,7 @@ class InterpreterDaemon:
                 requirements=step.requirements,
                 getters=step.getters,
                 setters=step.setters,
+                buffered=step.buffered,
             )
             await asyncio.sleep(0.05)  # Allow some time for the deployment to settle
 
