@@ -297,7 +297,7 @@ class TestInterpreterDaemon:
         _, mock_client, _ = mock_nats
 
         interpreter_daemon._nc = mock_client
-        port = InstrumentPort(
+        port = Meter(
             default_name="device1",
             pseudo_name=Ohmic("test_port"),
         )
@@ -565,9 +565,9 @@ class TestInterpreterDaemon:
         interpreter_daemon.make_response.return_value = mock_response
 
         # Create mock chunk data
-        port = InstrumentPort(
+        port = Meter(
             default_name="device1",
-            pseudo_name=PlungerGate("test_gate"),
+            pseudo_name=Ohmic("test_gate"),
         )
 
         chunk_data = {
@@ -995,13 +995,13 @@ class TestInterpreterDaemon:
             assert not pending.is_complete
 
             # Queue some data entries
-            port1 = InstrumentPort(
+            port1 = Meter(
                 default_name="device1",
-                pseudo_name=PlungerGate("gate1"),
+                pseudo_name=Ohmic("gate1"),
             )
-            port2 = InstrumentPort(
+            port2 = Meter(
                 default_name="device2",
-                pseudo_name=PlungerGate("gate2"),
+                pseudo_name=Ohmic("gate2"),
             )
 
             # Add data entries for different chunks
@@ -1067,9 +1067,9 @@ class TestInterpreterDaemon:
         assert len(pending.collected_data) == 0
 
         # Add some data entries
-        port = InstrumentPort(
+        port = Meter(
             default_name="test_port",
-            pseudo_name=PlungerGate("test_gate"),
+            pseudo_name=Ohmic("test_gate"),
         )
 
         for i in range(3):
@@ -1112,13 +1112,13 @@ class TestInterpreterDaemon:
             request=request,
         )
 
-        port1 = InstrumentPort(
+        port1 = Meter(
             default_name="port1",
-            pseudo_name=PlungerGate("gate1"),
+            pseudo_name=Ohmic("gate1"),
         )
-        port2 = InstrumentPort(
+        port2 = Meter(
             default_name="port2",
-            pseudo_name=PlungerGate("gate2"),
+            pseudo_name=Ohmic("gate2"),
         )
 
         # Add data in non-sequential order to test sorting
@@ -1344,9 +1344,9 @@ class TestInterpreterDaemon:
 
         try:
             measurement_id = 555
-            port = InstrumentPort(
+            port = Meter(
                 default_name="test_port",
-                pseudo_name=PlungerGate("test_gate"),
+                pseudo_name=Ohmic("test_gate"),
             )
 
             # Fill the queue to capacity first
@@ -1408,9 +1408,9 @@ class TestInterpreterDaemon:
         try:
             # Queue data for a measurement that hasn't been registered
             unregistered_id = 999999
-            port = InstrumentPort(
+            port = Meter(
                 default_name="test_port",
-                pseudo_name=PlungerGate("test_gate"),
+                pseudo_name=Ohmic("test_gate"),
             )
 
             await interpreter_daemon._queue_measurement_data(

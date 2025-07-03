@@ -92,8 +92,14 @@ src/server_daemons/api/__pycache__/interpreter.cpython-313.pyc
 test-outs/device_config.yaml
 test-outs/wiremap.yaml
 test-outs/data/2025/07/03/1.h5
+test-outs/data/2025/07/03/2.h5
+test-outs/data/2025/07/03/3.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-03_14-07-21.log
+test-outs/log/falcon-runtime_2025-07-03_14-14-15.log
+test-outs/log/falcon-runtime_2025-07-03_14-23-49.log
+test-outs/log/falcon-runtime_2025-07-03_14-27-23.log
+test-outs/log/falcon-runtime_2025-07-03_14-38-30.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_buffered_linear_measurement.png
@@ -122,6 +128,8 @@ tests/integration/buffered_two_channel/test_random_data.py
 tests/integration/buffered_two_channel/test_random_data_double_channel.py
 tests/integration/buffered_two_channel/__pycache__/__init__.cpython-313.pyc
 tests/integration/buffered_two_channel/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
+tests/integration/buffered_two_channel/__pycache__/test_2D_data.cpython-313-pytest-8.2.1.pyc
+tests/integration/buffered_two_channel/__pycache__/test_3D_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/buffered_two_channel/__pycache__/test_linear_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/buffered_two_channel/__pycache__/test_random_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__init__.py
