@@ -110,6 +110,8 @@ test-outs/data/2025/07/03/30.h5
 test-outs/data/2025/07/03/31.h5
 test-outs/data/2025/07/03/32.h5
 test-outs/data/2025/07/03/33.h5
+test-outs/data/2025/07/03/34.h5
+test-outs/data/2025/07/03/35.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-02_12-37-25.log
 test-outs/log/falcon-runtime_2025-07-02_12-40-54.log
@@ -160,6 +162,8 @@ test-outs/log/falcon-runtime_2025-07-03_12-05-45.log
 test-outs/log/falcon-runtime_2025-07-03_12-05-45_sorted.log
 test-outs/log/falcon-runtime_2025-07-03_12-22-08.log
 test-outs/log/falcon-runtime_2025-07-03_12-22-08_sorted.log
+test-outs/log/falcon-runtime_2025-07-03_12-43-28.log
+test-outs/log/falcon-runtime_2025-07-03_12-43-58.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_buffered_linear_measurement.png
@@ -208,6 +212,7 @@ tests/integration/two_channel_device/test_linear_data.py
 tests/integration/two_channel_device/test_linear_data_double.py
 tests/integration/two_channel_device/test_random_data.py
 tests/integration/two_channel_device/test_random_data_double_channel.py
+tests/integration/two_channel_device/__pycache__/__init__.cpython-313.pyc
 tests/integration/two_channel_device/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__pycache__/test_2D_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__pycache__/test_2D_data_double.cpython-313-pytest-8.2.1.pyc
