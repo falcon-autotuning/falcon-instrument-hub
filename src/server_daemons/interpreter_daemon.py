@@ -1137,6 +1137,7 @@ class InterpreterDaemon:
             shape=shape,
         )
         await self.log(f"The response {response}")
+        await self.log(f"The response final data is {response.arrays.arrays}")
         await self.log(f"Finishing making a response for ProcessId {id}")
         self.store_in_database(
             response=response,
