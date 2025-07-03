@@ -100,12 +100,11 @@ test-outs/data/2025/07/02/23.h5
 test-outs/data/2025/07/02/24.h5
 test-outs/data/2025/07/02/25.h5
 test-outs/data/2025/07/02/26.h5
+test-outs/data/2025/07/02/27.h5
 test-outs/data/2025/07/02/4.h5
 test-outs/data/2025/07/02/6.h5
 test-outs/data/2025/07/02/8.h5
 test-outs/datacache/measurements.db
-test-outs/datacache/measurements.db-shm
-test-outs/datacache/measurements.db-wal
 test-outs/log/falcon-runtime_2025-07-02_12-37-25.log
 test-outs/log/falcon-runtime_2025-07-02_12-40-54.log
 test-outs/log/falcon-runtime_2025-07-02_12-59-55.log
@@ -142,8 +141,11 @@ test-outs/log/falcon-runtime_2025-07-02_16-54-34.log
 test-outs/log/falcon-runtime_2025-07-02_16-57-05.log
 test-outs/log/falcon-runtime_2025-07-02_16-59-44.log
 test-outs/log/falcon-runtime_2025-07-02_17-12-46.log
+test-outs/log/falcon-runtime_2025-07-02_17-36-57.log
+test-outs/log/falcon-runtime_2025-07-02_17-36-57_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
+test-outs/test_plotted_data/test_buffered_random_measurement.png
 test-outs/test_plotted_data/test_standard_2D_double_O2.png
 test-outs/test_plotted_data/test_standard_2D_double_O4.png
 test-outs/test_plotted_data/test_standard_2D_measurement.png
