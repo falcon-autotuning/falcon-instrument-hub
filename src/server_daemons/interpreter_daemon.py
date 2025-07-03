@@ -749,9 +749,9 @@ class InterpreterDaemon:
                     instrument=port,
                     properties=properties,
                 )
-            for i, couple_domain in enumerate(axes_domains):
-                buffered_dimension = buffered and (i == 0)
-                raw_space = np.array(chunk[:, i])
+            for measurement_dimension, couple_domain in enumerate(axes_domains):
+                buffered_dimension = buffered and (measurement_dimension == 0)
+                raw_space = np.array(chunk[:, measurement_dimension])
                 for domain in couple_domain:
                     properties = self.knob_property_generation(
                         unit_domain=unit_domain,
@@ -1017,13 +1017,11 @@ class InterpreterDaemon:
             for knob, properties in instruction.requirements.items():
                 if knob not in instruction.setters:
                     continue
-                slope = properties.get(SUPPORTED_PROPERTIES.SLOPE, DEFAULT_SLOPE)
-                assert isinstance(slope, (int, float)), (
-                    f"The slope {slope} must be a number."
+                assert knob in configuration, (
+                    f"Did not find knob {knob} in the configuration {configuration}"
                 )
-                assert SUPPORTED_PROPERTIES.STAIRCASE in properties, (
-                    f"Did not find {SUPPORTED_PROPERTIES.STAIRCASE} in the instruction requirements for knob {knob}. There are {properties} instead."
-                )
+                if SUPPORTED_PROPERTIES.STAIRCASE not in properties:
+                    continue
                 staircase = properties[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
                     f"The staircase property {staircase} must be a tuple."
@@ -1035,6 +1033,13 @@ class InterpreterDaemon:
                 vstop = staircase[4]
                 assert isinstance(vstop, (int, float)), (
                     f"The vstop {vstop} must be a number."
+                )
+                slope = configuration[knob].get(
+                    SUPPORTED_PROPERTIES.SLOPE,
+                    DEFAULT_SLOPE,
+                )
+                assert isinstance(slope, (int, float)), (
+                    f"The slope {slope} must be a number."
                 )
                 timeout = abs(vstop - vstart) / slope  # [sec]
                 requirements[knob] = {
