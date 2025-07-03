@@ -792,6 +792,7 @@ class InterpreterDaemon:
                 for knob in domain.knobs
             ]
         )
+        await self.log(f"The configuration of the instrument server is {configuration}")
         if buffered:
             await self.log("Buffered measurements enabled.")
         else:
