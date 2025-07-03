@@ -64,6 +64,10 @@ test-buffered: start-nats setup-python build-go
 test-linear-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_linear_data.py tests/integration/two_channel_device/test_linear_data_double.py -v -s
 
+.PHONY: test-linear-buffered
+test-buffered: start-nats setup-python build-go
+	$(PYTHON_ENV)/bin/pytest tests/integration/buffered_two_channel/test_linear_data.py -v -s
+
 .PHONY: test-2D-integration
 test-2D-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_2D_data.py tests/integration/two_channel_device/test_2D_data_double.py -v -s

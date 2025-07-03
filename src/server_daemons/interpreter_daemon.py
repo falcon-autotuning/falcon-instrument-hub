@@ -734,6 +734,9 @@ class InterpreterDaemon:
                 buffered=buffered,
             )
             for meter in getters:
+                await self.log(
+                    f"[DEBUG] the number of x points for meter {meter} is {len(chunk[:, 0])}"
+                )
                 properties = self.meter_property_generation(
                     step_width=step_width,
                     number_of_samples=number_of_samples[meter],
