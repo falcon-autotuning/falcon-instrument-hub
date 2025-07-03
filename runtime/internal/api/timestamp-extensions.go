@@ -31,24 +31,109 @@ func (p PortPayload) GetTimestamp() int64             { return p.Timestamp }
 func (d DeviceConfigRequest) GetTimestamp() int64     { return d.Timestamp }
 func (d DeviceConfigResponse) GetTimestamp() int64    { return d.Timestamp }
 
-// Implement TimestampSetter for all API types with Timestamp (pointer receivers for mutation)
-func (l *Log) SetTimestamp(timestamp int64)                     { l.Timestamp = timestamp }
-func (m *MeasurementReady) SetTimestamp(timestamp int64)        { m.Timestamp = timestamp }
-func (p *ProcessData) SetTimestamp(timestamp int64)             { p.Timestamp = timestamp }
-func (s *Status) SetTimestamp(timestamp int64)                  { s.Timestamp = timestamp }
-func (u *UpdateDaemonProperty) SetTimestamp(timestamp int64)    { u.Timestamp = timestamp }
-func (u *UploadData) SetTimestamp(timestamp int64)              { u.Timestamp = timestamp }
-func (c *ConfirmInitialization) SetTimestamp(timestamp int64)   { c.Timestamp = timestamp }
-func (p *PerformArbitraryMethod) SetTimestamp(timestamp int64)  { p.Timestamp = timestamp }
-func (r *ReturnGet) SetTimestamp(timestamp int64)               { r.Timestamp = timestamp }
-func (s *SetupInstrument) SetTimestamp(timestamp int64)         { s.Timestamp = timestamp }
-func (d *DestroyInstrument) SetTimestamp(timestamp int64)       { d.Timestamp = timestamp }
-func (p *PerformInstrumentMethod) SetTimestamp(timestamp int64) { p.Timestamp = timestamp }
-func (b *Busy) SetTimestamp(timestamp int64)                    { b.Timestamp = timestamp }
-func (p *PortRequest) SetTimestamp(timestamp int64)             { p.Timestamp = timestamp }
-func (p *PortPayload) SetTimestamp(timestamp int64)             { p.Timestamp = timestamp }
-func (d *DeviceConfigRequest) SetTimestamp(timestamp int64)     { d.Timestamp = timestamp }
-func (d *DeviceConfigResponse) SetTimestamp(timestamp int64)    { d.Timestamp = timestamp }
+// Implement TimestampSetter for all API types with Timestamp (pointer receivers
+// for mutation)
+func (l *Log) SetTimestamp(
+	timestamp int64,
+) {
+	l.Timestamp = timestamp
+}
+
+func (m *MeasurementReady) SetTimestamp(
+	timestamp int64,
+) {
+	m.Timestamp = timestamp
+}
+
+func (p *ProcessData) SetTimestamp(
+	timestamp int64,
+) {
+	p.Timestamp = timestamp
+}
+
+func (s *Status) SetTimestamp(
+	timestamp int64,
+) {
+	s.Timestamp = timestamp
+}
+
+func (u *UpdateDaemonProperty) SetTimestamp(
+	timestamp int64,
+) {
+	u.Timestamp = timestamp
+}
+
+func (u *UploadData) SetTimestamp(
+	timestamp int64,
+) {
+	u.Timestamp = timestamp
+}
+
+func (c *ConfirmInitialization) SetTimestamp(
+	timestamp int64,
+) {
+	c.Timestamp = timestamp
+}
+
+func (p *PerformArbitraryMethod) SetTimestamp(
+	timestamp int64,
+) {
+	p.Timestamp = timestamp
+}
+
+func (r *ReturnGet) SetTimestamp(
+	timestamp int64,
+) {
+	r.Timestamp = timestamp
+}
+
+func (s *SetupInstrument) SetTimestamp(
+	timestamp int64,
+) {
+	s.Timestamp = timestamp
+}
+
+func (d *DestroyInstrument) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (p *PerformInstrumentMethod) SetTimestamp(
+	timestamp int64,
+) {
+	p.Timestamp = timestamp
+}
+
+func (b *Busy) SetTimestamp(
+	timestamp int64,
+) {
+	b.Timestamp = timestamp
+}
+
+func (p *PortRequest) SetTimestamp(
+	timestamp int64,
+) {
+	p.Timestamp = timestamp
+}
+
+func (p *PortPayload) SetTimestamp(
+	timestamp int64,
+) {
+	p.Timestamp = timestamp
+}
+
+func (d *DeviceConfigRequest) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *DeviceConfigResponse) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
 
 // ToTime converts any timestamp to a Go time.Time
 func ToTime[T TimestampConverter](t T) time.Time {
@@ -57,10 +142,14 @@ func ToTime[T TimestampConverter](t T) time.Time {
 		return time.Now()
 	}
 	// Convert microseconds to time.Time
-	return time.Unix(0, int64(timestamp)*1000) // Convert microseconds to nanoseconds
+	return time.Unix(
+		0,
+		int64(timestamp)*10000,
+	) // Convert microseconds to nanoseconds
 }
 
-// SetCurrentTimestamp sets the timestamp to current time in microseconds for any TimestampSetter
+// SetCurrentTimestamp sets the timestamp to current time in microseconds for
+// any TimestampSetter
 func SetCurrentTimestamp[T TimestampSetter](t T) {
 	timestamp := int64(time.Now().UnixMicro())
 	t.SetTimestamp(timestamp)
