@@ -377,7 +377,6 @@ func (h *MeasurementReadyHandler) createSchedulerForMeasurement(
 		h.log.Warn(
 			"No getters specified for measurement. Hope you are ramping on purpose.",
 		)
-		return
 	}
 	totalInstructions, err := collectAllRequirements(msg.Requirements)
 	if err != nil {
