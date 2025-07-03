@@ -1016,6 +1016,9 @@ class InterpreterDaemon:
             requirements: dict[InstrumentPort, dict[str, Any]] = {}
             for knob, properties in instruction.requirements.items():
                 slope = configuration.get(knob, DEFAULT_SLOPE)
+                assert SUPPORTED_PROPERTIES.STAIRCASE in properties, (
+                    f"Did not find {SUPPORTED_PROPERTIES.STAIRCASE} in the instruction requirements for knob {knob}. There are {properties} instead."
+                )
                 staircase = properties[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
                     "The staircase property must be a tuple."
