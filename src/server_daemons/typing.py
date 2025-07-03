@@ -3,7 +3,7 @@
 from collections.abc import Awaitable, Callable, Sequence
 from typing import Any
 
-from falcon_core.instrument_interfaces.names import InstrumentPort, Knob, Meter
+from falcon_core.instrument_interfaces.names import InstrumentPort, Knob, Meter, Meters
 from falcon_core.instrument_interfaces.port_transforms import PortTransform
 from falcon_core.instrument_interfaces.waveforms.base_waveform import BaseWaveform
 from falcon_core.math.arrays.base_array import BaseArray
@@ -44,6 +44,7 @@ type Requirements = dict[InstrumentPort, dict[PropertyName, PropertyValue]]
 __all__ = [
     "Connection",
     "Meter",
+    "Meters",
     "Knob",
     "BaseWaveform",
     "Sequence",

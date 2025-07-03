@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         BaseWaveform,
         Getters,
         Knob,
+        Meters,
         NDArray,
         PortTransform,
         PropertyJson,
@@ -365,6 +366,7 @@ class InterpreterDaemon:
             response: The measurement response to send.
             id: The ID of the measurement.
         """
+        # TODO: Upload raw time trace too
         await self.log(f"Preparing to upload data for ProcessID: {id}")
         data_channel = f"measurement.data.{id}"
         message = json.dumps(
@@ -679,6 +681,7 @@ class InterpreterDaemon:
             RuntimeError: If no valid waveform is found in the request.
         """
         # TODO: add in knob_transforms parsing, this only supports cartesian type waveforms
+        # TODO: support leakage matrix style discrete measurements
         await self.log("Compiling waveform ...")
         [waveform._space._space.compile() for waveform in request.waveforms]
         await self.log("Waveform compiled successfully.")
@@ -699,6 +702,7 @@ class InterpreterDaemon:
 
         # Prioritize buffered whenever possible
         buffered = await self.decide_buffered(
+            getters=request.getters,
             valid_waveform=valid_waveform,
             configuration=configuration,
         )
@@ -781,17 +785,26 @@ class InterpreterDaemon:
         self,
         valid_waveform: "BaseWaveform",
         configuration: dict[InstrumentPort, dict["PropertyName", "PropertyJson"]],
+        getters: "Meters",
     ) -> bool:
         """Returns a flag indicating if a buffered measurement was selected or not to be performed."""
-        buffered = all(
-            [
-                configuration[knob].get(
-                    SUPPORTED_PROPERTIES.SUPPORTS_BUFFERED_MEASUREMENTS, False
-                )
+        ports = {
+            **{
+                knob: SUPPORTED_PROPERTIES.VOLTAGE_STATE
                 for domain in valid_waveform._space._axes
                 for knob in domain.knobs
+            },
+            **{meter: SUPPORTED_PROPERTIES.CURRENT_STATE for meter in getters},
+        }
+        buffered = all(
+            [
+                configuration[port][property].get(
+                    SUPPORTED_PROPERTIES.SUPPORTS_BUFFERED_MEASUREMENTS, False
+                )
+                for port, property in ports.items()
             ]
         )
+
         await self.log(f"The configuration of the instrument server is {configuration}")
         if buffered:
             await self.log("Buffered measurements enabled.")
