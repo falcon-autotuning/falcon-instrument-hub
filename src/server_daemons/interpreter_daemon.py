@@ -494,7 +494,7 @@ class InterpreterDaemon:
 
         self._pending_measurements[measurement_id] = pending
         await self.log(
-            f"Registered measurement {measurement_id}, expecting {expected_count} data points"
+            f"Registered measurement {measurement_id}, expecting {expected_count} chunks"
         )
 
     async def _queue_measurement_data(
@@ -738,6 +738,7 @@ class InterpreterDaemon:
                     step_width=step_width,
                     number_of_samples=number_of_samples[meter],
                     buffered=buffered,
+                    num_x_points=len(chunk[:, 0]),
                 )
                 port = self.find_similar_port(
                     similar_port_name=meter.default_name,
