@@ -1015,6 +1015,8 @@ class InterpreterDaemon:
                 continue
             requirements: dict[InstrumentPort, dict[str, Any]] = {}
             for knob, properties in instruction.requirements.items():
+                if knob not in instruction.setters:
+                    continue
                 slope = configuration.get(knob, DEFAULT_SLOPE)
                 assert SUPPORTED_PROPERTIES.STAIRCASE in properties, (
                     f"Did not find {SUPPORTED_PROPERTIES.STAIRCASE} in the instruction requirements for knob {knob}. There are {properties} instead."
