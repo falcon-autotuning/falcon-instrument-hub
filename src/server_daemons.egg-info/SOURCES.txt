@@ -105,6 +105,8 @@ test-outs/data/2025/07/02/4.h5
 test-outs/data/2025/07/02/6.h5
 test-outs/data/2025/07/02/8.h5
 test-outs/data/2025/07/03/28.h5
+test-outs/data/2025/07/03/29.h5
+test-outs/data/2025/07/03/30.h5
 test-outs/datacache/measurements.db
 test-outs/log/falcon-runtime_2025-07-02_12-37-25.log
 test-outs/log/falcon-runtime_2025-07-02_12-40-54.log
@@ -146,8 +148,13 @@ test-outs/log/falcon-runtime_2025-07-02_17-36-57.log
 test-outs/log/falcon-runtime_2025-07-02_17-36-57_sorted.log
 test-outs/log/falcon-runtime_2025-07-03_09-42-26.log
 test-outs/log/falcon-runtime_2025-07-03_09-42-26_sorted.log
+test-outs/log/falcon-runtime_2025-07-03_11-41-31.log
+test-outs/log/falcon-runtime_2025-07-03_11-41-31_sorted.log
+test-outs/log/falcon-runtime_2025-07-03_11-44-58.log
+test-outs/log/falcon-runtime_2025-07-03_11-44-58_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
+test-outs/test_plotted_data/test_buffered_linear_measurement.png
 test-outs/test_plotted_data/test_buffered_random_measurement.png
 test-outs/test_plotted_data/test_standard_2D_double_O2.png
 test-outs/test_plotted_data/test_standard_2D_double_O4.png
@@ -181,6 +188,7 @@ tests/integration/buffered_two_channel/test_random_data.py
 tests/integration/buffered_two_channel/test_random_data_double_channel.py
 tests/integration/buffered_two_channel/__pycache__/__init__.cpython-313.pyc
 tests/integration/buffered_two_channel/__pycache__/conftest.cpython-313-pytest-8.2.1.pyc
+tests/integration/buffered_two_channel/__pycache__/test_linear_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/buffered_two_channel/__pycache__/test_random_data.cpython-313-pytest-8.2.1.pyc
 tests/integration/two_channel_device/__init__.py
 tests/integration/two_channel_device/conftest.py
