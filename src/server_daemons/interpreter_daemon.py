@@ -734,9 +734,6 @@ class InterpreterDaemon:
                 buffered=buffered,
             )
             for meter in getters:
-                await self.log(
-                    f"[DEBUG] the number of x points for meter {meter} is {len(chunk[:, 0])}"
-                )
                 properties = self.meter_property_generation(
                     step_width=step_width,
                     number_of_samples=number_of_samples[meter],
@@ -1128,6 +1125,7 @@ class InterpreterDaemon:
             chunk_data=chunk_data,
             number_of_bins=number_of_bins,
         )
+        await self.log(f"The aligned sub chunks are {aligned_sub_chunks}")
         final_data = await self.average_shapeless_data(
             request=request,
             voltage_state_array=name_attribute_maps,
