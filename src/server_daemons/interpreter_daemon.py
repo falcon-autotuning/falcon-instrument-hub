@@ -1017,19 +1017,25 @@ class InterpreterDaemon:
             for knob, properties in instruction.requirements.items():
                 if knob not in instruction.setters:
                     continue
-                slope = configuration.get(knob, DEFAULT_SLOPE)
+                slope = properties.get(SUPPORTED_PROPERTIES.SLOPE, DEFAULT_SLOPE)
+                assert isinstance(slope, (int, float)), (
+                    f"The slope {slope} must be a number."
+                )
                 assert SUPPORTED_PROPERTIES.STAIRCASE in properties, (
                     f"Did not find {SUPPORTED_PROPERTIES.STAIRCASE} in the instruction requirements for knob {knob}. There are {properties} instead."
                 )
                 staircase = properties[SUPPORTED_PROPERTIES.STAIRCASE]
                 assert isinstance(staircase, tuple), (
-                    "The staircase property must be a tuple."
+                    f"The staircase property {staircase} must be a tuple."
                 )
-                assert isinstance(slope, (int, float)), "The slope must be a number."
                 vstart = staircase[3]
-                assert isinstance(vstart, (int, float)), "The vstart must be a number."
+                assert isinstance(vstart, (int, float)), (
+                    f"The vstart {vstart} must be a number."
+                )
                 vstop = staircase[4]
-                assert isinstance(vstop, (int, float)), "The vstop must be a number."
+                assert isinstance(vstop, (int, float)), (
+                    f"The vstop {vstop} must be a number."
+                )
                 timeout = abs(vstop - vstart) / slope  # [sec]
                 requirements[knob] = {
                     SUPPORTED_PROPERTIES.VOLTAGE_STATE: properties[  # type: ignore[reportOptionalMemberAccess]
