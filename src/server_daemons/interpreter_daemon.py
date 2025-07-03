@@ -1252,6 +1252,9 @@ class InterpreterDaemon:
         await self.log(f"The time bounds are {time_bounds}")
         num_states = len(voltage_state_array)
         num_sub_chunks = len(aligned_sub_chunks)
+        await self.log(
+            f"The number of states that needs to go under averaging is {num_states}"
+        )
         assert num_states == num_sub_chunks, (
             f"The number of voltage states must match the number of end measurement points, {num_states} != {num_sub_chunks}"
         )
