@@ -1131,10 +1131,12 @@ class InterpreterDaemon:
             voltage_state_array=name_attribute_maps,
             aligned_sub_chunks=aligned_sub_chunks,
         )
+        # makes sense to here
         response = self.make_response(
             data_arrays=final_data,
             shape=shape,
         )
+        await self.log(f"The response {response}")
         await self.log(f"Finishing making a response for ProcessId {id}")
         self.store_in_database(
             response=response,
@@ -1252,9 +1254,6 @@ class InterpreterDaemon:
         await self.log(f"The time bounds are {time_bounds}")
         num_states = len(voltage_state_array)
         num_sub_chunks = len(aligned_sub_chunks)
-        await self.log(
-            f"The number of states that needs to go under averaging is {num_states}"
-        )
         assert num_states == num_sub_chunks, (
             f"The number of voltage states must match the number of end measurement points, {num_states} != {num_sub_chunks}"
         )
@@ -1319,7 +1318,6 @@ class InterpreterDaemon:
                 final_data[port].append(float(computation))
 
         await self.log("Final data successfully averaged")
-        await self.log(f"The averaged data is {final_data}")
 
         return final_data
 
