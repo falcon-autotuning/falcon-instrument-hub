@@ -981,7 +981,7 @@ class InterpreterDaemon:
             if not bool(
                 np.all(np.array([np.all(col == col[0]) for col in other_axes.T]))
             ):
-                msg = "Within a chunk, each non-time axis must be constant."
+                msg = f"Within this chunk {other_axes.T}, each non-time axis must be constant."
                 raise ValueError(msg)
             first_row = chunk[:, 0]
             assert np.all(np.sign(np.diff(first_row)) == dominate_polarity), (
