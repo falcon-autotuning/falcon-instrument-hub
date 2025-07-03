@@ -539,43 +539,26 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 		measurementID.ProcessId = -1
 	}
 
-	// Find the instrument and index by searching through all instrument ports
-	var targetInstrument Name
-	var targetIndex Index
-	found := false
 	h.Log.Debug("Preparing to SET an instruction")
 	h.mutex.RLock()
-
-	for instrumentName, process := range h.Instruments {
-		if !process.Initialized || process.Ports == nil {
-			continue
-		}
-
-		// Check if this instrument has the requested property
-		if propertyData, exists := process.Ports[req.Property]; exists {
-			for index, portName := range propertyData {
-				if portName == req.Name {
-					targetInstrument = instrumentName
-					targetIndex = index
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
+	configuration, exist := h.portProcessor.getCachedPortConfigurations()
+	if !exist {
+		configuration = h.portProcessor.buildAndCachePortConfigurations(
+			h.Instruments,
+		)
 	}
-	h.mutex.RUnlock()
-
-	if !found {
+	options, exist := configuration[req.Name]
+	if !exist {
+		h.mutex.RUnlock()
 		h.Log.Error(
-			"Could not find instrument with property %s and name %s",
-			req.Property,
+			"Expected to find options in the configuration for port %v but there were none.",
 			req.Name,
 		)
 		return
 	}
+	targetInstrument := options.Instrument
+	targetIndex := options.Index
+	h.mutex.RUnlock()
 
 	realIndex, err := strconv.ParseInt(string(targetIndex), 10, 64)
 	if err != nil {

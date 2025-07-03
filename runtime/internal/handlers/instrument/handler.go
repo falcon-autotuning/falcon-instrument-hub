@@ -47,7 +47,7 @@ func (h *Handler) destroyWorker() {
 		h.Log.Info("Processing destruction request for instrument: %s", name)
 
 		h.mutex.Lock()
-		process, exists := h.Instruments[name]
+		instrument, exists := h.Instruments[name]
 		if !exists {
 			h.mutex.Unlock()
 			h.Log.Warn("Attempted to destroy non-existent instrument %s", name)
@@ -55,7 +55,7 @@ func (h *Handler) destroyWorker() {
 		}
 
 		// Check if already completed
-		if process.Completed {
+		if instrument.Completed {
 			h.Log.Info("Instrument %s already completed, cleaning up", name)
 			delete(h.Instruments, name)
 			h.mutex.Unlock()
@@ -68,7 +68,7 @@ func (h *Handler) destroyWorker() {
 
 		// Stop the instrument outside the critical section
 		h.Log.Info("Stopping instrument: %s", name)
-		h.stopInstrument(process)
+		h.stopInstrument(instrument)
 		h.Log.Info("Successfully destroyed instrument: %s", name)
 	}
 

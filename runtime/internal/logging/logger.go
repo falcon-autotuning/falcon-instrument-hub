@@ -48,7 +48,7 @@ type LogEntry struct {
 // TODO: generalize this pageSize ot get it from the OS directly instead of
 // asserting
 const (
-	TimeFormat = "2006-01-02 15:04:05.000000"
+	TimeFormat = "2006-01-02 15:04:05.0000000"
 	pageSize   = 4096 // OS page size
 )
 
