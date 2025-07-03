@@ -605,9 +605,6 @@ async def measurement_response(
     measurement_response = None
     jetstream_data = None
 
-    # Create JetStream context
-    nats_client.jetstream()
-
     async def upload_handler(msg):
         """Handle upload notifications and extract data from JetStream."""
         try:
