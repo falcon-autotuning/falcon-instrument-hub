@@ -530,8 +530,8 @@ class InstrumentDaemon:
             f"The type of index must be an integer and not {type(index)}"
         )
         value = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
-        assert isinstance(value, (str | int | float)), (
-            f"The type of the set value must be a string, int, or float and not {type(value)}"
+        assert isinstance(value, (str | int | float | list)), (
+            f"The type of the set value must be a string, int, float, or list and not {type(value)}"
         )
         await self._loop.run_in_executor(
             None,
