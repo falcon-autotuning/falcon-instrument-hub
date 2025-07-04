@@ -763,6 +763,8 @@ class InterpreterDaemon:
                         domain=domain,
                         step_width=step_width,
                         buffered_dimension=buffered_dimension,
+                        buffered=buffered,
+                        num_x_points=len(chunk[:, 0]),
                     )
                     instruction.add_requirement(
                         instrument=domain.label,
@@ -861,6 +863,8 @@ class InterpreterDaemon:
         domain: "BaseLabelledDomain",
         step_width: float,
         buffered_dimension: bool,
+        buffered: bool,
+        num_x_points: int = 1,
     ) -> dict["PropertyName", "PropertyValue"]:
         """Generates the properties for a knob in the measurement.
 
@@ -870,6 +874,8 @@ class InterpreterDaemon:
             domain: The combination of the label and voltage bounds for this knob.
             step_width: The time width of this step in msec.
             buffered_dimension: A flag indicating if this is a legal buffered dimension.
+            buffered: A flag indicating buffered measurements are happening
+            num_x_points: The number of x points in the buffered sweep
 
         Returns:
             The properties collected for this knob.
@@ -879,14 +885,15 @@ class InterpreterDaemon:
             other=domain.domain,
         )
         properties: dict[PropertyName, PropertyValue] = {}
-        if not buffered_dimension:
+        if not buffered_dimension and not buffered:
             properties = {
                 SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
                 SUPPORTED_PROPERTIES.TIMEOUT: TIMEOUT_SCALE_FACTOR
                 * step_width
                 / 1000,  # [sec]
             }
-        else:
+
+        elif buffered_dimension:
             v_stop = unit_domain.transform(
                 value=raw_space[-1],
                 other=domain.domain,
@@ -899,6 +906,13 @@ class InterpreterDaemon:
                     v_start,
                     v_stop,
                 ),
+                SUPPORTED_PROPERTIES.TIMEOUT: (TIMEOUT_SCALE_FACTOR - 1 + num_x_points)
+                * step_width
+                / 1000,  # [sec]
+            }
+        else:
+            properties = {
+                SUPPORTED_PROPERTIES.VOLTAGE_STATE: v_start,
                 SUPPORTED_PROPERTIES.TIMEOUT: (
                     TIMEOUT_SCALE_FACTOR * step_width / 1000  # [sec]
                 ),
