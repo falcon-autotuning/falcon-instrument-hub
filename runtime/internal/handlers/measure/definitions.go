@@ -42,7 +42,7 @@ var (
 
 type PortDeployment struct {
 	Port    instrument.JsonPort
-	Options *instrument.PortOptions
+	Options instrument.PortOptions
 }
 
 // ScheduledPortDeployment tracks the structure of the ports schedules for
@@ -62,7 +62,7 @@ func NewScheduledPortDeployment() *ScheduledPortDeployments {
 func (spd *ScheduledPortDeployments) Add(
 	instrumentName instrument.Name,
 	port instrument.JsonPort,
-	portOptions *instrument.PortOptions,
+	portOptions instrument.PortOptions,
 ) {
 	spd.Deployment[instrumentName] = append(
 		spd.Deployment[instrumentName],
@@ -106,18 +106,18 @@ func (spd *ScheduledPortDeployments) GetPortsForInstrument(
 func (spd *ScheduledPortDeployments) GetPortOptionsForInstrumentAndPort(
 	instrumentName instrument.Name,
 	port instrument.JsonPort,
-) *instrument.PortOptions {
+) instrument.PortOptions {
 	for _, portItem := range spd.Deployment[instrumentName] {
 		if portItem.Port == port {
 			return portItem.Options
 		}
 	}
-	return nil
+	return instrument.PortOptions{}
 }
 
 // GetAllPortOptions returns all port options across all instruments
-func (spd *ScheduledPortDeployments) GetAllPortOptions() []*instrument.PortOptions {
-	var options []*instrument.PortOptions
+func (spd *ScheduledPortDeployments) GetAllPortOptions() []instrument.PortOptions {
+	var options []instrument.PortOptions
 	for _, instrumentPortItems := range spd.Deployment {
 		for _, portItem := range instrumentPortItems {
 			options = append(options, portItem.Options)

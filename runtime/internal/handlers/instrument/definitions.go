@@ -234,6 +234,11 @@ func (h *Handler) CollectPortProperties() (knobs, meters []JsonPort) {
 	return nil, nil
 }
 
+// GetPortOptions collects the port options from a selected name
+func (h *Handler) GetPortOptions(name JsonPort) (PortOptions, error) {
+	return h.portProcessor.getCachedOptions(name)
+}
+
 // BuildConfigurations creates the configuration mapping by collecting and
 // inverting port mappings
 func (h *Handler) BuildConfigurations() (map[JsonPort]map[PropertyName]PortConfiguration, error) {
@@ -281,41 +286,34 @@ func (h *Handler) BuildPortConfigurations() (map[JsonPort]PortOptions, error) {
 	return make(map[JsonPort]PortOptions), nil
 }
 
-// GetPortOptions finds the configuration for a specific port
-func (h *Handler) GetPortOptions(
-	name JsonPort,
-) (*PortOptions, error) {
-	portConfigurations, err := h.getPortConfigurations()
-	if err != nil {
-		return nil, err
-	}
-
-	return h.findPortInConfigurations(name, portConfigurations)
-}
-
 // GetMultiplePortOptions finds configurations for multiple ports efficiently
 func (h *Handler) GetMultiplePortOptions(
 	names []JsonPort,
-) (map[JsonPort]*PortOptions, error) {
+) (map[JsonPort]PortOptions, error) {
 	h.Log.Debug("Attempting to find port options for %d ports", len(names))
 
 	if len(names) == 0 {
-		return make(map[JsonPort]*PortOptions), nil
+		return make(map[JsonPort]PortOptions), nil
 	}
 
 	h.mutex.RLock()
 	defer h.mutex.RUnlock()
 
-	portConfigurations, err := h.getPortConfigurations()
-	if err != nil {
-		return nil, err
-	}
-
-	results := make(map[JsonPort]*PortOptions, len(names))
+	results := make(map[JsonPort]PortOptions, len(names))
 	var errors []string
 
 	for _, name := range names {
-		if portOptions, err := h.findPortInConfigurations(name, portConfigurations); err != nil {
+		var data PortObject
+		// need to get compact json form:
+		if err := json.Unmarshal([]byte(name), &data); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal JsonPort: %v", err)
+		}
+		compactJSON, err := json.Marshal(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal JsonPort: %v", err)
+		}
+		compactPortName := JsonPort(compactJSON)
+		if portOptions, err := h.portProcessor.getCachedOptions(compactPortName); err != nil {
 			errors = append(errors, fmt.Sprintf("port %s: %v", name, err))
 		} else {
 			results[name] = portOptions
@@ -330,57 +328,6 @@ func (h *Handler) GetMultiplePortOptions(
 	}
 
 	return results, nil
-}
-
-// getPortConfigurations gets the current port configurations (shared helper)
-func (h *Handler) getPortConfigurations() (map[JsonPort]PortOptions, error) {
-	if h.portProcessor == nil {
-		return make(map[JsonPort]PortOptions), nil
-	}
-
-	cached, exists := h.portProcessor.getCachedPortConfigurations()
-	if exists {
-		return cached, nil
-	}
-
-	// Build and cache if not available
-	h.portProcessor.Log.Debug("Building the cached port configurations")
-	return h.portProcessor.buildAndCachePortConfigurations(h.Instruments), nil
-}
-
-// findPortInConfigurations finds a port in the given configurations (shared
-// helper)
-func (h *Handler) findPortInConfigurations(
-	name JsonPort,
-	portConfigurations map[JsonPort]PortOptions,
-) (*PortOptions, error) {
-	var data PortObject
-
-	// need to get compact json form:
-	if err := json.Unmarshal([]byte(name), &data); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal JsonPort: %v", err)
-	}
-	compactJSON, err := json.Marshal(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal JsonPort: %v", err)
-	}
-	compactPortName := JsonPort(compactJSON)
-
-	// now check if the port exists
-	if portConfig, exists := portConfigurations[compactPortName]; exists {
-		return &portConfig, nil
-	}
-
-	ports := make([]JsonPort, 0, len(portConfigurations))
-	for port := range portConfigurations {
-		ports = append(ports, port)
-	}
-	h.portProcessor.Log.Error(
-		"The current ports in the configuration are: %v",
-		ports,
-	)
-
-	return nil, fmt.Errorf("port %s not found in configurations", name)
 }
 
 // InvalidatePortConfigCache invalidates the cached port configurations
@@ -562,12 +509,6 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 		)
 		return
 	}
-	h.Log.Debug(
-		"A property was found for instrument %s with property name %s at index %s",
-		req.Name,
-		req.Property,
-		targetIndex,
-	)
 
 	// Create DirectSetInstruction and send it
 	directInstruction := DirectSetInstruction{
@@ -600,9 +541,10 @@ func (h *Handler) SendDirectSetInstruction(
 		ChunkId:   int64(measurementID.ChunkId),
 	}
 	h.Log.Debug(
-		"The processId in the set command is %d for property %s",
+		"The processId in the set command is %d for property %s at index %d",
 		setCommand.ProcessId,
 		setCommand.Property,
+		setCommand.Index,
 	)
 
 	setData, err := json.Marshal(setCommand)
