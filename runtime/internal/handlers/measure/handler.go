@@ -544,15 +544,23 @@ func (h *MeasurementReadyHandler) triggerGetterInstruments(
 	measurementID instrument.MeasurementID,
 	getterInstruments []instrument.Name,
 ) {
+	var wg sync.WaitGroup
 	for _, instrumentName := range getterInstruments {
-		if err := h.sendTriggerCommand(instrumentName, measurementID, false); err != nil {
-			h.log.Error("Failed to send %s command to arm instrument %s: %v",
-				TriggerMessage,
-				instrumentName,
-				err,
-			)
-		}
+		wg.Add(1)
+		go func(name instrument.Name) {
+			defer wg.Done()
+
+			if err := h.sendTriggerCommand(name, measurementID, true); err != nil {
+				h.log.Error(
+					"Failed to send %s command to arm instrument %s: %v",
+					TriggerMessage,
+					instrumentName,
+					err,
+				)
+			}
+		}(instrumentName)
 	}
+	wg.Wait()
 }
 
 // handleAllGettersTriggered handles when all getter instruments are triggered
@@ -567,16 +575,23 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 		triggerNames,
 	)
 
+	var wg sync.WaitGroup
 	for _, instrumentName := range triggerNames {
-		if err := h.sendTriggerCommand(instrumentName, measurementID, true); err != nil {
-			h.log.Error(
-				"Failed to send %s command to register triggers instrument %s: %v",
-				TriggerMessage,
-				instrumentName,
-				err,
-			)
-		}
+		wg.Add(1)
+		go func(name instrument.Name) {
+			defer wg.Done()
+
+			if err := h.sendTriggerCommand(name, measurementID, true); err != nil {
+				h.log.Error(
+					"Failed to send %s command to register triggers instrument %s: %v",
+					TriggerMessage,
+					name,
+					err,
+				)
+			}
+		}(instrumentName)
 	}
+	wg.Wait()
 }
 
 // sendTriggerCommand sends a TRIGGER command to an instrument

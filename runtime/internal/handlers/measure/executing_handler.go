@@ -83,7 +83,7 @@ func (h *MeasurementReadyHandler) handleExecuting(msg *nats.Msg) {
 		instrumentName,
 		measurementID,
 	)
-	h.log.Debug("Reset triggered getter checklist for %+v", measurementID)
+	go h.log.Debug("Reset triggered getter checklist for %+v", measurementID)
 	go h.handleAllGettersTriggered(
 		measurementID,
 		scheduler.MasterTriggerInstruments,

@@ -508,7 +508,7 @@ class InstrumentDaemon:
 
                     except asyncio.QueueEmpty:
                         # No commands available, short sleep before checking again
-                        await asyncio.sleep(0.001)  # 1ms when unlocked and empty
+                        await asyncio.sleep(0.0005)  # 0.5ms when unlocked and empty
 
             except Exception as e:
                 await self.log(f"Error in process_set_queue: {e}")
