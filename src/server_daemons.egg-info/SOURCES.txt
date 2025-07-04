@@ -126,6 +126,8 @@ test-outs/log/falcon-runtime_2025-07-03_22-08-47_sorted.log
 test-outs/log/falcon-runtime_2025-07-03_22-57-20.log
 test-outs/log/falcon-runtime_2025-07-03_22-57-20_sorted.log
 test-outs/log/falcon-runtime_2025-07-04_13-56-41.log
+test-outs/log/falcon-runtime_2025-07-04_14-08-35.log
+test-outs/log/falcon-runtime_2025-07-04_14-08-35_sorted.log
 test-outs/scripts/launch_instrument_daemon.py
 test-outs/scripts/launch_interpreter.py
 test-outs/test_plotted_data/test_buffered_linear_measurement.png

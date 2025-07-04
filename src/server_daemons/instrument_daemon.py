@@ -385,24 +385,22 @@ class InstrumentDaemon:
             await self.log("Trigger command recieved, starting process...")
 
             # Start the trigger process concurrently
-            async def run_trigger():
-                try:
-                    if is_setter:
-                        await self.log("Starting process_setter_trigger in executor...")
-                        await self._loop.run_in_executor(
-                            None,
-                            self._instrument._process_setter_triggers,
-                        )
-                    else:
-                        await self.log("Starting process_getter_trigger in executor...")
-                        await self._loop.run_in_executor(
-                            None,
-                            self._instrument._process_getter_triggers,
-                        )
-                except Exception as e:
-                    await self.log(f"Error in process_trigger: {e}")
-
-            self._loop.create_task(run_trigger())
+            try:
+                if is_setter:
+                    await self.log("Starting process_setter_trigger in executor...")
+                    await self._loop.run_in_executor(
+                        None,
+                        self._instrument._process_setter_triggers,
+                    )
+                else:
+                    await self.log("Starting process_getter_trigger in executor...")
+                    await self._loop.run_in_executor(
+                        None,
+                        self._instrument._process_getter_triggers,
+                    )
+                await self.log("Trigger process completed")
+            except Exception as e:
+                await self.log(f"Error in process_trigger: {e}")
 
             await asyncio.sleep(timeout)
             getter_triggers = copy.deepcopy(self._instrument._getter_triggers)
