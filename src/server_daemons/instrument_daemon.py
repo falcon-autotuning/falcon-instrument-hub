@@ -105,6 +105,7 @@ class InstrumentDaemon:
             if hasattr(self, "_nc") and self._nc:
                 with contextlib.suppress(asyncio.TimeoutError, Exception):
                     await asyncio.wait_for(self._nc.close(), timeout=1.0)
+            self._instrument_executor.shutdown(wait=True, cancel_futures=True)
             print(f"Daemon {self._instrument_name} shutdown complete")
 
     def _setup_signal_handlers(self):
@@ -248,7 +249,8 @@ class InstrumentDaemon:
         """Publishes the status of the daemon every refresh."""
         try:
             while not self._shutdown_event.is_set():
-                pending = len([t for t in asyncio.all_tasks() if not t.done()])
+                pending = sum(1 for t in asyncio.all_tasks() if not t.done())
+                await asyncio.sleep(0)  # Yield control
                 message = json.dumps(
                     {
                         DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
