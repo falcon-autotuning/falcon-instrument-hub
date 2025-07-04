@@ -485,10 +485,14 @@ class InstrumentDaemon:
                         # Timeout is fine, just continue the loop to check again
                         continue
                 else:
-                    # Queue is unlocked, process rapidly
+                    # Queue is unlocked, wait for commands with timeout
                     try:
-                        # Try to get a command immediately (non-blocking)
-                        command = self._set_queue.get_nowait()
+                        # Wait for a command with short timeout to check lock state
+                        command = await asyncio.wait_for(
+                            self._set_queue.get(),
+                            timeout=0.1,  # 100ms timeout to check lock state
+                        )
+
                         property_name = command.get(
                             DRIVER_RUNTIME_COMMANDS.SET.PROPERTY
                         )
@@ -498,17 +502,15 @@ class InstrumentDaemon:
 
                         if property_name == SUPPORTED_PROPERTIES.ARM:
                             await self.process_arm_command(set_data=command)
-                            continue
+                        else:
+                            await self.process_set_command(
+                                property_name=property_name,
+                                set_data=command,
+                            )
 
-                        await self.process_set_command(
-                            property_name=property_name,
-                            set_data=command,
-                        )
+                    except asyncio.TimeoutError:
+                        # No command received within timeout, continue to check lock state
                         continue
-
-                    except asyncio.QueueEmpty:
-                        # No commands available, short sleep before checking again
-                        await asyncio.sleep(0.0005)  # 0.5ms when unlocked and empty
 
             except Exception as e:
                 await self.log(f"Error in process_set_queue: {e}")
