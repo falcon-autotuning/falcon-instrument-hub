@@ -2,6 +2,7 @@
 
 import contextlib
 import copy
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
@@ -59,7 +60,7 @@ class InstrumentDaemon:
         self._set_queue = asyncio.Queue()
         self._is_unlocked = asyncio.Event()
         # Single-threaded executor for SET operations to avoid lock contention
-        self._set_executor = ThreadPoolExecutor(max_workers=1)
+        self._instrument_executor = ThreadPoolExecutor(max_workers=1)
 
     async def start(self):
         """The main loop for the daemon."""
@@ -128,8 +129,6 @@ class InstrumentDaemon:
         except Exception as e:
             print(f"Error in signal handler: {e}", flush=self._debug)
             # Force exit if we can't set the event
-            import os
-
             os._exit(1)
 
     async def _cleanup_tasks(self):
@@ -333,7 +332,7 @@ class InstrumentDaemon:
                 return getattr(self._instrument, method_name)(**kwargs)
 
             # Run in executor to avoid blocking the event loop
-            await self._loop.run_in_executor(None, execute_method)
+            await self._loop.run_in_executor(self._instrument_executor, execute_method)
             await self.log(
                 message="PERFORM_ARBITRARY_METHOD command executed",
             )
@@ -392,13 +391,13 @@ class InstrumentDaemon:
                 if is_setter:
                     await self.log("Starting process_setter_trigger in executor...")
                     await self._loop.run_in_executor(
-                        None,
+                        self._instrument_executor,
                         self._instrument._process_setter_triggers,
                     )
                 else:
                     await self.log("Starting process_getter_trigger in executor...")
                     await self._loop.run_in_executor(
-                        None,
+                        self._instrument_executor,
                         self._instrument._process_getter_triggers,
                     )
                 await self.log("Trigger process completed")
@@ -526,7 +525,7 @@ class InstrumentDaemon:
             f"The type of the set value must be a string, int, float, or list and not {type(value)}"
         )
         await self._loop.run_in_executor(
-            self._set_executor,
+            self._instrument_executor,
             self._instrument.set_property,
             property_name,
             index,
@@ -698,7 +697,7 @@ class InstrumentDaemon:
                 return
             # Locks the threads to make sure the calls are synchronous
             await self._loop.run_in_executor(
-                None,
+                self._instrument_executor,
                 self._instrument.get_property,
                 property_name,
                 index,
