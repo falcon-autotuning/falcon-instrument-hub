@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -331,40 +332,49 @@ func (h *MeasurementReadyHandler) sendInstructions(
 	ii []*InstrumentInstructions,
 ) {
 	h.log.Info("Sending %d instructions for %+v", len(ii), measurementID)
+
+	// Parallelize instruction sending since each instrument is independent
+	var wg sync.WaitGroup
 	for _, instructions := range ii {
-		// Send regular SET instructions
-		for _, setInstruction := range instructions.SetInstructions {
-			h.instrumentHandler.SetProperty(setInstruction, measurementID)
-		}
+		wg.Add(1)
+		go func(instr *InstrumentInstructions) {
+			defer wg.Done()
 
-		// Send TIMEOUT instructions directly
-		for _, timeoutInstruction := range instructions.TimeoutInstructions {
-			directInstruction := instrument.DirectSetInstruction{
-				InstrumentName: instructions.Name,
-				Property:       timeoutInstruction.Property,
-				Index:          -1, // Global instrument command
-				Value:          timeoutInstruction.Value,
+			// Send regular SET instructions
+			for _, setInstruction := range instr.SetInstructions {
+				h.instrumentHandler.SetProperty(setInstruction, measurementID)
 			}
-			h.instrumentHandler.SendDirectSetInstruction(
-				directInstruction,
-				measurementID,
-			)
-		}
 
-		// Send ARM instructions directly
-		for _, armInstruction := range instructions.ArmInstruction {
-			directInstruction := instrument.DirectSetInstruction{
-				InstrumentName: instructions.Name,
-				Property:       armInstruction.Property,
-				Index:          -1, // Global instrument command
-				Value:          armInstruction.Value,
+			// Send TIMEOUT instructions directly
+			for _, timeoutInstruction := range instr.TimeoutInstructions {
+				directInstruction := instrument.DirectSetInstruction{
+					InstrumentName: instr.Name,
+					Property:       timeoutInstruction.Property,
+					Index:          -1, // Global instrument command
+					Value:          timeoutInstruction.Value,
+				}
+				h.instrumentHandler.SendDirectSetInstruction(
+					directInstruction,
+					measurementID,
+				)
 			}
-			h.instrumentHandler.SendDirectSetInstruction(
-				directInstruction,
-				measurementID,
-			)
-		}
+
+			// Send ARM instructions directly
+			for _, armInstruction := range instr.ArmInstruction {
+				directInstruction := instrument.DirectSetInstruction{
+					InstrumentName: instr.Name,
+					Property:       armInstruction.Property,
+					Index:          -1, // Global instrument command
+					Value:          armInstruction.Value,
+				}
+				h.instrumentHandler.SendDirectSetInstruction(
+					directInstruction,
+					measurementID,
+				)
+			}
+		}(instructions)
 	}
+	wg.Wait()
 }
 
 // createSchedulerForMeasurement creates the scheduler before sending SET
