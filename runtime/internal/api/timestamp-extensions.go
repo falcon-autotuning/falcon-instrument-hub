@@ -144,7 +144,7 @@ func ToTime[T TimestampConverter](t T) time.Time {
 	// Convert microseconds to time.Time
 	return time.Unix(
 		0,
-		int64(timestamp)*10000,
+		int64(timestamp)*1000,
 	) // Convert microseconds to nanoseconds
 }
 
