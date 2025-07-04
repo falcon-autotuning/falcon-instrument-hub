@@ -394,3 +394,28 @@ func (pp *PortProcessor) getCachedPortConfigurations() (map[JsonPort]PortOptions
 
 	return nil, false
 }
+
+// getOptions returns the options if available
+func (pp *PortProcessor) getCachedOptions(name JsonPort) (PortOptions, error) {
+	if !pp.portConfigsCached {
+		return PortOptions{}, fmt.Errorf(
+			"no cache of ports is available to search through",
+		)
+	}
+	pp.cacheMutex.RLock()
+	defer pp.cacheMutex.RUnlock()
+	options, exists := pp.cachedPortConfigs[name]
+	if !exists {
+		return PortOptions{}, fmt.Errorf(
+			"the name %s was not found in the port processor cache",
+			name,
+		)
+	}
+	result := PortOptions{
+		Instrument: options.Instrument,
+		Index:      options.Index,
+		Properties: make([]PropertyName, len(options.Properties)),
+	}
+	copy(result.Properties, options.Properties)
+	return result, nil
+}

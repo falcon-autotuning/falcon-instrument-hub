@@ -540,25 +540,18 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	}
 
 	h.Log.Debug("Preparing to SET an instruction")
-	h.mutex.RLock()
-	configuration, exist := h.portProcessor.getCachedPortConfigurations()
-	if !exist {
-		configuration = h.portProcessor.buildAndCachePortConfigurations(
-			h.Instruments,
-		)
-	}
-	options, exist := configuration[req.Name]
-	if !exist {
+	options, err := h.portProcessor.getCachedOptions(req.Name)
+	if err != nil {
 		h.mutex.RUnlock()
 		h.Log.Error(
-			"Expected to find options in the configuration for port %v but there were none.",
+			"error collecting cached options for port %s: %v",
 			req.Name,
+			err,
 		)
 		return
 	}
 	targetInstrument := options.Instrument
 	targetIndex := options.Index
-	h.mutex.RUnlock()
 
 	realIndex, err := strconv.ParseInt(string(targetIndex), 10, 64)
 	if err != nil {

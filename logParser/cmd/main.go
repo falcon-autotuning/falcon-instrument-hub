@@ -21,7 +21,7 @@ type LogEntry struct {
 
 const (
 	maxCapacity = 1024 * 1024 // 1MB
-	timeFormat  = "2006-01-02 15:04:05.000000"
+	timeFormat  = "2006-01-02 15:04:05.0000000"
 )
 
 // LogParser handles parsing of falcon runtime logs
@@ -33,7 +33,7 @@ type LogParser struct {
 func NewLogParser() *LogParser {
 	// Regex to match timestamp pattern: [2025-06-23 11:57:15.123456]
 	timestampRegex := regexp.MustCompile(
-		`^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6})\]`,
+		`^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{7})\]`,
 	)
 
 	return &LogParser{
