@@ -2,6 +2,7 @@
 
 import contextlib
 import copy
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 from instrument_templates.constants import SUPPORTED_PROPERTIES
@@ -57,6 +58,8 @@ class InstrumentDaemon:
         self._shutdown_event = asyncio.Event()
         self._set_queue = asyncio.Queue()
         self._is_unlocked = asyncio.Event()
+        # Single-threaded executor for SET operations to avoid lock contention
+        self._set_executor = ThreadPoolExecutor(max_workers=1)
 
     async def start(self):
         """The main loop for the daemon."""
@@ -523,7 +526,7 @@ class InstrumentDaemon:
             f"The type of the set value must be a string, int, float, or list and not {type(value)}"
         )
         await self._loop.run_in_executor(
-            None,
+            self._set_executor,
             self._instrument.set_property,
             property_name,
             index,
