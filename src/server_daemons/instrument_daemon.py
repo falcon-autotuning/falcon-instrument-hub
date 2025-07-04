@@ -472,49 +472,38 @@ class InstrumentDaemon:
         await self.log("No messages found in queue after trigger timeout")
 
     async def process_set_queue(self):
-        """Process SET commands from the queue when unlocked."""
         while not self._shutdown_event.is_set():
             try:
                 if not self._is_unlocked.is_set():
                     # Queue is locked, wait for unlock event
                     await self.log("Queue is locked, waiting for unlock event...")
-                    try:
-                        await asyncio.wait_for(self._is_unlocked.wait(), timeout=0.1)
-                        await self.log("Queue unlock event received!")
-                    except asyncio.TimeoutError:
-                        # Timeout is fine, just continue the loop to check again
-                        continue
-                else:
-                    # Queue is unlocked, wait for commands with timeout
-                    try:
-                        # Wait for a command with short timeout to check lock state
-                        command = await asyncio.wait_for(
-                            self._set_queue.get(),
-                            timeout=0.1,  # 100ms timeout to check lock state
+                    await self._is_unlocked.wait()
+                    await self.log("Queue unlock event received!")
+
+                # Queue is unlocked, process commands
+                try:
+                    command = await self._set_queue.get()
+
+                    property_name = command.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
+                    assert isinstance(property_name, str), (
+                        f"The raw property name must be a string and not {type(property_name)}"
+                    )
+
+                    if property_name == SUPPORTED_PROPERTIES.ARM:
+                        await self.process_arm_command(set_data=command)
+                    else:
+                        await self.process_set_command(
+                            property_name=property_name,
+                            set_data=command,
                         )
 
-                        property_name = command.get(
-                            DRIVER_RUNTIME_COMMANDS.SET.PROPERTY
-                        )
-                        assert isinstance(property_name, str), (
-                            f"The raw property name must be a string and not {type(property_name)}"
-                        )
-
-                        if property_name == SUPPORTED_PROPERTIES.ARM:
-                            await self.process_arm_command(set_data=command)
-                        else:
-                            await self.process_set_command(
-                                property_name=property_name,
-                                set_data=command,
-                            )
-
-                    except asyncio.TimeoutError:
-                        # No command received within timeout, continue to check lock state
-                        continue
+                except asyncio.CancelledError:
+                    # Task was cancelled (likely due to shutdown), break out
+                    break
 
             except Exception as e:
                 await self.log(f"Error in process_set_queue: {e}")
-                await asyncio.sleep(0.005)  # 5ms on error
+                await asyncio.sleep(0.005)  # Small delay only on error
 
     async def process_set_command(
         self,
