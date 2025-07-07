@@ -140,7 +140,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	externalServerName := parts[len(parts)-1] // Get last part
 
 	// Send response
-	if err := h.nc.Publish(PortPayloadType+".external."+externalServerName, responseData); err != nil {
+	if err := h.nc.Publish(PortPayloadSubject+externalServerName, responseData); err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
 			fmt.Sprintf("Failed to publish %s : %v", PortPayloadType, err),
