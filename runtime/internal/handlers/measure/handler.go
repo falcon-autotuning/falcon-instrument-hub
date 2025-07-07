@@ -550,7 +550,7 @@ func (h *MeasurementReadyHandler) triggerGetterInstruments(
 		go func(name instrument.Name) {
 			defer wg.Done()
 
-			if err := h.sendTriggerCommand(name, measurementID, true); err != nil {
+			if err := h.sendTriggerToGetter(name, measurementID); err != nil {
 				h.log.Error(
 					"Failed to send %s command to arm instrument %s: %v",
 					TriggerMessage,
@@ -581,7 +581,7 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 		go func(name instrument.Name) {
 			defer wg.Done()
 
-			if err := h.sendTriggerCommand(name, measurementID, true); err != nil {
+			if err := h.sendTriggerToSetter(name, measurementID); err != nil {
 				h.log.Error(
 					"Failed to send %s command to register triggers instrument %s: %v",
 					TriggerMessage,
@@ -592,6 +592,20 @@ func (h *MeasurementReadyHandler) handleAllGettersTriggered(
 		}(instrumentName)
 	}
 	wg.Wait()
+}
+
+func (h *MeasurementReadyHandler) sendTriggerToGetter(
+	instrumentName instrument.Name,
+	measurementID instrument.MeasurementID,
+) error {
+	return h.sendTriggerCommand(instrumentName, measurementID, false)
+}
+
+func (h *MeasurementReadyHandler) sendTriggerToSetter(
+	instrumentName instrument.Name,
+	measurementID instrument.MeasurementID,
+) error {
+	return h.sendTriggerCommand(instrumentName, measurementID, true)
 }
 
 // sendTriggerCommand sends a TRIGGER command to an instrument
