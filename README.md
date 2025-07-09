@@ -20,6 +20,8 @@
   - [License](#license)
   <!--toc:end-->
 
+# TODO
+
 The current breaking change is no, no-ops for meter like instruments. They need
 to have some sort of break in the chain of commands to be armed on time.
 
@@ -28,6 +30,8 @@ instruments that are deemed to only be a requirement.
 
 This repository both contains code for background daemon processes running in python
 and a go executable for managing them and their communication with falcon.
+
+Need to support state request and response from falcon
 
 ## Build
 
