@@ -22,6 +22,7 @@
 
 # TODO
 
+The logparser got moved to the fdt.
 The current breaking change is no, no-ops for meter like instruments. They need
 to have some sort of break in the chain of commands to be armed on time.
 
