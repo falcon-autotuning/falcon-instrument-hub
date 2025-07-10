@@ -34,6 +34,8 @@ and a go executable for managing them and their communication with falcon.
 
 Need to support state request and response from falcon
 
+The api needs to be reloaded. And there is a breaking change that the hash must be added to the Upload data for the falcon requesteer
+
 ## Build
 
 Given that this application needs to interface directly with real hardware, we
