@@ -31,6 +31,14 @@ dependencies = [
   "instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest==8.2.1",
+  "pytest-asyncio==1.0.0",
+  "matplotlib==3.9",
+  "instrument_test_suite @ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main",
+]
+
 [project.readme]
 file = "README.md"
 content-type = "text/x-rst"
