@@ -9,11 +9,6 @@ class CONFIRM_INITIALIZATION:
         return "CONFIRM_INITIALIZATION"
 
     @property
-    def PORT(self) -> str:
-        """the configuration of the instrument ports"""
-        return "port"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -22,6 +17,11 @@ class CONFIRM_INITIALIZATION:
     def INIT(self) -> str:
         """the configuration of the daemon, property_name and index indexed"""
         return "init"
+
+    @property
+    def PORT(self) -> str:
+        """the configuration of the instrument ports"""
+        return "port"
 
 class GET:
     """The substrings necessary for execute a get instruction on a sandboxed instrument."""
@@ -50,11 +50,6 @@ class LOG:
         return "LOG"
 
     @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
-    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -63,6 +58,11 @@ class LOG:
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
 
 class PERFORM_ARBITRARY_METHOD:
     """The substrings necessary for enact an arbitrary submethod for a given instrument daemon from the cli."""
@@ -73,6 +73,11 @@ class PERFORM_ARBITRARY_METHOD:
         return "PERFORM_ARBITRARY_METHOD"
 
     @property
+    def KEYWORD_ARGS(self) -> str:
+        """Arbitrary keyword arguments to be passes to the method"""
+        return "keyword_args"
+
+    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -81,11 +86,6 @@ class PERFORM_ARBITRARY_METHOD:
     def METHOD(self) -> str:
         """The name of the method that is to be performed"""
         return "method"
-
-    @property
-    def KEYWORD_ARGS(self) -> str:
-        """Arbitrary keyword arguments to be passes to the method"""
-        return "keyword_args"
 
 class RETURN_DATA:
     """The substrings necessary for returns measured data."""
@@ -112,7 +112,7 @@ class RETURN_DATA:
 
     @property
     def DATA(self) -> str:
-        """The measured data collected on the instrument"""
+        """The measured data as a list of floats collected on the instrument"""
         return "data"
 
     @property
@@ -129,11 +129,6 @@ class RETURN_GET:
         return "RETURN_GET"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROPERTY(self) -> str:
         """The name of the property that is to be set"""
         return "property"
@@ -147,6 +142,11 @@ class RETURN_GET:
     def VALUE(self) -> str:
         """The argument to be set inside the instrument"""
         return "value"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class SET:
     """The substrings necessary for execute a set instruction on a sandboxed instrument."""
@@ -190,14 +190,14 @@ class STATUS:
         return "STATUS"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def STATUS(self) -> str:
         """At compilation of this message the state of the process"""
         return "status"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class ARMED:
     """The substrings necessary for statement from an instrument indicating sets are complete and it is locked from further modifications.."""
@@ -231,11 +231,6 @@ class TRIGGER:
         return "TRIGGER"
 
     @property
-    def TIMESTAMP(self) -> str:
-        """When the response was completed"""
-        return "timestamp"
-
-    @property
     def PROCESS_ID(self) -> str:
         """A unique identifier for the process/ measurement and can index it."""
         return "process_id"
@@ -244,6 +239,16 @@ class TRIGGER:
     def CHUNK_ID(self) -> str:
         """A unique identifier for a particular chunk of a measurement."""
         return "chunk_id"
+
+    @property
+    def IS_SETTER(self) -> str:
+        """if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger."""
+        return "is_setter"
+
+    @property
+    def TIMESTAMP(self) -> str:
+        """When the response was completed"""
+        return "timestamp"
 
 class EXECUTING:
     """The substrings necessary for statement from an instrument indicating it is successfully triggered and executing a measurement.."""

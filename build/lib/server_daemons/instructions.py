@@ -2,12 +2,19 @@
 
 from typing import TYPE_CHECKING
 
+from .dependancies import SUPPORTED_PROPERTIES
+from .typing import (
+    Knob,
+)
+
 if TYPE_CHECKING:
     from .typing import (
         Getters,
         InstrumentPort,
+        Meter,
         PropertyName,
         PropertyValue,
+        Requirements,
         Setters,
     )
 
@@ -17,25 +24,38 @@ class Instruction:
 
     A measurement is a thing that needs to be executed on instrument daemons running on the runtime instrument server.
     It is broken down into a atomic instructions that can be executed on order on the instruments to satify the measurement.
-    This consists of two main parts:
-        setters: A dictionary of connections and their properties to set.
+    This consists of three main parts:
+        requirements: A dictionary of connections and their properties to be set.
+        setters: A list of connections to set for the measurement.
         getters: A list of connections to get data from.
     Getters are no required, but setters are, otherwise there is no measurement to perform.
     """
 
     _setters: "Setters"
     _getters: "Getters"
+    _requirements: "Requirements"
     _buffered: bool
 
     def __init__(
         self,
-        setters: "Setters" = {},
-        getters: "Getters" = [],
+        setters: "Setters | None" = None,
+        requirements: "Requirements | None" = None,
+        getters: "Getters | None" = None,
         buffered: bool = False,
     ):
         """Initialize the instruction."""
-        self._getters = getters
-        self._setters = setters
+        if getters is None:
+            self._getters = []
+        else:
+            self._getters = getters
+        if setters is None:
+            self._setters = []
+        else:
+            self._setters = setters
+        if requirements is None:
+            self._requirements = {}
+        else:
+            self._requirements = requirements
         self._buffered = buffered
 
     @property
@@ -45,10 +65,10 @@ class Instruction:
 
     def add_getter(
         self,
-        instrument: "InstrumentPort",
+        instrument: "Meter",
     ) -> None:
         """Add a getter to the instruction."""
-        self._getters.append(instrument)
+        self._getters = [*self._getters, instrument]
 
     @property
     def setters(self) -> "Setters":
@@ -57,11 +77,23 @@ class Instruction:
 
     def add_setter(
         self,
+        instrument: "Knob",
+    ) -> None:
+        """Add a setter to the instruction."""
+        self._setters = [*self._setters, instrument]
+
+    @property
+    def requirements(self) -> "Requirements":
+        """The requirements for the instruction."""
+        return self._requirements
+
+    def add_requirement(
+        self,
         instrument: "InstrumentPort",
         properties: dict["PropertyName", "PropertyValue"],
     ) -> None:
         """Add a setter to the instruction."""
-        self._setters[instrument] = properties
+        self._requirements[instrument] = properties
 
     @property
     def buffered(self) -> bool:
@@ -74,6 +106,75 @@ class Instruction:
             f"Instruction(setters={self._setters}, getters={self._getters}, "
             f"buffered={self._buffered})"
         )
+
+    def retrieve_voltage_states(self) -> dict["Knob", float]:
+        """Unpacks the requirements to get any setters that are setting voltage states."""
+        map: dict[Knob, float] = {}
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.VOLTAGE_STATE in requirements:
+                v_state = requirements[SUPPORTED_PROPERTIES.VOLTAGE_STATE]
+                assert isinstance(v_state, float)
+                assert isinstance(port, Knob), (
+                    "The port used in the sweep was not a knob"
+                )
+                map[port] = v_state
+
+        return map
+
+    def contains_buffered_measurement(self) -> int:
+        """Flag that indicates a buffered measurement is present."""
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.STAIRCASE in requirements:
+                staircase = requirements[SUPPORTED_PROPERTIES.STAIRCASE]
+                assert isinstance(staircase, tuple), (
+                    "STAIRCASE must be a tuple of numbers."
+                )
+                assert isinstance(staircase[1], int), (
+                    "STAIRCASE[1] (num_steps)  must be an integer."
+                )
+                return staircase[1]
+        return 0
+
+    def seperate_buffered_requirements(
+        self,
+    ) -> list[tuple["InstrumentPort", "PropertyValue"]]:
+        """Seperates the buffered measurements from the rest."""
+        outs: list[tuple[InstrumentPort, PropertyValue]] = []
+        for port, requirements in self.requirements.items():
+            if port not in self.setters:
+                continue
+            if SUPPORTED_PROPERTIES.STAIRCASE in requirements:
+                staircase = requirements[SUPPORTED_PROPERTIES.STAIRCASE]
+                outs.append((port, staircase))
+
+        return outs
+
+    def retrieve_buffered_voltage_states(
+        self, num_steps: int
+    ) -> list[dict["InstrumentPort", float]]:
+        """Unpacks the requirements to get any setters that are setting buffered voltage states."""
+        maps: list[dict[InstrumentPort, float]] = []
+        for i in range(num_steps):
+            for name, staircase in self.seperate_buffered_requirements():
+                map: dict[InstrumentPort, float] = {}
+                assert isinstance(staircase, tuple), (
+                    "STAIRCASE must be a tuple of numbers."
+                )
+                v_stop = staircase[4]
+                assert isinstance(v_stop, float), (
+                    "STAIRCASE[4] (v_stop) must be a float."
+                )
+                v_start = staircase[3]
+                assert isinstance(v_start, float), (
+                    "STAIRCASE[3] (v_start) must be a float."
+                )
+                map[name] = ((v_stop - v_start) * i / (num_steps - 1)) + v_start
+                maps.append(map)
+        return maps
 
 
 class MeasurementInstructions:

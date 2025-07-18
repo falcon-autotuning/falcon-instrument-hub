@@ -17,6 +17,11 @@ Requires-Dist: setuptools-scm==8.1.0
 Requires-Dist: nats.py==2.10.0
 Requires-Dist: falcon_core@ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev
 Requires-Dist: instrument_templates@ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev
+Provides-Extra: test
+Requires-Dist: pytest==8.2.1; extra == "test"
+Requires-Dist: pytest-asyncio==1.0.0; extra == "test"
+Requires-Dist: matplotlib==3.9; extra == "test"
+Requires-Dist: instrument_test_suite@ git+ssh://git@github.com/falcon-autotuning/instrument-test-suite.git@main ; extra == "test"
 
 # instrument-server
 
@@ -40,8 +45,21 @@ Requires-Dist: instrument_templates@ git+ssh://git@github.com/falcon-autotuning/
   - [License](#license)
   <!--toc:end-->
 
+# TODO
+
+The logparser got moved to the fdt.
+The current breaking change is no, no-ops for meter like instruments. They need
+to have some sort of break in the chain of commands to be armed on time.
+
+A result of this change will inevitably be needing to provide a software trigger to
+instruments that are deemed to only be a requirement.
+
 This repository both contains code for background daemon processes running in python
 and a go executable for managing them and their communication with falcon.
+
+Need to support state request and response from falcon
+
+The api needs to be reloaded. And there is a breaking change that the hash must be added to the Upload data for the falcon requester.
 
 ## Build
 
