@@ -9,6 +9,11 @@ class LOG:
         return "LOG"
 
     @property
+    def HASH(self) -> str:
+        """the hash for the requesting unit"""
+        return "hash"
+
+    @property
     def MESSAGE(self) -> str:
         """The contents of the log message"""
         return "message"
@@ -18,11 +23,6 @@ class LOG:
         """When the response was completed"""
         return "timestamp"
 
-    @property
-    def HASH(self) -> str:
-        """the hash for the requesting unit"""
-        return "hash"
-
 class MEASUREMENT_READY:
     """The substrings necessary for indicates that a meassurement is ready for the server to perform."""
 
@@ -30,16 +30,6 @@ class MEASUREMENT_READY:
     def COMM_CHANNEL(self) -> str:
         """This is the communication channel to issue the command on."""
         return "MEASUREMENT_READY"
-
-    @property
-    def BUFFERED(self) -> str:
-        """if this is a buffered measurement or not"""
-        return "buffered"
-
-    @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
-        return "process_id"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -53,8 +43,23 @@ class MEASUREMENT_READY:
 
     @property
     def SETTERS(self) -> str:
-        """the connections that are to be set when buffered"""
+        """the connections that are to be set for the measurement"""
         return "setters"
+
+    @property
+    def REQUIREMENTS(self) -> str:
+        """the instruments ports that are required to be set"""
+        return "requirements"
+
+    @property
+    def BUFFERED(self) -> str:
+        """if this is a buffered measurement or not"""
+        return "buffered"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it"""
+        return "process_id"
 
 class PROCESS_DATA:
     """The substrings necessary for used by interpreter to handle the need to collect some data."""
@@ -65,9 +70,9 @@ class PROCESS_DATA:
         return "PROCESS_DATA"
 
     @property
-    def PROCESS_ID(self) -> str:
-        """A unique identifier for the process/ measurement and can index it"""
-        return "process_id"
+    def CHUNK_ID(self) -> str:
+        """A unique identifier for a particular chunk of a measurement."""
+        return "chunk_id"
 
     @property
     def TIMESTAMP(self) -> str:
@@ -78,6 +83,11 @@ class PROCESS_DATA:
     def DATA(self) -> str:
         """the data taken from the instruments for interpretation"""
         return "data"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it."""
+        return "process_id"
 
 class PROCESS_REQUEST:
     """The substrings necessary for a request to the interpreter to process an incoming measurement."""
@@ -134,16 +144,6 @@ class UPDATE_DAEMON_PROPERTY:
         return "UPDATE_DAEMON_PROPERTY"
 
     @property
-    def NAME(self) -> str:
-        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
-        return "name"
-
-    @property
-    def VALUE(self) -> str:
-        """The quantity"""
-        return "value"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
@@ -152,6 +152,16 @@ class UPDATE_DAEMON_PROPERTY:
     def PROPERTY(self) -> str:
         """The main subclass of property"""
         return "property"
+
+    @property
+    def NAME(self) -> str:
+        """The human readable name from FAlCon to the wiremap, or at the very least a instrument type if unique"""
+        return "name"
+
+    @property
+    def VALUE(self) -> str:
+        """The quantity"""
+        return "value"
 
 class UPLOAD_DATA:
     """The substrings necessary for used by the interpreter to hand data off the the runtime for falcon."""
@@ -162,14 +172,19 @@ class UPLOAD_DATA:
         return "UPLOAD_DATA"
 
     @property
-    def DATA(self) -> str:
-        """the jsonable measurement request for the FAlCon to unpack and use"""
-        return "data"
-
-    @property
     def TIMESTAMP(self) -> str:
         """When the response was completed"""
         return "timestamp"
+
+    @property
+    def PROCESS_ID(self) -> str:
+        """A unique identifier for the process/ measurement and can index it"""
+        return "process_id"
+
+    @property
+    def DATA(self) -> str:
+        """the jsonable measurement request for the FAlCon to unpack and use"""
+        return "data"
 
 
 class RUNTIME_COMMANDS:

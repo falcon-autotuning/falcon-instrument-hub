@@ -1,7 +1,13 @@
 """An instrument daemon that runs instrument drivers."""
 
 import contextlib
+import copy
+import os
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
+
+from instrument_templates.constants import SUPPORTED_PROPERTIES
+from instrument_templates.trigger import Trigger
 
 from .api.instrument import RUNTIME_COMMANDS as DRIVER_RUNTIME_COMMANDS
 from .dependancies import (
@@ -13,6 +19,8 @@ from .dependancies import (
 )
 
 if TYPE_CHECKING:
+    from instrument_templates.typing import PropertyName
+
     from .typing import Any, BaseInstrumentDriver, Client, Msg
 
 
@@ -20,11 +28,15 @@ class InstrumentDaemon:
     """A daemon that runs in the background and maintains and manages an instrument."""
 
     _nc: "Client"
+    _unlock_state: list[bool]
     _loop: asyncio.AbstractEventLoop
     _url: str
     _instrument_name: str
     _instrument: "BaseInstrumentDriver"
     _debug: bool
+    _set_queue: asyncio.Queue
+    _is_unlocked: asyncio.Event
+    _mutex: asyncio.Lock
 
     def __init__(
         self,
@@ -38,11 +50,17 @@ class InstrumentDaemon:
             url: The URL of the NATS server.
             instrument_class: The class of the instrument to be controlled.
         """
+        self._mutex = asyncio.Lock()
+        self._unlock_state = []
         self._url = url
         self._debug = debug
         self._instrument_name = instrument_driver.__name__
         self._instrument = instrument_driver()
         self._shutdown_event = asyncio.Event()
+        self._set_queue = asyncio.Queue()
+        self._is_unlocked = asyncio.Event()
+        # Single-threaded executor for SET operations to avoid lock contention
+        self._instrument_executor = ThreadPoolExecutor(max_workers=1)
 
     async def start(self):
         """The main loop for the daemon."""
@@ -58,8 +76,10 @@ class InstrumentDaemon:
             await self.log(f"Instrument config released for {self._instrument_name}")
             await self.setup_subscriptions()
             await self.log(f"Setup all subscriptions for {self._instrument_name}")
+            self._loop.create_task(self.process_set_queue())
             self._loop.create_task(self.publish_status())
             self._loop.create_task(self.message_consumer())
+            self._is_unlocked.set()
         except asyncio.TimeoutError:
             print(f"Failed to connect to NATS at {self._url} within timeout")
         except Exception as e:
@@ -85,6 +105,7 @@ class InstrumentDaemon:
             if hasattr(self, "_nc") and self._nc:
                 with contextlib.suppress(asyncio.TimeoutError, Exception):
                     await asyncio.wait_for(self._nc.close(), timeout=1.0)
+            self._instrument_executor.shutdown(wait=True, cancel_futures=True)
             print(f"Daemon {self._instrument_name} shutdown complete")
 
     def _setup_signal_handlers(self):
@@ -109,8 +130,6 @@ class InstrumentDaemon:
         except Exception as e:
             print(f"Error in signal handler: {e}", flush=self._debug)
             # Force exit if we can't set the event
-            import os
-
             os._exit(1)
 
     async def _cleanup_tasks(self):
@@ -230,7 +249,8 @@ class InstrumentDaemon:
         """Publishes the status of the daemon every refresh."""
         try:
             while not self._shutdown_event.is_set():
-                pending = len([t for t in asyncio.all_tasks() if not t.done()])
+                pending = sum(1 for t in asyncio.all_tasks() if not t.done())
+                await asyncio.sleep(0)  # Yield control
                 message = json.dumps(
                     {
                         DRIVER_RUNTIME_COMMANDS.STATUS.TIMESTAMP: Time().time,
@@ -314,7 +334,7 @@ class InstrumentDaemon:
                 return getattr(self._instrument, method_name)(**kwargs)
 
             # Run in executor to avoid blocking the event loop
-            await self._loop.run_in_executor(None, execute_method)
+            await self._loop.run_in_executor(self._instrument_executor, execute_method)
             await self.log(
                 message="PERFORM_ARBITRARY_METHOD command executed",
             )
@@ -322,6 +342,15 @@ class InstrumentDaemon:
             await self.log(
                 message=f"Error in PERFORM_ARBITRARY_METHOD command: {e!s}",
             )
+
+    async def store_unlock_state_name(self, name: bool):
+        """Stores the unlock store names.
+
+        Args:
+            name: The name of the unlock state to store (either setter or not)
+        """
+        async with self._mutex:
+            self._unlock_state.append(name)
 
     async def handle_trigger(
         self,
@@ -334,22 +363,283 @@ class InstrumentDaemon:
         """
         try:
             data = json.loads(msg.data.decode())
-            property = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.PROPERTY)
-            index = data.get(DRIVER_RUNTIME_COMMANDS.TRIGGER.INDEX)
-            # Locks the threads to make sure the calls are synchronous
-            await self._loop.run_in_executor(
-                None,
-                self._instrument.process_trigger,
-                property,
-                index,
+            process_id = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.PROCESS_ID]
+            assert isinstance(process_id, int), "process_id must be an integer"
+            chunk_id = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.CHUNK_ID]
+            assert isinstance(chunk_id, int), "chunk_id must be an integer"
+            is_setter = data[DRIVER_RUNTIME_COMMANDS.TRIGGER.IS_SETTER]
+            assert isinstance(is_setter, bool), "is_setter must be a boolean"
+            await self.store_unlock_state_name(is_setter)
+            # Send executing message immediately
+            timeout = self._instrument._timeout
+            assert isinstance(timeout, (int, float)), (
+                f"timeout must be a number, got {timeout}"
             )
-            await self.log(
-                message="TRIGGER command executed",
+            return_msg = {
+                DRIVER_RUNTIME_COMMANDS.EXECUTING.PROCESS_ID: process_id,
+                DRIVER_RUNTIME_COMMANDS.EXECUTING.CHUNK_ID: chunk_id,
+                DRIVER_RUNTIME_COMMANDS.EXECUTING.TIMESTAMP: Time().time,
+            }
+            await self.send_command(
+                channel=self.specific_channel(
+                    DRIVER_RUNTIME_COMMANDS.EXECUTING.COMM_CHANNEL
+                ),
+                message=json.dumps(return_msg),
             )
+            await self.log("Trigger command recieved, starting process...")
+
+            # Start the trigger process concurrently
+            try:
+                if is_setter:
+                    await self.log("Starting process_setter_trigger in executor...")
+                    await self._loop.run_in_executor(
+                        self._instrument_executor,
+                        self._instrument._process_setter_triggers,
+                    )
+                else:
+                    await self.log("Starting process_getter_trigger in executor...")
+                    await self._loop.run_in_executor(
+                        self._instrument_executor,
+                        self._instrument._process_getter_triggers,
+                    )
+                await self.log("Trigger process completed")
+            except Exception as e:
+                await self.log(f"Error in process_trigger: {e}")
+
+            await asyncio.sleep(timeout)
+            getter_triggers = copy.deepcopy(self._instrument._getter_triggers)
+            await self.try_to_leave(name=is_setter)
+            await self.log(f"TRIGGER timeout reached ({timeout}s)")
+            if not is_setter:
+                await self.process_return_data(
+                    process_id=process_id,
+                    chunk_id=chunk_id,
+                    getter_triggers=getter_triggers,
+                )
+
         except Exception as e:
+            # Unlock on any error as well
             await self.log(
                 message=f"Error in TRIGGER command: {e!s}",
             )
+            await self.try_to_leave()
+
+    async def process_return_data(
+        self,
+        process_id: int,
+        chunk_id: int,
+        getter_triggers: list[Trigger],
+    ) -> None:
+        """Process return data and sends it away.
+
+        Args:
+            process_id: The ID of the proces that requested the data
+            chunk_id: The ID of the chunk that indexes the data
+            getter_triggers: The list of old getter triggers to use when returning data
+        """
+        await self.log("Processing return data...")
+        self._instrument._process_return_data(getter_triggers=getter_triggers)
+        # Add debugging for the queue state
+        await self.log("Checking return data queue...")
+        if self._instrument._return_data._message_queue.empty():
+            await self.log("There is nothing to process in the return data queue.")
+            return
+        queue_size = self._instrument._return_data._message_queue.qsize()
+        await self.log(f"Queue size: {queue_size}")
+
+        # Process any return data from setter instruments
+        messages = []  # Resets the messages list to avoid reprocessing old messages
+        messages = self._instrument._return_data.get_queued_messages()
+        await self.log(f"Got {len(messages)} messages from get_queued_messages()")
+
+        if not messages:
+            await self.log("No messages found in queue after trigger timeout")
+            return
+        for channel, message in messages:
+            try:
+                # Parse the message to add process_id and chunk_id
+                return_data = json.loads(message)
+                return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.PROCESS_ID] = process_id
+                return_data[DRIVER_RUNTIME_COMMANDS.RETURN_DATA.CHUNK_ID] = chunk_id
+
+                await self.send_command(
+                    channel=self.specific_channel(
+                        DRIVER_RUNTIME_COMMANDS.RETURN_DATA.COMM_CHANNEL
+                    ),
+                    message=json.dumps(return_data),
+                )
+                await self.log("Sent return data")
+            except Exception as e:
+                await self.log(f"Error processing return data: {e}")
+        await self.log("No messages found in queue after trigger timeout")
+
+    async def process_set_queue(self):
+        while not self._shutdown_event.is_set():
+            try:
+                if not self._is_unlocked.is_set():
+                    # Queue is locked, wait for unlock event
+                    await self.log("Queue is locked, waiting for unlock event...")
+                    await self._is_unlocked.wait()
+                    await self.log("Queue unlock event received!")
+
+                # Queue is unlocked, process commands
+                try:
+                    command = await self._set_queue.get()
+
+                    property_name = command.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
+                    assert isinstance(property_name, str), (
+                        f"The raw property name must be a string and not {type(property_name)}"
+                    )
+
+                    if property_name == SUPPORTED_PROPERTIES.ARM:
+                        await self.process_arm_command(set_data=command)
+                    else:
+                        await self.process_set_command(
+                            property_name=property_name,
+                            set_data=command,
+                        )
+
+                except asyncio.CancelledError:
+                    # Task was cancelled (likely due to shutdown), break out
+                    break
+
+            except Exception as e:
+                await self.log(f"Error in process_set_queue: {e}")
+                await asyncio.sleep(0.005)  # Small delay only on error
+
+    async def process_set_command(
+        self,
+        property_name: "PropertyName",
+        set_data: dict[str, "Any"],
+    ) -> None:
+        """Process a SET command directly and run it in an external executor.
+
+        Args:
+            property_name: The name of the property to set.
+            set_data: The data corresponding to the SET command.
+        """
+        index = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.INDEX)
+        assert isinstance(index, int), (
+            f"The type of index must be an integer and not {type(index)}"
+        )
+        value = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
+        assert isinstance(value, (str | int | float | list)), (
+            f"The type of the set value must be a string, int, float, or list and not {type(value)}"
+        )
+        await self._loop.run_in_executor(
+            self._instrument_executor,
+            self._instrument.set_property,
+            property_name,
+            index,
+            value,
+        )
+        await self.log(f"SET command executed: {property_name}={value}")
+
+    async def process_arm_command(
+        self,
+        set_data: dict[str, "Any"],
+    ) -> None:
+        """Process an ARM command from the SET queue.
+
+        Args:
+            set_data: The data for the ARM command.
+            value: The value associated with the ARM command, expected to be a list of trigger indexes.
+        """
+        process_id = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID)
+        chunk_id = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID)
+        value = set_data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
+        assert isinstance(value, str), (
+            "The stored value must be a json string for the arm command"
+        )
+
+        # If this is an ARM command - if so, lock the queue
+        self._is_unlocked.clear()
+        self._instrument._setter_triggers.clear()
+        self._instrument._getter_triggers.clear()
+        await self.fill_trigger_queue(raw_trigger_indexes=json.loads(value))
+
+        return_data = {
+            DRIVER_RUNTIME_COMMANDS.ARMED.PROCESS_ID: process_id,
+            DRIVER_RUNTIME_COMMANDS.ARMED.CHUNK_ID: chunk_id,
+            DRIVER_RUNTIME_COMMANDS.ARMED.TIMESTAMP: Time().time,
+        }
+        await self.send_command(
+            channel=self.specific_channel(DRIVER_RUNTIME_COMMANDS.ARMED.COMM_CHANNEL),
+            message=json.dumps(return_data),
+        )
+        await self.log(f"Queue locked due to ARM command on {self._instrument_name}")
+
+    async def fill_trigger_queue(
+        self,
+        raw_trigger_indexes: dict[str, list[dict[str, str | int]]],
+    ) -> None:
+        """Fills the trigger queue on the instrument with the trigger indexes selected from the recieved ARM command.
+
+        Args:
+            raw_trigger_indexes: The list of the trigger indexes to place in the queue for the instrument.
+        """
+        assert isinstance(raw_trigger_indexes, dict), (
+            f"Expected the type of the raw_trigger_indexes to be a dict, not {type(raw_trigger_indexes)}"
+        )
+        assert "setter" in raw_trigger_indexes, (
+            f"Trigger dictionary missing required 'property' key: {raw_trigger_indexes}"
+        )
+        assert "getter" in raw_trigger_indexes, (
+            f"Trigger dictionary missing required 'index' key: {raw_trigger_indexes}"
+        )
+        setters = raw_trigger_indexes["setter"]
+        await self.log(f"DEBUG: Found setter triggers in the ARM command {setters}")
+        getters = raw_trigger_indexes["getter"]
+        await self.log(f"DEBUG: Found getter triggers in the ARM command {getters}")
+        self.set_instrument_queue(
+            trigger_indexes=setters,
+            triggers=self._instrument._setter_triggers,
+        )
+        self.set_instrument_queue(
+            trigger_indexes=getters,
+            triggers=self._instrument._getter_triggers,
+        )
+
+    def set_instrument_queue(
+        self,
+        trigger_indexes: list[dict[str, str | int]],
+        triggers: "list[Trigger]",
+    ) -> None:
+        """Sets the trigger queue for the insturment with the provided indexes.
+
+        Args:
+            trigger_indexes: The list of trigger indexes to set in the queue.
+            queue: The queue in the instrument that needs to contain the instrument indexes.
+        """
+        for trigger in trigger_indexes:
+            assert isinstance(trigger, dict), (
+                f"Expected each trigger to be a dict, not {type(trigger)}"
+            )
+            assert "property" in trigger, (
+                f"Trigger dictionary missing required 'property' key: {trigger}"
+            )
+            assert "index" in trigger, (
+                f"Trigger dictionary missing required 'index' key: {trigger}"
+            )
+            readyTrigger = Trigger(
+                property_name=str(trigger["property"]),
+                index=int(trigger["index"]),
+            )
+            triggers.append(readyTrigger)
+
+    async def try_to_leave(self, name: bool | None = None):
+        """Unlock the set queue to allow processing SET commands."""
+        async with self._mutex:
+            if (len(self._unlock_state) == 1) != (name is None):
+                self._is_unlocked.set()
+                self._unlock_state.clear()
+                await self.log(f"Queue unlocked for {self._instrument_name}")
+            elif name is not None:
+                sname = "setter" if name else "getter"
+                self._unlock_state.remove(name)
+                await self.log(f"Its not my job to unlock the queue, I was a {sname}")
+            else:
+                await self.log("I died before getting a name.")
 
     async def handle_set(
         self,
@@ -365,23 +655,24 @@ class InstrumentDaemon:
             property_name = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROPERTY)
             index = data.get(DRIVER_RUNTIME_COMMANDS.SET.INDEX)
             value = data.get(DRIVER_RUNTIME_COMMANDS.SET.VALUE)
+            process_id = data.get(DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID)
+            chunk_id = data.get(DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID)
 
             if not all([property_name, index, value is not None]):
                 await self.log(
                     message="Invalid SET command",
                 )
                 return
-            # Locks the threads to make sure the calls are synchronous
-            await self._loop.run_in_executor(
-                None,
-                self._instrument.set_property,
-                property_name,
-                index,
-                value,
-            )
-            await self.log(
-                message="SET command executed",
-            )
+            # Add the SET command to the queue
+            set_data = {
+                DRIVER_RUNTIME_COMMANDS.SET.PROPERTY: property_name,
+                DRIVER_RUNTIME_COMMANDS.SET.INDEX: index,
+                DRIVER_RUNTIME_COMMANDS.SET.VALUE: value,
+                DRIVER_RUNTIME_COMMANDS.SET.PROCESS_ID: process_id,
+                DRIVER_RUNTIME_COMMANDS.SET.CHUNK_ID: chunk_id,
+            }
+            await self._set_queue.put(set_data)
+            await self.log(f"SET command queued: {property_name}={value}")
         except Exception as e:
             await self.log(
                 message=f"Error in SET command: {e!s}",
@@ -408,7 +699,7 @@ class InstrumentDaemon:
                 return
             # Locks the threads to make sure the calls are synchronous
             await self._loop.run_in_executor(
-                None,
+                self._instrument_executor,
                 self._instrument.get_property,
                 property_name,
                 index,
