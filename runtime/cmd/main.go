@@ -8,10 +8,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/falcon-autotuning/falcon-instrument-hub/runtime/internal/client"
 	"github.com/falcon-autotuning/falcon-instrument-hub/runtime/internal/config"
 	"github.com/falcon-autotuning/falcon-instrument-hub/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/falcon-instrument-hub/runtime/internal/handlers/measure"
-	"github.com/falcon-autotuning/falcon-instrument-hub/runtime/internal/client"
 )
 
 func main() {
@@ -69,7 +69,7 @@ func main() {
 	// - GET /api/instruments/list
 	// - POST /api/measurements/execute
 	// - POST /api/measurements/from-script
-	
+
 	// For now, we just keep the daemon running
 	// In production, this would be replaced with an API server
 
@@ -95,6 +95,6 @@ func main() {
 	// Prevent usage warnings by referencing the handlers
 	_ = instrumentHandler
 	_ = measureHandler
-	
+
 	fmt.Println("Shutdown complete")
 }

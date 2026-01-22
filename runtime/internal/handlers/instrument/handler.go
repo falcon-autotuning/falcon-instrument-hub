@@ -13,11 +13,11 @@ import (
 
 // Handler manages instruments through the instrument-script-server
 type Handler struct {
-	config         *config.Config
-	client         *client.InstrumentServerClient
-	daemonCmd      *exec.Cmd
-	daemonStarted  bool
-	mu             sync.RWMutex
+	config        *config.Config
+	client        *client.InstrumentServerClient
+	daemonCmd     *exec.Cmd
+	daemonStarted bool
+	mu            sync.RWMutex
 }
 
 // NewHandler creates a new instrument handler
@@ -41,7 +41,7 @@ func (h *Handler) StartDaemon(ctx context.Context) error {
 
 	// Start the instrument-script-server daemon
 	cmd := exec.CommandContext(ctx, h.config.InstrumentServerBinary, "daemon", "start")
-	
+
 	// Set up output capture for debugging
 	cmd.Stdout = log.Writer()
 	cmd.Stderr = log.Writer()
@@ -54,7 +54,7 @@ func (h *Handler) StartDaemon(ctx context.Context) error {
 	h.daemonStarted = true
 
 	log.Printf("Instrument-script-server daemon started with PID %d", cmd.Process.Pid)
-	
+
 	return nil
 }
 
@@ -84,12 +84,12 @@ func (h *Handler) StopDaemon(ctx context.Context) error {
 	h.daemonCmd = nil
 
 	log.Println("Instrument-script-server daemon stopped")
-	
+
 	return nil
 }
 
 // StartInstrument starts an instrument with the given configuration file
-// 
+//
 // NOTE: This API endpoint will be refactored in future versions to accept
 // instrument configuration directly rather than a file path.
 func (h *Handler) StartInstrument(ctx context.Context, configFile string) error {

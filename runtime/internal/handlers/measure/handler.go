@@ -13,8 +13,8 @@ import (
 
 // Handler manages measurement execution through the instrument-script-server
 type Handler struct {
-	client   *client.InstrumentServerClient
-	compiler *compiler.Compiler
+	client    *client.InstrumentServerClient
+	compiler  *compiler.Compiler
 	scriptDir string
 }
 

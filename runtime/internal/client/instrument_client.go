@@ -47,10 +47,10 @@ type StartInstrumentRequest struct {
 
 // MeasureRequest represents a request to run a measurement
 type MeasureRequest struct {
-	ScriptPath     string                 `json:"script_path"`
-	Globals        map[string]interface{} `json:"globals,omitempty"`
-	TypeManifest   string                 `json:"type_manifest,omitempty"`
-	OutputJSON     bool                   `json:"output_json"`
+	ScriptPath   string                 `json:"script_path"`
+	Globals      map[string]interface{} `json:"globals,omitempty"`
+	TypeManifest string                 `json:"type_manifest,omitempty"`
+	OutputJSON   bool                   `json:"output_json"`
 }
 
 // StartInstrument starts an instrument using the instrument-script-server
