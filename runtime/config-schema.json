@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://falcon-autotuning.github.io/falcon-instrument-hub/config.json",
+  "title": "Falcon Instrument Hub Configuration",
+  "description": "Configuration schema for the Falcon Instrument Hub runtime",
+  "type": "object",
+  "required": [
+    "wiremap",
+    "quantum-dot-config",
+    "inst-config",
+    "teal-apis",
+    "lua-library-types",
+    "user-measurement-luas",
+    "local-database",
+    "nats-url",
+    "instrument-server-port"
+  ],
+  "properties": {
+    "wiremap": {
+      "type": "string",
+      "description": "Path to the wiremap file. The wiremap defines the physical connections between instruments and quantum devices, mapping named connections to physical instruments."
+    },
+    "quantum-dot-config": {
+      "type": "string",
+      "description": "Path to the quantum dot configuration file. This file describes the quantum device currently loaded and how it connects to the physical hardware."
+    },
+    "inst-config": {
+      "type": "string",
+      "description": "Path to the directory containing instrument configuration files. Each file defines the settings for an underlying instrument used by instrument-script-server."
+    },
+    "teal-apis": {
+      "type": "string",
+      "description": "Path to the directory containing Teal API definitions. These APIs connect user-generated scripts with executable code."
+    },
+    "lua-library-types": {
+      "type": "string",
+      "description": "Path to the Lua library types directory. These libraries need to be injected into the instrument-script-server's Lua global scope before startup via the INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB environment variable."
+    },
+    "user-measurement-luas": {
+      "type": "string",
+      "description": "Path to the directory containing user measurement Lua scripts. The compiler will select scripts from this directory to issue instructions to the instrument-script-server. The corresponding Go struct for input/output will be selected based on the script."
+    },
+    "local-database": {
+      "type": "string",
+      "description": "Path to the root directory for the local HDF5 database. Measurement results will be stored here when required by the measurement type."
+    },
+    "nats-url": {
+      "type": "string",
+      "description": "URL for the NATS message broker connection. Used for inter-component communication within the instrument hub.",
+      "format": "uri",
+      "examples": ["nats://localhost:4222"]
+    },
+    "instrument-server-port": {
+      "type": "integer",
+      "description": "Port number on localhost for the instrument-script-server HTTP/RPC embedded server.",
+      "minimum": 1,
+      "maximum": 65535,
+      "default": 8555
+    }
+  }
+}

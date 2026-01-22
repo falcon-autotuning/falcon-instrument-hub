@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -14,6 +15,42 @@ type Config struct {
 	InstrumentServerHost string
 	// InstrumentServerBinary is the path to the instrument-server executable
 	InstrumentServerBinary string
+	
+	// HubConfig contains the full hub configuration if loaded from file
+	HubConfig *HubConfig
+}
+
+// HubConfig represents the full configuration for the Falcon Instrument Hub
+// This matches the JSON schema in runtime/config-schema.json
+type HubConfig struct {
+	// Wiremap defines physical connections between instruments and quantum devices
+	Wiremap string `json:"wiremap"`
+	
+	// QuantumDotConfig describes the quantum device and hardware connections
+	QuantumDotConfig string `json:"quantum-dot-config"`
+	
+	// InstConfig is the directory containing instrument configuration files
+	InstConfig string `json:"inst-config"`
+	
+	// TealAPIs is the directory containing Teal API definitions
+	TealAPIs string `json:"teal-apis"`
+	
+	// LuaLibraryTypes is the directory with Lua library types
+	// These will be injected into INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB
+	LuaLibraryTypes string `json:"lua-library-types"`
+	
+	// UserMeasurementLuas is the directory containing measurement Lua scripts
+	// The compiler selects scripts from here to issue to instrument-script-server
+	UserMeasurementLuas string `json:"user-measurement-luas"`
+	
+	// LocalDatabase is the root directory for the HDF5 database
+	LocalDatabase string `json:"local-database"`
+	
+	// NatsURL is the NATS message broker connection URL
+	NatsURL string `json:"nats-url"`
+	
+	// InstrumentServerPort is the port for instrument-script-server HTTP/RPC
+	InstrumentServerPort int `json:"instrument-server-port"`
 }
 
 // DefaultConfig returns a configuration with default values
@@ -46,6 +83,37 @@ func LoadConfig() (*Config, error) {
 		cfg.InstrumentServerBinary = binary
 	}
 
+	return cfg, nil
+}
+
+// LoadConfigFromFile loads the full hub configuration from a JSON file
+func LoadConfigFromFile(path string) (*Config, error) {
+	cfg := DefaultConfig()
+	
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+	
+	var hubConfig HubConfig
+	if err := json.Unmarshal(data, &hubConfig); err != nil {
+		return nil, fmt.Errorf("failed to parse config file: %w", err)
+	}
+	
+	cfg.HubConfig = &hubConfig
+	
+	// Override instrument server port if specified in hub config
+	if hubConfig.InstrumentServerPort > 0 {
+		cfg.InstrumentServerRPCPort = hubConfig.InstrumentServerPort
+	}
+	
+	// Set INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB if LuaLibraryTypes is specified
+	if hubConfig.LuaLibraryTypes != "" {
+		if err := os.Setenv("INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB", hubConfig.LuaLibraryTypes); err != nil {
+			return nil, fmt.Errorf("failed to set INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB: %w", err)
+		}
+	}
+	
 	return cfg, nil
 }
 
