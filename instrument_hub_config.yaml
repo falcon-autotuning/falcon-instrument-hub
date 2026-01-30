@@ -1,0 +1,9 @@
+wiremap: C://configs/wiremap.yaml
+quantum-dot-config: C://configs/qdot.yaml
+inst-config: C://configs/instruments
+teal-apis: C://apis/teal
+lua-library-types: C://lua/types
+user-measurement-luas: C://lua/user
+local-database: C://data
+nats-url: nats://localhost:4222
+instrument-server-port: 5555

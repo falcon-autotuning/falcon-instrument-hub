@@ -28,6 +28,8 @@ dependencies = [
   "pytest==8.2.1",
   "setuptools-scm==8.1.0",
   "nats.py==2.10.0",
+  "pyyaml>=6.0.0",
+  "jsonschema>=4.20.0",
 ]
 
 [project.readme]
@@ -36,6 +38,7 @@ content-type = "text/x-rst"
 
 [project.scripts]
 launch-daemon = "falcon.bin.launch_instrument_daemon:main"
+validate-config = "instrument_server.config_validator:validate_config_files"
 # [project.urls]
 # Homepage = "https://github.com/microsoft/Qcodes"
 # Documentation = "https://microsoft.github.io/Qcodes/"

@@ -39,6 +39,27 @@ make build
 make run
 ```
 
+### Configuration Validation
+
+The project includes automated configuration validation to ensure the `instrument_hub_config.yaml` file conforms to the JSON schema defined in `config.schema.json`.
+
+```bash
+# Validate the default config file
+python3 bin/validate_config.py
+
+# Validate a specific config file
+python3 bin/validate_config.py --config path/to/config.yaml --schema path/to/schema.json
+
+# Quiet mode (only returns exit code)
+python3 bin/validate_config.py -q
+```
+
+The validation script is cross-platform compatible with both Linux and Windows. See [docs/CONFIG_VALIDATION.md](docs/CONFIG_VALIDATION.md) for detailed documentation.
+
+**Exit Codes:**
+- `0`: Configuration is valid
+- `1`: Configuration is invalid or error occurred
+
 ## Prerequisites
 
 ### For Go Runtime:
