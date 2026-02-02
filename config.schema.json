@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/quantum-control-config.schema.json",
+  "title": "Quantum Control Configuration",
+  "description": "Schema for configuring wire maps, quantum dot configs, instrument APIs, Lua libraries, and backend services.",
+  "type": "object",
+  "additionalProperties": false,
+
+  "required": [
+    "wiremap",
+    "quantum-dot-config",
+    "inst-config",
+    "teal-apis",
+    "lua-library-types",
+    "user-measurement-luas",
+    "local-database",
+    "nats-url",
+    "instrument-server-port"
+  ],
+
+  "properties": {
+    "wiremap": {
+      "type": "string",
+      "description": "Path to the wiremap configuration file.",
+      "minLength": 1,
+      "examples": ["C://path/to/wiremap"]
+    },
+
+    "quantum-dot-config": {
+      "type": "string",
+      "description": "Path to the quantum dot configuration file.",
+      "minLength": 1,
+      "examples": ["C://path/to/it"]
+    },
+
+    "inst-config": {
+      "type": "string",
+      "description": "Directory containing all instrument configuration files.",
+      "minLength": 1,
+      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+    },
+
+    "teal-apis": {
+      "type": "string",
+      "description": "Directory containing TEAL API definitions.",
+      "minLength": 1,
+      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+    },
+
+    "lua-library-types": {
+      "type": "string",
+      "description": "Path to Lua library type definitions.",
+      "minLength": 1,
+      "examples": ["C://path/to/lib"]
+    },
+
+    "user-measurement-luas": {
+      "type": "string",
+      "description": "Directory containing user-defined measurement Lua scripts.",
+      "minLength": 1,
+      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+    },
+
+    "local-database": {
+      "type": "string",
+      "description": "Root directory for the local database.",
+      "minLength": 1,
+      "examples": ["C://path/to/root"]
+    },
+
+    "nats-url": {
+      "type": "string",
+      "description": "NATS server URL.",
+      "format": "uri",
+      "examples": ["nats://localhost:4222"]
+    },
+
+    "instrument-server-port": {
+      "type": "integer",
+      "description": "Port used by the instrument server.",
+      "minimum": 1,
+      "maximum": 65535,
+      "examples": [5555]
+    }
+  }
+}
