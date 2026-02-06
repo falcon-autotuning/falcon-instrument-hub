@@ -1,5 +1,5 @@
-// Package scriptbridge provides the HTTP RPC client for instrument-script-server.
-package scriptbridge
+// Package serverinterpreter provides the HTTP RPC client for instrument-script-server.
+package serverinterpreter
 
 import (
 	"bytes"

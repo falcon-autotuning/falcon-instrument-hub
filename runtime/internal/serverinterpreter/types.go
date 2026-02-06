@@ -1,6 +1,6 @@
-// Package scriptbridge bridges falcon-core MeasurementRequest objects
+// Package serverinterpreter bridges falcon-core MeasurementRequest objects
 // to instrument-script-server RPC commands using falcon-measurement-lib types.
-package scriptbridge
+package serverinterpreter
 
 import (
 	"encoding/json"

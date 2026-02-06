@@ -1,6 +1,10 @@
-// Package scriptbridge provides the main bridge between falcon MeasurementRequest
+// Package serverinterpreter provides the main bridge between falcon MeasurementRequest
 // objects and the instrument-script-server.
-package scriptbridge
+//
+// There are two modes of operation:
+//  1. Direct mode (Bridge): Uses HTTP RPC to communicate directly with instrument-script-server
+//  2. Internal API mode (InterpreterDaemon): Uses NATS internal messaging aligned with falcon-api specs
+package serverinterpreter
 
 import (
 	"encoding/json"
@@ -66,6 +70,56 @@ func (b *Bridge) ExecuteMeasurementRequestJSON(jsonStr string) (*ExecutionResult
 	parsed, err := ParseMeasurementRequestJSON(jsonStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse measurement request: %w", err)
+	}
+
+	return b.ExecuteParsedRequest(parsed)
+}
+
+// ExecuteMeasurementRequestWithFalconCore uses falcon-core bindings to parse the request.
+// This provides proper integration with the falcon-core type system.
+func (b *Bridge) ExecuteMeasurementRequestWithFalconCore(jsonStr string) (*ExecutionResult, error) {
+	// Parse using falcon-core
+	falconReq, err := NewFalconMeasurementRequestFromJSON(jsonStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse with falcon-core: %w", err)
+	}
+	defer falconReq.Close()
+
+	// Extract setters and getters using falcon-core API
+	setters, err := falconReq.ExtractSetters()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract setters: %w", err)
+	}
+
+	getters, err := falconReq.ExtractGetters()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract getters: %w", err)
+	}
+
+	name, _ := falconReq.MeasurementName()
+
+	// Convert to ParsedMeasurementRequest for script generation
+	parsed := &ParsedMeasurementRequest{
+		MeasurementName: name,
+		Setters:         make([]InstrumentTarget, 0),
+		Getters:         make([]InstrumentTarget, 0),
+		SetVoltages:     make(map[string]float64),
+	}
+
+	for _, s := range setters {
+		target := InstrumentTarget{
+			Id:      s.InstrumentType,
+			Channel: 0, // Would need to parse from DefaultName
+		}
+		parsed.Setters = append(parsed.Setters, target)
+	}
+
+	for _, g := range getters {
+		target := InstrumentTarget{
+			Id:      g.InstrumentType,
+			Channel: 0,
+		}
+		parsed.Getters = append(parsed.Getters, target)
 	}
 
 	return b.ExecuteParsedRequest(parsed)
