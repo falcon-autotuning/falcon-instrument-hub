@@ -1,4 +1,4 @@
-package scriptbridge
+package serverinterpreter
 
 import (
 	"encoding/json"

@@ -1,5 +1,5 @@
-// Package scriptbridge provides Lua script generation for measurement requests.
-package scriptbridge
+// Package serverinterpreter provides Lua script generation for measurement requests.
+package serverinterpreter
 
 import (
 	"fmt"

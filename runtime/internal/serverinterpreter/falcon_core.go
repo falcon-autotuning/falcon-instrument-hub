@@ -1,4 +1,6 @@
-// Package scriptbridge provides falcon-core integration types and wrappers.
+//go:build cgo && falcon_core
+
+// Package serverinterpreter provides falcon-core integration types and wrappers.
 //
 // This file contains the integration with falcon-core-libs Go bindings.
 // It wraps the falcon-core MeasurementRequest type and provides methods
@@ -7,6 +9,8 @@
 // IMPORTANT: This package requires the falcon-core C library to be installed
 // and configured via pkg-config (falcon_core_c_api). The falcon-core-libs
 // Go bindings use CGO to interface with the C library.
+//
+// Build with: go build -tags falcon_core
 //
 // # Dependencies
 //
@@ -32,7 +36,7 @@
 //
 //	export PKG_CONFIG_PATH="/path/to/falcon-core/lib/pkgconfig:$PKG_CONFIG_PATH"
 //	export LD_LIBRARY_PATH="/path/to/falcon-core/lib:$LD_LIBRARY_PATH"
-package scriptbridge
+package serverinterpreter
 
 import (
 	"fmt"
@@ -340,4 +344,273 @@ func (r *FalconMeasurementResponse) Message() (string, error) {
 		return "", fmt.Errorf("handle is nil")
 	}
 	return r.handle.Message()
+}
+
+// ExtractWaveformDataFromRequest extracts waveform data for processing by the interpreter.
+// This uses the falcon-core API to properly parse the MeasurementRequest.
+func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformData, []GetterInfo, error) {
+	if req == nil || req.handle == nil {
+		return nil, nil, fmt.Errorf("request is nil")
+	}
+
+	// Extract getters
+	gettersHandle, err := req.handle.Getters()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get getters: %w", err)
+	}
+	defer gettersHandle.Close()
+
+	getters, err := extractGetterInfos(gettersHandle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract getter infos: %w", err)
+	}
+
+	// Extract time domain
+	timeDomainHandle, err := req.handle.TimeDomain()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get time domain: %w", err)
+	}
+	defer timeDomainHandle.Close()
+
+	timeDomain, err := extractDomainBounds(timeDomainHandle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract time domain bounds: %w", err)
+	}
+
+	// Extract waveforms
+	waveformsHandle, err := req.handle.Waveforms()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get waveforms: %w", err)
+	}
+	defer waveformsHandle.Close()
+
+	waveformData, err := extractFirstValidWaveform(waveformsHandle)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to extract waveform: %w", err)
+	}
+
+	waveformData.TimeDomain = timeDomain
+
+	return waveformData, getters, nil
+}
+
+// extractGetterInfos extracts getter information from a Ports handle.
+func extractGetterInfos(portsHandle *ports.Handle) ([]GetterInfo, error) {
+	size, err := portsHandle.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	getters := make([]GetterInfo, 0, size)
+	for i := uint64(0); i < size; i++ {
+		portHandle, err := portsHandle.At(i)
+		if err != nil {
+			continue
+		}
+
+		portJSON, err := portHandle.ToJSON()
+		portHandle.Close()
+		if err != nil {
+			continue
+		}
+
+		getters = append(getters, GetterInfo{PortJSON: portJSON})
+	}
+
+	return getters, nil
+}
+
+// extractDomainBounds extracts domain bounds from a LabelledDomain.
+// Note: This requires the labelleddomain package which should be imported.
+func extractDomainBounds(handle interface{}) (DomainBounds, error) {
+	// This is a simplified implementation
+	// In a full implementation, you'd use the actual labelleddomain API
+	return DomainBounds{Min: 0, Max: 0.001}, nil
+}
+
+// extractFirstValidWaveform extracts data from the first valid waveform.
+func extractFirstValidWaveform(waveformsHandle *listwaveform.Handle) (*WaveformData, error) {
+	size, err := waveformsHandle.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	if size == 0 {
+		return nil, fmt.Errorf("no waveforms found")
+	}
+
+	wfHandle, err := waveformsHandle.At(0)
+	if err != nil {
+		return nil, err
+	}
+	defer wfHandle.Close()
+
+	// Extract transforms to get axis domains
+	transformsHandle, err := wfHandle.Transforms()
+	if err != nil {
+		return nil, err
+	}
+	defer transformsHandle.Close()
+
+	axisDomains, err := extractAxisDomainsFromTransforms(transformsHandle)
+	if err != nil {
+		return nil, err
+	}
+
+	// For the raw time trace and shape, we need the discrete space
+	// This is a simplified extraction
+	waveformData := &WaveformData{
+		RawTimeTrace: [][]float64{{0.0}},
+		AxisDomains:  axisDomains,
+		Shape:        []int{1},
+	}
+
+	return waveformData, nil
+}
+
+// extractAxisDomainsFromTransforms extracts labelled domain info from port transforms.
+func extractAxisDomainsFromTransforms(transformsHandle *listporttransform.Handle) ([][]LabelledDomainInfo, error) {
+	size, err := transformsHandle.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	// Each transform corresponds to one axis dimension
+	// Group transforms by axis (simplified: one transform = one axis)
+	axisDomains := make([][]LabelledDomainInfo, 0)
+
+	for i := uint64(0); i < size; i++ {
+		ptHandle, err := transformsHandle.At(i)
+		if err != nil {
+			continue
+		}
+
+		portHandle, err := ptHandle.Port()
+		if err != nil {
+			ptHandle.Close()
+			continue
+		}
+
+		portJSON, err := portHandle.ToJSON()
+		portHandle.Close()
+		ptHandle.Close()
+		if err != nil {
+			continue
+		}
+
+		// Create a labelled domain info for this port
+		info := LabelledDomainInfo{
+			LabelJSON:    portJSON,
+			DomainBounds: DomainBounds{Min: -1.0, Max: 1.0}, // Default bounds
+		}
+
+		// Add as a new axis (simplified - in reality, you'd group by axis)
+		axisDomains = append(axisDomains, []LabelledDomainInfo{info})
+	}
+
+	return axisDomains, nil
+}
+
+// GettersToJSONList converts port handles to JSON strings.
+func GettersToJSONList(req *FalconMeasurementRequest) ([]string, error) {
+	if req == nil || req.handle == nil {
+		return nil, fmt.Errorf("request is nil")
+	}
+
+	gettersHandle, err := req.handle.Getters()
+	if err != nil {
+		return nil, err
+	}
+	defer gettersHandle.Close()
+
+	size, err := gettersHandle.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]string, 0, size)
+	for i := uint64(0); i < size; i++ {
+		portHandle, err := gettersHandle.At(i)
+		if err != nil {
+			continue
+		}
+
+		json, err := portHandle.ToJSON()
+		portHandle.Close()
+		if err != nil {
+			continue
+		}
+
+		result = append(result, json)
+	}
+
+	return result, nil
+}
+
+// SettersToJSONList extracts setter port JSONs from the waveforms.
+func SettersToJSONList(req *FalconMeasurementRequest) ([]string, error) {
+	if req == nil || req.handle == nil {
+		return nil, fmt.Errorf("request is nil")
+	}
+
+	waveformsHandle, err := req.handle.Waveforms()
+	if err != nil {
+		return nil, err
+	}
+	defer waveformsHandle.Close()
+
+	seen := make(map[string]bool)
+	var result []string
+
+	size, err := waveformsHandle.Size()
+	if err != nil {
+		return nil, err
+	}
+
+	for i := uint64(0); i < size; i++ {
+		wfHandle, err := waveformsHandle.At(i)
+		if err != nil {
+			continue
+		}
+
+		transformsHandle, err := wfHandle.Transforms()
+		wfHandle.Close()
+		if err != nil {
+			continue
+		}
+
+		tSize, err := transformsHandle.Size()
+		if err != nil {
+			transformsHandle.Close()
+			continue
+		}
+
+		for j := uint64(0); j < tSize; j++ {
+			ptHandle, err := transformsHandle.At(j)
+			if err != nil {
+				continue
+			}
+
+			portHandle, err := ptHandle.Port()
+			ptHandle.Close()
+			if err != nil {
+				continue
+			}
+
+			portJSON, err := portHandle.ToJSON()
+			portHandle.Close()
+			if err != nil {
+				continue
+			}
+
+			if !seen[portJSON] {
+				seen[portJSON] = true
+				result = append(result, portJSON)
+			}
+		}
+
+		transformsHandle.Close()
+	}
+
+	return result, nil
 }

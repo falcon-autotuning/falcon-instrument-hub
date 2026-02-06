@@ -1,9 +1,9 @@
-// Package scriptbridge provides an example integration with NATS messaging.
+// Package serverinterpreter provides an example integration with NATS messaging.
 //
-// This file demonstrates how to integrate the scriptbridge with falcon-instrument-hub's
+// This file demonstrates how to integrate the server interpreter with falcon-instrument-hub's
 // NATS-based message handling system. It shows the complete flow from receiving a
 // serialized MeasurementRequest to sending commands to the instrument-script-server.
-package scriptbridge
+package serverinterpreter
 
 import (
 	"encoding/json"
@@ -143,13 +143,13 @@ func (h *NATSBridgeHandler) handleMessage(msg *nats.Msg) {
 //	defer nc.Close()
 //
 //	// Create bridge handler
-//	config := scriptbridge.BridgeConfig{
+//	config := serverinterpreter.BridgeConfig{
 //		ScriptServerHost: "127.0.0.1",
 //		ScriptServerPort: 8555,
 //		ScriptOutputDir:  "/tmp/falcon-scripts",
 //	}
 //
-//	handler, err := scriptbridge.NewNATSBridgeHandler(config)
+//	handler, err := serverinterpreter.NewNATSBridgeHandler(config)
 //	if err != nil {
 //		log.Fatal(err)
 //	}
