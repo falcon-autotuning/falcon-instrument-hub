@@ -4,6 +4,7 @@ go 1.25.2
 
 require (
 	github.com/falcon-autotuning/falcon-core-libs/go/falcon-core v0.0.1
+	github.com/google/uuid v1.6.0
 	github.com/mattn/go-sqlite3 v1.14.28
 	github.com/nats-io/nats-server/v2 v2.11.4
 	github.com/nats-io/nats.go v1.43.0
