@@ -16,6 +16,8 @@ import (
 
 // =============================================================================
 // Common Types from falcon-measurement-lib (test versions with JSON tags)
+// These types extend the base types in falcon_request_router.go with JSON tags
+// for wire format serialization.
 // =============================================================================
 
 // FalconInstrumentTargetJSON matches falcon-measurement-lib/schemas/lib/instrument_target.json
@@ -24,8 +26,9 @@ type FalconInstrumentTargetJSON struct {
 	Channel int    `json:"channel,omitempty"`
 }
 
-// FalconDomain matches falcon-measurement-lib/schemas/lib/domain.json
-type FalconDomain struct {
+// FalconDomainJSON matches falcon-measurement-lib/schemas/lib/domain.json (with JSON tags)
+// Note: Use FalconDomain from falcon_request_router.go for production code
+type FalconDomainJSON struct {
 	Min float64 `json:"min"`
 	Max float64 `json:"max"`
 }

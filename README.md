@@ -1,4 +1,45 @@
-# instrument-server
+# falcon-instrument-hub
+
+The falcon-instrument-hub bridges falcon-core measurement requests to hardware instruments through user-provided Lua measurement scripts.
+
+## Architecture
+
+**Important**: The hub does NOT auto-generate Lua measurement scripts. Experimenters create their own custom Lua scripts that run on the instrument-script-server. The hub's role is to:
+
+1. **Parse** incoming falcon measurement requests (JSON schemas from falcon-measurement-lib)
+2. **Orchestrate** complex measurements by calling simpler Lua scripts multiple times
+3. **Buffer** trace data from the instrument-script-server
+4. **Average** results when N-averaged measurements are requested
+5. **Store** raw and averaged data to HDF5/JSON database
+6. **Notify** falcon via NATS/JetStream when data is available
+
+### Example: 2D Voltage Sweep
+
+A 2D voltage sweep from falcon is orchestrated as:
+
+```
+For each Y voltage:
+  1. hub calls set_voltage.lua(Y_gate, Y_value)
+  2. hub calls sweep_1d.lua(X sweep parameters)  
+  3. hub calls ramp_voltage.lua(X_gate, X_start)  # Return to start
+  4. hub buffers the 1D trace
+Aggregate all traces into 2D result
+```
+
+### Required Lua Scripts
+
+The following scripts must be provided in `runtime/scripts/`:
+
+| Script | Purpose |
+|--------|---------|
+| `set_voltage.lua` | Set a single gate voltage |
+| `get_voltage.lua` | Read a single voltage |
+| `sweep_1d.lua` | 1D voltage sweep with current measurement |
+| `ramp_voltage.lua` | Smooth voltage ramping |
+| `dc_get_set.lua` | Parallel set/get operations |
+| `measure_current.lua` | Current measurement with averaging |
+
+See [docs/LUA_SCRIPT_AUTHORING.md](docs/LUA_SCRIPT_AUTHORING.md) for script requirements.
 
 <!--toc:start-->
 
