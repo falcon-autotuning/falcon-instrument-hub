@@ -7,10 +7,14 @@ The **Server Interpreter** is a Go package that bridges falcon-core measurement 
 The server interpreter (`serverinterpreter` package) handles:
 
 1. **Receiving measurement requests** via `PROCESS_REQUEST` NATS channel
-2. **Breaking down requests** into chunked instructions for instruments
-3. **Coordinating with instruments** via `MEASUREMENT_READY` and other signals
-4. **Collecting measurement data** from `PROCESS_DATA` responses
-5. **Uploading results** back to falcon via `UPLOAD_DATA`
+2. **Parsing and routing requests** via `MeasurementRouter`
+3. **Orchestrating complex measurements** via `MeasurementOrchestrator`
+4. **Dispatching Lua scripts** to instrument-script-server
+5. **Buffering trace data** via `TraceBuffer`
+6. **Storing results** to HDF5/JSON database
+7. **Uploading results** back to falcon via JetStream
+
+**Important**: The hub does NOT auto-generate Lua scripts. Experimenters create their own Lua measurement scripts that run on the instrument-script-server. The hub's role is to orchestrate calls to these user-provided scripts.
 
 ## Architecture
 
@@ -20,17 +24,169 @@ The server interpreter (`serverinterpreter` package) handles:
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
 │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐      │
-│  │ PROCESS_REQUEST  │───>│ WaveformProcessor │───>│ DataCollector    │      │
-│  │ (subscribe)      │    │                   │    │                   │      │
+│  │ FALCON REQUEST   │───>│ Measurement      │───>│ Measurement      │      │
+│  │ (NATS subscribe) │    │ Router           │    │ Orchestrator     │      │
+│  └──────────────────┘    └──────────────────┘    └──────────────────┘      │
+│           │                       │                       │                 │
+│           │                       │              ┌────────┴────────┐        │
+│           │                       │              │                 │        │
+│           │                       v              v                 v        │
+│  ┌──────────────────┐    ┌──────────────────┐  ┌───────┐   ┌───────┐      │
+│  │ Script           │<───│ User-Provided    │  │sweep_1d│   │ramp   │      │
+│  │ Dispatcher       │    │ Lua Scripts      │  │.lua   │   │.lua   │      │
+│  └──────────────────┘    └──────────────────┘  └───────┘   └───────┘      │
+│           │                                                                 │
+│           v                                                                 │
+│  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐      │
+│  │ instrument-      │───>│ TraceBuffer      │───>│ HDF5 Database    │      │
+│  │ script-server    │    │ (averaging)      │    │                   │      │
 │  └──────────────────┘    └──────────────────┘    └──────────────────┘      │
 │           │                       │                       │                 │
 │           v                       v                       v                 │
 │  ┌──────────────────┐    ┌──────────────────┐    ┌──────────────────┐      │
-│  │ Instructions     │───>│ MEASUREMENT_READY │───>│ UPLOAD_DATA      │      │
-│  │ (chunking)       │    │ (publish)        │    │ (publish)        │      │
+│  │ Trace Reports    │───>│ JetStream        │───>│ Falcon           │      │
+│  │ (NATS)           │    │ Notification     │    │                   │      │
 │  └──────────────────┘    └──────────────────┘    └──────────────────┘      │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+## Core Components
+
+### MeasurementRouter
+
+Routes incoming falcon requests to the appropriate orchestration method:
+
+```go
+router := serverinterpreter.NewMeasurementRouter(orchestrator)
+
+envelope := FalconMeasurementEnvelope{
+    MeasurementID:   "measurement-001",
+    MeasurementType: "measure_2D_buffered",
+    Request:         requestJSON,
+}
+
+result, err := router.Route(ctx, envelope)
+```
+
+Supported measurement types:
+- `measure_2D_buffered` → Orchestrated 2D sweep
+- `measure_1D_buffered` → Averaged 1D sweep
+- `measure_get_set` → DC get/set
+
+### MeasurementOrchestrator
+
+Coordinates complex measurements by calling simpler Lua scripts:
+
+```go
+orchestrator := serverinterpreter.NewMeasurementOrchestrator(executor, hubConfig)
+
+// Execute a 2D sweep (calls sweep_1d.lua 11 times)
+result, err := orchestrator.Execute2DSweep(ctx, Sweep2DRequest{
+    XGate:          "P1",
+    XInstrument:    "QDAC1",
+    XChannel:       1,
+    XStartV:        -0.5,
+    XStopV:         0.5,
+    XNumPoints:     101,
+    YGate:          "P2",
+    YInstrument:    "QDAC1",
+    YChannel:       2,
+    YStartV:        -0.5,
+    YStopV:         0.5,
+    YNumPoints:     11,
+    CurrentMeter:   "DMM1",
+    CurrentChannel: 0,
+    SettlingTimeMs: 5.0,
+    RampSlopeVPerS: 0.1,
+})
+```
+
+### TraceBuffer
+
+Accumulates traces for N-averaged measurements:
+
+```go
+buffer := serverinterpreter.NewTraceBuffer(config)
+
+// Register expected measurement
+buffer.RegisterMeasurement(
+    measurementID,
+    "P1",           // sweep gate
+    -1.0, 0.0,      // voltage range
+    101,            // points per sweep
+    10,             // number of averages
+    []string{"DMM1_0"},
+)
+
+// Add traces as they arrive from instrument-script-server
+complete, err := buffer.AddTrace(traceReport)
+if complete {
+    result, err := buffer.Complete(measurementID)
+    // result contains raw traces AND averaged data
+}
+```
+
+### ScriptDispatcher
+
+Communicates with instrument-script-server over HTTP:
+
+```go
+dispatcher := serverinterpreter.NewScriptDispatcher(config)
+
+result, err := dispatcher.ExecuteScript(ctx, "sweep_1d", map[string]interface{}{
+    "sweepInstrument": "QDAC1",
+    "sweepChannel":    1,
+    "startVoltage":    -1.0,
+    "stopVoltage":     0.0,
+    "numPoints":       101,
+    "currentMeter":    "DMM1",
+    "currentChannel":  0,
+})
+```
+
+## Lua Script Requirements
+
+The hub expects these scripts in `runtime/scripts/`:
+
+| Script | Purpose |
+|--------|---------|
+| `set_voltage.lua` | Set a single gate voltage |
+| `get_voltage.lua` | Read a single voltage |
+| `sweep_1d.lua` | 1D voltage sweep with current measurement |
+| `ramp_voltage.lua` | Smooth voltage ramping at specified rate |
+| `dc_get_set.lua` | Parallel set/get operations |
+| `measure_current.lua` | Current measurement with averaging |
+
+See [LUA_SCRIPT_AUTHORING.md](LUA_SCRIPT_AUTHORING.md) for detailed requirements.
+
+## 2D Sweep Orchestration
+
+For a 2D voltage sweep, the orchestrator:
+
+1. Sets static gate voltages
+2. For each Y value:
+   - Sets Y gate to target voltage
+   - Waits for settling
+   - Calls `sweep_1d.lua` for X sweep
+   - Collects current vs X voltage data
+   - Calls `ramp_voltage.lua` to return X to start
+3. Aggregates all lines into 2D result
+
+```
+Y=YStart ─────────────────────────────────────────────────────────────
+         │                                                            
+         │  ┌─[set_voltage Y]──[sweep_1d X]──[ramp X]─┐              
+         │  │                                         │              
+Y=Y1     │  └─────────────────────────────────────────┘              
+         │                                                            
+         │  ┌─[set_voltage Y]──[sweep_1d X]──[ramp X]─┐              
+         │  │                                         │              
+Y=Y2     │  └─────────────────────────────────────────┘              
+         │                                                            
+         │  ... repeats for all Y values ...                          
+         │                                                            
+Y=YStop  ─────────────────────────────────────────────────────────────
 ```
 
 ## Operation Modes

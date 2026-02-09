@@ -1,4 +1,14 @@
 // Package serverinterpreter provides Lua script generation for measurement requests.
+//
+// DEPRECATED: This file contains auto-generation of Lua scripts which is no longer
+// the recommended approach. Experimenters should create their own Lua measurement
+// scripts and the hub should orchestrate calls to those scripts.
+//
+// See measurement_orchestrator.go and script_dispatcher.go for the new architecture.
+// See docs/LUA_SCRIPT_AUTHORING.md for how to create measurement scripts.
+//
+// This file is kept for backwards compatibility with existing tests but should not
+// be used for new development.
 package serverinterpreter
 
 import (
@@ -8,6 +18,9 @@ import (
 	"strings"
 	"text/template"
 )
+
+// Deprecated: ScriptGenerator auto-generates Lua scripts, which is no longer recommended.
+// Use MeasurementOrchestrator with user-provided scripts instead.
 
 const setVoltageLuaTemplate = `-- Auto-generated set_voltage script
 -- Generated from MeasurementRequest: {{.MeasurementName}}

@@ -303,14 +303,74 @@ The Server Interpreter uses JetStream for reliable data transfer:
 
 ```go
 streamConfig := &nats.StreamConfig{
-    Name:      "MEASUREMENT_DATA",
-    Subjects:  []string{"measurement.data.>"},
+    Name:      "FALCON_MEASUREMENTS",
+    Subjects:  []string{"measurement.result.>", "measurement.data.>"},
     Retention: nats.LimitsPolicy,
     MaxAge:    24 * time.Hour,
     MaxMsgs:   10000,
     MaxBytes:  1024 * 1024 * 1024, // 1GB
     Storage:   nats.FileStorage,
 }
+```
+
+### Measurement Completion Notification
+
+When the hub completes an averaged measurement, it publishes a notification to JetStream:
+
+**Subject:** `measurement.result.{measurement_id}`
+
+```json
+{
+  "type": "measurement_complete",
+  "measurement_id": "jetstream-test-001",
+  "process_id": 42,
+  "status": "success",
+  "data_location": {
+    "stream": "FALCON_MEASUREMENTS",
+    "subject": "measurement.result.jetstream-test-001",
+    "file_path": "/data/measurements/sweep_jetstream-test-001.json",
+    "num_points": 101,
+    "num_sweeps": 10
+  },
+  "timestamp": "2026-02-09T10:30:00Z"
+}
+```
+
+**Go Type:**
+```go
+type FalconMeasurementNotification struct {
+    Type          string             `json:"type"`
+    MeasurementID string             `json:"measurement_id"`
+    ProcessID     int64              `json:"process_id"`
+    Status        string             `json:"status"`
+    DataLocation  FalconDataLocation `json:"data_location"`
+    Timestamp     time.Time          `json:"timestamp"`
+}
+
+type FalconDataLocation struct {
+    Stream    string `json:"stream"`
+    Subject   string `json:"subject"`
+    FilePath  string `json:"file_path"`
+    NumPoints int    `json:"num_points"`
+    NumSweeps int    `json:"num_sweeps"`
+}
+```
+
+### Falcon Subscription Example
+
+Falcon can subscribe to measurement completions:
+
+```python
+import nats
+
+async def handle_measurement_complete(msg):
+    data = json.loads(msg.data)
+    if data["status"] == "success":
+        file_path = data["data_location"]["file_path"]
+        # Load and process measurement data
+        
+js = nc.jetstream()
+await js.subscribe("measurement.result.>", cb=handle_measurement_complete)
 ```
 
 ## Message Flow Example
