@@ -224,7 +224,7 @@ func TestSetVoltageHandler_WithMockServer(t *testing.T) {
 	var host string
 	var port int
 	_ = json.Unmarshal([]byte(`"`+urlParts+`"`), &host)
-	
+
 	// Parse host:port
 	for i := len(urlParts) - 1; i >= 0; i-- {
 		if urlParts[i] == ':' {

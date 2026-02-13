@@ -45,20 +45,20 @@ func NewScriptDispatcher(config ScriptDispatcherConfig) *ScriptDispatcher {
 
 // ExecuteScriptRequest is the JSON body sent to instrument-script-server.
 type ExecuteScriptRequest struct {
-	ScriptName   string                 `json:"scriptName"`   // Name of the Lua script (without .lua extension)
-	ScriptPath   string                 `json:"scriptPath"`   // Full path to script file
-	Parameters   map[string]interface{} `json:"parameters"`   // Parameters passed to main(ctx, params)
-	MeasurementID string                `json:"measurementId,omitempty"` // Optional tracking ID
+	ScriptName    string                 `json:"scriptName"`              // Name of the Lua script (without .lua extension)
+	ScriptPath    string                 `json:"scriptPath"`              // Full path to script file
+	Parameters    map[string]interface{} `json:"parameters"`              // Parameters passed to main(ctx, params)
+	MeasurementID string                 `json:"measurementId,omitempty"` // Optional tracking ID
 }
 
 // ExecuteScriptResponse is the JSON response from instrument-script-server.
 type ExecuteScriptResponse struct {
 	Success       bool            `json:"success"`
-	Result        json.RawMessage `json:"result,omitempty"`        // Script return value as JSON
-	Error         string          `json:"error,omitempty"`         // Error message if failed
-	ExecutionTime float64         `json:"executionTimeMs"`         // Time taken in milliseconds
-	Logs          []string        `json:"logs,omitempty"`          // Log messages from ctx:log()
-	BufferIDs     []string        `json:"bufferIds,omitempty"`     // IDs of any data buffers created
+	Result        json.RawMessage `json:"result,omitempty"`    // Script return value as JSON
+	Error         string          `json:"error,omitempty"`     // Error message if failed
+	ExecutionTime float64         `json:"executionTimeMs"`     // Time taken in milliseconds
+	Logs          []string        `json:"logs,omitempty"`      // Log messages from ctx:log()
+	BufferIDs     []string        `json:"bufferIds,omitempty"` // IDs of any data buffers created
 }
 
 // ExecuteScript implements ScriptExecutor interface.
