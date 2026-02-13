@@ -70,26 +70,26 @@ type Sweep2DRequest struct {
 	MeasurementID string `json:"measurementId"`
 
 	// X-axis (fast axis) sweep configuration
-	XGate        string  `json:"xGate"`        // Gate name for X sweep (e.g., "P1")
-	XInstrument  string  `json:"xInstrument"`  // Instrument ID (e.g., "QDAC1")
-	XChannel     int     `json:"xChannel"`     // Channel number
-	XStartV      float64 `json:"xStartV"`      // X start voltage
-	XStopV       float64 `json:"xStopV"`       // X stop voltage
-	XNumPoints   int     `json:"xNumPoints"`   // Number of X points per line
+	XGate       string  `json:"xGate"`       // Gate name for X sweep (e.g., "P1")
+	XInstrument string  `json:"xInstrument"` // Instrument ID (e.g., "QDAC1")
+	XChannel    int     `json:"xChannel"`    // Channel number
+	XStartV     float64 `json:"xStartV"`     // X start voltage
+	XStopV      float64 `json:"xStopV"`      // X stop voltage
+	XNumPoints  int     `json:"xNumPoints"`  // Number of X points per line
 
 	// Y-axis (slow axis) sweep configuration
-	YGate        string  `json:"yGate"`        // Gate name for Y sweep (e.g., "P2")
-	YInstrument  string  `json:"yInstrument"`  // Instrument ID
-	YChannel     int     `json:"yChannel"`     // Channel number
-	YStartV      float64 `json:"yStartV"`      // Y start voltage
-	YStopV       float64 `json:"yStopV"`       // Y stop voltage
-	YNumPoints   int     `json:"yNumPoints"`   // Number of Y lines
+	YGate       string  `json:"yGate"`       // Gate name for Y sweep (e.g., "P2")
+	YInstrument string  `json:"yInstrument"` // Instrument ID
+	YChannel    int     `json:"yChannel"`    // Channel number
+	YStartV     float64 `json:"yStartV"`     // Y start voltage
+	YStopV      float64 `json:"yStopV"`      // Y stop voltage
+	YNumPoints  int     `json:"yNumPoints"`  // Number of Y lines
 
 	// Measurement configuration
-	CurrentMeter    string  `json:"currentMeter"`    // Instrument for current measurement
-	CurrentChannel  int     `json:"currentChannel"`  // Channel for current
-	SettlingTimeMs  float64 `json:"settlingTimeMs"`  // Settling time after voltage change
-	RampSlopeVPerS  float64 `json:"rampSlopeVPerS"`  // Ramp rate for returning to start
+	CurrentMeter   string  `json:"currentMeter"`   // Instrument for current measurement
+	CurrentChannel int     `json:"currentChannel"` // Channel for current
+	SettlingTimeMs float64 `json:"settlingTimeMs"` // Settling time after voltage change
+	RampSlopeVPerS float64 `json:"rampSlopeVPerS"` // Ramp rate for returning to start
 
 	// Static gate voltages (held constant during sweep)
 	StaticVoltages map[string]float64 `json:"staticVoltages"` // gate -> voltage
@@ -100,10 +100,10 @@ type Sweep2DResult struct {
 	MeasurementID string        `json:"measurementId"`
 	XGate         string        `json:"xGate"`
 	YGate         string        `json:"yGate"`
-	XVoltages     []float64     `json:"xVoltages"`     // X-axis voltage values
-	YVoltages     []float64     `json:"yVoltages"`     // Y-axis voltage values
-	CurrentData   [][]float64   `json:"currentData"`   // [y][x] array of current values
-	Lines         []Sweep1DLine `json:"lines"`         // Individual 1D sweep results
+	XVoltages     []float64     `json:"xVoltages"`   // X-axis voltage values
+	YVoltages     []float64     `json:"yVoltages"`   // Y-axis voltage values
+	CurrentData   [][]float64   `json:"currentData"` // [y][x] array of current values
+	Lines         []Sweep1DLine `json:"lines"`       // Individual 1D sweep results
 	StartTime     time.Time     `json:"startTime"`
 	EndTime       time.Time     `json:"endTime"`
 }
@@ -309,6 +309,40 @@ type AveragedSweep1DRequest struct {
 	StaticVoltages map[string]float64 `json:"staticVoltages"`
 }
 
+// ToSweepAxisRequest converts the legacy single-gate request into a
+// SweepAxis-based request. Existing callers are unaffected.
+func (r AveragedSweep1DRequest) ToSweepAxisRequest() AveragedSweepAxisRequest {
+	return AveragedSweepAxisRequest{
+		MeasurementID: r.MeasurementID,
+		Axis: ScalarAxis(
+			r.SweepGate, r.SweepInstrument, r.SweepChannel,
+			r.StartV, r.StopV, r.NumPoints,
+		),
+		NumAverages:    r.NumAverages,
+		CurrentMeter:   r.CurrentMeter,
+		CurrentChannel: r.CurrentChannel,
+		SettlingTimeMs: r.SettlingTimeMs,
+		StaticVoltages: r.StaticVoltages,
+	}
+}
+
+// AveragedSweepAxisRequest defines an N-averaged sweep along a general axis
+// in voltage space. The axis can involve one gate (scalar sweep) or multiple
+// gates (diagonal / virtual-gate sweep).
+type AveragedSweepAxisRequest struct {
+	MeasurementID string    `json:"measurementId"`
+	Axis          SweepAxis `json:"axis"`
+	NumAverages   int       `json:"numAverages"`
+
+	// Measurement
+	CurrentMeter   string  `json:"currentMeter"`
+	CurrentChannel int     `json:"currentChannel"`
+	SettlingTimeMs float64 `json:"settlingTimeMs"`
+
+	// Static voltages (gates NOT on the sweep axis)
+	StaticVoltages map[string]float64 `json:"staticVoltages"`
+}
+
 // AveragedSweep1DResult contains the averaged sweep data.
 type AveragedSweep1DResult struct {
 	MeasurementID    string      `json:"measurementId"`
@@ -320,20 +354,66 @@ type AveragedSweep1DResult struct {
 	NumAverages      int         `json:"numAverages"`
 }
 
+// AveragedSweepAxisResult contains the averaged sweep data for a general axis.
+type AveragedSweepAxisResult struct {
+	MeasurementID string    `json:"measurementId"`
+	Axis          SweepAxis `json:"axis"`
+
+	// ParameterValues holds the normalised parameter t ∈ [0,1] for each point.
+	ParameterValues []float64 `json:"parameterValues"`
+
+	// PrimaryVoltages is the voltage array of the first gate (natural x-axis).
+	PrimaryVoltages []float64 `json:"primaryVoltages"`
+
+	// VoltageVectors holds the full voltage vector at each point.
+	// VoltageVectors[i] = map[gateName]voltage.
+	VoltageVectors []map[string]float64 `json:"voltageVectors"`
+
+	AveragedCurrents []float64   `json:"averagedCurrents"`
+	AllTraces        [][]float64 `json:"allTraces"` // [sweep_idx][point]
+	StdDev           []float64   `json:"stdDev"`
+	NumAverages      int         `json:"numAverages"`
+}
+
 // ExecuteAveraged1DSweep performs N 1D sweeps and averages the results.
+// This is the legacy single-gate entry point; it delegates to ExecuteAveragedAxisSweep.
 func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, req AveragedSweep1DRequest) (*AveragedSweep1DResult, error) {
-	result := &AveragedSweep1DResult{
-		MeasurementID: req.MeasurementID,
-		SweepGate:     req.SweepGate,
-		Voltages:      make([]float64, req.NumPoints),
-		AllTraces:     make([][]float64, 0, req.NumAverages),
-		NumAverages:   req.NumAverages,
+	axisReq := req.ToSweepAxisRequest()
+	axisResult, err := o.ExecuteAveragedAxisSweep(ctx, axisReq)
+	if err != nil {
+		return nil, err
 	}
 
-	// Calculate voltage array
-	step := (req.StopV - req.StartV) / float64(req.NumPoints-1)
-	for i := 0; i < req.NumPoints; i++ {
-		result.Voltages[i] = req.StartV + float64(i)*step
+	// Convert back to the legacy result type
+	return &AveragedSweep1DResult{
+		MeasurementID:    axisResult.MeasurementID,
+		SweepGate:        req.SweepGate,
+		Voltages:         axisResult.PrimaryVoltages,
+		AveragedCurrents: axisResult.AveragedCurrents,
+		AllTraces:        axisResult.AllTraces,
+		StdDev:           axisResult.StdDev,
+		NumAverages:      axisResult.NumAverages,
+	}, nil
+}
+
+// ExecuteAveragedAxisSweep performs N sweeps along a general axis and averages.
+//
+// For a scalar axis (one gate), this calls the sweep_1d Lua script directly.
+// For a multi-gate axis, it steps through the parameter values and calls
+// set_voltage for each gate at each point, then reads the current.
+func (o *MeasurementOrchestrator) ExecuteAveragedAxisSweep(ctx context.Context, req AveragedSweepAxisRequest) (*AveragedSweepAxisResult, error) {
+	if err := req.Axis.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid sweep axis: %w", err)
+	}
+
+	result := &AveragedSweepAxisResult{
+		MeasurementID:   req.MeasurementID,
+		Axis:            req.Axis,
+		ParameterValues: req.Axis.ParameterValues(),
+		PrimaryVoltages: req.Axis.PrimaryVoltages(),
+		VoltageVectors:  req.Axis.AllVoltageVectors(),
+		AllTraces:       make([][]float64, 0, req.NumAverages),
+		NumAverages:     req.NumAverages,
 	}
 
 	// Set static voltages
@@ -347,7 +427,7 @@ func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, re
 		}
 	}
 
-	// Perform N sweeps
+	// Choose execution strategy based on axis dimension
 	for sweepIdx := 0; sweepIdx < req.NumAverages; sweepIdx++ {
 		select {
 		case <-ctx.Done():
@@ -355,35 +435,30 @@ func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, re
 		default:
 		}
 
-		sweep1DParams := map[string]interface{}{
-			"sweepInstrument": req.SweepInstrument,
-			"sweepChannel":    req.SweepChannel,
-			"startVoltage":    req.StartV,
-			"stopVoltage":     req.StopV,
-			"numPoints":       req.NumPoints,
-			"settlingTimeMs":  req.SettlingTimeMs,
-			"currentMeter":    req.CurrentMeter,
-			"currentChannel":  req.CurrentChannel,
+		var currents []float64
+		var err error
+
+		if req.Axis.IsScalar() {
+			// Scalar: use the efficient sweep_1d script
+			currents, err = o.executeScalarSweep(ctx, req)
+		} else {
+			// Multi-gate: step through parameter values
+			currents, err = o.executeVectorSweep(ctx, req)
 		}
 
-		traceData, err := o.executor.ExecuteScript(ctx, "sweep_1d", sweep1DParams)
 		if err != nil {
 			return nil, fmt.Errorf("sweep %d failed: %w", sweepIdx+1, err)
-		}
-
-		currents, err := parseSweep1DResult(traceData)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse sweep %d: %w", sweepIdx+1, err)
 		}
 
 		result.AllTraces = append(result.AllTraces, currents)
 	}
 
 	// Compute averages and standard deviation
-	result.AveragedCurrents = make([]float64, req.NumPoints)
-	result.StdDev = make([]float64, req.NumPoints)
+	numPoints := req.Axis.NumPoints
+	result.AveragedCurrents = make([]float64, numPoints)
+	result.StdDev = make([]float64, numPoints)
 
-	for i := 0; i < req.NumPoints; i++ {
+	for i := 0; i < numPoints; i++ {
 		sum := 0.0
 		for _, trace := range result.AllTraces {
 			sum += trace[i]
@@ -391,7 +466,6 @@ func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, re
 		mean := sum / float64(req.NumAverages)
 		result.AveragedCurrents[i] = mean
 
-		// Standard deviation
 		sumSqDiff := 0.0
 		for _, trace := range result.AllTraces {
 			diff := trace[i] - mean
@@ -401,6 +475,67 @@ func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, re
 	}
 
 	return result, nil
+}
+
+// executeScalarSweep runs the fast sweep_1d Lua script for a single-gate axis.
+func (o *MeasurementOrchestrator) executeScalarSweep(ctx context.Context, req AveragedSweepAxisRequest) ([]float64, error) {
+	g := req.Axis.PrimaryGate()
+	params := map[string]interface{}{
+		"sweepInstrument": g.Instrument,
+		"sweepChannel":    g.Channel,
+		"startVoltage":    g.StartV,
+		"stopVoltage":     g.StopV,
+		"numPoints":       req.Axis.NumPoints,
+		"settlingTimeMs":  req.SettlingTimeMs,
+		"currentMeter":    req.CurrentMeter,
+		"currentChannel":  req.CurrentChannel,
+	}
+
+	data, err := o.executor.ExecuteScript(ctx, "sweep_1d", params)
+	if err != nil {
+		return nil, err
+	}
+	return parseSweep1DResult(data)
+}
+
+// executeVectorSweep steps through a multi-gate axis point-by-point.
+// At each step it sets all gate voltages, waits for settling, then
+// reads the current.
+func (o *MeasurementOrchestrator) executeVectorSweep(ctx context.Context, req AveragedSweepAxisRequest) ([]float64, error) {
+	voltageTable := req.Axis.AllVoltageVectors()
+	currents := make([]float64, req.Axis.NumPoints)
+
+	for i, voltages := range voltageTable {
+		// Set each gate to its target voltage
+		for _, g := range req.Axis.Gates {
+			params := map[string]interface{}{
+				"instrument": g.Instrument,
+				"channel":    g.Channel,
+				"voltage":    voltages[g.Gate],
+			}
+			if _, err := o.executor.ExecuteScript(ctx, "set_voltage", params); err != nil {
+				return nil, fmt.Errorf("failed to set %s at point %d: %w", g.Gate, i, err)
+			}
+		}
+
+		// Read current
+		readParams := map[string]interface{}{
+			"instrument": req.CurrentMeter,
+			"channel":    req.CurrentChannel,
+		}
+		data, err := o.executor.ExecuteScript(ctx, "measure_current", readParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read current at point %d: %w", i, err)
+		}
+
+		current, err := parseCurrentResult(data)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse current at point %d: %w", i, err)
+		}
+		currents[i] = current
+	}
+
+	return currents, nil
 }
 
 // sqrt computes square root (inline to avoid math import for this simple case)
@@ -461,4 +596,21 @@ func parseSweep1DResult(data []byte) ([]float64, error) {
 	}
 
 	return currents, nil
+}
+
+// parseCurrentResult extracts a single current reading from measure_current result.
+func parseCurrentResult(data []byte) (float64, error) {
+	var result map[string]interface{}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return 0, fmt.Errorf("failed to unmarshal current result: %w", err)
+	}
+
+	// Try common key names
+	for _, key := range []string{"current", "value", "result"} {
+		if v, ok := result[key].(float64); ok {
+			return v, nil
+		}
+	}
+
+	return 0, fmt.Errorf("current result missing 'current', 'value', or 'result' field")
 }

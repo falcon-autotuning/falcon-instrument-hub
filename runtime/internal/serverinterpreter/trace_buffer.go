@@ -186,17 +186,22 @@ func (tb *TraceBuffer) AddTrace(report *TraceReportMessage) (bool, error) {
 }
 
 // AveragedMeasurementResult contains the completed measurement data.
+//
+// The AllTraces field holds raw data in memory during processing but is NOT
+// serialized to the averaged database. Raw traces are stored separately in
+// RawTraceDatabase. The RawRef field links back to the raw data on disk.
 type AveragedMeasurementResult struct {
-	MeasurementID  string         `json:"measurement_id"`
-	SweepGate      string         `json:"sweep_gate"`
-	StartVoltage   float64        `json:"start_voltage"`
-	StopVoltage    float64        `json:"stop_voltage"`
-	NumPoints      int            `json:"num_points"`
-	NumSweeps      int            `json:"num_sweeps"`
-	AllTraces      []Trace        `json:"all_traces"`
-	AveragedTrace  AveragedTrace  `json:"averaged_trace"`
-	TotalDuration  time.Duration  `json:"total_duration"`
-	DatabasePath   string         `json:"database_path,omitempty"`
+	MeasurementID string        `json:"measurement_id"`
+	SweepGate     string        `json:"sweep_gate"`
+	StartVoltage  float64       `json:"start_voltage"`
+	StopVoltage   float64       `json:"stop_voltage"`
+	NumPoints     int           `json:"num_points"`
+	NumSweeps     int           `json:"num_sweeps"`
+	AllTraces     []Trace       `json:"all_traces,omitempty"`
+	AveragedTrace AveragedTrace `json:"averaged_trace"`
+	TotalDuration time.Duration `json:"total_duration"`
+	DatabasePath  string        `json:"database_path,omitempty"`
+	RawRef        *RawDataRef   `json:"raw_data_ref,omitempty"`
 }
 
 // Complete computes the average and returns the result.
@@ -224,15 +229,15 @@ func (tb *TraceBuffer) Complete(measurementID string) (*AveragedMeasurementResul
 	averaged := tb.computeAverage(pm)
 
 	result := &AveragedMeasurementResult{
-		MeasurementID:  pm.MeasurementID,
-		SweepGate:      pm.SweepGate,
-		StartVoltage:   pm.StartVoltage,
-		StopVoltage:    pm.StopVoltage,
-		NumPoints:      pm.NumPoints,
-		NumSweeps:      len(pm.Traces),
-		AllTraces:      pm.Traces,
-		AveragedTrace:  averaged,
-		TotalDuration:  time.Since(pm.StartTime),
+		MeasurementID: pm.MeasurementID,
+		SweepGate:     pm.SweepGate,
+		StartVoltage:  pm.StartVoltage,
+		StopVoltage:   pm.StopVoltage,
+		NumPoints:     pm.NumPoints,
+		NumSweeps:     len(pm.Traces),
+		AllTraces:     pm.Traces,
+		AveragedTrace: averaged,
+		TotalDuration: time.Since(pm.StartTime),
 	}
 
 	tb.log(fmt.Sprintf("Completed measurement %s: %d sweeps averaged in %v",

@@ -141,8 +141,8 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 		// Register measurement
 		err := buffer.RegisterMeasurement(
 			measurementID,
-			"P1",          // sweep gate
-			-1.0, 0.0,     // voltage range
+			"P1",      // sweep gate
+			-1.0, 0.0, // voltage range
 			numPoints,
 			numSweeps,
 			[]string{"DMM1_0"},
@@ -156,7 +156,7 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 				voltage := -1.0 + float64(i)*0.01 // -1.0 to 0.0
 				// Simulate current with noise
 				baseCurrent := 1e-9 * (1.0 - voltage*voltage) // Parabolic
-				noise := float64(sweepIdx) * 1e-12           // Sweep-dependent offset
+				noise := float64(sweepIdx) * 1e-12            // Sweep-dependent offset
 
 				trace[i] = map[string]interface{}{
 					"voltage": voltage,
@@ -276,11 +276,18 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 	})
 
 	t.Run("5_store_to_hdf5_database", func(t *testing.T) {
-		// Create database
-		database, err := NewMeasurementDatabase(tempDir)
+		// Use a fresh subdirectory so the count below is independent
+		dbDir := filepath.Join(tempDir, "test5_db")
+
+		// Create database (now creates raw/ and averaged/ subdirs)
+		database, err := NewMeasurementDatabase(dbDir)
 		require.NoError(t, err)
 
-		// Create a measurement result
+		// Verify directory structure was created
+		assert.DirExists(t, filepath.Join(dbDir, "raw"))
+		assert.DirExists(t, filepath.Join(dbDir, "averaged"))
+
+		// Create a measurement result with raw traces
 		result := &AveragedMeasurementResult{
 			MeasurementID: "hdf5-test-001",
 			SweepGate:     "P1",
@@ -299,12 +306,21 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 			TotalDuration: 5 * time.Second,
 		}
 
-		// Generate realistic data
+		// Generate realistic raw trace data
 		for i := 0; i < 10; i++ {
 			result.AllTraces[i] = Trace{
 				SweepIndex: i + 1,
 				Points:     make([]TracePoint, 101),
 				Timestamp:  time.Now(),
+			}
+			for j := 0; j < 101; j++ {
+				voltage := -1.0 + float64(j)*0.01
+				result.AllTraces[i].Points[j] = TracePoint{
+					Voltage: voltage,
+					Measurements: map[string]float64{
+						"DMM1_0": 1e-9*(1.0+voltage) + float64(i)*1e-11,
+					},
+				}
 			}
 		}
 
@@ -320,54 +336,80 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 			}
 		}
 
-		// Store
-		filePath, err := database.Store(result)
+		// Store (splits raw traces into raw/, averaged into averaged/)
+		avgFilePath, err := database.Store(result)
 		require.NoError(t, err)
-		assert.FileExists(t, filePath)
-		t.Logf("Stored to: %s", filePath)
+		assert.FileExists(t, avgFilePath)
+		t.Logf("Averaged stored to: %s", avgFilePath)
 
-		// Verify we can load it back
+		// Verify averaged file is in averaged/ subdirectory
+		assert.Contains(t, avgFilePath, "averaged")
+
+		// Verify raw file exists in raw/ subdirectory
+		require.NotNil(t, result.RawRef, "RawRef should be populated after Store")
+		assert.FileExists(t, result.RawRef.RawFilePath)
+		assert.Contains(t, result.RawRef.RawFilePath, "raw")
+		assert.Equal(t, 10, result.RawRef.NumTraces)
+		t.Logf("Raw traces stored to: %s", result.RawRef.RawFilePath)
+
+		// Load averaged (should NOT contain raw traces)
 		loaded, err := database.Load("hdf5-test-001")
 		require.NoError(t, err)
 		assert.Equal(t, result.MeasurementID, loaded.MeasurementID)
 		assert.Equal(t, result.NumSweeps, loaded.NumSweeps)
 		assert.Equal(t, result.NumPoints, loaded.NumPoints)
+		assert.Empty(t, loaded.AllTraces, "Averaged database should NOT contain raw traces")
+		assert.NotNil(t, loaded.RawRef, "Averaged record should have RawDataRef link")
 
-		// Verify data integrity
+		// Verify averaged data integrity
 		loadedCurrent := loaded.AveragedTrace.Points[50].Measurements["DMM1_0"]
 		expectedCurrent := result.AveragedTrace.Points[50].Measurements["DMM1_0"]
 		assert.InDelta(t, expectedCurrent, loadedCurrent, 1e-15)
 
-		// List measurements
+		// Load raw traces separately
+		rawRecord, err := database.LoadRawTraces("hdf5-test-001")
+		require.NoError(t, err)
+		assert.Len(t, rawRecord.Traces, 10, "Raw database should have all 10 traces")
+		assert.Equal(t, 101, rawRecord.NumPoints)
+
+		// LoadWithRawTraces should reconstruct the full result
+		full, err := database.LoadWithRawTraces("hdf5-test-001")
+		require.NoError(t, err)
+		assert.Len(t, full.AllTraces, 10, "LoadWithRawTraces should populate AllTraces")
+
+		// Verify index tracks both
 		measurements := database.List()
 		assert.Len(t, measurements, 1)
 		assert.Equal(t, "hdf5-test-001", measurements[0].MeasurementID)
+		assert.NotNil(t, measurements[0].RawDataRef)
 	})
 
 	t.Run("6_jetstream_notification", func(t *testing.T) {
-		// Simulate JetStream publication
-		result := &AveragedMeasurementResult{
+		// Simulate JetStream publication for averaged-only sharing
+		avgPath := filepath.Join(tempDir, "averaged", "sweep_jetstream-test-001.json")
+		rawRef := &RawDataRef{
 			MeasurementID: "jetstream-test-001",
-			SweepGate:     "P1",
-			StartVoltage:  -1.0,
-			StopVoltage:   0.0,
+			RawFilePath:   filepath.Join(tempDir, "raw", "raw_jetstream-test-001.json"),
+			NumTraces:     10,
 			NumPoints:     101,
-			NumSweeps:     10,
-			DatabasePath:  filepath.Join(tempDir, "sweep_jetstream-test-001.json"),
 		}
 
-		// Create notification message for falcon
+		// Create notification message for falcon.
+		// FilePath points to the averaged database ONLY.
+		// RawDataRef is included as metadata so falcon knows raw exists, but
+		// the raw file path is hub-local and not directly accessible by falcon.
 		notification := FalconMeasurementNotification{
 			Type:          "measurement_complete",
-			MeasurementID: result.MeasurementID,
+			MeasurementID: "jetstream-test-001",
 			ProcessID:     42,
 			Status:        "success",
 			DataLocation: FalconDataLocation{
-				Stream:    "FALCON_MEASUREMENTS",
-				Subject:   fmt.Sprintf("measurement.result.%s", result.MeasurementID),
-				FilePath:  result.DatabasePath,
-				NumPoints: result.NumPoints,
-				NumSweeps: result.NumSweeps,
+				Stream:     "FALCON_MEASUREMENTS",
+				Subject:    "measurement.result.jetstream-test-001",
+				FilePath:   avgPath,
+				NumPoints:  101,
+				NumSweeps:  10,
+				RawDataRef: rawRef,
 			},
 			Timestamp: time.Now(),
 		}
@@ -381,7 +423,7 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 		// Track publication
 		publishMu.Lock()
 		publishedMessages = append(publishedMessages, JetStreamMessage{
-			Subject: fmt.Sprintf("measurement.result.%s", result.MeasurementID),
+			Subject: "measurement.result.jetstream-test-001",
 			Data:    notificationJSON,
 		})
 		publishMu.Unlock()
@@ -393,10 +435,19 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 		assert.Equal(t, "measurement_complete", parsed.Type)
 		assert.Equal(t, "success", parsed.Status)
 		assert.Equal(t, 101, parsed.DataLocation.NumPoints)
+		assert.Contains(t, parsed.DataLocation.FilePath, "averaged",
+			"JetStream notification should reference averaged database, not raw")
+		assert.NotNil(t, parsed.DataLocation.RawDataRef,
+			"Notification should include RawDataRef metadata")
+		assert.Equal(t, 10, parsed.DataLocation.RawDataRef.NumTraces)
 	})
 
 	t.Run("7_full_flow_integration", func(t *testing.T) {
 		// This test combines all components in a realistic scenario
+		// and verifies the two-database split end-to-end.
+
+		// Use a fresh subdirectory
+		intDir := filepath.Join(tempDir, "test7_integration")
 
 		// Create all components
 		mockExecutor := NewMockScriptExecutor()
@@ -404,10 +455,10 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 		orchestrator := NewMeasurementOrchestrator(mockExecutor, hubConfig)
 
 		traceConfig := DefaultTraceBufferConfig()
-		traceConfig.DatabasePath = tempDir
+		traceConfig.DatabasePath = intDir
 		traceBuffer := NewTraceBuffer(traceConfig)
 
-		database, err := NewMeasurementDatabase(tempDir)
+		database, err := NewMeasurementDatabase(intDir)
 		require.NoError(t, err)
 
 		// 1. Receive falcon request
@@ -466,7 +517,7 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 			for i := 0; i < avgReq.NumPoints; i++ {
 				voltage := avgReq.StartV + float64(i)*step
 				// Parabolic current with sweep-dependent noise
-				current := 2e-9 * (1.0 - voltage*voltage/2.0) + float64(sweepIdx)*1e-11
+				current := 2e-9*(1.0-voltage*voltage/2.0) + float64(sweepIdx)*1e-11
 
 				trace[i] = map[string]interface{}{
 					"voltage": voltage,
@@ -492,23 +543,50 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, avgResult)
 
-				// 6. Store to database
+				// 6. Store to database (splits raw and averaged)
 				dbPath, err := database.Store(avgResult)
 				require.NoError(t, err)
-				t.Logf("Stored measurement to: %s", dbPath)
+				t.Logf("Averaged stored to: %s", dbPath)
 
-				// 7. Create JetStream notification
+				// --- Two-database verification ---
+
+				// Averaged file should be in averaged/ subdirectory
+				assert.Contains(t, dbPath, "averaged")
+				assert.FileExists(t, dbPath)
+
+				// RawRef should be populated with raw/ path
+				require.NotNil(t, avgResult.RawRef)
+				assert.FileExists(t, avgResult.RawRef.RawFilePath)
+				assert.Contains(t, avgResult.RawRef.RawFilePath, "raw")
+				assert.Equal(t, numAverages, avgResult.RawRef.NumTraces)
+				t.Logf("Raw traces stored to: %s", avgResult.RawRef.RawFilePath)
+
+				// Load averaged from DB – should NOT contain raw traces
+				loadedAvg, loadErr := database.Load(measurementID)
+				require.NoError(t, loadErr)
+				assert.Empty(t, loadedAvg.AllTraces,
+					"Averaged database must not contain raw traces")
+				assert.NotNil(t, loadedAvg.RawRef,
+					"Averaged record must link to raw database")
+
+				// Load raw traces – should have all sweeps
+				rawRecord, rawErr := database.LoadRawTraces(measurementID)
+				require.NoError(t, rawErr)
+				assert.Len(t, rawRecord.Traces, numAverages)
+
+				// 7. Create JetStream notification (references averaged ONLY)
 				notification := FalconMeasurementNotification{
 					Type:          "measurement_complete",
 					MeasurementID: measurementID,
 					ProcessID:     42,
 					Status:        "success",
 					DataLocation: FalconDataLocation{
-						Stream:    "FALCON_MEASUREMENTS",
-						Subject:   fmt.Sprintf("measurement.result.%s", measurementID),
-						FilePath:  dbPath,
-						NumPoints: avgResult.NumPoints,
-						NumSweeps: avgResult.NumSweeps,
+						Stream:     "FALCON_MEASUREMENTS",
+						Subject:    fmt.Sprintf("measurement.result.%s", measurementID),
+						FilePath:   dbPath,
+						NumPoints:  avgResult.NumPoints,
+						NumSweeps:  avgResult.NumSweeps,
+						RawDataRef: avgResult.RawRef,
 					},
 					Timestamp: time.Now(),
 				}
@@ -520,10 +598,11 @@ func TestE2E_AveragedSweep_CompleteFlow(t *testing.T) {
 				})
 				publishMu.Unlock()
 
-				// Verify final result
+				// Verify final in-memory result still has AllTraces
 				assert.Equal(t, numAverages, avgResult.NumSweeps)
 				assert.Equal(t, avgReq.NumPoints, avgResult.NumPoints)
-				assert.Len(t, avgResult.AllTraces, numAverages)
+				assert.Len(t, avgResult.AllTraces, numAverages,
+					"In-memory result should still hold AllTraces")
 
 				// Verify averaging
 				voltages, currents, err := avgResult.ExtractCurrentTrace("DMM1_0")
@@ -610,6 +689,13 @@ func (m *MockScriptExecutor) ExecuteScript(ctx context.Context, scriptName strin
 		}
 		return json.Marshal(result)
 
+	case "measure_current":
+		// Simulate a current reading (used by vector sweep)
+		result := map[string]interface{}{
+			"current": 1e-9,
+		}
+		return json.Marshal(result)
+
 	default:
 		return json.Marshal(map[string]interface{}{"result": "ok"})
 	}
@@ -667,12 +753,14 @@ type FalconMeasurementNotification struct {
 }
 
 // FalconDataLocation describes where to find measurement data.
+// Only the averaged database path is shared with falcon – raw traces stay hub-local.
 type FalconDataLocation struct {
-	Stream    string `json:"stream"`
-	Subject   string `json:"subject"`
-	FilePath  string `json:"file_path"`
-	NumPoints int    `json:"num_points"`
-	NumSweeps int    `json:"num_sweeps"`
+	Stream      string      `json:"stream"`
+	Subject     string      `json:"subject"`
+	FilePath    string      `json:"file_path"`    // Averaged database path (shared)
+	NumPoints   int         `json:"num_points"`
+	NumSweeps   int         `json:"num_sweeps"`
+	RawDataRef  *RawDataRef `json:"raw_data_ref,omitempty"` // Reference for debugging (path is hub-local)
 }
 
 func mustMarshal(v interface{}) []byte {
@@ -753,30 +841,48 @@ func TestE2E_Orchestrator_2DSweep(t *testing.T) {
 
 func TestE2E_Database_PersistenceAndRetrieval(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	// Create and store multiple measurements
 	db, err := NewMeasurementDatabase(tempDir)
 	require.NoError(t, err)
 
 	for i := 0; i < 5; i++ {
 		result := createTestMeasurementResult(fmt.Sprintf("measurement-%03d", i), 50+i*10)
-		
+
 		path, err := db.Store(result)
 		require.NoError(t, err)
 		t.Logf("Stored %s to %s", result.MeasurementID, path)
+
+		// Verify raw ref was set
+		require.NotNil(t, result.RawRef, "RawRef should be set after Store")
+		assert.FileExists(t, result.RawRef.RawFilePath)
 	}
 
 	// Verify all are listed
 	measurements := db.List()
 	assert.Len(t, measurements, 5)
 
-	// Load and verify each
+	// Load and verify each (averaged only, no raw traces)
 	for i := 0; i < 5; i++ {
 		id := fmt.Sprintf("measurement-%03d", i)
+
+		// Load averaged (should NOT have AllTraces)
 		loaded, err := db.Load(id)
 		require.NoError(t, err)
 		assert.Equal(t, id, loaded.MeasurementID)
 		assert.Equal(t, 50+i*10, loaded.NumPoints)
+		assert.Empty(t, loaded.AllTraces, "Averaged load should not include raw traces")
+		assert.NotNil(t, loaded.RawRef, "Should have RawDataRef link")
+
+		// Load raw traces separately
+		rawRecord, err := db.LoadRawTraces(id)
+		require.NoError(t, err)
+		assert.Len(t, rawRecord.Traces, 10)
+
+		// Load combined
+		full, err := db.LoadWithRawTraces(id)
+		require.NoError(t, err)
+		assert.Len(t, full.AllTraces, 10, "LoadWithRawTraces should reconstruct AllTraces")
 	}
 
 	// Test persistence - create new database instance
@@ -785,6 +891,14 @@ func TestE2E_Database_PersistenceAndRetrieval(t *testing.T) {
 
 	measurements2 := db2.List()
 	assert.Len(t, measurements2, 5, "Should persist across database restarts")
+
+	// Verify raw database also persists
+	for i := 0; i < 5; i++ {
+		id := fmt.Sprintf("measurement-%03d", i)
+		rawRecord, err := db2.LoadRawTraces(id)
+		require.NoError(t, err)
+		assert.Len(t, rawRecord.Traces, 10, "Raw traces should persist across restarts")
+	}
 }
 
 func createTestMeasurementResult(id string, numPoints int) *AveragedMeasurementResult {
@@ -807,6 +921,26 @@ func createTestMeasurementResult(id string, numPoints int) *AveragedMeasurementR
 	}
 
 	step := 1.0 / float64(numPoints-1)
+
+	// Populate raw traces with realistic data
+	for t := 0; t < 10; t++ {
+		result.AllTraces[t] = Trace{
+			SweepIndex: t + 1,
+			Points:     make([]TracePoint, numPoints),
+			Timestamp:  time.Now(),
+		}
+		for i := 0; i < numPoints; i++ {
+			voltage := -1.0 + float64(i)*step
+			result.AllTraces[t].Points[i] = TracePoint{
+				Voltage: voltage,
+				Measurements: map[string]float64{
+					"DMM1_0": 1e-9*(1+voltage) + float64(t)*1e-11,
+				},
+			}
+		}
+	}
+
+	// Populate averaged trace
 	for i := 0; i < numPoints; i++ {
 		voltage := -1.0 + float64(i)*step
 		result.AveragedTrace.Points[i] = TracePoint{
@@ -827,7 +961,7 @@ func createTestMeasurementResult(id string, numPoints int) *AveragedMeasurementR
 func TestE2E_ScriptFiles_Exist(t *testing.T) {
 	// Verify required Lua scripts exist in runtime/scripts/
 	scriptsDir := "../../scripts"
-	
+
 	requiredScripts := []string{
 		"set_voltage.lua",
 		"get_voltage.lua",
@@ -847,4 +981,273 @@ func TestE2E_ScriptFiles_Exist(t *testing.T) {
 			t.Logf("Found script: %s", path)
 		}
 	}
+}
+
+// =============================================================================
+// Test: SweepAxis – General Axis Sweeps
+// =============================================================================
+
+func TestE2E_SweepAxis_ScalarSweep(t *testing.T) {
+	// A scalar SweepAxis should behave identically to the legacy
+	// AveragedSweep1DRequest.
+	mockExecutor := NewMockScriptExecutor()
+	hubConfig := &HubConfig{}
+	orchestrator := NewMeasurementOrchestrator(mockExecutor, hubConfig)
+
+	axis := ScalarAxis("P1", "QDAC1", 1, -1.0, 0.0, 101)
+	require.NoError(t, axis.Validate())
+	assert.True(t, axis.IsScalar())
+	assert.Equal(t, 1, axis.Dimension())
+
+	req := AveragedSweepAxisRequest{
+		MeasurementID:  "axis-scalar-001",
+		Axis:           axis,
+		NumAverages:    5,
+		CurrentMeter:   "DMM1",
+		CurrentChannel: 0,
+		SettlingTimeMs: 1.0,
+	}
+
+	result, err := orchestrator.ExecuteAveragedAxisSweep(context.Background(), req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, 5, result.NumAverages)
+	assert.Len(t, result.PrimaryVoltages, 101)
+	assert.Len(t, result.AllTraces, 5)
+	assert.Len(t, result.AveragedCurrents, 101)
+	assert.Len(t, result.StdDev, 101)
+
+	// Primary voltages should match the axis
+	assert.InDelta(t, -1.0, result.PrimaryVoltages[0], 1e-12)
+	assert.InDelta(t, 0.0, result.PrimaryVoltages[100], 1e-12)
+
+	// Verify scalar sweep used the sweep_1d script (efficient path)
+	executions := mockExecutor.GetExecutions()
+	sweep1dCount := 0
+	for _, exec := range executions {
+		if exec.ScriptName == "sweep_1d" {
+			sweep1dCount++
+		}
+	}
+	assert.Equal(t, 5, sweep1dCount, "Scalar axis should use sweep_1d script")
+
+	t.Logf("Scalar sweep: %d points, %d averages, %d script calls",
+		len(result.PrimaryVoltages), result.NumAverages, len(executions))
+}
+
+func TestE2E_SweepAxis_DiagonalSweep(t *testing.T) {
+	// Diagonal sweep: P1 goes -0.5→0.5, P2 goes 0.3→-0.3 (opposing).
+	// This simulates sweeping along a detuning axis in a double quantum dot.
+	mockExecutor := NewMockScriptExecutor()
+	hubConfig := &HubConfig{}
+	orchestrator := NewMeasurementOrchestrator(mockExecutor, hubConfig)
+
+	axis := DetuningAxis(
+		"P1", "QDAC1", 1, -0.5, 0.5,
+		"P2", "QDAC1", 2, 0.3, -0.3,
+		51,
+	)
+	require.NoError(t, axis.Validate())
+	assert.False(t, axis.IsScalar())
+	assert.Equal(t, 2, axis.Dimension())
+	assert.Equal(t, "P1/P2 detuning", axis.Label)
+
+	req := AveragedSweepAxisRequest{
+		MeasurementID:  "axis-diag-001",
+		Axis:           axis,
+		NumAverages:    3,
+		CurrentMeter:   "DMM1",
+		CurrentChannel: 0,
+		SettlingTimeMs: 1.0,
+	}
+
+	result, err := orchestrator.ExecuteAveragedAxisSweep(context.Background(), req)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, 3, result.NumAverages)
+	assert.Len(t, result.PrimaryVoltages, 51)
+	assert.Len(t, result.VoltageVectors, 51)
+	assert.Len(t, result.AllTraces, 3)
+	assert.Len(t, result.AveragedCurrents, 51)
+
+	// Check voltage vectors at endpoints
+	assert.InDelta(t, -0.5, result.VoltageVectors[0]["P1"], 1e-12)
+	assert.InDelta(t, 0.3, result.VoltageVectors[0]["P2"], 1e-12)
+	assert.InDelta(t, 0.5, result.VoltageVectors[50]["P1"], 1e-12)
+	assert.InDelta(t, -0.3, result.VoltageVectors[50]["P2"], 1e-12)
+
+	// Midpoint should be zero / zero
+	assert.InDelta(t, 0.0, result.VoltageVectors[25]["P1"], 1e-12)
+	assert.InDelta(t, 0.0, result.VoltageVectors[25]["P2"], 1e-12)
+
+	// Diagonal sweep should NOT use sweep_1d – it should use set_voltage + measure_current
+	executions := mockExecutor.GetExecutions()
+	sweep1dCount := 0
+	setVoltageCount := 0
+	measureCount := 0
+	for _, exec := range executions {
+		switch exec.ScriptName {
+		case "sweep_1d":
+			sweep1dCount++
+		case "set_voltage":
+			setVoltageCount++
+		case "measure_current":
+			measureCount++
+		}
+	}
+	assert.Equal(t, 0, sweep1dCount, "Diagonal sweep should NOT use sweep_1d")
+	assert.Equal(t, 3*51*2, setVoltageCount, "Should set 2 gates × 51 points × 3 averages")
+	assert.Equal(t, 3*51, measureCount, "Should measure current 51 × 3 times")
+
+	t.Logf("Diagonal sweep: %d gates, %d points, %d averages", axis.Dimension(), 51, 3)
+	t.Logf("  set_voltage: %d, measure_current: %d", setVoltageCount, measureCount)
+}
+
+func TestE2E_SweepAxis_LegacyCompatibility(t *testing.T) {
+	// Verify that the legacy AveragedSweep1DRequest still works identically.
+	mockExecutor := NewMockScriptExecutor()
+	hubConfig := &HubConfig{}
+	orchestrator := NewMeasurementOrchestrator(mockExecutor, hubConfig)
+
+	legacyReq := AveragedSweep1DRequest{
+		MeasurementID:   "legacy-001",
+		SweepGate:       "P1",
+		SweepInstrument: "QDAC1",
+		SweepChannel:    1,
+		StartV:          -1.0,
+		StopV:           0.0,
+		NumPoints:       101,
+		NumAverages:     10,
+		CurrentMeter:    "DMM1",
+		CurrentChannel:  0,
+		SettlingTimeMs:  5.0,
+	}
+
+	result, err := orchestrator.ExecuteAveraged1DSweep(context.Background(), legacyReq)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, "legacy-001", result.MeasurementID)
+	assert.Equal(t, "P1", result.SweepGate)
+	assert.Equal(t, 10, result.NumAverages)
+	assert.Len(t, result.Voltages, 101)
+	assert.Len(t, result.AveragedCurrents, 101)
+	assert.Len(t, result.AllTraces, 10)
+
+	assert.InDelta(t, -1.0, result.Voltages[0], 1e-12)
+	assert.InDelta(t, 0.0, result.Voltages[100], 1e-12)
+}
+
+func TestE2E_SweepAxis_Validation(t *testing.T) {
+	tests := []struct {
+		name    string
+		axis    SweepAxis
+		wantErr string
+	}{
+		{
+			name:    "no gates",
+			axis:    SweepAxis{Label: "empty", Gates: nil, NumPoints: 10},
+			wantErr: "no gates",
+		},
+		{
+			name: "too few points",
+			axis: SweepAxis{
+				Label:     "one point",
+				Gates:     []GateEndpoint{{Gate: "P1", Instrument: "Q1", Channel: 1}},
+				NumPoints: 1,
+			},
+			wantErr: "at least 2 points",
+		},
+		{
+			name: "empty gate name",
+			axis: SweepAxis{
+				Label:     "no name",
+				Gates:     []GateEndpoint{{Gate: "", Instrument: "Q1", Channel: 1}},
+				NumPoints: 10,
+			},
+			wantErr: "gate name is empty",
+		},
+		{
+			name: "empty instrument",
+			axis: SweepAxis{
+				Label:     "no inst",
+				Gates:     []GateEndpoint{{Gate: "P1", Instrument: "", Channel: 1}},
+				NumPoints: 10,
+			},
+			wantErr: "instrument for gate P1 is empty",
+		},
+		{
+			name: "duplicate gate",
+			axis: SweepAxis{
+				Label: "dup",
+				Gates: []GateEndpoint{
+					{Gate: "P1", Instrument: "Q1", Channel: 1, StartV: 0, StopV: 1},
+					{Gate: "P1", Instrument: "Q1", Channel: 2, StartV: 0, StopV: 1},
+				},
+				NumPoints: 10,
+			},
+			wantErr: "duplicate gate P1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.axis.Validate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+		})
+	}
+
+	// Valid cases
+	t.Run("valid scalar", func(t *testing.T) {
+		axis := ScalarAxis("P1", "QDAC1", 1, -1, 0, 101)
+		assert.NoError(t, axis.Validate())
+	})
+
+	t.Run("valid detuning", func(t *testing.T) {
+		axis := DetuningAxis("P1", "Q1", 1, -0.5, 0.5, "P2", "Q1", 2, 0.5, -0.5, 51)
+		assert.NoError(t, axis.Validate())
+	})
+}
+
+func TestE2E_SweepAxis_VoltageCalculation(t *testing.T) {
+	axis := DetuningAxis(
+		"P1", "QDAC1", 1, -1.0, 1.0,
+		"P2", "QDAC1", 2, 0.5, -0.5,
+		11,
+	)
+
+	// Check parameter values [0, 0.1, 0.2, ..., 1.0]
+	params := axis.ParameterValues()
+	assert.Len(t, params, 11)
+	assert.InDelta(t, 0.0, params[0], 1e-12)
+	assert.InDelta(t, 0.5, params[5], 1e-12)
+	assert.InDelta(t, 1.0, params[10], 1e-12)
+
+	// Check voltage vectors at t=0, t=0.5, t=1
+	v0 := axis.VoltagesAt(0)
+	assert.InDelta(t, -1.0, v0["P1"], 1e-12)
+	assert.InDelta(t, 0.5, v0["P2"], 1e-12)
+
+	v50 := axis.VoltagesAt(0.5)
+	assert.InDelta(t, 0.0, v50["P1"], 1e-12)
+	assert.InDelta(t, 0.0, v50["P2"], 1e-12)
+
+	v100 := axis.VoltagesAt(1.0)
+	assert.InDelta(t, 1.0, v100["P1"], 1e-12)
+	assert.InDelta(t, -0.5, v100["P2"], 1e-12)
+
+	// Primary voltages should be P1
+	pv := axis.PrimaryVoltages()
+	assert.Len(t, pv, 11)
+	assert.InDelta(t, -1.0, pv[0], 1e-12)
+	assert.InDelta(t, 1.0, pv[10], 1e-12)
+
+	// Full voltage table
+	table := axis.AllVoltageVectors()
+	assert.Len(t, table, 11)
+	assert.InDelta(t, -1.0, table[0]["P1"], 1e-12)
+	assert.InDelta(t, 0.5, table[0]["P2"], 1e-12)
 }
