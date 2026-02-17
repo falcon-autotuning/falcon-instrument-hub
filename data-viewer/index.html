@@ -1,0 +1,1569 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Bridge between falcon-core measurement requests and hardware instruments">
+      
+      
+      
+      
+        <link rel="prev" href="../nats-protocol/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/icons/icon-256.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Data Viewer - Falcon Instrument Hub</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#data-viewer" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Falcon Instrument Hub" class="md-header__button md-logo" aria-label="Falcon Instrument Hub" data-md-component="logo">
+      
+  <img src="../assets/icons/icon-256.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Falcon Instrument Hub
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Data Viewer
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../CONFIG_VALIDATION/" class="md-tabs__link">
+          
+  
+  
+  Configuration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../server-interpreter/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="./" class="md-tabs__link">
+          
+  
+  
+  Tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Falcon Instrument Hub" class="md-nav__button md-logo" aria-label="Falcon Instrument Hub" data-md-component="logo">
+      
+  <img src="../assets/icons/icon-256.png" alt="logo">
+
+    </a>
+    Falcon Instrument Hub
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome to Falcon Instrument Hub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONFIG_VALIDATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Device Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../LUA_SCRIPT_AUTHORING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Script Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-interpreter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server & Interpreter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nats-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NATS Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Viewer
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Viewer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="Page contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Page contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Launch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generating Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sidebar-measurement-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sidebar — Measurement List
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolbar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Toolbar
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Toolbar">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#row-1-channel-display-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row 1 — Channel &amp; Display Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-2-units-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row 2 — Units &amp; Scaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot-area" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plot Area
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Plot Area">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#colour-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Colour Coding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-scaling-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-scaling Units
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-directory-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Directory Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssh-tunnelling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SSH Tunnelling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="Page contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Page contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#quick-start" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Quick Start
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Quick Start">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#manual-launch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manual Launch
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generating-demo-data" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Generating Demo Data
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#user-interface" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        User Interface
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="User Interface">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#sidebar-measurement-list" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Sidebar — Measurement List
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#toolbar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Toolbar
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Toolbar">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#row-1-channel-display-mode" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row 1 — Channel &amp; Display Mode
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#row-2-units-scaling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Row 2 — Units &amp; Scaling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot-area" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Plot Area
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Plot Area">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#colour-coding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Colour Coding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#auto-scaling-units" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Auto-scaling Units
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#data-directory-layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Data Directory Layout
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#architecture" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Architecture">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#rest-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        REST API
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ssh-tunnelling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        SSH Tunnelling
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="data-viewer">Data Viewer<a class="headerlink" href="#data-viewer" title="Permanent link">&para;</a></h1>
+<p>The <strong>FALCon Data Viewer</strong> is a browser-based tool for visualising raw and averaged measurement data stored by the instrument hub. It reads from the <a href="../server-interpreter/">two-database architecture</a> and renders interactive plots using Plotly.js.</p>
+<h2 id="quick-start">Quick Start<a class="headerlink" href="#quick-start" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span class="c1"># Build and launch (from falcon-instrument-hub/)</span>
+make<span class="w"> </span>dataviewer
+
+<span class="c1"># Or with a custom data directory</span>
+make<span class="w"> </span>dataviewer<span class="w"> </span><span class="nv">DATA_DIR</span><span class="o">=</span>/path/to/your/measurement/data
+</code></pre></div>
+<p>This builds the <code>dataviewer</code> binary and opens a local HTTP server at
+<a href="http://localhost:8089">http://localhost:8089</a>. Open that URL in any browser.</p>
+<h3 id="manual-launch">Manual Launch<a class="headerlink" href="#manual-launch" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span class="c1"># Build</span>
+<span class="nb">cd</span><span class="w"> </span>runtime
+go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>bin/dataviewer<span class="w"> </span>./cmd/dataviewer/
+
+<span class="c1"># Run</span>
+./bin/dataviewer<span class="w"> </span>--data-dir<span class="w"> </span>/path/to/measurement/data<span class="w"> </span>--port<span class="w"> </span><span class="m">8089</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--data-dir</code></td>
+<td><em>(required)</em></td>
+<td>Path to the measurement data directory (must contain <code>averaged/</code> and <code>raw/</code> subdirectories)</td>
+</tr>
+<tr>
+<td><code>--port</code></td>
+<td><code>8089</code></td>
+<td>HTTP port for the viewer</td>
+</tr>
+</tbody>
+</table>
+<h2 id="generating-demo-data">Generating Demo Data<a class="headerlink" href="#generating-demo-data" title="Permanent link">&para;</a></h2>
+<p>If you don't have measurement data yet, generate a demo dataset with two
+example measurements (a single Coulomb peak and a double-peak transition):</p>
+<div class="language-bash highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>runtime
+go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./internal/serverinterpreter<span class="w"> </span>-run<span class="w"> </span>TestGenerate_DummyDataset<span class="w"> </span>-v
+</code></pre></div>
+<p>This writes to <code>test-outs/data/dummy_measurement/</code> and creates:</p>
+<table>
+<thead>
+<tr>
+<th>Measurement</th>
+<th>Gate</th>
+<th>Channel</th>
+<th>Voltage Range</th>
+<th>Points</th>
+<th>Sweeps</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>coulomb-peak-001</code></td>
+<td>P1</td>
+<td>DMM1_0</td>
+<td>−1.5 → 0.5 V</td>
+<td>201</td>
+<td>10</td>
+<td>Single Lorentzian Coulomb peak</td>
+</tr>
+<tr>
+<td><code>double-peak-002</code></td>
+<td>B2</td>
+<td>DMM2_0</td>
+<td>−2.0 → 1.0 V</td>
+<td>301</td>
+<td>8</td>
+<td>Two peaks at different heights</td>
+</tr>
+</tbody>
+</table>
+<h2 id="user-interface">User Interface<a class="headerlink" href="#user-interface" title="Permanent link">&para;</a></h2>
+<p>The viewer has three main areas:</p>
+<h3 id="sidebar-measurement-list">Sidebar — Measurement List<a class="headerlink" href="#sidebar-measurement-list" title="Permanent link">&para;</a></h3>
+<p>The left sidebar lists every measurement found in the data directory. Each entry
+shows:</p>
+<ul>
+<li><strong>Measurement ID</strong> — unique identifier</li>
+<li><strong>AVG</strong> badge — averaged trace is available (always present)</li>
+<li><strong>RAW</strong> badge — individual sweep traces are available</li>
+<li><strong>Gate name</strong>, number of data points, and number of sweeps</li>
+</ul>
+<p>Click any measurement to load and plot it.</p>
+<h3 id="toolbar">Toolbar<a class="headerlink" href="#toolbar" title="Permanent link">&para;</a></h3>
+<p>Two toolbar rows appear above the plot after selecting a measurement:</p>
+<h4 id="row-1-channel-display-mode">Row 1 — Channel &amp; Display Mode<a class="headerlink" href="#row-1-channel-display-mode" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Channel</strong> dropdown</td>
+<td>Select which measurement channel to plot (e.g. <code>DMM1_0</code>, <code>DMM2_0</code>). Multi-channel measurements will show all available channels.</td>
+</tr>
+<tr>
+<td><strong>Both / Averaged / Raw Only</strong> toggle</td>
+<td>Choose which traces to display. <em>Both</em> overlays the averaged trace on top of the raw sweeps.</td>
+</tr>
+<tr>
+<td><strong>Raw opacity</strong></td>
+<td>Adjust transparency of raw traces (0.05 → 1.0). Lower values help distinguish the averaged result from the raw noise.</td>
+</tr>
+</tbody>
+</table>
+<h4 id="row-2-units-scaling">Row 2 — Units &amp; Scaling<a class="headerlink" href="#row-2-units-scaling" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Y unit</strong> dropdown</td>
+<td>Select the display unit for the y-axis: Auto, A, mA, µA, nA, or pA. <em>Auto</em> picks the most readable unit based on the data's magnitude.</td>
+</tr>
+<tr>
+<td><strong>X scale</strong></td>
+<td>Multiply all x-axis values by an arbitrary factor (default 1). Useful for converting voltage units.</td>
+</tr>
+<tr>
+<td><strong>Y scale</strong></td>
+<td>Multiply all y-axis values by an arbitrary factor (default 1), applied <em>after</em> unit conversion.</td>
+</tr>
+<tr>
+<td><strong>X label</strong></td>
+<td>Override the auto-generated x-axis label with custom text (leave blank for auto).</td>
+</tr>
+<tr>
+<td><strong>Y label</strong></td>
+<td>Override the auto-generated y-axis label with custom text (leave blank for auto).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plot-area">Plot Area<a class="headerlink" href="#plot-area" title="Permanent link">&para;</a></h3>
+<p>The interactive plot supports:</p>
+<ul>
+<li><strong>Zoom</strong> — click-drag to zoom into a region; double-click to reset</li>
+<li><strong>Pan</strong> — hold Shift + drag to pan</li>
+<li><strong>Hover</strong> — move the cursor over the plot to see voltage and current values
+  (unified hover shows all traces at the current x-position)</li>
+<li><strong>Trace toggling</strong> — click a trace name in the legend to hide/show it; double-click to isolate it</li>
+<li><strong>Export</strong> — use the camera icon in the Plotly toolbar to download a PNG snapshot</li>
+</ul>
+<h4 id="colour-coding">Colour Coding<a class="headerlink" href="#colour-coding" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Trace</th>
+<th>Colour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Averaged</td>
+<td><strong>Bold yellow</strong> line (width 2.5)</td>
+</tr>
+<tr>
+<td>Raw sweeps</td>
+<td>Coloured lines from a 10-colour palette, rendered at the configured opacity</td>
+</tr>
+</tbody>
+</table>
+<h4 id="auto-scaling-units">Auto-scaling Units<a class="headerlink" href="#auto-scaling-units" title="Permanent link">&para;</a></h4>
+<p>When <em>Y unit</em> is set to <strong>Auto</strong>, the y-axis automatically picks the most readable unit:</p>
+<table>
+<thead>
+<tr>
+<th>Current range</th>
+<th>Display unit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&lt; 1 nA</td>
+<td>pA</td>
+</tr>
+<tr>
+<td>1 nA – 1 µA</td>
+<td>nA</td>
+</tr>
+<tr>
+<td>1 µA – 1 mA</td>
+<td>µA</td>
+</tr>
+<tr>
+<td>1 mA – 1 A</td>
+<td>mA</td>
+</tr>
+<tr>
+<td>≥ 1 A</td>
+<td>A</td>
+</tr>
+</tbody>
+</table>
+<p>You can also force a specific unit via the <strong>Y unit</strong> dropdown, or apply an additional multiplicative <strong>Y scale</strong> factor.</p>
+<h2 id="data-directory-layout">Data Directory Layout<a class="headerlink" href="#data-directory-layout" title="Permanent link">&para;</a></h2>
+<p>The viewer expects the same on-disk layout produced by <code>MeasurementDatabase</code>:</p>
+<div class="language-text highlight"><pre><span></span><code>&lt;data-dir&gt;/
+  averaged/
+    index.json                      # measurement index
+    sweep_&lt;measurement-id&gt;.json     # averaged results
+  raw/
+    raw_index.json                  # raw trace index
+    raw_&lt;measurement-id&gt;.json       # individual sweep traces
+</code></pre></div>
+<p>See <a href="../server-interpreter/">Server Interpreter — Two-Database Architecture</a> for
+details on how this layout is created during measurements.</p>
+<h2 id="architecture">Architecture<a class="headerlink" href="#architecture" title="Permanent link">&para;</a></h2>
+<p>The data viewer is a single Go binary with no external dependencies at runtime:</p>
+<div class="language-text highlight"><pre><span></span><code>cmd/dataviewer/
+  main.go                  # HTTP server + JSON API
+  frontend/
+    index.html             # Plotly.js UI (dark theme)
+    plotly.min.js           # Plotly.js (bundled, no CDN needed)
+</code></pre></div>
+<ul>
+<li><strong>Backend</strong>: Go HTTP server that reads <code>index.json</code> at startup, then serves
+  measurement data as JSON via a REST API.</li>
+<li><strong>Frontend</strong>: Single-page HTML application using Plotly.js for interactive
+  plotting. Embedded into the binary via Go's <code>//go:embed</code> directive — no
+  Node.js, npm, or build step required.</li>
+</ul>
+<h3 id="rest-api">REST API<a class="headerlink" href="#rest-api" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Endpoint</th>
+<th>Method</th>
+<th>Response</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>/api/measurements</code></td>
+<td>GET</td>
+<td>Array of measurement summaries (id, gate, points, sweeps, has_raw)</td>
+</tr>
+<tr>
+<td><code>/api/measurements/{id}/plot</code></td>
+<td>GET</td>
+<td>Full plot payload: voltage array, averaged channels, raw traces</td>
+</tr>
+<tr>
+<td><code>/</code></td>
+<td>GET</td>
+<td>Frontend HTML (served from embedded filesystem)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="ssh-tunnelling">SSH Tunnelling<a class="headerlink" href="#ssh-tunnelling" title="Permanent link">&para;</a></h3>
+<p>Because the viewer is a plain HTTP server, it works seamlessly over SSH tunnels:</p>
+<div class="language-bash highlight"><pre><span></span><code><span class="c1"># On remote machine</span>
+./dataviewer<span class="w"> </span>--data-dir<span class="w"> </span>/data/measurements<span class="w"> </span>--port<span class="w"> </span><span class="m">8089</span>
+
+<span class="c1"># On your laptop</span>
+ssh<span class="w"> </span>-L<span class="w"> </span><span class="m">8089</span>:localhost:8089<span class="w"> </span>user@remote-host
+<span class="c1"># Open http://localhost:8089 in your local browser</span>
+</code></pre></div>
+<p>This is especially useful when the instrument hub runs on a lab PC without a
+display, or in a Docker container.</p>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.tabs.link", "content.code.annotate", "content.code.copy", "announce.dismiss", "navigation.tabs", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.preview", "navigation.instant.progress", "navigation.path", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
