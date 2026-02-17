@@ -1,6 +1,7 @@
-# falcon-instrument-hub
+# Falcon Instrument Hub
 
 The falcon-instrument-hub bridges falcon-core measurement requests to hardware instruments through user-provided Lua measurement scripts.
+Our [documentation](https://falcon-autotuning.github.io/falcon-instrument-hub/) can bring you up to speed.
 
 ## Architecture
 
@@ -40,6 +41,16 @@ The following scripts must be provided in `runtime/scripts/`:
 | `measure_current.lua` | Current measurement with averaging |
 
 See [docs/LUA_SCRIPT_AUTHORING.md](docs/LUA_SCRIPT_AUTHORING.md) for script requirements.
+
+## Documentation Guide
+
+### Configuration
+- **[Device Configuration](docs/CONFIG_VALIDATION.md)** - Configure quantum dot devices and gate mappings
+- **[Lua Script Authoring](docs/LUA_SCRIPT_AUTHORING.md)** - Write custom measurement scripts
+
+### Architecture
+- **[Server & Interpreter](docs/server-interpreter.md)** - Understand the hub's server architecture
+- **[NATS Protocol](docs/nats-protocol.md)** - Communication protocol with falcon-core
 
 <!--toc:start-->
 
