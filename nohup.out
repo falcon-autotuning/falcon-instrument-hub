@@ -1,0 +1,8 @@
+cd runtime && go build -o bin/instrument-server cmd/main.go
+cd runtime && go build -o bin/dataviewer ./cmd/dataviewer/
+runtime/bin/dataviewer --data-dir ../test-outs/data/dummy_measurement
+2026/02/17 17:12:49 FALCon Data Viewer
+2026/02/17 17:12:49   data dir : /home/zach/Documents/github/FALCon/test-outs/data/dummy_measurement
+2026/02/17 17:12:49   measurements: 2
+2026/02/17 17:12:49   open: http://localhost:8089
+make: *** [Makefile:29: dataviewer] Interrupt

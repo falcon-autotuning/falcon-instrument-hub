@@ -102,12 +102,12 @@ type measurementSummary struct {
 }
 
 type plotData struct {
-	Voltages     []float64          `json:"voltages"`
-	Averaged     map[string][]float64 `json:"averaged"`      // channel -> values
-	RawTraces    []rawTraceData     `json:"raw_traces"`
-	SweepGate    string             `json:"sweep_gate"`
-	NumSweeps    int                `json:"num_sweeps"`
-	MeasurementID string           `json:"measurement_id"`
+	Voltages      []float64            `json:"voltages"`
+	Averaged      map[string][]float64 `json:"averaged"` // channel -> values
+	RawTraces     []rawTraceData       `json:"raw_traces"`
+	SweepGate     string               `json:"sweep_gate"`
+	NumSweeps     int                  `json:"num_sweeps"`
+	MeasurementID string               `json:"measurement_id"`
 }
 
 type rawTraceData struct {

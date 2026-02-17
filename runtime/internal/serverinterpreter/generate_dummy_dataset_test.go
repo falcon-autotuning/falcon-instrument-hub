@@ -189,3 +189,147 @@ func TestGenerate_DummyDataset(t *testing.T) {
 
 	fmt.Printf("\n✓ Dummy dataset ready at: %s\n", absDir)
 }
+
+// TestGenerate_DummyDataset_DoublePeak adds a second measurement to the dummy
+// dataset: two Coulomb peaks with different heights and widths, simulating
+// a double-dot charge transition where two conductance peaks are visible.
+//
+//	go test ./internal/serverinterpreter -run TestGenerate_DummyDataset -v
+func TestGenerate_DummyDataset_DoublePeak(t *testing.T) {
+	outDir := filepath.Join("..", "..", "..", "..", "test-outs", "data", "dummy_measurement")
+	absDir, err := filepath.Abs(outDir)
+	require.NoError(t, err)
+
+	// Open existing database (don't clean — we want both measurements)
+	db, err := NewMeasurementDatabase(absDir)
+	require.NoError(t, err)
+
+	// ---------------------------------------------------------------------------
+	// Measurement parameters — double peak on B2
+	// ---------------------------------------------------------------------------
+	measurementID := "double-peak-002"
+	sweepGate := "B2"
+	startV := -2.0
+	stopV := 1.0
+	numPoints := 301
+	numSweeps := 8
+	channel := "DMM2_0"
+
+	// Two peaks
+	peak1Center := -0.8
+	peak1Width := 0.06
+	peak1Height := 3.5e-9
+	peak2Center := 0.2
+	peak2Width := 0.10
+	peak2Height := 7.0e-9
+	baselineCurrent := 5e-11
+	noiseAmplitude := 1.5e-10
+
+	seed := uint64(1337)
+	lcg := func() float64 {
+		sum := 0.0
+		for k := 0; k < 6; k++ {
+			seed = seed*6364136223846793005 + 1
+			sum += float64(seed>>33) / float64(1<<31)
+		}
+		return (sum - 3.0) / 3.0
+	}
+
+	step := (stopV - startV) / float64(numPoints-1)
+
+	// ---------------------------------------------------------------------------
+	// Build traces
+	// ---------------------------------------------------------------------------
+	result := &AveragedMeasurementResult{
+		MeasurementID: measurementID,
+		SweepGate:     sweepGate,
+		StartVoltage:  startV,
+		StopVoltage:   stopV,
+		NumPoints:     numPoints,
+		NumSweeps:     numSweeps,
+		AllTraces:     make([]Trace, numSweeps),
+		AveragedTrace: AveragedTrace{
+			Points:     make([]TracePoint, numPoints),
+			NumSweeps:  numSweeps,
+			SweepGate:  sweepGate,
+			StartV:     startV,
+			StopV:      stopV,
+			Timestamps: make([]time.Time, numSweeps),
+		},
+		TotalDuration: 18 * time.Second,
+	}
+
+	for s := 0; s < numSweeps; s++ {
+		result.AllTraces[s] = Trace{
+			SweepIndex: s + 1,
+			Points:     make([]TracePoint, numPoints),
+			Timestamp:  time.Date(2026, 2, 13, 11, 0, s, 0, time.UTC),
+		}
+		result.AveragedTrace.Timestamps[s] = result.AllTraces[s].Timestamp
+
+		for i := 0; i < numPoints; i++ {
+			voltage := startV + float64(i)*step
+
+			// Two Lorentzian peaks + baseline + noise
+			dv1 := voltage - peak1Center
+			lor1 := peak1Height / (1.0 + (dv1*dv1)/(peak1Width*peak1Width))
+			dv2 := voltage - peak2Center
+			lor2 := peak2Height / (1.0 + (dv2*dv2)/(peak2Width*peak2Width))
+			noise := noiseAmplitude * lcg()
+			current := baselineCurrent + lor1 + lor2 + noise
+
+			result.AllTraces[s].Points[i] = TracePoint{
+				Voltage: voltage,
+				Measurements: map[string]float64{
+					channel: current,
+				},
+			}
+		}
+	}
+
+	// Compute averaged trace
+	for i := 0; i < numPoints; i++ {
+		voltage := startV + float64(i)*step
+		sum := 0.0
+		for s := 0; s < numSweeps; s++ {
+			sum += result.AllTraces[s].Points[i].Measurements[channel]
+		}
+		result.AveragedTrace.Points[i] = TracePoint{
+			Voltage: voltage,
+			Measurements: map[string]float64{
+				channel: sum / float64(numSweeps),
+			},
+		}
+	}
+
+	// ---------------------------------------------------------------------------
+	// Store
+	// ---------------------------------------------------------------------------
+	avgPath, err := db.Store(result)
+	require.NoError(t, err)
+	require.NotNil(t, result.RawRef)
+
+	t.Logf("Double-peak dataset added to: %s", absDir)
+	t.Logf("  Averaged: %s", avgPath)
+	t.Logf("  Raw:      %s", result.RawRef.RawFilePath)
+	t.Logf("  Gate: %s  Range: [%.1f, %.1f] V  Points: %d  Sweeps: %d",
+		sweepGate, startV, stopV, numPoints, numSweeps)
+	t.Logf("  Peak 1: center=%.2f V  height=%.1e A  HWHM=%.3f V",
+		peak1Center, peak1Height, peak1Width)
+	t.Logf("  Peak 2: center=%.2f V  height=%.1e A  HWHM=%.3f V",
+		peak2Center, peak2Height, peak2Width)
+
+	// Verify
+	require.FileExists(t, avgPath)
+	require.FileExists(t, result.RawRef.RawFilePath)
+
+	loaded, err := db.LoadWithRawTraces(measurementID)
+	require.NoError(t, err)
+	require.Len(t, loaded.AllTraces, numSweeps)
+
+	// Check we now have 2 measurements
+	all := db.List()
+	t.Logf("  Total measurements in DB: %d", len(all))
+
+	fmt.Printf("\n✓ Double-peak dataset added. Total measurements: %d\n", len(all))
+}

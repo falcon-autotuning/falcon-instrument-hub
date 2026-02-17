@@ -15,9 +15,18 @@ build: build-go setup-python
 build-go:
 ifeq ($(OS),Windows_NT)
 	cd runtime && go build -o bin/instrument-server.exe cmd/main.go
+	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
 else
 	cd runtime && go build -o bin/instrument-server cmd/main.go
+	cd runtime && go build -o bin/dataviewer ./cmd/dataviewer/
 endif
+
+# Data viewer — plots raw & averaged measurement data in the browser.
+# Usage: make dataviewer DATA_DIR=path/to/measurement/data
+DATA_DIR ?= ../test-outs/data/dummy_measurement
+.PHONY: dataviewer
+dataviewer: build-go
+	runtime/bin/dataviewer --data-dir $(DATA_DIR)
 
 .PHONY: setup-python
 setup-python:
