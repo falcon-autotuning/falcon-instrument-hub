@@ -35,6 +35,7 @@ type ScriptExecutor interface {
 type MeasurementOrchestrator struct {
 	executor   ScriptExecutor
 	hubConfig  *HubConfig
+	Perf       *PerfTelemetry
 	mu         sync.Mutex
 	inProgress map[string]*OrchestratedMeasurement
 }
@@ -56,6 +57,7 @@ func NewMeasurementOrchestrator(executor ScriptExecutor, hubConfig *HubConfig) *
 	return &MeasurementOrchestrator{
 		executor:   executor,
 		hubConfig:  hubConfig,
+		Perf:       NewPerfTelemetry(nil),
 		inProgress: make(map[string]*OrchestratedMeasurement),
 	}
 }
@@ -129,6 +131,15 @@ type Sweep1DLine struct {
 //     e. Ramp X gate back to start voltage
 //  3. Aggregate all lines into 2D result
 func (o *MeasurementOrchestrator) Execute2DSweep(ctx context.Context, req Sweep2DRequest) (*Sweep2DResult, error) {
+	if o.Perf != nil {
+		stop := o.Perf.Start("Execute2DSweep", map[string]string{
+			"id": req.MeasurementID,
+			"xGate": req.XGate,
+			"yGate": req.YGate,
+		})
+		defer stop()
+	}
+
 	// Register measurement
 	measurement := &OrchestratedMeasurement{
 		ID:        req.MeasurementID,
@@ -402,6 +413,14 @@ func (o *MeasurementOrchestrator) ExecuteAveraged1DSweep(ctx context.Context, re
 // For a multi-gate axis, it steps through the parameter values and calls
 // set_voltage for each gate at each point, then reads the current.
 func (o *MeasurementOrchestrator) ExecuteAveragedAxisSweep(ctx context.Context, req AveragedSweepAxisRequest) (*AveragedSweepAxisResult, error) {
+	if o.Perf != nil {
+		stop := o.Perf.Start("ExecuteAveragedAxisSweep", map[string]string{
+			"id":   req.MeasurementID,
+			"gate": req.Axis.Label,
+		})
+		defer stop()
+	}
+
 	if err := req.Axis.Validate(); err != nil {
 		return nil, fmt.Errorf("invalid sweep axis: %w", err)
 	}
