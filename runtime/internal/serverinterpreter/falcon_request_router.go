@@ -110,9 +110,17 @@ type RouteResult struct {
 }
 
 // Route parses a falcon measurement envelope and executes the appropriate measurement.
+// The request is validated against the falcon-measurement-lib JSON schemas before routing.
 func (r *MeasurementRouter) Route(ctx context.Context, envelope FalconMeasurementEnvelope) (*RouteResult, error) {
 	result := &RouteResult{
 		MeasurementID: envelope.MeasurementID,
+	}
+
+	// Validate the request against the falcon-measurement-lib schemas
+	if validation := ValidateRequest(envelope); !validation.OK() {
+		result.Success = false
+		result.Error = fmt.Sprintf("schema validation failed: %s", validation.Error())
+		return result, fmt.Errorf("schema validation failed: %s", validation.Error())
 	}
 
 	switch envelope.MeasurementType {

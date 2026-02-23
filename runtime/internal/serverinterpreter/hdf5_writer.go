@@ -223,15 +223,19 @@ type HDF5Writer struct {
 }
 
 // NewHDF5Writer creates a new HDF5 writer.
+// If the native HDF5 library is available (built with -tags hdf5), HDF5 is
+// preferred.  Otherwise the writer automatically falls back to JSON.
 func NewHDF5Writer(config HDF5Config) (*HDF5Writer, error) {
 	// Create base directory if it doesn't exist
 	if err := os.MkdirAll(config.BasePath, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
+	// hdf5Available is set to true by hdf5_impl.go (build tag: hdf5).
+	// The stub (hdf5_stub.go) leaves it false.
 	writer := &HDF5Writer{
 		config:  config,
-		useJSON: true, // For now, use JSON fallback
+		useJSON: !hdf5Available,
 	}
 
 	return writer, nil
@@ -265,12 +269,53 @@ func (w *HDF5Writer) writeJSON(result *AveragedMeasurementResult) (string, error
 	return fp, nil
 }
 
-// writeHDF5 writes the result to HDF5 format.
-// TODO: Implement native HDF5 writing when gonum/hdf5 is available.
+// writeHDF5 writes the result to HDF5 format using gonum/hdf5.
+//
+// Dataset layout inside the HDF5 file:
+//
+//	/<measurementID>/
+//	    averaged_trace/          float64 [numPoints x numChannels]
+//	    voltages/                float64 [numPoints]
+//	    metadata (attrs):
+//	        measurement_id       string
+//	        sweep_gate           string
+//	        start_voltage        float64
+//	        stop_voltage         float64
+//	        num_points           int
+//	        num_sweeps           int
+//	        total_duration_ns    int64
+//
+// If the HDF5 library (libhdf5) is not installed on the host, the writer
+// automatically falls back to JSON via writeJSON.
 func (w *HDF5Writer) writeHDF5(result *AveragedMeasurementResult) (string, error) {
-	// For now, fall back to JSON
-	return w.writeJSON(result)
+	filename := fmt.Sprintf("%s_%s.h5",
+		w.config.FilePrefix,
+		result.MeasurementID)
+	fp := filepath.Join(w.config.BasePath, filename)
+
+	// Try native HDF5 first; fall back to JSON if the C library is missing.
+	if err := writeHDF5Native(fp, result); err != nil {
+		// HDF5 library might not be available — fall back to JSON and log.
+		fmt.Printf("HDF5 write failed (%v), falling back to JSON\n", err)
+		return w.writeJSON(result)
+	}
+
+	result.DatabasePath = fp
+	return fp, nil
 }
+
+// writeHDF5Native performs the actual HDF5 I/O.
+// It is extracted so that the fallback path is always available even when
+// the hdf5 C library is not linked.
+func writeHDF5Native(fp string, result *AveragedMeasurementResult) error {
+	// ---------------------------------------------------------------
+	// HDF5 C bindings are optional.  When they are not available the
+	// build uses hdf5_stub.go which makes this function return an error
+	// immediately, causing the caller to fall back to JSON.
+	// ---------------------------------------------------------------
+	return writeHDF5Impl(fp, result)
+}
+
 
 // Close closes the writer.
 func (w *HDF5Writer) Close() error {

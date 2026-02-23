@@ -36,6 +36,7 @@ The following scripts must be provided in `runtime/scripts/`:
 | `set_voltage.lua` | Set a single gate voltage |
 | `get_voltage.lua` | Read a single voltage |
 | `sweep_1d.lua` | 1D voltage sweep with current measurement |
+| `sweep_2d.lua` | 2D voltage sweep orchestrating multiple 1D sweeps |
 | `ramp_voltage.lua` | Smooth voltage ramping |
 | `dc_get_set.lua` | Parallel set/get operations |
 | `measure_current.lua` | Current measurement with averaging |
@@ -54,39 +55,13 @@ See [docs/LUA_SCRIPT_AUTHORING.md](docs/LUA_SCRIPT_AUTHORING.md) for script requ
 
 <!--toc:start-->
 
-- [instrument-server](#instrument-server)
+- [Falcon Instrument Hub](#falcon-instrument-hub)
+  - [Architecture](#architecture)
   - [Build](#build)
-    - [Linux](#linux)
-    - [Windows](#windows)
   - [Configuration](#configuration)
-    - [Packages](#packages)
-    - [Device configuration](#device-configuration)
-      - [Region 1: Global name categorization](#region-1-global-name-categorization)
-      - [Region 2: Specific channel registration](#region-2-specific-channel-registration)
-      - [Region 3: DC wiring](#region-3-dc-wiring)
-    - [Wire-map](#wire-map)
-      - [Direct connection between instruments](#direct-connection-between-instruments)
-      - [Connection between an instrument and a device](#connection-between-an-instrument-and-a-device)
-  - [Docs](#docs)
   - [Contributing](#contributing)
   - [License](#license)
-  <!--toc:end-->
-
-# TODO
-
-The logparser got moved to the fdt.
-The current breaking change is no, no-ops for meter like instruments. They need
-to have some sort of break in the chain of commands to be armed on time.
-
-A result of this change will inevitably be needing to provide a software trigger to
-instruments that are deemed to only be a requirement.
-
-This repository both contains code for background daemon processes running in python
-and a go executable for managing them and their communication with falcon.
-
-Need to support state request and response from falcon
-
-The api needs to be reloaded. And there is a breaking change that the hash must be added to the Upload data for the falcon requester.
+<!--toc:end-->
 
 ## Build
 
@@ -95,11 +70,18 @@ support compiling both into Linux and Windows executables to support most hardwa
 
 ### Linux
 
- <!-- TODO: fill this in -->
+```bash
+cd runtime
+make build
+```
 
 ### Windows
 
- <!-- TODO: fill this in -->
+```bash
+cd runtime
+# Windows builds use Go cross-compilation
+GOOS=windows GOARCH=amd64 go build -o bin/falcon-instrument-hub.exe ./cmd/
+```
 
 ## Configuration
 
@@ -222,6 +204,12 @@ To learn about the naming conventions reference `falcon-autotuning/instrument-te
 
 ## Docs
 
+See our full documentation at https://falcon-autotuning.github.io/falcon-instrument-hub/.
+
 ## Contributing
 
+Contributions are welcome! Please follow the project's coding standards, run `go test ./...` in the `runtime/` directory, and ensure all tests pass before submitting a pull request.
+
 ## License
+
+See [LICENSE](LICENSE) for details.
