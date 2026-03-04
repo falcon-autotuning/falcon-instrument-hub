@@ -38,13 +38,13 @@ func (t FalconInstrumentTarget) Serialize() string {
 
 // FalconMeasure1DBufferedRequest matches measure_1D_buffered.json schema.
 type FalconMeasure1DBufferedRequest struct {
-	Setters           []FalconInstrumentTarget   `json:"setters,omitempty"`
-	BufferedSetters   []FalconInstrumentTarget   `json:"bufferedSetters,omitempty"`
-	BufferedGetters   []FalconInstrumentTarget   `json:"bufferedGetters"`
-	SetVoltageDomains map[string]FalconDomain    `json:"setVoltageDomains,omitempty"`
-	SampleRate        float64                    `json:"sampleRate"`
-	NumPoints         int                        `json:"numPoints"`
-	NumSteps          int                        `json:"numSteps"`
+	Setters           []FalconInstrumentTarget `json:"setters,omitempty"`
+	BufferedSetters   []FalconInstrumentTarget `json:"bufferedSetters,omitempty"`
+	BufferedGetters   []FalconInstrumentTarget `json:"bufferedGetters"`
+	SetVoltageDomains map[string]FalconDomain  `json:"setVoltageDomains,omitempty"`
+	SampleRate        float64                  `json:"sampleRate"`
+	NumPoints         int                      `json:"numPoints"`
+	NumSteps          int                      `json:"numSteps"`
 }
 
 // FalconMeasure2DBufferedRequest matches measure_2D_buffered.json schema.

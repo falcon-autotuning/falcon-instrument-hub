@@ -133,7 +133,7 @@ type Sweep1DLine struct {
 func (o *MeasurementOrchestrator) Execute2DSweep(ctx context.Context, req Sweep2DRequest) (*Sweep2DResult, error) {
 	if o.Perf != nil {
 		stop := o.Perf.Start("Execute2DSweep", map[string]string{
-			"id": req.MeasurementID,
+			"id":    req.MeasurementID,
 			"xGate": req.XGate,
 			"yGate": req.YGate,
 		})

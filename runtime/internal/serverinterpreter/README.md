@@ -15,14 +15,19 @@ This package bridges falcon-core MeasurementRequest objects to instrument comman
 | `data_collector.go` | Async data collection using Go channels |
 | `waveform_processor.go` | Waveform chunking and instruction generation |
 | `instructions.go` | Measurement instruction types |
-| `types.go` | Core data structures |
+| `types.go` | Core data structures and script data types |
 | `bridge.go` | Direct mode orchestration with HTTP RPC |
 | `client.go` | HTTP RPC client for instrument-script-server |
-| `generator.go` | Lua script template generation |
-| `nats_handler.go` | NATS handler utilities |
+| `measurement_orchestrator.go` | 2D sweep and complex measurement coordination |
+| `falcon_request_router.go` | Falcon request routing and validation |
+| `averaged_sweep_manager.go` | N-averaged 1D sweep management |
+| `schema_validator.go` | Measurement request validation |
+| `perf_telemetry.go` | Performance telemetry |
 | `set_voltage_handler.go` | Set voltage command handling |
 | `falcon_core.go` | falcon-core CGO integration (build tag: falcon_core) |
 | `falcon_core_stub.go` | Pure-Go fallback for testing |
+| `hdf5_impl.go` | HDF5 storage (build tag: hdf5) |
+| `hdf5_stub.go` | JSON fallback storage |
 | `doc.go` | Package documentation |
 
 ## Quick Start

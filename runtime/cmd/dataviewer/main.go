@@ -80,13 +80,14 @@ type rawRecord struct {
 }
 
 type measurementIndex struct {
-	MeasurementID string      `json:"measurement_id"`
-	FilePath      string      `json:"file_path"`
-	SweepGate     string      `json:"sweep_gate"`
-	NumPoints     int         `json:"num_points"`
-	NumSweeps     int         `json:"num_sweeps"`
-	StoredAt      time.Time   `json:"stored_at"`
-	RawDataRef    *rawDataRef `json:"raw_data_ref,omitempty"`
+	MeasurementID   string      `json:"measurement_id"`
+	FilePath        string      `json:"file_path"`
+	SweepGate       string      `json:"sweep_gate"`
+	NumPoints       int         `json:"num_points"`
+	NumSweeps       int         `json:"num_sweeps"`
+	StoredAt        time.Time   `json:"stored_at"`
+	RawDataRef      *rawDataRef `json:"raw_data_ref,omitempty"`
+	MeasurementType string      `json:"measurement_type,omitempty"`
 }
 
 // ---------------------------------------------------------------------------
@@ -94,11 +95,12 @@ type measurementIndex struct {
 // ---------------------------------------------------------------------------
 
 type measurementSummary struct {
-	ID        string `json:"id"`
-	SweepGate string `json:"sweep_gate"`
-	NumPoints int    `json:"num_points"`
-	NumSweeps int    `json:"num_sweeps"`
-	HasRaw    bool   `json:"has_raw"`
+	ID              string `json:"id"`
+	SweepGate       string `json:"sweep_gate"`
+	NumPoints       int    `json:"num_points"`
+	NumSweeps       int    `json:"num_sweeps"`
+	HasRaw          bool   `json:"has_raw"`
+	MeasurementType string `json:"measurement_type,omitempty"`
 }
 
 type plotData struct {
@@ -113,6 +115,78 @@ type plotData struct {
 type rawTraceData struct {
 	SweepIndex int                  `json:"sweep_index"`
 	Channels   map[string][]float64 `json:"channels"` // channel -> values
+}
+
+// --- 2D sweep types ---
+
+type sweep2DRecord struct {
+	MeasurementID string                 `json:"measurement_id"`
+	XGate         string                 `json:"x_gate"`
+	YGate         string                 `json:"y_gate"`
+	XVoltages     []float64              `json:"x_voltages"`
+	YVoltages     []float64              `json:"y_voltages"`
+	Channels      []string               `json:"channels"`
+	ChannelData   map[string][][]float64 `json:"channel_data"`
+}
+
+type plotData2D struct {
+	MeasurementID   string                 `json:"measurement_id"`
+	MeasurementType string                 `json:"measurement_type"` // always "2d"
+	XGate           string                 `json:"x_gate"`
+	YGate           string                 `json:"y_gate"`
+	XVoltages       []float64              `json:"x_voltages"`
+	YVoltages       []float64              `json:"y_voltages"`
+	Channels        []string               `json:"channels"`
+	ChannelData     map[string][][]float64 `json:"channel_data"` // channel -> [y][x]
+}
+
+// --- DC point collection types ---
+
+type dcPointRecord struct {
+	GateName     string             `json:"gate_name"`
+	SetVoltage   float64            `json:"set_voltage"`
+	Measurements map[string]float64 `json:"measurements"`
+	Timestamp    time.Time          `json:"timestamp"`
+}
+
+type dcCollectionRecord struct {
+	MeasurementID string          `json:"measurement_id"`
+	Points        []dcPointRecord `json:"points"`
+	Channels      []string        `json:"channels"`
+}
+
+type plotDataDC struct {
+	MeasurementID   string          `json:"measurement_id"`
+	MeasurementType string          `json:"measurement_type"` // always "dc_collection"
+	Points          []dcPointRecord `json:"points"`
+	Channels        []string        `json:"channels"`
+}
+
+// --- 1D axis sweep types ---
+
+type axisSweepLineRecord struct {
+	AngleDeg    float64              `json:"angle_deg"`
+	Voltages    []float64            `json:"voltages"`
+	ChannelData map[string][]float64 `json:"channel_data"`
+	Gate1V      []float64            `json:"gate1_voltages"`
+	Gate2V      []float64            `json:"gate2_voltages"`
+}
+
+type axisSweepRecord struct {
+	MeasurementID string                `json:"measurement_id"`
+	Gate1         string                `json:"gate1"`
+	Gate2         string                `json:"gate2"`
+	Channels      []string              `json:"channels"`
+	Sweeps        []axisSweepLineRecord `json:"sweeps"`
+}
+
+type plotDataAxisSweep struct {
+	MeasurementID   string                `json:"measurement_id"`
+	MeasurementType string                `json:"measurement_type"` // always "axis_sweep"
+	Gate1           string                `json:"gate1"`
+	Gate2           string                `json:"gate2"`
+	Channels        []string              `json:"channels"`
+	Sweeps          []axisSweepLineRecord `json:"sweeps"`
 }
 
 // ---------------------------------------------------------------------------
@@ -152,11 +226,12 @@ func (s *server) handleListMeasurements(w http.ResponseWriter, r *http.Request) 
 	var summaries []measurementSummary
 	for _, idx := range s.index {
 		summaries = append(summaries, measurementSummary{
-			ID:        idx.MeasurementID,
-			SweepGate: idx.SweepGate,
-			NumPoints: idx.NumPoints,
-			NumSweeps: idx.NumSweeps,
-			HasRaw:    idx.RawDataRef != nil,
+			ID:              idx.MeasurementID,
+			SweepGate:       idx.SweepGate,
+			NumPoints:       idx.NumPoints,
+			NumSweeps:       idx.NumSweeps,
+			HasRaw:          idx.RawDataRef != nil,
+			MeasurementType: idx.MeasurementType,
 		})
 	}
 	sort.Slice(summaries, func(i, j int) bool {
@@ -176,6 +251,19 @@ func (s *server) handleGetPlotData(w http.ResponseWriter, r *http.Request) {
 	idx, ok := s.index[id]
 	if !ok {
 		http.Error(w, fmt.Sprintf("measurement %q not found", id), http.StatusNotFound)
+		return
+	}
+
+	// Dispatch by measurement type
+	switch idx.MeasurementType {
+	case "2d":
+		s.handle2DPlotData(w, idx)
+		return
+	case "dc_collection":
+		s.handleDCPlotData(w, idx)
+		return
+	case "axis_sweep":
+		s.handleAxisSweepPlotData(w, idx)
 		return
 	}
 
@@ -241,6 +329,75 @@ func (s *server) handleGetPlotData(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	writeJSON(w, pd)
+}
+
+func (s *server) handle2DPlotData(w http.ResponseWriter, idx measurementIndex) {
+	data, err := os.ReadFile(idx.FilePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read 2D file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	var rec sweep2DRecord
+	if err := json.Unmarshal(data, &rec); err != nil {
+		http.Error(w, fmt.Sprintf("failed to parse 2D data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	pd := plotData2D{
+		MeasurementID:   rec.MeasurementID,
+		MeasurementType: "2d",
+		XGate:           rec.XGate,
+		YGate:           rec.YGate,
+		XVoltages:       rec.XVoltages,
+		YVoltages:       rec.YVoltages,
+		Channels:        rec.Channels,
+		ChannelData:     rec.ChannelData,
+	}
+	writeJSON(w, pd)
+}
+
+func (s *server) handleDCPlotData(w http.ResponseWriter, idx measurementIndex) {
+	data, err := os.ReadFile(idx.FilePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read DC collection file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	var rec dcCollectionRecord
+	if err := json.Unmarshal(data, &rec); err != nil {
+		http.Error(w, fmt.Sprintf("failed to parse DC collection data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	pd := plotDataDC{
+		MeasurementID:   rec.MeasurementID,
+		MeasurementType: "dc_collection",
+		Points:          rec.Points,
+		Channels:        rec.Channels,
+	}
+	writeJSON(w, pd)
+}
+
+func (s *server) handleAxisSweepPlotData(w http.ResponseWriter, idx measurementIndex) {
+	data, err := os.ReadFile(idx.FilePath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to read axis sweep file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	var rec axisSweepRecord
+	if err := json.Unmarshal(data, &rec); err != nil {
+		http.Error(w, fmt.Sprintf("failed to parse axis sweep data: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	pd := plotDataAxisSweep{
+		MeasurementID:   rec.MeasurementID,
+		MeasurementType: "axis_sweep",
+		Gate1:           rec.Gate1,
+		Gate2:           rec.Gate2,
+		Channels:        rec.Channels,
+		Sweeps:          rec.Sweeps,
+	}
 	writeJSON(w, pd)
 }
 

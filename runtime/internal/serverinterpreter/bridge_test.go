@@ -258,7 +258,6 @@ func TestBridge_ExecuteSetVoltage(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -287,7 +286,6 @@ func TestBridge_ExecuteGetVoltage(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -316,7 +314,6 @@ func TestBridge_ExecuteMeasurementRequestJSON(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -341,5 +338,4 @@ func TestDefaultBridgeConfig(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1", config.ScriptServerHost)
 	assert.Equal(t, 8555, config.ScriptServerPort)
-	assert.Equal(t, "/tmp/falcon-scripts", config.ScriptOutputDir)
 }

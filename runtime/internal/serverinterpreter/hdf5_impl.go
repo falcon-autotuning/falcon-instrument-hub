@@ -71,12 +71,12 @@ func writeHDF5Impl(fp string, result *AveragedMeasurementResult) error {
 
 	// ── metadata (attributes on the group) ──────────────────────────
 	attrs := map[string]interface{}{
-		"measurement_id": result.MeasurementID,
-		"sweep_gate":     result.SweepGate,
-		"start_voltage":  result.StartVoltage,
-		"stop_voltage":   result.StopVoltage,
-		"num_points":     result.NumPoints,
-		"num_sweeps":     result.NumSweeps,
+		"measurement_id":    result.MeasurementID,
+		"sweep_gate":        result.SweepGate,
+		"start_voltage":     result.StartVoltage,
+		"stop_voltage":      result.StopVoltage,
+		"num_points":        result.NumPoints,
+		"num_sweeps":        result.NumSweeps,
 		"total_duration_ns": int64(result.TotalDuration),
 	}
 

@@ -74,7 +74,6 @@ type AveragedSweepManager struct {
 	config      AveragedSweepManagerConfig
 	hubConfig   *HubConfig
 	deviceSetup *QuantumDotMeasurementSetup
-	generator   *ScriptGenerator
 	traceBuffer *TraceBuffer
 	database    *MeasurementDatabase
 	client      *ScriptServerClient
@@ -98,7 +97,6 @@ type AveragedSweepManager struct {
 type activeMeasurement struct {
 	Request       *AveragedSweepRequest
 	MeasurementID string
-	ScriptPath    string
 	StartTime     time.Time
 	ResultChan    chan *AveragedMeasurementResult
 	ErrorChan     chan error
@@ -107,13 +105,6 @@ type activeMeasurement struct {
 // NewAveragedSweepManager creates a new manager.
 func NewAveragedSweepManager(config AveragedSweepManagerConfig) (*AveragedSweepManager, error) {
 	ctx, cancel := context.WithCancel(context.Background())
-
-	// Create script generator
-	generator, err := NewScriptGenerator(config.ScriptOutputDir)
-	if err != nil {
-		cancel()
-		return nil, fmt.Errorf("failed to create script generator: %w", err)
-	}
 
 	// Create database
 	dbPath := config.ScriptOutputDir
@@ -129,7 +120,6 @@ func NewAveragedSweepManager(config AveragedSweepManagerConfig) (*AveragedSweepM
 	mgr := &AveragedSweepManager{
 		config:             config,
 		hubConfig:          config.HubConfig,
-		generator:          generator,
 		database:           database,
 		activeMeasurements: make(map[string]*activeMeasurement),
 		ctx:                ctx,
@@ -212,6 +202,10 @@ func (m *AveragedSweepManager) Stop() error {
 
 // ExecuteAveragedSweep executes an N-averaged sweep measurement.
 // This is the main entry point for falcon requests.
+//
+// Note: This method uses user-provided Lua scripts via the script server.
+// The old auto-generation path has been removed. Use MeasurementOrchestrator
+// for the recommended script-dispatch approach.
 func (m *AveragedSweepManager) ExecuteAveragedSweep(req *AveragedSweepRequest) (*AveragedMeasurementResult, error) {
 	if m.deviceSetup == nil {
 		return nil, fmt.Errorf("device setup not configured")
@@ -236,33 +230,10 @@ func (m *AveragedSweepManager) ExecuteAveragedSweep(req *AveragedSweepRequest) (
 		return nil, fmt.Errorf("failed to build sweep data: %w", err)
 	}
 
-	// Convert to averaged sweep data
-	avgSweepData := AveragedSweep1DScriptData{
-		MeasurementName:    req.MeasurementName,
-		MeasurementID:      measurementID,
-		SweepGate:          sweepData.SweepGate,
-		SweepSetter:        sweepData.SweepSetter,
-		StartVoltage:       sweepData.StartVoltage,
-		StopVoltage:        sweepData.StopVoltage,
-		NumPoints:          sweepData.NumPoints,
-		NumAverages:        req.NumAverages,
-		SettlingTimeMs:     sweepData.SettlingTimeMs,
-		StaticSetters:      sweepData.StaticSetters,
-		GetVoltageRequests: sweepData.GetVoltageRequests,
-	}
-
-	// Generate Lua script
-	scriptPath, err := m.generator.GenerateAveragedSweep1DScript(avgSweepData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate script: %w", err)
-	}
-
-	m.log(fmt.Sprintf("Generated script: %s", scriptPath))
-
 	// Get measurement channel names for registration
-	channels := make([]string, len(avgSweepData.GetVoltageRequests))
-	for i, req := range avgSweepData.GetVoltageRequests {
-		channels[i] = fmt.Sprintf("%s_%d", req.Getter.Id, req.Getter.Channel)
+	channels := make([]string, len(sweepData.GetVoltageRequests))
+	for i, gvr := range sweepData.GetVoltageRequests {
+		channels[i] = fmt.Sprintf("%s_%d", gvr.Getter.Id, gvr.Getter.Channel)
 	}
 
 	// Register with trace buffer
@@ -283,7 +254,6 @@ func (m *AveragedSweepManager) ExecuteAveragedSweep(req *AveragedSweepRequest) (
 	active := &activeMeasurement{
 		Request:       req,
 		MeasurementID: measurementID,
-		ScriptPath:    scriptPath,
 		StartTime:     time.Now(),
 		ResultChan:    make(chan *AveragedMeasurementResult, 1),
 		ErrorChan:     make(chan error, 1),
@@ -293,8 +263,8 @@ func (m *AveragedSweepManager) ExecuteAveragedSweep(req *AveragedSweepRequest) (
 	m.activeMeasurements[measurementID] = active
 	m.mu.Unlock()
 
-	// Submit script to instrument-script-server
-	jobID, err := m.client.SubmitMeasure(scriptPath)
+	// Submit the user-provided sweep script to instrument-script-server
+	jobID, err := m.client.SubmitMeasure("sweep_1d")
 	if err != nil {
 		m.mu.Lock()
 		delete(m.activeMeasurements, measurementID)

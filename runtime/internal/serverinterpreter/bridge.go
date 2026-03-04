@@ -15,8 +15,7 @@ import (
 // Bridge orchestrates the conversion of falcon MeasurementRequest objects
 // to instrument-script-server commands and handles the response flow.
 type Bridge struct {
-	client    *ScriptServerClient
-	generator *ScriptGenerator
+	client *ScriptServerClient
 }
 
 // BridgeConfig holds configuration for the Bridge.
@@ -25,8 +24,6 @@ type BridgeConfig struct {
 	ScriptServerHost string
 	// ScriptServerPort is the port of the instrument-script-server RPC API.
 	ScriptServerPort int
-	// ScriptOutputDir is the directory where generated Lua scripts are stored.
-	ScriptOutputDir string
 }
 
 // DefaultBridgeConfig returns a default configuration.
@@ -34,22 +31,15 @@ func DefaultBridgeConfig() BridgeConfig {
 	return BridgeConfig{
 		ScriptServerHost: "127.0.0.1",
 		ScriptServerPort: 8555,
-		ScriptOutputDir:  "/tmp/falcon-scripts",
 	}
 }
 
 // NewBridge creates a new Bridge with the given configuration.
 func NewBridge(config BridgeConfig) (*Bridge, error) {
-	generator, err := NewScriptGenerator(config.ScriptOutputDir)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create script generator: %w", err)
-	}
-
 	client := NewScriptServerClient(config.ScriptServerHost, config.ScriptServerPort)
 
 	return &Bridge{
-		client:    client,
-		generator: generator,
+		client: client,
 	}, nil
 }
 
@@ -63,8 +53,11 @@ type ExecutionResult struct {
 }
 
 // ExecuteMeasurementRequestJSON takes a falcon MeasurementRequest in JSON format,
-// generates the appropriate Lua script, submits it to the instrument-script-server,
-// waits for completion, and returns the results.
+// submits appropriate commands to the instrument-script-server, and returns results.
+//
+// Note: The old script-generation path has been removed. Experimenters should
+// create their own Lua scripts and use MeasurementOrchestrator / ScriptDispatcher.
+// This method is kept for simple set/get operations.
 func (b *Bridge) ExecuteMeasurementRequestJSON(jsonStr string) (*ExecutionResult, error) {
 	// Parse the measurement request JSON
 	parsed, err := ParseMeasurementRequestJSON(jsonStr)
@@ -125,32 +118,82 @@ func (b *Bridge) ExecuteMeasurementRequestWithFalconCore(jsonStr string) (*Execu
 	return b.ExecuteParsedRequest(parsed)
 }
 
-// ExecuteParsedRequest executes a parsed measurement request.
+// ExecuteParsedRequest executes a parsed measurement request by dispatching
+// individual set/get operations to the script server.
 func (b *Bridge) ExecuteParsedRequest(req *ParsedMeasurementRequest) (*ExecutionResult, error) {
-	// Generate the Lua script(s)
-	scriptPaths, err := b.generator.GenerateFromParsedRequest(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate script: %w", err)
+	var lastResult *ExecutionResult
+
+	// Execute set_voltage commands
+	for key, voltage := range req.SetVoltages {
+		var instrumentID string
+		var channel int
+		// Parse the serialized key  "ID" or "ID:channel"
+		if idx := len(key) - 1; idx >= 0 {
+			for i := len(key) - 1; i >= 0; i-- {
+				if key[i] == ':' {
+					instrumentID = key[:i]
+					fmt.Sscanf(key[i+1:], "%d", &channel)
+					break
+				}
+			}
+			if instrumentID == "" {
+				instrumentID = key
+			}
+		}
+		result, err := b.ExecuteSetVoltage(instrumentID, channel, voltage)
+		if err != nil {
+			return result, err
+		}
+		lastResult = result
 	}
 
-	if len(scriptPaths) == 0 {
-		return nil, fmt.Errorf("no scripts generated from measurement request")
+	if lastResult != nil {
+		return lastResult, nil
 	}
 
-	// For now, execute only the first script
-	// In a more complete implementation, we might want to execute all scripts
-	scriptPath := scriptPaths[0]
+	return &ExecutionResult{
+		Status: "completed",
+	}, nil
+}
 
-	// Submit the script to the instrument-script-server
-	jobID, err := b.client.SubmitMeasure(scriptPath)
+// ExecuteSetVoltage is a convenience method to execute a single set_voltage operation.
+func (b *Bridge) ExecuteSetVoltage(instrumentID string, channel int, voltage float64) (*ExecutionResult, error) {
+	// Submit directly to the script server
+	scriptName := fmt.Sprintf("set_voltage_%s_%d", instrumentID, channel)
+	jobID, err := b.client.SubmitMeasure(scriptName)
 	if err != nil {
 		return &ExecutionResult{
 			Status: "failed",
-			Error:  fmt.Sprintf("failed to submit measurement: %v", err),
+			Error:  fmt.Sprintf("failed to submit set_voltage: %v", err),
 		}, nil
 	}
 
-	// Wait for the job to complete
+	status, err := b.client.WaitForJob(jobID, 100*time.Millisecond, 30*time.Second)
+	if err != nil {
+		return &ExecutionResult{
+			JobID:  jobID,
+			Status: "timeout",
+			Error:  fmt.Sprintf("timeout waiting for job: %v", err),
+		}, nil
+	}
+
+	return &ExecutionResult{
+		JobID:  jobID,
+		Status: status,
+	}, nil
+}
+
+// ExecuteGetVoltage is a convenience method to execute a single get_voltage operation.
+func (b *Bridge) ExecuteGetVoltage(instrumentID string, channel int) (*ExecutionResult, error) {
+	scriptName := fmt.Sprintf("get_voltage_%s_%d", instrumentID, channel)
+	jobID, err := b.client.SubmitMeasure(scriptName)
+	if err != nil {
+		return &ExecutionResult{
+			Status: "failed",
+			Error:  fmt.Sprintf("failed to submit get_voltage: %v", err),
+		}, nil
+	}
+
 	status, err := b.client.WaitForJob(jobID, 100*time.Millisecond, 30*time.Second)
 	if err != nil {
 		return &ExecutionResult{
@@ -165,50 +208,17 @@ func (b *Bridge) ExecuteParsedRequest(req *ParsedMeasurementRequest) (*Execution
 		Status: status,
 	}
 
-	// If completed successfully, get the results
 	if status == "completed" {
 		rawResult, err := b.client.JobResult(jobID)
-		if err != nil {
-			result.Error = fmt.Sprintf("failed to get job result: %v", err)
-		} else {
+		if err == nil {
 			if resultMap, ok := rawResult.(map[string]interface{}); ok {
 				result.RawResult = resultMap
-				// Try to parse results into MeasurementResponse objects
 				result.Results = parseResults(resultMap)
 			}
 		}
-	} else if status == "failed" || status == "canceled" {
-		result.Error = fmt.Sprintf("job %s", status)
 	}
 
 	return result, nil
-}
-
-// ExecuteSetVoltage is a convenience method to execute a single set_voltage operation.
-func (b *Bridge) ExecuteSetVoltage(instrumentID string, channel int, voltage float64) (*ExecutionResult, error) {
-	req := &ParsedMeasurementRequest{
-		MeasurementName: fmt.Sprintf("set_voltage_%s_%d", instrumentID, channel),
-		Setters: []InstrumentTarget{
-			{Id: instrumentID, Channel: channel},
-		},
-		SetVoltages: map[string]float64{
-			InstrumentTarget{Id: instrumentID, Channel: channel}.Serialize(): voltage,
-		},
-	}
-
-	return b.ExecuteParsedRequest(req)
-}
-
-// ExecuteGetVoltage is a convenience method to execute a single get_voltage operation.
-func (b *Bridge) ExecuteGetVoltage(instrumentID string, channel int) (*ExecutionResult, error) {
-	req := &ParsedMeasurementRequest{
-		MeasurementName: fmt.Sprintf("get_voltage_%s_%d", instrumentID, channel),
-		Getters: []InstrumentTarget{
-			{Id: instrumentID, Channel: channel},
-		},
-	}
-
-	return b.ExecuteParsedRequest(req)
 }
 
 // ToSerializedResponse converts an ExecutionResult back to a JSON string

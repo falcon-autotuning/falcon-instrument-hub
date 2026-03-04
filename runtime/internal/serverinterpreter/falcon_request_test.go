@@ -6,7 +6,6 @@ package serverinterpreter
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -558,126 +557,6 @@ func TestFalconRequest_GetTriggerLeader(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "QDAC1", req.Getter.ID)
-}
-
-// =============================================================================
-// Test: Lua Script Generation for Each Request Type
-// =============================================================================
-
-func TestLuaScriptGeneration_AllRequestTypes(t *testing.T) {
-	tempDir := t.TempDir()
-	gen, err := NewScriptGenerator(tempDir)
-	require.NoError(t, err)
-
-	t.Run("set_voltage script", func(t *testing.T) {
-		data := SetVoltageScriptData{
-			MeasurementName: "falcon_set_voltage",
-			SetVoltageRequests: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 1}, SetVoltage: -0.5},
-			},
-		}
-		path, err := gen.GenerateSetVoltageScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-	})
-
-	t.Run("get_voltage script", func(t *testing.T) {
-		data := GetVoltageScriptData{
-			MeasurementName: "falcon_get_voltage",
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-		}
-		path, err := gen.GenerateGetVoltageScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-	})
-
-	t.Run("measure_get_set script", func(t *testing.T) {
-		data := MeasureGetSetScriptData{
-			MeasurementName: "falcon_measure_get_set",
-			SetVoltageRequests: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 1}, SetVoltage: -0.5},
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 2}, SetVoltage: -0.6},
-			},
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-		}
-		path, err := gen.GenerateMeasureGetSetScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-	})
-
-	t.Run("dc_get_set script", func(t *testing.T) {
-		data := DCGetSetScriptData{
-			MeasurementName: "falcon_dc_get_set",
-			SetVoltageRequests: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 1}, SetVoltage: -0.5},
-			},
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-			SettlingTimeMs: 10.0,
-		}
-		path, err := gen.GenerateDCGetSetScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-
-		content, _ := os.ReadFile(path)
-		assert.Contains(t, string(content), "ctx:parallel")
-	})
-
-	t.Run("1D_sweep script", func(t *testing.T) {
-		data := Sweep1DScriptData{
-			MeasurementName: "falcon_1d_sweep",
-			SweepGate:       "P1",
-			SweepSetter:     InstrumentTarget{Id: "QDAC1", Channel: 1},
-			StartVoltage:    -1.0,
-			StopVoltage:     0.0,
-			NumPoints:       101,
-			SettlingTimeMs:  5.0,
-			StaticSetters: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 2}, SetVoltage: -0.5},
-			},
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-		}
-		path, err := gen.GenerateSweep1DScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-
-		content, _ := os.ReadFile(path)
-		assert.Contains(t, string(content), "for i = 0, num_points - 1 do")
-	})
-
-	t.Run("averaged_sweep script", func(t *testing.T) {
-		data := AveragedSweep1DScriptData{
-			MeasurementName: "falcon_averaged_sweep",
-			MeasurementID:   "test-123",
-			SweepGate:       "P1",
-			SweepSetter:     InstrumentTarget{Id: "QDAC1", Channel: 1},
-			StartVoltage:    -1.0,
-			StopVoltage:     0.0,
-			NumPoints:       101,
-			NumAverages:     10,
-			SettlingTimeMs:  5.0,
-			StaticSetters: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 2}, SetVoltage: -0.5},
-			},
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-		}
-		path, err := gen.GenerateAveragedSweep1DScript(data)
-		require.NoError(t, err)
-		assert.FileExists(t, path)
-
-		content, _ := os.ReadFile(path)
-		assert.Contains(t, string(content), "for sweep_idx = 1, num_averages do")
-		assert.Contains(t, string(content), "ctx:report_trace")
-	})
 }
 
 // =============================================================================
