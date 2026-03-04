@@ -70,130 +70,6 @@ func TestSetVoltageCommand_ParseJSON(t *testing.T) {
 	assert.Equal(t, 1.5, cmd.SetVoltage)
 }
 
-func TestSetVoltageLuaGenerator_GenerateCallStatement(t *testing.T) {
-	gen := NewSetVoltageLuaGenerator()
-
-	cmd := SetVoltageCommand{
-		Setter: &InstrumentPortTarget{
-			InstrumentID: "DAC1",
-			Channel:      intPtr(0),
-		},
-		SetVoltage: 2.5,
-	}
-
-	lua := gen.GenerateCallStatement(cmd)
-
-	assert.Contains(t, lua, "DAC1.SET_VOLTAGE")
-	assert.Contains(t, lua, "channel = 0")
-	assert.Contains(t, lua, "voltage = 2.5")
-}
-
-func TestSetVoltageLuaGenerator_GenerateParallelBlock(t *testing.T) {
-	gen := NewSetVoltageLuaGenerator()
-
-	cmds := []SetVoltageCommand{
-		{
-			Setter: &InstrumentPortTarget{
-				InstrumentID: "DAC1",
-			},
-			SetVoltage: 1.0,
-		},
-		{
-			Setter: &InstrumentPortTarget{
-				InstrumentID: "DAC2",
-			},
-			SetVoltage: 2.0,
-		},
-	}
-
-	lua := gen.GenerateParallelBlock(cmds)
-
-	assert.Contains(t, lua, "ctx:parallel(function()")
-	assert.Contains(t, lua, "DAC1.SET_VOLTAGE")
-	assert.Contains(t, lua, "DAC2.SET_VOLTAGE")
-	assert.Contains(t, lua, "end)")
-}
-
-func TestSetVoltageLuaGenerator_SingleCommand_NoParallel(t *testing.T) {
-	gen := NewSetVoltageLuaGenerator()
-
-	cmds := []SetVoltageCommand{
-		{
-			Setter: &InstrumentPortTarget{
-				InstrumentID: "DAC1",
-			},
-			SetVoltage: 1.5,
-		},
-	}
-
-	lua := gen.GenerateParallelBlock(cmds)
-
-	// Should not wrap in parallel for single command
-	assert.NotContains(t, lua, "ctx:parallel")
-	assert.Contains(t, lua, "DAC1.SET_VOLTAGE")
-}
-
-func TestSetVoltageFromMeasurementRequest_ExtractCommands(t *testing.T) {
-	jsonStr := `{
-		"measurementName": "voltage_sweep",
-		"setters": [
-			{"id": "DAC1", "channel": 0},
-			{"id": "DAC2", "channel": 1}
-		],
-		"setVoltages": {
-			"DAC1": 1.5,
-			"DAC2:1": 2.0
-		}
-	}`
-
-	req, err := NewFalconMeasurementRequestFromJSON(jsonStr)
-	require.NoError(t, err)
-	defer req.Close()
-
-	// Create extractor (bridge not needed for extraction)
-	extractor := &SetVoltageFromMeasurementRequest{}
-	cmds, err := extractor.ExtractCommands(req)
-	require.NoError(t, err)
-
-	assert.Len(t, cmds, 2)
-
-	// First command
-	assert.Equal(t, "DAC1", cmds[0].Setter.InstrumentID)
-	assert.Equal(t, 1.5, cmds[0].SetVoltage)
-
-	// Second command
-	assert.Equal(t, "DAC2", cmds[1].Setter.InstrumentID)
-}
-
-func TestSetVoltageFromMeasurementRequest_ExtractFromWaveforms(t *testing.T) {
-	jsonStr := `{
-		"waveforms": [
-			{
-				"constant_value": 3.3,
-				"transforms": [
-					{
-						"port": {
-							"default_name": "DAC1"
-						}
-					}
-				]
-			}
-		]
-	}`
-
-	req, err := NewFalconMeasurementRequestFromJSON(jsonStr)
-	require.NoError(t, err)
-	defer req.Close()
-
-	extractor := &SetVoltageFromMeasurementRequest{}
-	cmds, err := extractor.ExtractCommands(req)
-	require.NoError(t, err)
-
-	assert.Len(t, cmds, 1)
-	assert.Equal(t, "DAC1", cmds[0].Setter.InstrumentID)
-	assert.Equal(t, 3.3, cmds[0].SetVoltage)
-}
-
 func TestSetVoltageResult_ToJSON(t *testing.T) {
 	actualVoltage := 1.499
 	result := SetVoltageResult{
@@ -237,7 +113,6 @@ func TestSetVoltageHandler_WithMockServer(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -279,7 +154,6 @@ func TestSetVoltageHandler_ExecuteFromJSON(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -320,7 +194,6 @@ func TestSetVoltageHandler_NilSetter(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: host,
 		ScriptServerPort: port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)

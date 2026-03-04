@@ -72,6 +72,9 @@
     }
     .badge.raw { background: rgba(63,185,80,0.2); color: var(--green); }
     .badge.avg { background: rgba(210,153,34,0.2); color: var(--orange); }
+    .badge.sweep2d { background: rgba(88,166,255,0.2); color: var(--accent); }
+    .badge.dc { background: rgba(139,148,158,0.2); color: var(--text-muted); }
+    .badge.axis { background: rgba(188,143,243,0.2); color: #bc8ff3; }
 
     /* --- Main panel --- */
     .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
@@ -117,6 +120,26 @@
       padding: 4px 24px; font-size: 11px; color: var(--text-muted);
       border-top: 1px solid var(--border); background: var(--surface);
     }
+
+    /* --- DC Table --- */
+    .dc-table-wrap {
+      padding: 24px; overflow: auto; flex: 1;
+    }
+    .dc-table {
+      border-collapse: collapse; width: 100%; font-size: 13px;
+    }
+    .dc-table th {
+      text-align: left; padding: 8px 12px; font-weight: 600;
+      color: var(--text-muted); border-bottom: 2px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .dc-table td {
+      padding: 8px 12px; border-bottom: 1px solid var(--border);
+    }
+    .dc-table tr:hover td {
+      background: rgba(88,166,255,0.06);
+    }
+    .dc-table .num { font-family: 'SF Mono', 'Fira Code', monospace; text-align: right; }
   </style>
 </head>
 <body>
@@ -184,6 +207,15 @@
       <input type="text" id="yLabel" value="" style="width:120px" placeholder="auto">
     </div>
 
+    <!-- Toolbar row 3: axis sweep mode (only visible for axis_sweep) -->
+    <div class="toolbar" id="toolbar3" style="display:none">
+      <label>Axes:</label>
+      <div class="toggle-group" id="axisModeBtns">
+        <button class="toggle-btn active" data-axis="sweep-theta">Sweep × θ</button>
+        <button class="toggle-btn" data-axis="gate-gate">P1 × P2</button>
+      </div>
+    </div>
+
     <!-- Plot area — always in the DOM, never display:none -->
     <div id="plotArea">
       <div id="emptyState" class="empty-state">
@@ -209,6 +241,7 @@
 var measurements = [];
 var currentData = null;
 var showMode = "both";
+var axisMode = "sweep-theta";
 
 var RAW_COLOURS = [
   "#636efa","#ef553b","#00cc96","#ab63fa","#ffa15a",
@@ -267,12 +300,27 @@ function renderList() {
   var html = "";
   for (var i = 0; i < measurements.length; i++) {
     var m = measurements[i];
-    html += '<div class="measurement-item" data-id="' + m.id + '" onclick="selectMeasurement(\'' + m.id + '\')">'
-         + '<div class="id">' + m.id
-         + ' <span class="badge avg">AVG</span>'
-         + (m.has_raw ? ' <span class="badge raw">RAW</span>' : '')
-         + '</div>'
-         + '<div class="meta">' + m.sweep_gate + ' \u00B7 ' + m.num_points + ' pts \u00B7 ' + m.num_sweeps + ' sweeps</div>'
+    var badges, meta;
+    switch (m.measurement_type) {
+      case "2d":
+        badges = ' <span class="badge sweep2d">2D</span>';
+        meta = m.sweep_gate + ' \u00B7 ' + m.num_points + ' pts';
+        break;
+      case "dc_collection":
+        badges = ' <span class="badge dc">DC</span>';
+        meta = m.sweep_gate + ' \u00B7 ' + m.num_points + ' points';
+        break;
+      case "axis_sweep":
+        badges = ' <span class="badge axis">AXIS</span>';
+        meta = m.sweep_gate + ' \u00B7 ' + m.num_sweeps + ' angles \u00B7 ' + m.num_points + ' pts';
+        break;
+      default:
+        badges = ' <span class="badge avg">AVG</span>' + (m.has_raw ? ' <span class="badge raw">RAW</span>' : '');
+        meta = m.sweep_gate + ' \u00B7 ' + m.num_points + ' pts \u00B7 ' + m.num_sweeps + ' sweeps';
+    }
+    html += '<div class="measurement-item" data-id="' + m.id + '" onclick="selectMeasurement(\'' + m.id + '\')">' 
+         + '<div class="id">' + m.id + badges + '</div>'
+         + '<div class="meta">' + meta + '</div>'
          + '</div>';
   }
   el.innerHTML = html;
@@ -301,10 +349,28 @@ function selectMeasurement(id) {
     })
     .then(function(data) {
       currentData = data;
-      setStatus("Loaded " + id + ": " + data.voltages.length + " points, " +
-                Object.keys(data.averaged).length + " ch, " +
-                (data.raw_traces ? data.raw_traces.length : 0) + " raw traces.");
-      onDataLoaded();
+      switch (data.measurement_type) {
+        case "2d":
+          setStatus("Loaded 2D sweep " + id + ": " +
+                    data.x_voltages.length + " \u00D7 " + data.y_voltages.length + " points, " +
+                    data.channels.length + " ch.");
+          onDataLoaded2D();
+          break;
+        case "dc_collection":
+          setStatus("Loaded DC collection " + id + ": " + data.points.length + " points.");
+          onDataLoadedDC();
+          break;
+        case "axis_sweep":
+          setStatus("Loaded axis sweep " + id + ": " +
+                    data.sweeps.length + " angles, " + data.channels.length + " ch.");
+          onDataLoadedAxisSweep();
+          break;
+        default:
+          setStatus("Loaded " + id + ": " + data.voltages.length + " points, " +
+                    Object.keys(data.averaged).length + " ch, " +
+                    (data.raw_traces ? data.raw_traces.length : 0) + " raw traces.");
+          onDataLoaded();
+      }
     })
     .catch(function(err) {
       setStatus("Error loading " + id + ": " + err.message);
@@ -312,6 +378,11 @@ function selectMeasurement(id) {
 }
 
 function onDataLoaded() {
+  // Clear any table HTML from DC view
+  var plotDiv = document.getElementById("plot");
+  if (plotDiv.querySelector(".dc-table-wrap")) plotDiv.innerHTML = "";
+  document.getElementById("toolbar3").style.display = "none";
+
   // Populate channel dropdown
   var channels = Object.keys(currentData.averaged);
   var sel = document.getElementById("channelSelect");
@@ -348,17 +419,38 @@ function bindToolbar() {
       for (var j = 0; j < toggles.length; j++) toggles[j].classList.remove("active");
       ev.currentTarget.classList.add("active");
       showMode = ev.currentTarget.getAttribute("data-show");
-      renderPlot();
+      replot();
+    });
+  }
+
+  // Axis mode toggles
+  var axisBtns = document.querySelectorAll("#axisModeBtns .toggle-btn");
+  for (var i = 0; i < axisBtns.length; i++) {
+    axisBtns[i].addEventListener("click", function(ev) {
+      for (var j = 0; j < axisBtns.length; j++) axisBtns[j].classList.remove("active");
+      ev.currentTarget.classList.add("active");
+      axisMode = ev.currentTarget.getAttribute("data-axis");
+      replot();
     });
   }
 
   var changeIds = ["channelSelect", "rawOpacity", "yUnitSelect", "xScale", "yScale"];
   for (var i = 0; i < changeIds.length; i++) {
-    document.getElementById(changeIds[i]).addEventListener("change", renderPlot);
+    document.getElementById(changeIds[i]).addEventListener("change", replot);
   }
   var inputIds = ["xLabel", "yLabel"];
   for (var i = 0; i < inputIds.length; i++) {
-    document.getElementById(inputIds[i]).addEventListener("input", renderPlot);
+    document.getElementById(inputIds[i]).addEventListener("input", replot);
+  }
+}
+
+function replot() {
+  if (!currentData) return;
+  switch (currentData.measurement_type) {
+    case "2d":           renderPlot2D(); break;
+    case "dc_collection": renderTableDC(); break;
+    case "axis_sweep":   renderAxisSweepPlot(); break;
+    default:             renderPlot();
   }
 }
 
@@ -535,6 +627,560 @@ window.addEventListener("resize", function() {
     try { Plotly.Plots.resize("plot"); } catch(e) {}
   }
 });
+
+// =========================================================================
+// 2D Sweep support
+// =========================================================================
+function onDataLoaded2D() {
+  document.getElementById("toolbar3").style.display = "none";
+  var channels = currentData.channels || Object.keys(currentData.channel_data || {});
+  var sel = document.getElementById("channelSelect");
+  var opt = "";
+  for (var i = 0; i < channels.length; i++) {
+    opt += '<option value="' + channels[i] + '">' + channels[i] + '</option>';
+  }
+  sel.innerHTML = opt;
+
+  // Show only toolbar1 with channel select; hide 1D-specific controls
+  document.getElementById("toolbar1").style.display = "flex";
+  document.getElementById("toolbar2").style.display = "flex";
+  document.getElementById("emptyState").style.display = "none";
+
+  // Reset scales
+  document.getElementById("xScale").value = "1";
+  document.getElementById("yScale").value = "1";
+  document.getElementById("xLabel").value = "";
+  document.getElementById("yLabel").value = "";
+
+  setTimeout(renderPlot2D, 60);
+}
+
+function renderPlot2D() {
+  if (!currentData || currentData.measurement_type !== "2d") return;
+
+  var channel = document.getElementById("channelSelect").value;
+  var unitChoice = document.getElementById("yUnitSelect").value;
+  var xScaleFactor = parseFloat(document.getElementById("xScale").value) || 1;
+  var yScaleFactor = parseFloat(document.getElementById("yScale").value) || 1;
+  var customXLabel = document.getElementById("xLabel").value.trim();
+  var customYLabel = document.getElementById("yLabel").value.trim();
+
+  var zMatrix = currentData.channel_data[channel];
+  if (!zMatrix || zMatrix.length === 0) {
+    setStatus("No data for channel " + channel);
+    return;
+  }
+
+  // Scale X/Y voltages
+  var xVals = currentData.x_voltages.map(function(v) { return v * xScaleFactor; });
+  var yVals = currentData.y_voltages.map(function(v) { return v * yScaleFactor; });
+
+  // Determine Z unit & scale
+  var maxAbsZ = 0;
+  for (var j = 0; j < zMatrix.length; j++) {
+    for (var i = 0; i < zMatrix[j].length; i++) {
+      var a = Math.abs(zMatrix[j][i]);
+      if (a > maxAbsZ) maxAbsZ = a;
+    }
+  }
+  var unitScale, unitLabel;
+  if (unitChoice === "auto") {
+    var detected = detectUnit(maxAbsZ);
+    unitScale = detected.scale;
+    unitLabel = detected.label;
+  } else {
+    unitScale = UNIT_SCALES[unitChoice].scale;
+    unitLabel = UNIT_SCALES[unitChoice].label;
+  }
+
+  // Scale z values
+  var zScaled = [];
+  for (var j = 0; j < zMatrix.length; j++) {
+    var row = [];
+    for (var i = 0; i < zMatrix[j].length; i++) {
+      row.push(zMatrix[j][i] * unitScale);
+    }
+    zScaled.push(row);
+  }
+
+  var traces = [{
+    x: xVals,
+    y: yVals,
+    z: zScaled,
+    type: "heatmap",
+    colorscale: "Viridis",
+    colorbar: {
+      title: { text: channel + " (" + unitLabel + ")", font: { color: "#e6edf3", size: 12 } },
+      tickfont: { color: "#8b949e", size: 11 },
+      outlinecolor: "#30363d",
+      bordercolor: "#30363d"
+    },
+    hovertemplate: currentData.x_gate + ": %{x:.4f} V<br>" +
+                   currentData.y_gate + ": %{y:.4f} V<br>" +
+                   channel + ": %{z:.4f} " + unitLabel + "<extra></extra>",
+    zsmooth: "best"
+  }];
+
+  var xAxisLabel = customXLabel ||
+    (currentData.x_gate + " Voltage (V)" + (xScaleFactor !== 1 ? " \u00D7 " + xScaleFactor : ""));
+  var yAxisLabel = customYLabel ||
+    (currentData.y_gate + " Voltage (V)" + (yScaleFactor !== 1 ? " \u00D7 " + yScaleFactor : ""));
+
+  var layout = {
+    title: {
+      text: currentData.measurement_id + "  \u2014  " +
+            currentData.x_gate + " \u00D7 " + currentData.y_gate + " 2D sweep",
+      font: { color: "#e6edf3", size: 15 }
+    },
+    paper_bgcolor: "#0d1117",
+    plot_bgcolor: "#161b22",
+    font: { color: "#8b949e", size: 12 },
+    xaxis: {
+      title: { text: xAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true
+    },
+    yaxis: {
+      title: { text: yAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true
+    },
+    margin: { l: 80, r: 20, t: 50, b: 60 },
+    autosize: true
+  };
+
+  var config = { responsive: true, displaylogo: false, scrollZoom: true };
+
+  setStatus("Rendering 2D heatmap: " + xVals.length + " \u00D7 " + yVals.length + " points\u2026");
+
+  var plotDiv = document.getElementById("plot");
+  try { Plotly.purge(plotDiv); } catch(e) {}
+
+  Plotly.newPlot(plotDiv, traces, layout, config)
+    .then(function() {
+      setStatus("2D plot OK. " + xVals.length + " \u00D7 " + yVals.length +
+                " pts. Channel: " + channel + ". Unit: " + unitLabel);
+    })
+    .catch(function(err) {
+      console.error("Plotly.newPlot failed:", err);
+      setStatus("ERROR: " + err.message);
+      plotDiv.innerHTML = '<p style="color:#ff6692;padding:20px">Plot error: ' + err.message + '</p>';
+    });
+}
+
+// =========================================================================
+// DC Point Collection — table rendering
+// =========================================================================
+function onDataLoadedDC() {
+  // Hide 1D-specific toolbars
+  document.getElementById("toolbar1").style.display = "none";
+  document.getElementById("toolbar2").style.display = "none";
+  document.getElementById("emptyState").style.display = "none";
+
+  setTimeout(renderTableDC, 60);
+}
+
+function renderTableDC() {
+  if (!currentData || currentData.measurement_type !== "dc_collection") return;
+
+  var pts = currentData.points;
+  if (!pts || pts.length === 0) {
+    setStatus("No DC points to display.");
+    return;
+  }
+
+  // Determine channels
+  var channels = currentData.channels || [];
+  if (channels.length === 0 && pts.length > 0) {
+    channels = Object.keys(pts[0].measurements || {});
+  }
+
+  // Find max abs value for auto-unit
+  var maxAbs = 0;
+  for (var i = 0; i < pts.length; i++) {
+    for (var c = 0; c < channels.length; c++) {
+      var v = Math.abs(pts[i].measurements[channels[c]] || 0);
+      if (v > maxAbs) maxAbs = v;
+    }
+  }
+  var unitInfo = detectUnit(maxAbs);
+
+  // Build table HTML
+  var html = '<div class="dc-table-wrap"><table class="dc-table"><thead><tr>';
+  html += '<th>#</th><th>Gate</th><th>Set Voltage (V)</th>';
+  for (var c = 0; c < channels.length; c++) {
+    html += '<th>' + channels[c] + ' (' + unitInfo.label + ')</th>';
+  }
+  html += '</tr></thead><tbody>';
+
+  for (var i = 0; i < pts.length; i++) {
+    var pt = pts[i];
+    html += '<tr>';
+    html += '<td class="num">' + (i + 1) + '</td>';
+    html += '<td>' + pt.gate_name + '</td>';
+    html += '<td class="num">' + pt.set_voltage.toFixed(4) + '</td>';
+    for (var c = 0; c < channels.length; c++) {
+      var raw = pt.measurements[channels[c]] || 0;
+      html += '<td class="num">' + (raw * unitInfo.scale).toFixed(4) + '</td>';
+    }
+    html += '</tr>';
+  }
+
+  html += '</tbody></table></div>';
+
+  var plotDiv = document.getElementById("plot");
+  try { Plotly.purge(plotDiv); } catch(e) {}
+  plotDiv.innerHTML = html;
+
+  setStatus("DC table: " + pts.length + " points, " + channels.length + " channel(s). Unit: " + unitInfo.label);
+}
+
+// =========================================================================
+// 1D Axis Sweep — multi-angle plot
+// =========================================================================
+function onDataLoadedAxisSweep() {
+  var channels = currentData.channels || [];
+  if (channels.length === 0 && currentData.sweeps && currentData.sweeps.length > 0) {
+    channels = Object.keys(currentData.sweeps[0].channel_data || {});
+  }
+  var sel = document.getElementById("channelSelect");
+  var opt = "";
+  for (var i = 0; i < channels.length; i++) {
+    opt += '<option value="' + channels[i] + '">' + channels[i] + '</option>';
+  }
+  sel.innerHTML = opt;
+
+  document.getElementById("toolbar1").style.display = "flex";
+  document.getElementById("toolbar2").style.display = "flex";
+  document.getElementById("toolbar3").style.display = "flex";
+  document.getElementById("emptyState").style.display = "none";
+
+  // Reset axis mode to default
+  axisMode = "sweep-theta";
+  var axisBtns = document.querySelectorAll("#axisModeBtns .toggle-btn");
+  for (var i = 0; i < axisBtns.length; i++) {
+    axisBtns[i].classList.toggle("active", axisBtns[i].getAttribute("data-axis") === "sweep-theta");
+  }
+  // Update button labels with actual gate names
+  for (var i = 0; i < axisBtns.length; i++) {
+    if (axisBtns[i].getAttribute("data-axis") === "gate-gate") {
+      axisBtns[i].textContent = currentData.gate1 + " \u00D7 " + currentData.gate2;
+    }
+  }
+
+  document.getElementById("xScale").value = "1";
+  document.getElementById("yScale").value = "1";
+  document.getElementById("xLabel").value = "";
+  document.getElementById("yLabel").value = "";
+
+  setTimeout(renderAxisSweepPlot, 60);
+}
+
+var AXIS_COLOURS = [
+  "#ffd700", "#ff6692", "#00cc96", "#636efa", "#ef553b",
+  "#ab63fa", "#ffa15a", "#19d3f3", "#b6e880", "#ff97ff"
+];
+
+function renderAxisSweepPlot() {
+  if (!currentData || currentData.measurement_type !== "axis_sweep") return;
+
+  // Dispatch to gate-vs-gate mode if selected
+  if (axisMode === "gate-gate") {
+    renderAxisSweepGateGate();
+    return;
+  }
+
+  var channel    = document.getElementById("channelSelect").value;
+  var unitChoice = document.getElementById("yUnitSelect").value;
+  var xScaleFactor = parseFloat(document.getElementById("xScale").value) || 1;
+  var customXLabel = document.getElementById("xLabel").value.trim();
+  var customYLabel = document.getElementById("yLabel").value.trim();
+
+  var sweeps = currentData.sweeps;
+  if (!sweeps || sweeps.length === 0) {
+    setStatus("No axis sweep data to display.");
+    return;
+  }
+
+  // X axis = sweep voltages (from first sweep — all sweeps share the same grid)
+  var xVals = sweeps[0].voltages.map(function(v) { return v * xScaleFactor; });
+
+  // Y axis = angle values
+  var yVals = sweeps.map(function(sw) { return sw.angle_deg; });
+
+  // Find max abs for auto-unit
+  var maxAbs = 0;
+  for (var s = 0; s < sweeps.length; s++) {
+    var vals = sweeps[s].channel_data[channel];
+    if (!vals) continue;
+    for (var i = 0; i < vals.length; i++) {
+      var a = Math.abs(vals[i]);
+      if (a > maxAbs) maxAbs = a;
+    }
+  }
+
+  var unitScale, unitLabel;
+  if (unitChoice === "auto") {
+    var detected = detectUnit(maxAbs);
+    unitScale = detected.scale;
+    unitLabel = detected.label;
+  } else {
+    unitScale = UNIT_SCALES[unitChoice].scale;
+    unitLabel = UNIT_SCALES[unitChoice].label;
+  }
+
+  // Build z matrix [angle][voltage]
+  var zScaled = [];
+  for (var s = 0; s < sweeps.length; s++) {
+    var vals = sweeps[s].channel_data[channel];
+    if (!vals) { zScaled.push([]); continue; }
+    var row = [];
+    for (var i = 0; i < vals.length; i++) {
+      row.push(vals[i] * unitScale);
+    }
+    zScaled.push(row);
+  }
+
+  var traces = [{
+    x: xVals,
+    y: yVals,
+    z: zScaled,
+    type: "heatmap",
+    colorscale: "Viridis",
+    colorbar: {
+      title: { text: channel + " (" + unitLabel + ")", font: { color: "#e6edf3", size: 12 } },
+      tickfont: { color: "#8b949e", size: 11 },
+      outlinecolor: "#30363d",
+      bordercolor: "#30363d"
+    },
+    hovertemplate: "V: %{x:.4f}<br>\u03B8: %{y:.1f}\u00B0<br>" +
+                   channel + ": %{z:.4f} " + unitLabel + "<extra></extra>",
+    zsmooth: "best"
+  }];
+
+  var xAxisLabel = customXLabel ||
+    ("V_" + currentData.gate1 + "\u00B7cos(\u03B8) + V_" + currentData.gate2 +
+     "\u00B7sin(\u03B8)  (V)" + (xScaleFactor !== 1 ? " \u00D7 " + xScaleFactor : ""));
+  var yAxisLabel = customYLabel || "\u03B8 (\u00B0)";
+
+  var layout = {
+    title: {
+      text: currentData.measurement_id + "  \u2014  " +
+            currentData.gate1 + " \u00B7 " + currentData.gate2 + " axis sweep",
+      font: { color: "#e6edf3", size: 15 }
+    },
+    paper_bgcolor: "#0d1117",
+    plot_bgcolor: "#161b22",
+    font: { color: "#8b949e", size: 12 },
+    xaxis: {
+      title: { text: xAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true
+    },
+    yaxis: {
+      title: { text: yAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true
+    },
+    margin: { l: 80, r: 20, t: 50, b: 60 },
+    autosize: true
+  };
+
+  var config = { responsive: true, displaylogo: false, scrollZoom: true };
+
+  setStatus("Rendering axis sweep heatmap: " + xVals.length + " V \u00D7 " + yVals.length + " angles\u2026");
+
+  var plotDiv = document.getElementById("plot");
+  try { Plotly.purge(plotDiv); } catch(e) {}
+  plotDiv.innerHTML = "";
+
+  Plotly.newPlot(plotDiv, traces, layout, config)
+    .then(function() {
+      setStatus("Axis sweep OK. " + xVals.length + " \u00D7 " + yVals.length +
+                " pts. Channel: " + channel + ". Unit: " + unitLabel);
+    })
+    .catch(function(err) {
+      console.error("Plotly.newPlot failed:", err);
+      setStatus("ERROR: " + err.message);
+      plotDiv.innerHTML = '<p style="color:#ff6692;padding:20px">Plot error: ' + err.message + '</p>';
+    });
+}
+
+// =========================================================================
+// Axis Sweep — Gate vs Gate (P1 × P2) heatmap
+// =========================================================================
+function renderAxisSweepGateGate() {
+  var channel    = document.getElementById("channelSelect").value;
+  var unitChoice = document.getElementById("yUnitSelect").value;
+  var customXLabel = document.getElementById("xLabel").value.trim();
+  var customYLabel = document.getElementById("yLabel").value.trim();
+
+  var sweeps = currentData.sweeps;
+  if (!sweeps || sweeps.length === 0) return;
+
+  // Collect all (gate1, gate2, current) triples from every sweep
+  // Each sweep has its own gate1_voltages / gate2_voltages arrays
+  var allG1 = [], allG2 = [], allZ = [];
+  var maxAbsZ = 0;
+
+  for (var s = 0; s < sweeps.length; s++) {
+    var sw = sweeps[s];
+    var vals = sw.channel_data[channel];
+    var g1 = sw.gate1_voltages;
+    var g2 = sw.gate2_voltages;
+    if (!vals || !g1 || !g2) continue;
+    for (var i = 0; i < vals.length; i++) {
+      allG1.push(g1[i]);
+      allG2.push(g2[i]);
+      allZ.push(vals[i]);
+      var a = Math.abs(vals[i]);
+      if (a > maxAbsZ) maxAbsZ = a;
+    }
+  }
+
+  // Determine unit
+  var unitScale, unitLabel;
+  if (unitChoice === "auto") {
+    var detected = detectUnit(maxAbsZ);
+    unitScale = detected.scale;
+    unitLabel = detected.label;
+  } else {
+    unitScale = UNIT_SCALES[unitChoice].scale;
+    unitLabel = UNIT_SCALES[unitChoice].label;
+  }
+
+  // Build a regular 2D grid by binning: unique sorted gate1 and gate2 values
+  // Since each angle gives a different line through (g1, g2) space, we
+  // interpolate onto a regular grid.
+  var g1Set = {}, g2Set = {};
+  for (var s = 0; s < sweeps.length; s++) {
+    var g1 = sweeps[s].gate1_voltages;
+    var g2 = sweeps[s].gate2_voltages;
+    if (!g1 || !g2) continue;
+    for (var i = 0; i < g1.length; i++) {
+      g1Set[g1[i].toFixed(6)] = g1[i];
+      g2Set[g2[i].toFixed(6)] = g2[i];
+    }
+  }
+
+  // Build sorted axis arrays
+  var g1Vals = Object.values(g1Set).sort(function(a,b){return a-b;});
+  var g2Vals = Object.values(g2Set).sort(function(a,b){return a-b;});
+
+  // Determine grid bounds and resolution
+  var g1Min = g1Vals[0], g1Max = g1Vals[g1Vals.length-1];
+  var g2Min = g2Vals[0], g2Max = g2Vals[g2Vals.length-1];
+  var nGrid = 120; // resolution of the interpolated grid
+  var g1Step = (g1Max - g1Min) / (nGrid - 1);
+  var g2Step = (g2Max - g2Min) / (nGrid - 1);
+
+  var g1Axis = [], g2Axis = [];
+  for (var i = 0; i < nGrid; i++) {
+    g1Axis.push(g1Min + i * g1Step);
+    g2Axis.push(g2Min + i * g2Step);
+  }
+
+  // Initialize z grid with NaN
+  var zGrid = [];
+  var wGrid = []; // weight grid for averaging overlapping points
+  for (var j = 0; j < nGrid; j++) {
+    zGrid.push(new Array(nGrid).fill(null));
+    wGrid.push(new Array(nGrid).fill(0));
+  }
+
+  // Scatter data onto grid using nearest-neighbour binning
+  for (var k = 0; k < allG1.length; k++) {
+    var gi = Math.round((allG1[k] - g1Min) / g1Step);
+    var gj = Math.round((allG2[k] - g2Min) / g2Step);
+    if (gi < 0) gi = 0; if (gi >= nGrid) gi = nGrid - 1;
+    if (gj < 0) gj = 0; if (gj >= nGrid) gj = nGrid - 1;
+    if (zGrid[gj][gi] === null) {
+      zGrid[gj][gi] = allZ[k] * unitScale;
+      wGrid[gj][gi] = 1;
+    } else {
+      zGrid[gj][gi] += allZ[k] * unitScale;
+      wGrid[gj][gi] += 1;
+    }
+  }
+  // Average where multiple points landed in same bin
+  for (var j = 0; j < nGrid; j++) {
+    for (var i = 0; i < nGrid; i++) {
+      if (wGrid[j][i] > 1) zGrid[j][i] /= wGrid[j][i];
+    }
+  }
+
+  var traces = [{
+    x: g1Axis,
+    y: g2Axis,
+    z: zGrid,
+    type: "heatmap",
+    colorscale: "Viridis",
+    colorbar: {
+      title: { text: channel + " (" + unitLabel + ")", font: { color: "#e6edf3", size: 12 } },
+      tickfont: { color: "#8b949e", size: 11 },
+      outlinecolor: "#30363d",
+      bordercolor: "#30363d"
+    },
+    hovertemplate: currentData.gate1 + ": %{x:.4f} V<br>" +
+                   currentData.gate2 + ": %{y:.4f} V<br>" +
+                   channel + ": %{z:.4f} " + unitLabel + "<extra></extra>",
+    zsmooth: false,
+    connectgaps: false,
+    hoverongaps: false
+  }];
+
+  var xAxisLabel = customXLabel || (currentData.gate1 + " Voltage (V)");
+  var yAxisLabel = customYLabel || (currentData.gate2 + " Voltage (V)");
+
+  var layout = {
+    title: {
+      text: currentData.measurement_id + "  \u2014  " +
+            currentData.gate1 + " \u00D7 " + currentData.gate2 + " gate space",
+      font: { color: "#e6edf3", size: 15 }
+    },
+    paper_bgcolor: "#0d1117",
+    plot_bgcolor: "#161b22",
+    font: { color: "#8b949e", size: 12 },
+    xaxis: {
+      title: { text: xAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true,
+      scaleanchor: "y"
+    },
+    yaxis: {
+      title: { text: yAxisLabel, font: { color: "#e6edf3", size: 13 }, standoff: 10 },
+      gridcolor: "#30363d",
+      tickfont: { color: "#8b949e", size: 11 },
+      automargin: true
+    },
+    margin: { l: 80, r: 20, t: 50, b: 60 },
+    autosize: true
+  };
+
+  var config = { responsive: true, displaylogo: false, scrollZoom: true };
+
+  setStatus("Rendering gate space heatmap: " + nGrid + " \u00D7 " + nGrid + " grid from " + allG1.length + " points\u2026");
+
+  var plotDiv = document.getElementById("plot");
+  try { Plotly.purge(plotDiv); } catch(e) {}
+  plotDiv.innerHTML = "";
+
+  Plotly.newPlot(plotDiv, traces, layout, config)
+    .then(function() {
+      setStatus("Gate space OK. " + nGrid + " \u00D7 " + nGrid +
+                " grid. Channel: " + channel + ". Unit: " + unitLabel);
+    })
+    .catch(function(err) {
+      console.error("Plotly.newPlot failed:", err);
+      setStatus("ERROR: " + err.message);
+      plotDiv.innerHTML = '<p style="color:#ff6692;padding:20px">Plot error: ' + err.message + '</p>';
+    });
+}
 </script>
 
 </body>

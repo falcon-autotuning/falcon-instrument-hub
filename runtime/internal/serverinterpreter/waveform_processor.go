@@ -46,7 +46,7 @@ type WaveformData struct {
 
 // LabelledDomainInfo contains information about a labelled domain (knob).
 type LabelledDomainInfo struct {
-	LabelJSON   string       // InstrumentPort JSON (the knob)
+	LabelJSON    string       // InstrumentPort JSON (the knob)
 	DomainBounds DomainBounds // The voltage bounds for this label
 }
 
@@ -434,7 +434,7 @@ func (p *WaveformProcessor) createRampInstruction(nextInstruction *Instruction) 
 
 			requirements[portJSON] = map[string]interface{}{
 				SupportedProperties.VoltageState: vStart,
-				SupportedProperties.Timeout:     TimeoutScaleFactor * timeout,
+				SupportedProperties.Timeout:      TimeoutScaleFactor * timeout,
 			}
 			setters = append(setters, portJSON)
 		}

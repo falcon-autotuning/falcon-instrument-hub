@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -316,7 +317,6 @@ func writeHDF5Native(fp string, result *AveragedMeasurementResult) error {
 	return writeHDF5Impl(fp, result)
 }
 
-
 // Close closes the writer.
 func (w *HDF5Writer) Close() error {
 	return nil
@@ -341,13 +341,14 @@ type MeasurementDatabase struct {
 
 // MeasurementIndex tracks stored measurements.
 type MeasurementIndex struct {
-	MeasurementID    string      `json:"measurement_id"`
-	FilePath         string      `json:"file_path"`
-	SweepGate        string      `json:"sweep_gate"`
-	NumPoints        int         `json:"num_points"`
-	NumSweeps        int         `json:"num_sweeps"`
-	StoredAt         time.Time   `json:"stored_at"`
-	RawDataRef       *RawDataRef `json:"raw_data_ref,omitempty"`
+	MeasurementID   string      `json:"measurement_id"`
+	FilePath        string      `json:"file_path"`
+	SweepGate       string      `json:"sweep_gate"`
+	NumPoints       int         `json:"num_points"`
+	NumSweeps       int         `json:"num_sweeps"`
+	StoredAt        time.Time   `json:"stored_at"`
+	RawDataRef      *RawDataRef `json:"raw_data_ref,omitempty"`
+	MeasurementType string      `json:"measurement_type,omitempty"` // "" or "1d" = legacy 1D, "2d" = 2D sweep
 }
 
 // NewMeasurementDatabase creates a new measurement database with raw/averaged split.
@@ -555,4 +556,191 @@ func extractChannels(result *AveragedMeasurementResult) []string {
 		channels = append(channels, ch)
 	}
 	return channels
+}
+
+// ===========================================================================
+// DC Point Collection Storage
+// ===========================================================================
+
+// DCPointCollectionResult holds a group of set-voltage / get-current operations
+// that were issued as a single measurement command from the hub.
+type DCPointCollectionResult struct {
+	MeasurementID string    `json:"measurement_id"`
+	Points        []DCPoint `json:"points"`
+	Channels      []string  `json:"channels"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+}
+
+// DCPoint is a single set-voltage → read-current sample.
+type DCPoint struct {
+	GateName    string             `json:"gate_name"`
+	SetVoltage  float64            `json:"set_voltage"`
+	Measurements map[string]float64 `json:"measurements"` // channel -> measured current
+	Timestamp   time.Time          `json:"timestamp"`
+}
+
+// StoreDCCollection stores grouped DC get/set points as a single measurement.
+// Written to averaged/dc_collection_<id>.json with measurement_type "dc_collection".
+func (db *MeasurementDatabase) StoreDCCollection(result *DCPointCollectionResult) (string, error) {
+	avgPath := filepath.Join(db.basePath, "averaged")
+	filePath := filepath.Join(avgPath, fmt.Sprintf("dc_collection_%s.json", result.MeasurementID))
+
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal DC collection: %w", err)
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write DC collection: %w", err)
+	}
+
+	// Build sweep gate label from unique gate names
+	gateSet := make(map[string]struct{})
+	for _, pt := range result.Points {
+		gateSet[pt.GateName] = struct{}{}
+	}
+	gates := make([]string, 0, len(gateSet))
+	for g := range gateSet {
+		gates = append(gates, g)
+	}
+	gateLabel := strings.Join(gates, ", ")
+
+	db.index[result.MeasurementID] = MeasurementIndex{
+		MeasurementID:   result.MeasurementID,
+		FilePath:        filePath,
+		SweepGate:       gateLabel,
+		NumPoints:       len(result.Points),
+		NumSweeps:       1,
+		StoredAt:        time.Now(),
+		MeasurementType: "dc_collection",
+	}
+
+	if err := db.saveIndex(); err != nil {
+		return filePath, fmt.Errorf("stored DC collection but failed to update index: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// ===========================================================================
+// 1D Axis Sweep Storage
+// ===========================================================================
+
+// AxisSweep1DResult holds multiple 1D sweeps along a parameterised axis.
+// Each sweep is performed at a specific angle θ where the voltage axis is
+// defined as V = V_gate1 * cos(θ) + V_gate2 * sin(θ).
+type AxisSweep1DResult struct {
+	MeasurementID string            `json:"measurement_id"`
+	Gate1         string            `json:"gate1"`           // e.g. "P1"
+	Gate2         string            `json:"gate2"`           // e.g. "P2"
+	Channels      []string          `json:"channels"`
+	Sweeps        []AxisSweep1DLine `json:"sweeps"`
+	StartTime     time.Time         `json:"start_time"`
+	EndTime       time.Time         `json:"end_time"`
+}
+
+// AxisSweep1DLine is one 1D sweep at a particular angle.
+type AxisSweep1DLine struct {
+	AngleDeg    float64                `json:"angle_deg"`     // θ in degrees
+	Voltages    []float64              `json:"voltages"`      // axis voltage values
+	ChannelData map[string][]float64   `json:"channel_data"`  // channel -> current array
+	Gate1V      []float64              `json:"gate1_voltages"` // V_gate1 = V * cos(θ)
+	Gate2V      []float64              `json:"gate2_voltages"` // V_gate2 = V * sin(θ)
+	Timestamp   time.Time              `json:"timestamp"`
+}
+
+// StoreAxisSweep stores a multi-angle 1D axis sweep measurement.
+// Written to averaged/axis_sweep_<id>.json with measurement_type "axis_sweep".
+func (db *MeasurementDatabase) StoreAxisSweep(result *AxisSweep1DResult) (string, error) {
+	avgPath := filepath.Join(db.basePath, "averaged")
+	filePath := filepath.Join(avgPath, fmt.Sprintf("axis_sweep_%s.json", result.MeasurementID))
+
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal axis sweep: %w", err)
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write axis sweep: %w", err)
+	}
+
+	numPts := 0
+	for _, s := range result.Sweeps {
+		numPts += len(s.Voltages)
+	}
+
+	db.index[result.MeasurementID] = MeasurementIndex{
+		MeasurementID:   result.MeasurementID,
+		FilePath:        filePath,
+		SweepGate:       result.Gate1 + " · " + result.Gate2 + " axis",
+		NumPoints:       numPts,
+		NumSweeps:       len(result.Sweeps),
+		StoredAt:        time.Now(),
+		MeasurementType: "axis_sweep",
+	}
+
+	if err := db.saveIndex(); err != nil {
+		return filePath, fmt.Errorf("stored axis sweep but failed to update index: %w", err)
+	}
+
+	return filePath, nil
+}
+
+// ===========================================================================
+// 2D Sweep Storage
+// ===========================================================================
+
+// Sweep2DMeasurementResult holds a complete 2D voltage sweep.
+// Each row in Lines corresponds to one Y-axis voltage value and contains
+// the 1D trace data for the fast (X) axis sweep at that Y setting.
+type Sweep2DMeasurementResult struct {
+	MeasurementID string          `json:"measurement_id"`
+	XGate         string          `json:"x_gate"`         // Fast axis gate name
+	YGate         string          `json:"y_gate"`         // Slow axis gate name
+	XVoltages     []float64       `json:"x_voltages"`     // Voltage values along X
+	YVoltages     []float64       `json:"y_voltages"`     // Voltage values along Y
+	Channels      []string        `json:"channels"`       // Measurement channel names
+	ChannelData   map[string][][]float64 `json:"channel_data"` // channel -> [y][x] current matrix
+	Lines         []Sweep2DLine   `json:"lines"`          // Individual 1D line-cuts
+	StartTime     time.Time       `json:"start_time"`
+	EndTime       time.Time       `json:"end_time"`
+}
+
+// Sweep2DLine is one horizontal line-cut (fixed Y) in a 2D sweep.
+type Sweep2DLine struct {
+	YVoltage  float64            `json:"y_voltage"`
+	YIndex    int                `json:"y_index"`
+	Currents  map[string][]float64 `json:"currents"` // channel -> X-axis current array
+	Timestamp time.Time          `json:"timestamp"`
+}
+
+// Store2D stores a 2D sweep measurement result.
+// It writes the full 2D dataset to averaged/sweep_2d_<id>.json and
+// registers it in the index with measurement_type = "2d".
+func (db *MeasurementDatabase) Store2D(result *Sweep2DMeasurementResult) (string, error) {
+	avgPath := filepath.Join(db.basePath, "averaged")
+	filePath := filepath.Join(avgPath, fmt.Sprintf("sweep_2d_%s.json", result.MeasurementID))
+
+	data, err := json.MarshalIndent(result, "", "  ")
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal 2D result: %w", err)
+	}
+	if err := os.WriteFile(filePath, data, 0644); err != nil {
+		return "", fmt.Errorf("failed to write 2D result: %w", err)
+	}
+
+	db.index[result.MeasurementID] = MeasurementIndex{
+		MeasurementID:   result.MeasurementID,
+		FilePath:        filePath,
+		SweepGate:       result.XGate + " × " + result.YGate,
+		NumPoints:       len(result.XVoltages) * len(result.YVoltages),
+		NumSweeps:       len(result.YVoltages),
+		StoredAt:        time.Now(),
+		MeasurementType: "2d",
+	}
+
+	if err := db.saveIndex(); err != nil {
+		return filePath, fmt.Errorf("stored 2D data but failed to update index: %w", err)
+	}
+
+	return filePath, nil
 }

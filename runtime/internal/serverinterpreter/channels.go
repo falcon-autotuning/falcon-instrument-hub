@@ -134,14 +134,6 @@ type UploadDataMessage struct {
 	Stream    string `json:"stream"`     // JetStream stream name
 }
 
-// UploadDataMessageLegacy is the legacy format for backward compatibility.
-// Deprecated: Use UploadDataMessage instead.
-type UploadDataMessageLegacy struct {
-	Timestamp int64  `json:"timestamp"`
-	ProcessID int64  `json:"process_id"`
-	Data      string `json:"data"` // JSON-serialized MeasurementResponse
-}
-
 // SupportedProperties defines the property names used in instrument configuration.
 // These match the properties defined across falcon-api command schemas.
 var SupportedProperties = struct {

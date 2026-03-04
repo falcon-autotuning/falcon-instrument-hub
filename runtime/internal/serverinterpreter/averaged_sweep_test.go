@@ -3,7 +3,6 @@ package serverinterpreter
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -211,116 +210,6 @@ func TestMeasurementDatabase_StoreAndLoad(t *testing.T) {
 }
 
 // =============================================================================
-// Averaged Sweep Script Generation Tests
-// =============================================================================
-
-func TestAveragedSweepScriptGeneration(t *testing.T) {
-	tempDir := t.TempDir()
-	gen, err := NewScriptGenerator(tempDir)
-	require.NoError(t, err)
-
-	t.Run("generate N-averaged sweep script", func(t *testing.T) {
-		data := AveragedSweep1DScriptData{
-			MeasurementName: "P1_pinchoff_averaged",
-			MeasurementID:   "test-measurement-123",
-			SweepGate:       "P1",
-			SweepSetter:     InstrumentTarget{Id: "QDAC1", Channel: 1},
-			StartVoltage:    -1.0,
-			StopVoltage:     0.0,
-			NumPoints:       101,
-			NumAverages:     10,
-			SettlingTimeMs:  5.0,
-			StaticSetters: []SetVoltageRequest{
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 2}, SetVoltage: -0.5},
-				{Setter: InstrumentTarget{Id: "QDAC1", Channel: 3}, SetVoltage: -1.0},
-			},
-			GetVoltageRequests: []GetVoltageRequest{
-				{Getter: InstrumentTarget{Id: "DMM1", Channel: 0}},
-			},
-		}
-
-		scriptPath, err := gen.GenerateAveragedSweep1DScript(data)
-		require.NoError(t, err)
-
-		content, err := os.ReadFile(scriptPath)
-		require.NoError(t, err)
-		contentStr := string(content)
-
-		// Verify script content
-		assert.Contains(t, contentStr, "N-averaged 1D voltage sweep")
-		assert.Contains(t, contentStr, "test-measurement-123")
-		assert.Contains(t, contentStr, "num_averages = 10")
-		assert.Contains(t, contentStr, "num_points = 101")
-		assert.Contains(t, contentStr, "for sweep_idx = 1, num_averages do")
-		assert.Contains(t, contentStr, "ctx:report_trace")
-		assert.Contains(t, contentStr, "averaged_trace")
-
-		t.Logf("Generated averaged sweep script:\n%s", contentStr)
-	})
-}
-
-// =============================================================================
-// Integration with Device Config Tests
-// =============================================================================
-
-func TestAveragedSweep_WithDeviceConfig(t *testing.T) {
-	configPath := filepath.Join("..", "..", "testdata", "one_charge_sensor_quantum_dot_device.yaml")
-	config, err := LoadQuantumDotDeviceConfig(configPath)
-	require.NoError(t, err)
-
-	setup := NewQuantumDotMeasurementSetup(config, "QDAC1", "DMM1")
-	tempDir := t.TempDir()
-	gen, err := NewScriptGenerator(tempDir)
-	require.NoError(t, err)
-
-	t.Run("generate averaged sweep from device config", func(t *testing.T) {
-		// Build sweep data
-		sweepData, err := setup.Build1DSweepData(
-			"P1",
-			-1.0, 0.0,
-			51,
-			map[string]float64{
-				"P2": -0.5,
-				"B1": -0.8,
-				"B2": -0.9,
-				"B3": -0.8,
-			},
-			5.0,
-		)
-		require.NoError(t, err)
-
-		// Convert to averaged sweep data
-		avgData := AveragedSweep1DScriptData{
-			MeasurementName:    "P1_pinchoff_10x",
-			MeasurementID:      "device-test-123",
-			SweepGate:          sweepData.SweepGate,
-			SweepSetter:        sweepData.SweepSetter,
-			StartVoltage:       sweepData.StartVoltage,
-			StopVoltage:        sweepData.StopVoltage,
-			NumPoints:          sweepData.NumPoints,
-			NumAverages:        10,
-			SettlingTimeMs:     sweepData.SettlingTimeMs,
-			StaticSetters:      sweepData.StaticSetters,
-			GetVoltageRequests: sweepData.GetVoltageRequests,
-		}
-
-		scriptPath, err := gen.GenerateAveragedSweep1DScript(avgData)
-		require.NoError(t, err)
-		assert.FileExists(t, scriptPath)
-
-		content, err := os.ReadFile(scriptPath)
-		require.NoError(t, err)
-		contentStr := string(content)
-
-		// Verify device config is reflected
-		assert.Contains(t, contentStr, "P1")
-		assert.Contains(t, contentStr, "QDAC1")
-		assert.Contains(t, contentStr, "DMM1")
-		assert.Contains(t, contentStr, "num_averages = 10")
-	})
-}
-
-// =============================================================================
 // Averaged Sweep Request Parsing Tests
 // =============================================================================
 
@@ -392,9 +281,6 @@ func TestAveragedSweep_EndToEndWorkflow(t *testing.T) {
 	setup := NewQuantumDotMeasurementSetup(deviceConfig, "QDAC1", "DMM1")
 
 	// Create components
-	gen, err := NewScriptGenerator(tempDir)
-	require.NoError(t, err)
-
 	bufferConfig := DefaultTraceBufferConfig()
 	bufferConfig.OnLog = func(msg string) { t.Log(msg) }
 	buffer := NewTraceBuffer(bufferConfig)
@@ -436,26 +322,11 @@ func TestAveragedSweep_EndToEndWorkflow(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		// 3. Generate script
-		avgData := AveragedSweep1DScriptData{
-			MeasurementName:    req.MeasurementName,
-			MeasurementID:      measurementID,
-			SweepGate:          sweepData.SweepGate,
-			SweepSetter:        sweepData.SweepSetter,
-			StartVoltage:       sweepData.StartVoltage,
-			StopVoltage:        sweepData.StopVoltage,
-			NumPoints:          sweepData.NumPoints,
-			NumAverages:        req.NumAverages,
-			SettlingTimeMs:     sweepData.SettlingTimeMs,
-			StaticSetters:      sweepData.StaticSetters,
-			GetVoltageRequests: sweepData.GetVoltageRequests,
-		}
+		// Verify sweep data was built correctly
+		assert.Equal(t, req.SweepGate, sweepData.SweepGate)
+		assert.Equal(t, req.StartVoltage, sweepData.StartVoltage)
 
-		scriptPath, err := gen.GenerateAveragedSweep1DScript(avgData)
-		require.NoError(t, err)
-		t.Logf("Generated script: %s", scriptPath)
-
-		// 4. Register measurement
+		// 3. Register measurement
 		channels := []string{"DMM1_0", "DMM1_1"}
 		err = buffer.RegisterMeasurement(
 			measurementID,

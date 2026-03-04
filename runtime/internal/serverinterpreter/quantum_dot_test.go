@@ -233,7 +233,6 @@ func TestQuantumDot_SetVoltagesWithMockServer(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: urlParts.host,
 		ScriptServerPort: urlParts.port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)
@@ -466,7 +465,6 @@ func TestQuantumDot_1DSweepWithBridge(t *testing.T) {
 	config := BridgeConfig{
 		ScriptServerHost: urlParts.host,
 		ScriptServerPort: urlParts.port,
-		ScriptOutputDir:  t.TempDir(),
 	}
 
 	bridge, err := NewBridge(config)

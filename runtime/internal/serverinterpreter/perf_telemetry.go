@@ -125,11 +125,11 @@ func (pt *PerfTelemetry) SpansByOperation(operation string) []PerfSpan {
 func (pt *PerfTelemetry) SummaryJSON() (string, error) {
 	all := pt.RecentSpans()
 	type opStat struct {
-		Count     int     `json:"count"`
-		TotalMs   float64 `json:"total_ms"`
-		AvgMs     float64 `json:"avg_ms"`
-		MinMs     float64 `json:"min_ms"`
-		MaxMs     float64 `json:"max_ms"`
+		Count   int     `json:"count"`
+		TotalMs float64 `json:"total_ms"`
+		AvgMs   float64 `json:"avg_ms"`
+		MinMs   float64 `json:"min_ms"`
+		MaxMs   float64 `json:"max_ms"`
 	}
 
 	stats := map[string]*opStat{}

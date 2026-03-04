@@ -189,3 +189,63 @@ func (p *ParsedMeasurementRequest) ToGetVoltageRequests() []GetVoltageRequest {
 
 	return requests
 }
+
+// ---------------------------------------------------------------------------
+// Script data types — used by quantum_dot_device.go, averaged_sweep_manager.go
+// and elsewhere to describe measurement parameters.
+// ---------------------------------------------------------------------------
+
+// Sweep1DScriptData describes the parameters for a 1D voltage sweep.
+type Sweep1DScriptData struct {
+	MeasurementName    string              // Human-readable name
+	SweepGate          string              // Name of the gate being swept (e.g., "P1")
+	SweepSetter        InstrumentTarget    // The DAC/channel for the sweep gate
+	StartVoltage       float64             // Starting voltage
+	StopVoltage        float64             // Ending voltage
+	NumPoints          int                 // Number of points in sweep
+	SettlingTimeMs     float64             // Time to wait after setting voltage (ms)
+	StaticSetters      []SetVoltageRequest // Static gate voltages during sweep
+	GetVoltageRequests []GetVoltageRequest // Measurement channels (e.g., DMM for current)
+}
+
+// AveragedSweep1DScriptData describes the parameters for an N-averaged 1D sweep.
+type AveragedSweep1DScriptData struct {
+	MeasurementName    string              // Human-readable name
+	MeasurementID      string              // Unique ID for trace buffering
+	SweepGate          string              // Name of gate being swept
+	SweepSetter        InstrumentTarget    // DAC/channel for sweep gate
+	StartVoltage       float64             // Start voltage
+	StopVoltage        float64             // End voltage
+	NumPoints          int                 // Points per sweep
+	NumAverages        int                 // Number of sweeps to average
+	SettlingTimeMs     float64             // Settling time after each set
+	StaticSetters      []SetVoltageRequest // Static gate voltages
+	GetVoltageRequests []GetVoltageRequest // Measurement channels
+}
+
+// SetVoltageScriptData describes parameters for set_voltage operations.
+type SetVoltageScriptData struct {
+	MeasurementName    string
+	SetVoltageRequests []SetVoltageRequest
+}
+
+// GetVoltageScriptData describes parameters for get_voltage operations.
+type GetVoltageScriptData struct {
+	MeasurementName    string
+	GetVoltageRequests []GetVoltageRequest
+}
+
+// MeasureGetSetScriptData describes parameters for combined set/get operations.
+type MeasureGetSetScriptData struct {
+	MeasurementName    string
+	SetVoltageRequests []SetVoltageRequest
+	GetVoltageRequests []GetVoltageRequest
+}
+
+// DCGetSetScriptData describes parameters for DC get/set measurement operations.
+type DCGetSetScriptData struct {
+	MeasurementName    string
+	SetVoltageRequests []SetVoltageRequest
+	GetVoltageRequests []GetVoltageRequest
+	SettlingTimeMs     float64
+}
