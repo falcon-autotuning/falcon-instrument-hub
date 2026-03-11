@@ -1746,7 +1746,6 @@ Y=YStop  ───────────────────────�
 <div class="language-go highlight"><pre><span></span><code><span class="nx">config</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">serverinterpreter</span><span class="p">.</span><span class="nx">BridgeConfig</span><span class="p">{</span>
 <span class="w">    </span><span class="nx">ScriptServerHost</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;127.0.0.1&quot;</span><span class="p">,</span>
 <span class="w">    </span><span class="nx">ScriptServerPort</span><span class="p">:</span><span class="w"> </span><span class="mi">8555</span><span class="p">,</span>
-<span class="w">    </span><span class="nx">ScriptOutputDir</span><span class="p">:</span><span class="w">  </span><span class="s">&quot;/tmp/falcon-scripts&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 
 <span class="nx">bridge</span><span class="p">,</span><span class="w"> </span><span class="nx">err</span><span class="w"> </span><span class="o">:=</span><span class="w"> </span><span class="nx">serverinterpreter</span><span class="p">.</span><span class="nx">NewBridge</span><span class="p">(</span><span class="nx">config</span><span class="p">)</span>
@@ -1930,7 +1929,6 @@ Y=YStop  ───────────────────────�
 <div class="language-go highlight"><pre><span></span><code><span class="kd">type</span><span class="w"> </span><span class="nx">BridgeConfig</span><span class="w"> </span><span class="kd">struct</span><span class="w"> </span><span class="p">{</span>
 <span class="w">    </span><span class="nx">ScriptServerHost</span><span class="w"> </span><span class="kt">string</span><span class="w"> </span><span class="c1">// Default: &quot;127.0.0.1&quot;</span>
 <span class="w">    </span><span class="nx">ScriptServerPort</span><span class="w"> </span><span class="kt">int</span><span class="w">    </span><span class="c1">// Default: 8555</span>
-<span class="w">    </span><span class="nx">ScriptOutputDir</span><span class="w">  </span><span class="kt">string</span><span class="w"> </span><span class="c1">// Default: &quot;/tmp/falcon-scripts&quot;</span>
 <span class="p">}</span>
 </code></pre></div>
 <h2 id="falcon-core-integration">falcon-core Integration<a class="headerlink" href="#falcon-core-integration" title="Permanent link">&para;</a></h2>
@@ -1944,20 +1942,25 @@ Y=YStop  ───────────────────────�
 </code></pre></div></p>
 <h2 id="file-structure">File Structure<a class="headerlink" href="#file-structure" title="Permanent link">&para;</a></h2>
 <div class="language-text highlight"><pre><span></span><code>internal/serverinterpreter/
-├── channels.go          # NATS channel definitions and message types
-├── interpreter_daemon.go # Main daemon implementation
-├── data_collector.go    # Async data collection
-├── waveform_processor.go # Waveform chunking logic
-├── instructions.go      # Instruction types
-├── types.go             # Core data structures
-├── bridge.go            # Direct mode orchestration
-├── client.go            # HTTP RPC client
-├── generator.go         # Lua script generation
-├── nats_handler.go      # NATS handler utilities
-├── set_voltage_handler.go # Set voltage command handling
-├── falcon_core.go       # falcon-core CGO integration
-├── falcon_core_stub.go  # Pure-Go fallback
-└── doc.go               # Package documentation
+├── channels.go              # NATS channel definitions and message types
+├── interpreter_daemon.go    # Main daemon implementation
+├── data_collector.go        # Async data collection
+├── waveform_processor.go    # Waveform chunking logic
+├── instructions.go          # Instruction types
+├── types.go                 # Core data structures and script data types
+├── bridge.go                # Direct mode orchestration
+├── client.go                # HTTP RPC client
+├── set_voltage_handler.go   # Set voltage command handling
+├── measurement_orchestrator.go  # 2D sweep and complex measurement coordination
+├── falcon_request_router.go # Falcon request routing and validation
+├── averaged_sweep_manager.go    # N-averaged 1D sweep management
+├── schema_validator.go      # Measurement request validation
+├── perf_telemetry.go        # Performance telemetry
+├── falcon_core.go           # falcon-core CGO integration
+├── falcon_core_stub.go      # Pure-Go fallback
+├── hdf5_impl.go             # HDF5 storage (build tag: hdf5)
+├── hdf5_stub.go             # JSON fallback storage
+└── doc.go                   # Package documentation
 </code></pre></div>
 <h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
 <p>Errors are returned at key points:
