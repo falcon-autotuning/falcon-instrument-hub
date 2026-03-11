@@ -23,7 +23,7 @@ endif
 
 # Data viewer — plots raw & averaged measurement data in the browser.
 # Usage: make dataviewer DATA_DIR=path/to/measurement/data
-DATA_DIR ?= ../test-outs/data/dummy_measurement
+DATA_DIR ?= test_data/demo_measurements
 .PHONY: dataviewer
 dataviewer: build-go
 	runtime/bin/dataviewer --data-dir $(DATA_DIR)

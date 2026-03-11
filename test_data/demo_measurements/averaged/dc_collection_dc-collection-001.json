@@ -1,0 +1,50 @@
+{
+  "measurement_id": "dc-collection-001",
+  "points": [
+    {
+      "gate_name": "P1",
+      "set_voltage": -0.5,
+      "measurements": {
+        "DMM1_0": 1.19070833162137e-9
+      },
+      "timestamp": "2026-06-15T09:00:00Z"
+    },
+    {
+      "gate_name": "P1",
+      "set_voltage": -0.25,
+      "measurements": {
+        "DMM1_0": 3.212108485830373e-9
+      },
+      "timestamp": "2026-06-15T09:00:01Z"
+    },
+    {
+      "gate_name": "P1",
+      "set_voltage": 0,
+      "measurements": {
+        "DMM1_0": 8.10250393600824e-9
+      },
+      "timestamp": "2026-06-15T09:00:02Z"
+    },
+    {
+      "gate_name": "P1",
+      "set_voltage": 0.25,
+      "measurements": {
+        "DMM1_0": 3.228938480849734e-9
+      },
+      "timestamp": "2026-06-15T09:00:03Z"
+    },
+    {
+      "gate_name": "P1",
+      "set_voltage": 0.5,
+      "measurements": {
+        "DMM1_0": 1.2055212170014097e-9
+      },
+      "timestamp": "2026-06-15T09:00:04Z"
+    }
+  ],
+  "channels": [
+    "DMM1_0"
+  ],
+  "start_time": "2026-06-15T09:00:00Z",
+  "end_time": "2026-06-15T09:00:05Z"
+}
