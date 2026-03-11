@@ -1266,18 +1266,18 @@ go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span
 </tbody>
 </table>
 <h2 id="generating-demo-data">Generating Demo Data<a class="headerlink" href="#generating-demo-data" title="Permanent link">&para;</a></h2>
-<p>If you don't have measurement data yet, generate a comprehensive demo dataset
-covering three different measurement types:</p>
+<p>If you don't have measurement data yet, generate a demo dataset with two
+example measurements (a single Coulomb peak and a double-peak transition):</p>
 <div class="language-bash highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>runtime
-go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./internal/serverinterpreter<span class="w"> </span>-run<span class="w"> </span>TestGenerate_DemoMeasurements<span class="w"> </span>-v
+go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./internal/serverinterpreter<span class="w"> </span>-run<span class="w"> </span>TestGenerate_DummyDataset<span class="w"> </span>-v
 </code></pre></div>
-<p>This writes to <code>test-outs/data/demo_measurements/</code> and creates five measurements:</p>
+<p>This writes to <code>test-outs/data/dummy_measurement/</code> and creates:</p>
 <table>
 <thead>
 <tr>
 <th>Measurement</th>
-<th>Type</th>
 <th>Gate</th>
+<th>Channel</th>
 <th>Voltage Range</th>
 <th>Points</th>
 <th>Sweeps</th>
@@ -1286,49 +1286,25 @@ go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./
 </thead>
 <tbody>
 <tr>
-<td><code>dc-getset-001</code> through <code>dc-getset-005</code></td>
-<td>DC Get/Set</td>
+<td><code>coulomb-peak-001</code></td>
 <td>P1</td>
-<td>Single-point</td>
-<td>1</td>
-<td>1</td>
-<td>Set voltage, read current (V = −0.5, −0.25, 0.0, 0.25, 0.5)</td>
+<td>DMM1_0</td>
+<td>−1.5 → 0.5 V</td>
+<td>201</td>
+<td>10</td>
+<td>Single Lorentzian Coulomb peak</td>
 </tr>
 <tr>
-<td><code>averaged-sweep-001</code></td>
-<td>Averaged 1D</td>
-<td>P1</td>
-<td>−1.0 → 0.5 V</td>
-<td>151</td>
-<td>12</td>
-<td>Coulomb peak with 12 averaged sweeps</td>
-</tr>
-<tr>
-<td><code>sweep-2d-001</code></td>
-<td>2D Sweep</td>
-<td>P1 × P2</td>
-<td>±0.5 V × ±0.3 V</td>
-<td>101×31</td>
-<td>—</td>
-<td>2D Coulomb diamond map</td>
+<td><code>double-peak-002</code></td>
+<td>B2</td>
+<td>DMM2_0</td>
+<td>−2.0 → 1.0 V</td>
+<td>301</td>
+<td>8</td>
+<td>Two peaks at different heights</td>
 </tr>
 </tbody>
 </table>
-<p>Then launch the data viewer:</p>
-<div class="language-bash highlight"><pre><span></span><code><span class="nb">cd</span><span class="w"> </span>runtime
-go<span class="w"> </span>build<span class="w"> </span>-o<span class="w"> </span>bin/dataviewer<span class="w"> </span>./cmd/dataviewer/
-./bin/dataviewer<span class="w"> </span>--data-dir<span class="w"> </span>../test-outs/data/demo_measurements<span class="w"> </span>--port<span class="w"> </span><span class="m">8089</span>
-</code></pre></div>
-<p>Open <a href="http://localhost:8089">http://localhost:8089</a> to browse and plot all three
-measurement types.</p>
-<details class="tip">
-<summary>Original single/double peak demo</summary>
-<p>A simpler demo with two 1D measurements is also available:</p>
-<div class="language-bash highlight"><pre><span></span><code>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./internal/serverinterpreter<span class="w"> </span>-run<span class="w"> </span>TestGenerate_DummyDataset<span class="w"> </span>-v
-</code></pre></div>
-<p>This writes to <code>test-outs/data/dummy_measurement/</code> with a single Coulomb
-peak and a double-peak transition.</p>
-</details>
 <h2 id="user-interface">User Interface<a class="headerlink" href="#user-interface" title="Permanent link">&para;</a></h2>
 <p>The viewer has three main areas:</p>
 <h3 id="sidebar-measurement-list">Sidebar — Measurement List<a class="headerlink" href="#sidebar-measurement-list" title="Permanent link">&para;</a></h3>
