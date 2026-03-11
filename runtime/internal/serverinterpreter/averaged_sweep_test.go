@@ -3,6 +3,7 @@ package serverinterpreter
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -274,7 +275,9 @@ func TestAveragedSweep_EndToEndWorkflow(t *testing.T) {
 	tempDir := t.TempDir()
 
 	// Load device config
-	configPath := filepath.Join("..", "..", "testdata", "one_charge_sensor_quantum_dot_device.yaml")
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 	deviceConfig, err := LoadQuantumDotDeviceConfig(configPath)
 	require.NoError(t, err)
 

@@ -1,14 +1,14 @@
 // Package serverinterpreter provides a test that generates a comprehensive demo
 // dataset covering three measurement types: DC get/set, averaged 1D sweep, and
 // 2D sweep. Running this test writes everything to
-// test-outs/data/demo_measurements/ where it can be viewed with the dataviewer.
+// test_data/demo_measurements/ where it can be viewed with the dataviewer.
 //
 //	go test ./internal/serverinterpreter -run TestGenerate_DemoMeasurements -v
 //
 // Then launch the dataviewer:
 //
 //	go build -o bin/dataviewer ./cmd/dataviewer/
-//	./bin/dataviewer --data-dir ../test-outs/data/demo_measurements --port 8089
+//	./bin/dataviewer --data-dir test_data/demo_measurements --port 8089
 package serverinterpreter
 
 import (
@@ -25,7 +25,7 @@ import (
 // Demo: All three measurement types in one dataset
 // =============================================================================
 
-const demoDir = "demo_measurements"
+const demoDir = "test_data/demo_measurements"
 
 // TestGenerate_DemoMeasurements creates a complete demo dataset with:
 //   - 1 × DC point collection (5 set-voltage → read-current operations grouped)
@@ -33,15 +33,16 @@ const demoDir = "demo_measurements"
 //   - 1 × 2D sweep (101 × 31 grid with Coulomb diamond pattern)
 //   - 1 × 1D axis sweep (5 angles from 10° to 80°)
 //
-// All data is written to test-outs/data/demo_measurements/ and can be viewed
+// All data is written to test_data/demo_measurements/ and can be viewed
 // with the dataviewer.
 func TestGenerate_DemoMeasurements(t *testing.T) {
-	outDir := filepath.Join("..", "..", "..", "..", "test-outs", "data", demoDir)
+	outDir := filepath.Join("..", "..", "..", demoDir)
 	absDir, err := filepath.Abs(outDir)
 	require.NoError(t, err)
 
-	// Clean previous run
-	_ = os.RemoveAll(absDir)
+	// Clean generated data (averaged/ and raw/) but preserve config files
+	_ = os.RemoveAll(filepath.Join(absDir, "averaged"))
+	_ = os.RemoveAll(filepath.Join(absDir, "raw"))
 
 	db, err := NewMeasurementDatabase(absDir)
 	require.NoError(t, err)
@@ -85,7 +86,7 @@ func TestGenerate_DemoMeasurements(t *testing.T) {
 	t.Logf("\nTo view:")
 	t.Logf("  cd runtime")
 	t.Logf("  go build -o bin/dataviewer ./cmd/dataviewer/")
-	t.Logf("  ./bin/dataviewer --data-dir ../test-outs/data/%s --port 8089", demoDir)
+	t.Logf("  ./bin/dataviewer --data-dir ../%s --port 8089", demoDir)
 }
 
 // =============================================================================
@@ -369,7 +370,7 @@ func generateAxisSweep(t *testing.T, db *MeasurementDatabase) {
 
 	angles := []float64{10, 27.5, 45, 62.5, 80} // degrees
 	numPoints := 101
-	vStart := 0.0  // rays fan outward from the origin
+	vStart := 0.0 // rays fan outward from the origin
 	vStop := 0.6
 	vStep := (vStop - vStart) / float64(numPoints-1)
 

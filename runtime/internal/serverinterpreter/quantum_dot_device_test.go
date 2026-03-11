@@ -3,6 +3,7 @@
 package serverinterpreter
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -15,8 +16,10 @@ import (
 // =============================================================================
 
 func TestQuantumDotDeviceConfig_LoadFromFile(t *testing.T) {
-	// Get the path to the testdata config file
-	configPath := filepath.Join("..", "..", "testdata", "one_charge_sensor_quantum_dot_device.yaml")
+	// Get the absolute path to the config file in demo_measurements
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 
 	t.Run("load device config from YAML file", func(t *testing.T) {
 		config, err := LoadQuantumDotDeviceConfig(configPath)
@@ -86,7 +89,9 @@ func TestQuantumDotDeviceConfig_LoadFromFile(t *testing.T) {
 // =============================================================================
 
 func TestQuantumDotMeasurementSetup(t *testing.T) {
-	configPath := filepath.Join("..", "..", "testdata", "one_charge_sensor_quantum_dot_device.yaml")
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 	config, err := LoadQuantumDotDeviceConfig(configPath)
 	require.NoError(t, err)
 
@@ -102,7 +107,7 @@ func TestQuantumDotMeasurementSetup(t *testing.T) {
 
 		// Measurement channels should be set up (one per group)
 		assert.Len(t, setup.MeasurementChannels, 2)
-		
+
 		// Verify both groups are represented (order may vary due to map iteration)
 		names := make([]string, len(setup.MeasurementChannels))
 		for i, ch := range setup.MeasurementChannels {
@@ -142,11 +147,11 @@ func TestQuantumDotMeasurementSetup(t *testing.T) {
 		}
 
 		sweepData, err := setup.Build1DSweepData(
-			"P1",         // Sweep P1
-			-1.0, 0.0,    // From -1V to 0V
-			101,          // 101 points
+			"P1",      // Sweep P1
+			-1.0, 0.0, // From -1V to 0V
+			101, // 101 points
 			staticVoltages,
-			5.0,          // 5ms settling time
+			5.0, // 5ms settling time
 		)
 		require.NoError(t, err)
 
