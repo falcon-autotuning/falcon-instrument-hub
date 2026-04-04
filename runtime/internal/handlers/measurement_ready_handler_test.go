@@ -388,7 +388,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 			// Simulate instrument returning buffered data after setter is
 			// triggered
 			returnData := api.ReturnData{
-				Data:      []any{99.9, 88.8},
+				Data:      "[99.9, 88.8]",
 				Property:  "knobs",
 				Index:     10, // This must match the getter_instrument index
 				ProcessId: triggerCmd.ProcessId,

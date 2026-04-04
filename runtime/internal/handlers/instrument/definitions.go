@@ -489,7 +489,6 @@ func (h *Handler) SetProperty(req SetInstruction, measurementID MeasurementID) {
 	h.Log.Debug("Preparing to SET an instruction")
 	options, err := h.portProcessor.getCachedOptions(req.Name)
 	if err != nil {
-		h.mutex.RUnlock()
 		h.Log.Error(
 			"error collecting cached options for port %s: %v",
 			req.Name,

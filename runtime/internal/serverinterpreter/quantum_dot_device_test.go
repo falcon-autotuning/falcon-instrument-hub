@@ -3,7 +3,6 @@
 package serverinterpreter
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -16,10 +15,8 @@ import (
 // =============================================================================
 
 func TestQuantumDotDeviceConfig_LoadFromFile(t *testing.T) {
-	// Get the absolute path to the config file in demo_measurements
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
+	// Get the absolute path to the config file relative to this test file
+	configPath := filepath.Join("..", "..", "..", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 
 	t.Run("load device config from YAML file", func(t *testing.T) {
 		config, err := LoadQuantumDotDeviceConfig(configPath)
@@ -89,9 +86,7 @@ func TestQuantumDotDeviceConfig_LoadFromFile(t *testing.T) {
 // =============================================================================
 
 func TestQuantumDotMeasurementSetup(t *testing.T) {
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
+	configPath := filepath.Join("..", "..", "..", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 	config, err := LoadQuantumDotDeviceConfig(configPath)
 	require.NoError(t, err)
 

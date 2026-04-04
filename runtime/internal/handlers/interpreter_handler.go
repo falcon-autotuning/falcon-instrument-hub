@@ -10,7 +10,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -190,8 +189,8 @@ func (h *InterpreterHandler) startInterpreter() error {
 		h.natsURL,
 	)
 
-	// Set up process group for clean shutdown
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Set up process group for clean shutdown (platform-specific)
+	setProcAttr(cmd)
 
 	// Set up pipes to capture output
 	cmd.Stdout = &bytes.Buffer{}
@@ -279,10 +278,10 @@ func (h *InterpreterHandler) stopInterpreter(process *InterpreterProcess) {
 	}
 
 	if process.Process != nil {
-		// Send SIGTERM first
-		if err := process.Process.Signal(syscall.SIGTERM); err != nil {
+		// Send graceful termination signal (SIGTERM on Unix, Kill on Windows)
+		if err := sendTermSignal(process.Process); err != nil {
 			h.Log.Error(
-				"Failed to send SIGTERM to interpreter: %v", err,
+				"Failed to send termination signal to interpreter: %v", err,
 			)
 		}
 

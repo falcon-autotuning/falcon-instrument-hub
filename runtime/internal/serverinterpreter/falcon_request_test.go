@@ -6,7 +6,6 @@ package serverinterpreter
 
 import (
 	"encoding/json"
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -678,10 +677,8 @@ func TestFalconRequest_CoulombDiamond(t *testing.T) {
 // =============================================================================
 
 func TestFalconRequest_ConvertToHubFormat(t *testing.T) {
-	// Load device config
-	home, err := os.UserHomeDir()
-	require.NoError(t, err)
-	configPath := filepath.Join(home, "Documents", "github", "FALCon", "falcon-instrument-hub", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
+	// Load device config relative to this test file (runtime/internal/serverinterpreter/)
+	configPath := filepath.Join("..", "..", "..", "test_data", "dummy_one_charge_sensor_quantum_dot_device.yaml")
 	config, err := LoadQuantumDotDeviceConfig(configPath)
 	require.NoError(t, err)
 
