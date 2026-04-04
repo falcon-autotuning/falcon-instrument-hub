@@ -1,5 +1,5 @@
 # Build configuration
-GO_BINARY := runtime/bin/instrument-server
+GO_BINARY := runtime/bin/instrument-hub-server
 PYTHON_ENV := .venv
 NATS_CONTAINER := nats
 
@@ -14,10 +14,10 @@ build: build-go setup-python
 .PHONY: build-go
 build-go:
 ifeq ($(OS),Windows_NT)
-	cd runtime && go build -o bin/instrument-server.exe cmd/main.go
+	cd runtime && go build -o bin/instrument-hub-server.exe cmd/main.go
 	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
 else
-	cd runtime && go build -o bin/instrument-server cmd/main.go
+	cd runtime && go build -o bin/instrument-hub-server cmd/main.go
 	cd runtime && go build -o bin/dataviewer ./cmd/dataviewer/
 endif
 

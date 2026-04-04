@@ -131,7 +131,12 @@ func (c *ScriptServerClient) ListInstruments() ([]string, error) {
 		return nil, err
 	}
 
-	// Parse instruments from response
+	// ISS returns {"ok":true,"instruments":[...]} at the top level.
+	if response.Instruments != nil {
+		return response.Instruments, nil
+	}
+
+	// Fallback: try legacy format where instruments may be nested in Result.
 	if result, ok := response.Result.(map[string]interface{}); ok {
 		if instruments, ok := result["instruments"].([]interface{}); ok {
 			names := make([]string, len(instruments))
@@ -144,5 +149,37 @@ func (c *ScriptServerClient) ListInstruments() ([]string, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("unexpected response format for list")
+	// No instruments field at all — return empty list (not an error).
+	return []string{}, nil
+}
+
+// StartInstrument sends the "start" command to create an instrument in the daemon.
+// configPath is the path to the instrument YAML config (resolved by the ISS daemon).
+// pluginPath optionally overrides the plugin .so to load.
+func (c *ScriptServerClient) StartInstrument(configPath string, pluginPath string) (string, error) {
+	params := map[string]interface{}{
+		"config_path": configPath,
+	}
+	if pluginPath != "" {
+		params["plugin"] = pluginPath
+	}
+
+	response, err := c.call("start", params)
+	if err != nil {
+		return "", err
+	}
+
+	// The response contains {"ok":true,"instrument":"<name>"}.
+	if response.Instrument != "" {
+		return response.Instrument, nil
+	}
+	return "", nil
+}
+
+// StopInstrument sends the "stop" command to remove an instrument from the daemon.
+func (c *ScriptServerClient) StopInstrument(name string) error {
+	_, err := c.call("stop", map[string]interface{}{
+		"name": name,
+	})
+	return err
 }

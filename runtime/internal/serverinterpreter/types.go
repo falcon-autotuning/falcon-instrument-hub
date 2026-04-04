@@ -58,12 +58,15 @@ type RPCRequest struct {
 }
 
 // RPCResponse is the structure for HTTP RPC responses from instrument-script-server.
+// Fields are top-level in the ISS wire format (not nested under a "result" key).
 type RPCResponse struct {
-	OK     bool        `json:"ok"`              // Whether the request succeeded
-	Error  string      `json:"error,omitempty"` // Error message if failed
-	JobID  string      `json:"job_id,omitempty"`
-	Status string      `json:"status,omitempty"`
-	Result interface{} `json:"result,omitempty"`
+	OK          bool        `json:"ok"`                    // Whether the request succeeded
+	Error       string      `json:"error,omitempty"`       // Error message if failed
+	JobID       string      `json:"job_id,omitempty"`      // Returned by submit_measure
+	Status      string      `json:"status,omitempty"`      // Returned by job_status
+	Result      interface{} `json:"result,omitempty"`      // Returned by job_result
+	Instruments []string    `json:"instruments,omitempty"` // Returned by list
+	Instrument  string      `json:"instrument,omitempty"`  // Returned by start
 }
 
 // SubmitMeasureParams are the parameters for the submit_measure RPC command.

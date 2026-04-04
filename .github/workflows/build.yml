@@ -1,0 +1,100 @@
+name: Build Instrument Hub Server
+
+on:
+  push:
+    branches: [main, dev, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  GO_VERSION: "1.23"
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Linux build (Ubuntu)
+  # ---------------------------------------------------------------------------
+  build-linux:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: runtime
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: runtime/go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build instrument-hub-server
+        run: go build -o bin/instrument-hub-server cmd/main.go
+
+      - name: Build dataviewer
+        run: go build -o bin/dataviewer ./cmd/dataviewer/
+
+      - name: Verify binary
+        run: |
+          file bin/instrument-hub-server
+          ls -lh bin/instrument-hub-server
+
+      - name: Run Go unit tests
+        run: go test ./internal/... -v -count=1 -timeout 120s
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrument-hub-server-linux-amd64
+          path: |
+            runtime/bin/instrument-hub-server
+            runtime/bin/dataviewer
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Windows build (Windows 11)
+  # ---------------------------------------------------------------------------
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: runtime
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: runtime/go.sum
+
+      - name: Download Go modules
+        run: go mod download
+
+      - name: Build instrument-hub-server
+        run: go build -o bin/instrument-hub-server.exe cmd/main.go
+
+      - name: Build dataviewer
+        run: go build -o bin/dataviewer.exe ./cmd/dataviewer/
+
+      - name: Verify binary
+        run: |
+          dir bin\instrument-hub-server.exe
+        shell: cmd
+
+      - name: Run Go unit tests
+        run: go test ./internal/... -v -count=1 -timeout 120s
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: instrument-hub-server-windows-amd64
+          path: |
+            runtime/bin/instrument-hub-server.exe
+            runtime/bin/dataviewer.exe
+          retention-days: 14
