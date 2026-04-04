@@ -2,9 +2,12 @@ name: Cross-Platform Integration Tests
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, dev]
   pull_request:
     branches: [main]
+
+env:
+  GO_VERSION: "1.23"
 
 jobs:
   test-linux:
@@ -15,23 +18,32 @@ jobs:
         ports:
           - 4222:4222
           - 8222:8222
-        options: --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8222/varz || exit 1" --health-interval 10s --health-timeout 5s --health-retries 5
-        args: --http_port 8222 -js
+        options: >-
+          --health-cmd "wget --no-verbose --tries=1 --spider http://localhost:8222/varz || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
 
+      - name: Stub falcon-core-libs module
+        run: |
+          mkdir -p ../falcon-core-libs/go/falcon-core
+          printf 'module github.com/falcon-autotuning/falcon-core-libs/go/falcon-core\n\ngo 1.23\n' \
+            > ../falcon-core-libs/go/falcon-core/go.mod
+
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
@@ -40,11 +52,12 @@ jobs:
       - name: Build Go binary
         run: |
           cd runtime
-          go build -o bin/instrument-server cmd/main.go
+          go mod download
+          go build -o bin/instrument-hub-server cmd/main.go
 
       - name: Wait for NATS
         run: |
-          timeout 30 bash -c 'until curl -f http://localhost:8222/jsz; do sleep 1; done'
+          timeout 30 bash -c 'until curl -f http://localhost:8222/varz; do sleep 1; done'
 
       - name: Run unit tests
         run: pytest tests/test_interpreter_daemon.py -v
@@ -61,13 +74,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Stub falcon-core-libs module
+        shell: bash
+        run: |
+          mkdir -p ../falcon-core-libs/go/falcon-core
+          printf 'module github.com/falcon-autotuning/falcon-core-libs/go/falcon-core\n\ngo 1.23\n' \
+            > ../falcon-core-libs/go/falcon-core/go.mod
+
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -77,7 +97,7 @@ jobs:
           Start-Process -FilePath "$env:GOPATH\bin\nats-server.exe" -ArgumentList "--jetstream", "--port", "4222", "--http_port", "8222" -WindowStyle Hidden
           Start-Sleep -Seconds 3
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
@@ -86,7 +106,8 @@ jobs:
       - name: Build Go binary
         run: |
           cd runtime
-          go build -o bin/instrument-server.exe cmd/main.go
+          go mod download
+          go build -o bin/instrument-hub-server.exe cmd/main.go
 
       - name: Run unit tests
         run: pytest tests/test_interpreter_daemon.py -v
@@ -100,13 +121,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Stub falcon-core-libs module
+        run: |
+          mkdir -p ../falcon-core-libs/go/falcon-core
+          printf 'module github.com/falcon-autotuning/falcon-core-libs/go/falcon-core\n\ngo 1.23\n' \
+            > ../falcon-core-libs/go/falcon-core/go.mod
+
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -116,7 +143,7 @@ jobs:
           nats-server --jetstream --port 4222 --http_port 8222 &
           sleep 3
 
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
@@ -125,7 +152,8 @@ jobs:
       - name: Build Go binary
         run: |
           cd runtime
-          go build -o bin/instrument-server cmd/main.go
+          go mod download
+          go build -o bin/instrument-hub-server cmd/main.go
 
       - name: Run tests
         run: |

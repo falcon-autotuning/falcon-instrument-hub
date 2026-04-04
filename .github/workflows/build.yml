@@ -2,7 +2,7 @@ name: Build Instrument Hub Server
 
 on:
   push:
-    branches: [main, dev, develop]
+    branches: [main, dev]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -28,6 +28,13 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: runtime/go.sum
+
+      - name: Stub falcon-core-libs module
+        working-directory: .
+        run: |
+          mkdir -p ../falcon-core-libs/go/falcon-core
+          printf 'module github.com/falcon-autotuning/falcon-core-libs/go/falcon-core\n\ngo 1.23\n' \
+            > ../falcon-core-libs/go/falcon-core/go.mod
 
       - name: Download Go modules
         run: go mod download
@@ -72,6 +79,13 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
           cache-dependency-path: runtime/go.sum
+
+      - name: Stub falcon-core-libs module
+        shell: bash
+        run: |
+          mkdir -p ../falcon-core-libs/go/falcon-core
+          printf 'module github.com/falcon-autotuning/falcon-core-libs/go/falcon-core\n\ngo 1.23\n' \
+            > ../falcon-core-libs/go/falcon-core/go.mod
 
       - name: Download Go modules
         run: go mod download
