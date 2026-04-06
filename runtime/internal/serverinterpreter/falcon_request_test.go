@@ -806,4 +806,3 @@ func TestFalconResponse_ArrayOfResponses(t *testing.T) {
 
 	assert.Len(t, parsed, 2)
 }
-
