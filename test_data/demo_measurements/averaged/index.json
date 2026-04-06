@@ -5,7 +5,7 @@
     "sweep_gate": "P1",
     "num_points": 151,
     "num_sweeps": 12,
-    "stored_at": "2026-04-04T19:21:01.955800637-04:00",
+    "stored_at": "2026-04-06T17:01:14.499515144-04:00",
     "raw_data_ref": {
       "measurement_id": "averaged-sweep-001",
       "raw_file_path": "/home/zach/Documents/github/FALCon/falcon-instrument-hub/test_data/demo_measurements/raw/raw_averaged-sweep-001.json",
@@ -19,7 +19,7 @@
     "sweep_gate": "P1 · P2 axis",
     "num_points": 505,
     "num_sweeps": 5,
-    "stored_at": "2026-04-04T19:21:01.961050539-04:00",
+    "stored_at": "2026-04-06T17:01:14.504320342-04:00",
     "measurement_type": "axis_sweep"
   },
   "dc-collection-001": {
@@ -28,7 +28,7 @@
     "sweep_gate": "P1",
     "num_points": 5,
     "num_sweeps": 1,
-    "stored_at": "2026-04-04T19:21:01.953064421-04:00",
+    "stored_at": "2026-04-06T17:01:14.497434884-04:00",
     "measurement_type": "dc_collection"
   },
   "sweep-2d-001": {
@@ -37,7 +37,7 @@
     "sweep_gate": "P1 × P2",
     "num_points": 3131,
     "num_sweeps": 31,
-    "stored_at": "2026-04-04T19:21:01.960472451-04:00",
+    "stored_at": "2026-04-06T17:01:14.503791861-04:00",
     "measurement_type": "2d"
   }
 }

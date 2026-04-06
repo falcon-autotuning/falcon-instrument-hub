@@ -2,7 +2,7 @@ name: Cross-Platform Integration Tests
 
 on:
   push:
-    branches: [main, dev]
+    branches: [main]
   pull_request:
     branches: [main]
 
