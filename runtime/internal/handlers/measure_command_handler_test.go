@@ -52,6 +52,7 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(
@@ -279,6 +280,7 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(
@@ -429,6 +431,7 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(
@@ -516,6 +519,7 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(
@@ -861,6 +865,7 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(
@@ -1153,6 +1158,7 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create mock measurements manager
 	measurementManager, err := measurements.NewManager(

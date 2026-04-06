@@ -27,6 +27,7 @@ func setupTestInstrumentHandlerForPortRequest(
 	// Create test logger with proper file paths
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	t.Cleanup(func() { logger.Close() })
 
 	// Setup NATS connection for the instrument handler
 	nc := setupTestNATSServer(t)
@@ -163,6 +164,7 @@ func TestNewPortRequestHandler(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
@@ -182,6 +184,7 @@ func TestPortRequestHandler_Subscribe_Unsubscribe(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
@@ -211,6 +214,7 @@ func TestPortRequestHandler_E2E(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
@@ -273,6 +277,7 @@ func TestPortRequestHandler_InvalidJSON(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
@@ -302,6 +307,7 @@ func TestPortRequestHandler_isOhmicConnection(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{
@@ -350,6 +356,7 @@ func TestPortRequestHandler_UnsubscribeWithoutSubscription(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
 	cfg := &config.Config{

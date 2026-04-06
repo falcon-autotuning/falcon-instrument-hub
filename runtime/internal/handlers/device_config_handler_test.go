@@ -74,6 +74,7 @@ func TestDeviceConfigHandler(t *testing.T) {
 	// Create logger
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	// Create handler
 	handler := NewDeviceConfigHandler(testConfig, logger)

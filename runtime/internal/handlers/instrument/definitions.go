@@ -14,22 +14,22 @@ import (
 )
 
 const (
-	Master                     PropertyName   = "master"
-	HandlerName                string         = "INSTRUMENT_HANDLER"
-	Knob                       port           = "Knob"
-	Meter                      port           = "Meter"
-	Port                       port           = "InstrumentPort"
-	ScreeningGate              connectionType = "ScreeningGate"
-	BarrierGate                connectionType = "BarrierGate"
-	ReservoirGate              connectionType = "ReservoirGate"
-	PlungerGate                connectionType = "PlungerGate"
-	Ohmic                      connectionType = "Ohmic"
-	screeningModule            string         = "screening_gate"
-	barrierModule              string         = "barrier_gate"
-	reservoirModule            string         = "reservoir_gate"
-	plungerModule              string         = "plunger_gate"
-	ohmicModule                string         = "ohmic"
-	falconCoreModuleTemplate   string         = "falcon_core.physics.device_structures."
+	Master                   PropertyName   = "master"
+	HandlerName              string         = "INSTRUMENT_HANDLER"
+	Knob                     port           = "Knob"
+	Meter                    port           = "Meter"
+	Port                     port           = "InstrumentPort"
+	ScreeningGate            connectionType = "ScreeningGate"
+	BarrierGate              connectionType = "BarrierGate"
+	ReservoirGate            connectionType = "ReservoirGate"
+	PlungerGate              connectionType = "PlungerGate"
+	Ohmic                    connectionType = "Ohmic"
+	screeningModule          string         = "screening_gate"
+	barrierModule            string         = "barrier_gate"
+	reservoirModule          string         = "reservoir_gate"
+	plungerModule            string         = "plunger_gate"
+	ohmicModule              string         = "ohmic"
+	falconCoreModuleTemplate string         = "falcon_core.physics.device_structures."
 )
 
 var (

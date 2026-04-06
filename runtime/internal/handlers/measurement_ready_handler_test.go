@@ -44,6 +44,7 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 	// Create test logger with proper file paths
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	t.Cleanup(func() { logger.Close() })
 
 	// Setup NATS connection for the instrument handler
 	nc := setupTestNATSServer(t)
@@ -204,6 +205,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
@@ -517,6 +519,7 @@ func TestMeasurementReadyHandler_AsynchronousBuffering(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
@@ -639,6 +642,7 @@ func TestMeasurementReadyHandler_UnbufferedMeasurement(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
@@ -867,6 +871,7 @@ func TestMeasurementReadyHandler_ChunkIdAssignment(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
@@ -1043,6 +1048,7 @@ func TestMeasurementReadyHandler_BufferedMeasurement_MultipleSetter_Error(
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
@@ -1225,6 +1231,7 @@ func TestMeasurementReadyHandler_NoGetters_Error(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
+	defer logger.Close()
 
 	instrumentHandler := setupTestInstrumentHandler2(t)
 	cfg := &config.Config{
