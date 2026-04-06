@@ -267,12 +267,11 @@ func TestCleanupOldIncomplete(t *testing.T) {
 
 	// Trigger cleanup by creating a new manager (calls loadExistingIndexes)
 	manager.Close()
-	manager2, err := NewManager(manager.baseDataDir, "")
+	tempDir2 := t.TempDir()
+	dbPath2 := filepath.Join(tempDir2, "cleanup_test.db")
+	manager2, err := NewManager(manager.baseDataDir, dbPath2)
 	if err != nil {
-		// Expected to fail due to empty db path, but cleanup should have run
-		// We would need to access the same database for this test to work properly
-		// This is more of an integration test
-		t.Skip("Skipping cleanup test - requires shared database access")
+		t.Fatalf("Failed to create second manager: %v", err)
 	}
 	defer manager2.Close()
 }

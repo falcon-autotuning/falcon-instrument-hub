@@ -35,8 +35,10 @@ func NewMeasurementDB(dbPath string) (*MeasurementDB, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	// Open with better concurrency settings and immediate mode
-	db, err := sql.Open("sqlite3", dbPath+"?_busy_timeout=10000&_journal_mode=WAL&_sync=NORMAL&_txlock=immediate")
+	// Open with better concurrency settings and immediate mode.
+	// Use file: URI format so query parameters are parsed correctly
+	// and not included in the filename (which breaks on Windows).
+	db, err := sql.Open("sqlite3", "file:"+dbPath+"?_busy_timeout=10000&_journal_mode=WAL&_sync=NORMAL&_txlock=immediate")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
