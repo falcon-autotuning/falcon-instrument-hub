@@ -1,0 +1,1719 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Bridge between falcon-core measurement requests and hardware instruments">
+      
+      
+      
+      
+        <link rel="prev" href="../CONFIG_VALIDATION/">
+      
+      
+        <link rel="next" href="../server-interpreter/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/icons/icon-256.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+    
+    
+      
+        <title>Lua Script Authoring - Falcon Instrument Hub</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#lua-measurement-script-authoring-guide" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="Falcon Instrument Hub" class="md-header__button md-logo" aria-label="Falcon Instrument Hub" data-md-component="logo">
+      
+  <img src="../assets/icons/icon-256.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Falcon Instrument Hub
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Lua Script Authoring
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme)" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="m14.3 16-.7-2h-3.2l-.7 2H7.8L11 7h2l3.2 9zM20 8.69V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12zm-9.15 3.96h2.3L12 9z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_2" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="pink" data-md-color-accent="pink"  aria-label="Switch to system preference"  type="radio" name="__palette" id="__palette_2">
+    
+      <label class="md-header__button md-icon" title="Switch to system preference" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href=".." class="md-tabs__link">
+          
+  
+  
+  Get Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../CONFIG_VALIDATION/" class="md-tabs__link">
+          
+  
+  
+  Configuration
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../server-interpreter/" class="md-tabs__link">
+          
+  
+  
+  Architecture
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../data-viewer/" class="md-tabs__link">
+          
+  
+  
+  Tools
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="Falcon Instrument Hub" class="md-nav__button md-logo" aria-label="Falcon Instrument Hub" data-md-component="logo">
+      
+  <img src="../assets/icons/icon-256.png" alt="logo">
+
+    </a>
+    Falcon Instrument Hub
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Get Started
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Get Started
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Welcome to Falcon Instrument Hub
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Configuration
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Configuration
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../CONFIG_VALIDATION/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Device Configuration
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Script Authoring
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Lua Script Authoring
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="Page contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Page contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-principle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Principle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script Location
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtimecontext-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RuntimeContext API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RuntimeContext API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ctxcalltarget-params" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:call(target, params)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxparallelfunction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:parallel(function)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxlogmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:log(message)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxerrormessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:error(message)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measurementresponse-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MeasurementResponse Methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Scripts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required Scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sweep_1dlua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sweep_1d.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ramp_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ramp_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dc_get_setlua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dc_get_set.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-2d-sweeps-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How 2D Sweeps Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions-for-lsp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Definitions (for LSP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Architecture
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Architecture
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../server-interpreter/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Server & Interpreter
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../nats-protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    NATS Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tools
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tools
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../data-viewer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Data Viewer
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+  
+
+<nav class="md-nav md-nav--secondary" aria-label="Page contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Page contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#architecture-overview" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Architecture Overview
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-principle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key Principle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#script-location" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Script Location
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#runtimecontext-api" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        RuntimeContext API
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="RuntimeContext API">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#ctxcalltarget-params" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:call(target, params)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxparallelfunction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:parallel(function)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxlogmessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:log(message)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ctxerrormessage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ctx:error(message)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measurementresponse-methods" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        MeasurementResponse Methods
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#required-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Required Scripts
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Required Scripts">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#set_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        set_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#get_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        get_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sweep_1dlua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        sweep_1d.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#ramp_voltagelua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        ramp_voltage.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#dc_get_setlua" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        dc_get_set.lua
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-2d-sweeps-work" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How 2D Sweeps Work
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#type-definitions-for-lsp" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Type Definitions (for LSP)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#testing-scripts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Testing Scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#best-practices" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Best Practices
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See Also
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+
+<h1 id="lua-measurement-script-authoring-guide">Lua Measurement Script Authoring Guide<a class="headerlink" href="#lua-measurement-script-authoring-guide" title="Permanent link">&para;</a></h1>
+<p>This guide explains how experimenters create Lua measurement scripts for the FALCon instrument system.</p>
+<h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
+<div class="language-text highlight"><pre><span></span><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                              FALCON (Autotuner)                              │
+│                                                                              │
+│  Sends measurement requests (JSON) based on falcon-measurement-lib schemas  │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          falcon-instrument-hub                               │
+│                                                                              │
+│  • Parses incoming measurement requests                                      │
+│  • Orchestrates complex measurements (e.g., 2D sweep = N × 1D sweeps)       │
+│  • Dispatches script execution to instrument-script-server                  │
+│  • Aggregates results and returns to FALCON                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         instrument-script-server                             │
+│                                                                              │
+│  • Executes user-provided Lua measurement scripts                           │
+│  • Provides RuntimeContext API for instrument control                       │
+│  • Manages instrument communication via plugins                             │
+│  • Returns structured measurement results                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                      │
+                                      ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Physical Instruments                               │
+│                                                                              │
+│  QDAC, DMM, Lock-in Amplifier, Oscilloscope, etc.                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+</code></pre></div>
+<h2 id="key-principle">Key Principle<a class="headerlink" href="#key-principle" title="Permanent link">&para;</a></h2>
+<p><strong>The hub does NOT auto-generate Lua scripts.</strong> Instead:</p>
+<ol>
+<li><strong>Experimenters</strong> create reusable Lua measurement scripts</li>
+<li><strong>The hub</strong> orchestrates complex measurements by calling simpler scripts multiple times</li>
+<li><strong>Scripts</strong> are executed on the instrument-script-server</li>
+</ol>
+<h2 id="script-location">Script Location<a class="headerlink" href="#script-location" title="Permanent link">&para;</a></h2>
+<p>Place your Lua scripts in the hub's scripts directory:</p>
+<div class="language-text highlight"><pre><span></span><code>falcon-instrument-hub/
+  runtime/
+    scripts/
+      set_voltage.lua
+      get_voltage.lua
+      sweep_1d.lua
+      ramp_voltage.lua
+      measure_current.lua
+      dc_get_set.lua
+      your_custom_script.lua
+</code></pre></div>
+<h2 id="runtimecontext-api">RuntimeContext API<a class="headerlink" href="#runtimecontext-api" title="Permanent link">&para;</a></h2>
+<p>All scripts receive a <code>RuntimeContext</code> object that provides instrument control:</p>
+<h3 id="ctxcalltarget-params">ctx:call(target, params)<a class="headerlink" href="#ctxcalltarget-params" title="Permanent link">&para;</a></h3>
+<p>Execute an instrument command and get a <code>MeasurementResponse</code>.</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">-- Set a voltage</span>
+<span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;QDAC1.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">0.5</span><span class="w"> </span><span class="p">})</span>
+
+<span class="c1">-- Read a voltage (returns MeasurementResponse)</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;DMM1.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">})</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">response</span><span class="p">:</span><span class="nf">value</span><span class="p">()</span><span class="w">  </span><span class="c1">-- Extract the numeric value</span>
+
+<span class="c1">-- Channel addressing via colon</span>
+<span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;QDAC1:1.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">0.5</span><span class="w"> </span><span class="p">})</span>
+</code></pre></div>
+<h3 id="ctxparallelfunction">ctx:parallel(function)<a class="headerlink" href="#ctxparallelfunction" title="Permanent link">&para;</a></h3>
+<p>Execute multiple commands in parallel for synchronized timing:</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="nv">ctx</span><span class="p">:</span><span class="nf">parallel</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;QDAC1.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">0.5</span><span class="w"> </span><span class="p">})</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;QDAC1.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">0.6</span><span class="w"> </span><span class="p">})</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;QDAC1.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">3</span><span class="p">,</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="o">-</span><span class="mf">0.7</span><span class="w"> </span><span class="p">})</span>
+<span class="kr">end</span><span class="p">)</span>
+<span class="c1">-- All three voltage sets happen simultaneously</span>
+</code></pre></div>
+<h3 id="ctxlogmessage">ctx:log(message)<a class="headerlink" href="#ctxlogmessage" title="Permanent link">&para;</a></h3>
+<p>Log a message visible in the hub:</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="s2">&quot;Starting 1D sweep from -1V to 0V&quot;</span><span class="p">)</span>
+<span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;Progress: %d%%&quot;</span><span class="p">,</span><span class="w"> </span><span class="nv">progress</span><span class="p">))</span>
+</code></pre></div>
+<h3 id="ctxerrormessage">ctx:error(message)<a class="headerlink" href="#ctxerrormessage" title="Permanent link">&para;</a></h3>
+<p>Report a non-fatal error:</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="kr">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="nv">response</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">error</span><span class="p">(</span><span class="s2">&quot;Failed to read current&quot;</span><span class="p">)</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h3 id="measurementresponse-methods">MeasurementResponse Methods<a class="headerlink" href="#measurementresponse-methods" title="Permanent link">&para;</a></h3>
+<p>Responses from <code>ctx:call()</code> have these methods:</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="kd">local</span><span class="w"> </span><span class="nv">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="s2">&quot;DMM1.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="p">})</span>
+
+<span class="nv">response</span><span class="p">:</span><span class="nf">value</span><span class="p">()</span><span class="w">         </span><span class="c1">-- Get the raw value</span>
+<span class="nv">response</span><span class="p">:</span><span class="nf">type</span><span class="p">()</span><span class="w">          </span><span class="c1">-- &quot;float&quot;, &quot;integer&quot;, &quot;string&quot;, &quot;boolean&quot;, &quot;buffer&quot;</span>
+<span class="nv">response</span><span class="p">:</span><span class="nf">instrument</span><span class="p">()</span><span class="w">    </span><span class="c1">-- &quot;DMM1&quot;</span>
+<span class="nv">response</span><span class="p">:</span><span class="nf">verb</span><span class="p">()</span><span class="w">          </span><span class="c1">-- &quot;GET_VOLTAGE&quot;</span>
+
+<span class="c1">-- Math on responses</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">offset_response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">response</span><span class="p">:</span><span class="nf">add_offset</span><span class="p">(</span><span class="mf">1e-9</span><span class="p">)</span><span class="w">      </span><span class="c1">-- Add nanoampere offset</span>
+<span class="kd">local</span><span class="w"> </span><span class="nv">scaled_response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">response</span><span class="p">:</span><span class="nf">multiply_gain</span><span class="p">(</span><span class="mi">1000</span><span class="p">)</span><span class="w">   </span><span class="c1">-- Scale by gain</span>
+</code></pre></div>
+<h2 id="required-scripts">Required Scripts<a class="headerlink" href="#required-scripts" title="Permanent link">&para;</a></h2>
+<p>The hub expects these standard scripts to exist:</p>
+<h3 id="set_voltagelua">set_voltage.lua<a class="headerlink" href="#set_voltagelua" title="Permanent link">&para;</a></h3>
+<p>Sets a single gate voltage.</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@param ctx RuntimeContext</span>
+<span class="c1">---@param params {instrument: string, channel: number, voltage: number}</span>
+<span class="kr">function</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="nv">ctx</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;Setting %s:%d to %.4f V&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">        </span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">voltage</span><span class="p">))</span>
+
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">voltage</span>
+<span class="w">    </span><span class="p">})</span>
+
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h3 id="get_voltagelua">get_voltage.lua<a class="headerlink" href="#get_voltagelua" title="Permanent link">&para;</a></h3>
+<p>Reads voltage from an instrument.</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@param ctx RuntimeContext</span>
+<span class="c1">---@param params {instrument: string, channel: number}</span>
+<span class="c1">---@return MeasurementResponse</span>
+<span class="kr">function</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="nv">ctx</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">response</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span>
+<span class="w">    </span><span class="p">})</span>
+
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">instrument</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">response</span><span class="p">:</span><span class="nf">value</span><span class="p">(),</span>
+<span class="w">        </span><span class="nb">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">response</span><span class="p">:</span><span class="nf">type</span><span class="p">()</span>
+<span class="w">    </span><span class="p">}</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h3 id="sweep_1dlua">sweep_1d.lua<a class="headerlink" href="#sweep_1dlua" title="Permanent link">&para;</a></h3>
+<p>Performs a 1D voltage sweep with current measurement.</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@param ctx RuntimeContext</span>
+<span class="c1">---@param params {sweepInstrument: string, sweepChannel: number, startVoltage: number, stopVoltage: number, numPoints: number, settlingTimeMs: number, currentMeter: string, currentChannel: number}</span>
+<span class="c1">---@return table Array of {voltage, current} pairs</span>
+<span class="kr">function</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="nv">ctx</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;1D sweep: %s:%d from %.4f to %.4f V (%d points)&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">params</span><span class="p">.</span><span class="py">sweepInstrument</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">sweepChannel</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">params</span><span class="p">.</span><span class="py">startVoltage</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">stopVoltage</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">numPoints</span><span class="p">))</span>
+
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">step</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">stopVoltage</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">startVoltage</span><span class="p">)</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">numPoints</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="p">)</span>
+
+<span class="w">    </span><span class="kr">for</span><span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">numPoints</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">        </span><span class="kd">local</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">startVoltage</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="nv">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">step</span><span class="p">)</span>
+
+<span class="w">        </span><span class="c1">-- Set sweep voltage</span>
+<span class="w">        </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">sweepInstrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">sweepChannel</span><span class="p">,</span>
+<span class="w">            </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">voltage</span>
+<span class="w">        </span><span class="p">})</span>
+
+<span class="w">        </span><span class="c1">-- Wait for settling</span>
+<span class="w">        </span><span class="kr">if</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">settlingTimeMs</span><span class="w"> </span><span class="o">&gt;</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">            </span><span class="c1">-- Note: ctx:sleep() may need to be implemented</span>
+<span class="w">            </span><span class="c1">-- For now, this is a placeholder</span>
+<span class="w">        </span><span class="kr">end</span>
+
+<span class="w">        </span><span class="c1">-- Read current</span>
+<span class="w">        </span><span class="kd">local</span><span class="w"> </span><span class="nv">current_resp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">currentMeter</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">currentChannel</span>
+<span class="w">        </span><span class="p">})</span>
+
+<span class="w">        </span><span class="nb">table.insert</span><span class="p">(</span><span class="nv">results</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">voltage</span><span class="p">,</span>
+<span class="w">            </span><span class="nv">current</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">current_resp</span><span class="p">:</span><span class="nf">value</span><span class="p">()</span>
+<span class="w">        </span><span class="p">})</span>
+
+<span class="w">        </span><span class="c1">-- Progress logging every 10%</span>
+<span class="w">        </span><span class="kr">if</span><span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">%</span><span class="w"> </span><span class="nb">math.floor</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">numPoints</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="mi">10</span><span class="p">)</span><span class="w"> </span><span class="o">==</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">            </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;Sweep progress: %d%%&quot;</span><span class="p">,</span><span class="w"> </span>
+<span class="w">                </span><span class="nb">math.floor</span><span class="p">(</span><span class="nv">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">numPoints</span><span class="p">)))</span>
+<span class="w">        </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;Sweep complete: %d points collected&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">#</span><span class="nv">results</span><span class="p">))</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">results</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h3 id="ramp_voltagelua">ramp_voltage.lua<a class="headerlink" href="#ramp_voltagelua" title="Permanent link">&para;</a></h3>
+<p>Ramps a gate voltage at a specified slope (V/sec).</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@param ctx RuntimeContext</span>
+<span class="c1">---@param params {instrument: string, channel: number, targetV: number, slopeVPerSec: number}</span>
+<span class="kr">function</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="nv">ctx</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;Ramping %s:%d to %.4f V at %.3f V/sec&quot;</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">targetV</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">slopeVPerSec</span><span class="p">))</span>
+
+<span class="w">    </span><span class="c1">-- Read current voltage</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">current_resp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span>
+<span class="w">    </span><span class="p">})</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">currentV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">current_resp</span><span class="p">:</span><span class="nf">value</span><span class="p">()</span>
+
+<span class="w">    </span><span class="c1">-- Calculate ramp</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">deltaV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">targetV</span><span class="w"> </span><span class="o">-</span><span class="w"> </span><span class="nv">currentV</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">rampTime</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">math.abs</span><span class="p">(</span><span class="nv">deltaV</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">slopeVPerSec</span><span class="p">)</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">numSteps</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nb">math.max</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nb">math.floor</span><span class="p">(</span><span class="nv">rampTime</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="mi">100</span><span class="p">))</span><span class="w"> </span><span class="c1">-- 100 steps/sec</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">stepV</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">deltaV</span><span class="w"> </span><span class="o">/</span><span class="w"> </span><span class="nv">numSteps</span>
+
+<span class="w">    </span><span class="kr">for</span><span class="w"> </span><span class="nv">i</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="nv">numSteps</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">        </span><span class="kd">local</span><span class="w"> </span><span class="nv">v</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">currentV</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="p">(</span><span class="nv">i</span><span class="w"> </span><span class="o">*</span><span class="w"> </span><span class="nv">stepV</span><span class="p">)</span>
+<span class="w">        </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">            </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span>
+<span class="w">            </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">v</span>
+<span class="w">        </span><span class="p">})</span>
+<span class="w">    </span><span class="kr">end</span>
+
+<span class="w">    </span><span class="c1">-- Final set to exact target</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">instrument</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">        </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">channel</span><span class="p">,</span>
+<span class="w">        </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">targetV</span>
+<span class="w">    </span><span class="p">})</span>
+
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="s2">&quot;Ramp complete&quot;</span><span class="p">)</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="kc">nil</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h3 id="dc_get_setlua">dc_get_set.lua<a class="headerlink" href="#dc_get_setlua" title="Permanent link">&para;</a></h3>
+<p>DC measurement: set voltages, then read currents.</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@param ctx RuntimeContext</span>
+<span class="c1">---@param params {setters: table, getters: table, setVoltages: table, sampleRate: number}</span>
+<span class="kr">function</span><span class="w"> </span><span class="nf">main</span><span class="p">(</span><span class="nv">ctx</span><span class="p">,</span><span class="w"> </span><span class="nv">params</span><span class="p">)</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="s2">&quot;Starting DC get/set measurement&quot;</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">-- Set voltages in parallel</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">parallel</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+<span class="w">        </span><span class="kr">for</span><span class="w"> </span><span class="nv">_</span><span class="p">,</span><span class="w"> </span><span class="nv">setter</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nb">ipairs</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">setters</span><span class="p">)</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">            </span><span class="kd">local</span><span class="w"> </span><span class="nv">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">setter</span><span class="p">.</span><span class="py">id</span>
+<span class="w">            </span><span class="kr">if</span><span class="w"> </span><span class="nv">setter</span><span class="p">.</span><span class="py">channel</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="kc">nil</span><span class="w"> </span><span class="ow">and</span><span class="w"> </span><span class="nv">setter</span><span class="p">.</span><span class="py">channel</span><span class="w"> </span><span class="o">~=</span><span class="w"> </span><span class="mi">0</span><span class="w"> </span><span class="kr">then</span>
+<span class="w">                </span><span class="nv">key</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">setter</span><span class="p">.</span><span class="py">id</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;:&quot;</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="nb">tostring</span><span class="p">(</span><span class="nv">setter</span><span class="p">.</span><span class="py">channel</span><span class="p">)</span>
+<span class="w">            </span><span class="kr">end</span>
+<span class="w">            </span><span class="kd">local</span><span class="w"> </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">params</span><span class="p">.</span><span class="py">setVoltages</span><span class="p">[</span><span class="nv">key</span><span class="p">]</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="mi">0</span>
+
+<span class="w">            </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">setter</span><span class="p">.</span><span class="py">id</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.SET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">setter</span><span class="p">.</span><span class="py">channel</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="nv">voltage</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">voltage</span>
+<span class="w">            </span><span class="p">})</span>
+<span class="w">        </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span><span class="p">)</span>
+
+<span class="w">    </span><span class="c1">-- Brief settling</span>
+<span class="w">    </span><span class="c1">-- ctx:sleep(1)  -- If available</span>
+
+<span class="w">    </span><span class="c1">-- Read measurements in parallel</span>
+<span class="w">    </span><span class="kd">local</span><span class="w"> </span><span class="nv">results</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{}</span>
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">parallel</span><span class="p">(</span><span class="kr">function</span><span class="p">()</span>
+<span class="w">        </span><span class="kr">for</span><span class="w"> </span><span class="nv">_</span><span class="p">,</span><span class="w"> </span><span class="nv">getter</span><span class="w"> </span><span class="kr">in</span><span class="w"> </span><span class="nb">ipairs</span><span class="p">(</span><span class="nv">params</span><span class="p">.</span><span class="py">getters</span><span class="p">)</span><span class="w"> </span><span class="kr">do</span>
+<span class="w">            </span><span class="kd">local</span><span class="w"> </span><span class="nv">resp</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">call</span><span class="p">(</span><span class="nv">getter</span><span class="p">.</span><span class="py">id</span><span class="w"> </span><span class="o">..</span><span class="w"> </span><span class="s2">&quot;.GET_VOLTAGE&quot;</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">getter</span><span class="p">.</span><span class="py">channel</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="mi">0</span>
+<span class="w">            </span><span class="p">})</span>
+<span class="w">            </span><span class="nb">table.insert</span><span class="p">(</span><span class="nv">results</span><span class="p">,</span><span class="w"> </span><span class="p">{</span>
+<span class="w">                </span><span class="nv">instrument</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">getter</span><span class="p">.</span><span class="py">id</span><span class="p">,</span>
+<span class="w">                </span><span class="nv">channel</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">getter</span><span class="p">.</span><span class="py">channel</span><span class="w"> </span><span class="ow">or</span><span class="w"> </span><span class="mi">0</span><span class="p">,</span>
+<span class="w">                </span><span class="nv">value</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="nv">resp</span><span class="p">:</span><span class="nf">value</span><span class="p">()</span>
+<span class="w">            </span><span class="p">})</span>
+<span class="w">        </span><span class="kr">end</span>
+<span class="w">    </span><span class="kr">end</span><span class="p">)</span>
+
+<span class="w">    </span><span class="nv">ctx</span><span class="p">:</span><span class="nf">log</span><span class="p">(</span><span class="nb">string.format</span><span class="p">(</span><span class="s2">&quot;DC measurement complete: %d readings&quot;</span><span class="p">,</span><span class="w"> </span><span class="o">#</span><span class="nv">results</span><span class="p">))</span>
+<span class="w">    </span><span class="kr">return</span><span class="w"> </span><span class="nv">results</span>
+<span class="kr">end</span>
+</code></pre></div>
+<h2 id="how-2d-sweeps-work">How 2D Sweeps Work<a class="headerlink" href="#how-2d-sweeps-work" title="Permanent link">&para;</a></h2>
+<p>When FALCON requests a 2D voltage sweep (<code>measure_2D_buffered</code>), the hub <strong>orchestrates</strong> it:</p>
+<div class="language-text highlight"><pre><span></span><code>FALCON Request: measure_2D_buffered
+    X-axis: QDAC1:1, -0.5V to 0.5V, 101 steps
+    Y-axis: QDAC1:2, -0.5V to 0.5V, 101 steps
+
+Hub Orchestration:
+    FOR each Y value (0 to 100):
+        1. Call set_voltage.lua: QDAC1:2 = Y_voltage[y]
+        2. Wait for settling
+        3. Call sweep_1d.lua: sweep QDAC1:1 from -0.5V to 0.5V
+        4. Store the 1D current trace
+        5. Call ramp_voltage.lua: ramp QDAC1:1 back to -0.5V
+
+    Aggregate all 101 traces into 2D result
+    Return to FALCON: 101 × 101 current matrix
+</code></pre></div>
+<p>The experimenter only needs to provide the primitive scripts (<code>set_voltage</code>, <code>sweep_1d</code>, <code>ramp_voltage</code>). The hub handles the orchestration logic.</p>
+<h2 id="type-definitions-for-lsp">Type Definitions (for LSP)<a class="headerlink" href="#type-definitions-for-lsp" title="Permanent link">&para;</a></h2>
+<p>If you want IDE autocomplete, use the Emmy headers from <code>falcon-measurement-lib</code>:</p>
+<div class="language-lua highlight"><pre><span></span><code><span class="c1">---@class RuntimeContext</span>
+<span class="c1">---@field call fun(self: RuntimeContext, target: string, params: table): MeasurementResponse</span>
+<span class="c1">---@field parallel fun(self: RuntimeContext, block: function)</span>
+<span class="c1">---@field log fun(self: RuntimeContext, msg: string)</span>
+<span class="c1">---@field error fun(self: RuntimeContext, msg: string)</span>
+
+<span class="c1">---@class MeasurementResponse</span>
+<span class="c1">---@field value fun(self: MeasurementResponse): any</span>
+<span class="c1">---@field type fun(self: MeasurementResponse): string</span>
+<span class="c1">---@field instrument fun(self: MeasurementResponse): string</span>
+<span class="c1">---@field verb fun(self: MeasurementResponse): string</span>
+<span class="c1">---@field add_offset fun(self: MeasurementResponse, offset: number): MeasurementResponse</span>
+<span class="c1">---@field multiply_gain fun(self: MeasurementResponse, gain: number): MeasurementResponse</span>
+
+<span class="c1">---@class InstrumentTarget</span>
+<span class="c1">---@field id string</span>
+<span class="c1">---@field channel number?</span>
+</code></pre></div>
+<h2 id="testing-scripts">Testing Scripts<a class="headerlink" href="#testing-scripts" title="Permanent link">&para;</a></h2>
+<p>Test your scripts locally before deploying:</p>
+<div class="language-bash highlight"><pre><span></span><code><span class="c1"># Start instrument-script-server in test mode</span>
+<span class="nb">cd</span><span class="w"> </span>instrument-script-server
+./bin/instrument_server<span class="w"> </span>--test-mode<span class="w"> </span>--config<span class="w"> </span>examples/demo_instrument.yaml
+
+<span class="c1"># Execute a script</span>
+curl<span class="w"> </span>-X<span class="w"> </span>POST<span class="w"> </span>http://localhost:8080/api/v1/execute<span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-H<span class="w"> </span><span class="s2">&quot;Content-Type: application/json&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">  </span>-d<span class="w"> </span><span class="s1">&#39;{</span>
+<span class="s1">    &quot;scriptName&quot;: &quot;sweep_1d&quot;,</span>
+<span class="s1">    &quot;scriptPath&quot;: &quot;/path/to/scripts/sweep_1d.lua&quot;,</span>
+<span class="s1">    &quot;parameters&quot;: {</span>
+<span class="s1">      &quot;sweepInstrument&quot;: &quot;QDAC1&quot;,</span>
+<span class="s1">      &quot;sweepChannel&quot;: 1,</span>
+<span class="s1">      &quot;startVoltage&quot;: -1.0,</span>
+<span class="s1">      &quot;stopVoltage&quot;: 0.0,</span>
+<span class="s1">      &quot;numPoints&quot;: 101,</span>
+<span class="s1">      &quot;settlingTimeMs&quot;: 1.0,</span>
+<span class="s1">      &quot;currentMeter&quot;: &quot;DMM1&quot;,</span>
+<span class="s1">      &quot;currentChannel&quot;: 0</span>
+<span class="s1">    }</span>
+<span class="s1">  }&#39;</span>
+</code></pre></div>
+<h2 id="best-practices">Best Practices<a class="headerlink" href="#best-practices" title="Permanent link">&para;</a></h2>
+<ol>
+<li><strong>Keep scripts atomic</strong> - Each script should do one thing well</li>
+<li><strong>Use parallel blocks</strong> - For synchronized timing on voltage sets</li>
+<li><strong>Log progress</strong> - For long measurements, log progress every ~10%</li>
+<li><strong>Handle errors gracefully</strong> - Use <code>ctx:error()</code> for recoverable issues</li>
+<li><strong>Document parameters</strong> - Use Emmy annotations for IDE support</li>
+<li><strong>Return structured data</strong> - Return tables with named fields, not just arrays</li>
+</ol>
+<h2 id="see-also">See Also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><code>falcon-measurement-lib/schemas/scripts/</code> - JSON schemas for measurement types</li>
+<li><code>falcon-measurement-lib/docs/USAGE.md</code> - Schema documentation</li>
+<li><code>instrument-script-server/examples/scripts/</code> - Example scripts</li>
+<li><code>falcon-instrument-hub/runtime/internal/serverinterpreter/measurement_orchestrator.go</code> - Hub orchestration code</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+      <div class="md-progress" data-md-component="progress" role="progressbar"></div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.tabs.link", "content.code.annotate", "content.code.copy", "announce.dismiss", "navigation.tabs", "navigation.instant", "navigation.instant.prefetch", "navigation.instant.preview", "navigation.instant.progress", "navigation.path", "navigation.sections", "navigation.top", "navigation.tracking", "search.suggest", "toc.follow"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
