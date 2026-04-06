@@ -2,7 +2,6 @@ package instrument
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/nats-io/nats.go"
 )
@@ -14,14 +13,8 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 		"Setting up instrument handler subscriptions",
 	)
 
-	// Ensure script is up to date
-	if err := h.ensureScriptExists(); err != nil {
-		return fmt.Errorf("failed to ensure script exists: %w", err)
-	}
-
 	// Configure all subscriptions
 	subscriptions := h.getSubscriptionConfigs()
-	go h.cleanupLoop()
 
 	// Subscribe to each configured subscription
 	for _, config := range subscriptions {
@@ -48,15 +41,16 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 	return nil
 }
 
-// Unsubscribe stops all subscriptions and destroys all instruments
+// Unsubscribe stops all subscriptions and clears instrument registrations
 func (h *Handler) Unsubscribe() error {
 	h.Log.Info("Unsubscribing from instrument handler")
 
-	// First, destroy all instruments using the destroy queue
-	h.destroyAllInstruments()
-
-	// Then stop accepting new destroy requests
-	close(h.destroyQueue)
+	// Clear all instrument registrations
+	h.mutex.Lock()
+	for name := range h.Instruments {
+		delete(h.Instruments, name)
+	}
+	h.mutex.Unlock()
 
 	// Unsubscribe from NATS
 	var unsubscribeErrors []error
@@ -86,98 +80,6 @@ func (h *Handler) Unsubscribe() error {
 		"Successfully unsubscribed from all instrument handler subscriptions",
 	)
 	return nil
-}
-
-// destroyAllInstruments queues all instruments for destruction and waits for
-// completion
-func (h *Handler) destroyAllInstruments() {
-	h.Log.Info("Attempting to destroy all instruments")
-	h.mutex.RLock()
-	instrumentCount := len(h.Instruments)
-
-	if instrumentCount == 0 {
-		h.mutex.RUnlock()
-		h.Log.Debug("No instruments to destroy")
-		return
-	}
-
-	h.Log.Info("Queuing %d instruments for destruction", instrumentCount)
-
-	// Get list of instrument names to destroy
-	instrumentNames := make([]Name, 0, instrumentCount)
-	for name, instrument := range h.Instruments {
-		if !instrument.Completed {
-			instrumentNames = append(instrumentNames, name)
-		}
-	}
-	h.mutex.RUnlock()
-
-	// Queue all instruments for destruction
-	for _, name := range instrumentNames {
-		select {
-		case h.destroyQueue <- name:
-			h.Log.Debug("Queued instrument %s for destruction", name)
-		default:
-			h.Log.Error("Destroy queue full, forcing destruction of %s", name)
-			// If queue is full, destroy directly (fallback)
-			h.destroyInstrumentDirect(name)
-		}
-	}
-
-	// Wait for all instruments to be destroyed
-	h.waitForAllInstrumentsDestroyed()
-}
-
-// waitForAllInstrumentsDestroyed polls until all instruments are gone
-func (h *Handler) waitForAllInstrumentsDestroyed() {
-	maxWait := 30 * time.Second
-	checkInterval := 100 * time.Millisecond
-	timeout := time.After(maxWait)
-	ticker := time.NewTicker(checkInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-timeout:
-			h.Log.Debug("Timeout reached while waiting for instrument")
-			h.mutex.RLock()
-			remaining := len(h.Instruments)
-			h.mutex.RUnlock()
-			h.Log.Error(
-				"Timeout waiting for instrument destruction, %d instruments remain",
-				remaining,
-			)
-			return
-
-		case <-ticker.C:
-			h.Log.Debug("Checking if all instruments are destroyed")
-			h.mutex.RLock()
-			remaining := len(h.Instruments)
-			h.mutex.RUnlock()
-
-			if remaining == 0 {
-				h.Log.Info("All instruments successfully destroyed")
-				return
-			}
-			h.Log.Debug("Waiting for %d instruments to be destroyed", remaining)
-		}
-	}
-}
-
-// destroyInstrumentDirect destroys an instrument directly (fallback when queue
-// is full)
-func (h *Handler) destroyInstrumentDirect(name Name) {
-	h.Log.Debug("Attemping to directly destroy an instrument %s", name)
-	h.mutex.Lock()
-	process, exists := h.Instruments[name]
-	if exists && !process.Completed {
-		delete(h.Instruments, name)
-		h.mutex.Unlock()
-		h.Log.Info("Directly destroying instrument: %s", name)
-		h.stopInstrument(process)
-	} else {
-		h.mutex.Unlock()
-	}
 }
 
 // getSubscriptionConfigs returns the configured subscriptions

@@ -1,0 +1,9 @@
+﻿2026-04-06T21:08:23.8436006Z ##[group]Run file bin/instrument-hub-server
+2026-04-06T21:08:23.8436563Z [36;1mfile bin/instrument-hub-server[0m
+2026-04-06T21:08:23.8437012Z [36;1mls -lh bin/instrument-hub-server[0m
+2026-04-06T21:08:23.8465798Z shell: /usr/bin/bash -e {0}
+2026-04-06T21:08:23.8466154Z env:
+2026-04-06T21:08:23.8466393Z   GO_VERSION: 1.23
+2026-04-06T21:08:23.8466706Z ##[endgroup]
+2026-04-06T21:08:23.8761016Z bin/instrument-hub-server: ELF 64-bit LSB executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, BuildID[sha1]=f2d242159cf5318c8c64588ebc01209187b4c2db, for GNU/Linux 3.2.0, with debug_info, not stripped
+2026-04-06T21:08:23.8779458Z -rwxr-xr-x 1 runner runner 26M Apr  6 21:08 bin/instrument-hub-server

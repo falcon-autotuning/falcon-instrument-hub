@@ -43,7 +43,6 @@ func setupTestInstrumentHandlerForPortRequest(
 		nats.DefaultURL,
 		nc,
 		cfg,
-		"python3",
 	)
 	require.NoError(t, err)
 

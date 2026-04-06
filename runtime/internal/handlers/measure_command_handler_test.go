@@ -70,7 +70,6 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -141,6 +140,7 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 		require.NoError(t, err)
 
 		// Wait for PROCESS_REQUEST first
+		var receivedProcessId int64
 		select {
 		case receivedProcessRequest := <-processRequestChan:
 			assert.Equal(
@@ -164,13 +164,15 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 				receivedProcessRequest.Configurations,
 				"Configurations should be set",
 			)
+			receivedProcessId = receivedProcessRequest.ProcessId
 		case <-time.After(2 * time.Second):
 			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
 		}
 
-		// Now send UPLOAD_DATA to complete the flow
+		// Now send UPLOAD_DATA to complete the flow, using the ProcessId from the PROCESS_REQUEST
 		uploadData := api.UploadData{
-			Data: "measurement result data",
+			Data:      "measurement result data",
+			ProcessId: receivedProcessId,
 		}
 
 		uploadDataBytes, err := json.Marshal(uploadData)
@@ -303,7 +305,6 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -446,7 +447,6 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -534,7 +534,6 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -572,6 +571,20 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture the allocated ProcessId
+		processIdChan := make(chan int64, 1)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// First, send MEASURE_COMMAND to create a pending measurement
 		measureCommand := api.MeasureCommand{
 			Timestamp: time.Now().UnixMicro(),
@@ -585,12 +598,18 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.upload-test", commandData)
 		require.NoError(t, err)
 
-		// Wait a moment for MEASURE_COMMAND to be processed
-		time.Sleep(100 * time.Millisecond)
+		// Wait for PROCESS_REQUEST to get the allocated ProcessId
+		var allocatedProcessId int64
+		select {
+		case allocatedProcessId = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
+		}
 
-		// Now send UPLOAD_DATA
+		// Now send UPLOAD_DATA with the correct ProcessId
 		uploadData := api.UploadData{
-			Data: "test measurement data from upload",
+			Data:      "test measurement data from upload",
+			ProcessId: allocatedProcessId,
 		}
 
 		uploadDataBytes, err := json.Marshal(uploadData)
@@ -672,6 +691,20 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture the allocated ProcessId
+		processIdChan := make(chan int64, 1)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send MEASURE_COMMAND first
 		measureCommand := api.MeasureCommand{
 			Timestamp: time.Now().UnixMicro(),
@@ -685,11 +718,18 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.empty-test", commandData)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for PROCESS_REQUEST to get the allocated ProcessId
+		var allocatedProcessId int64
+		select {
+		case allocatedProcessId = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
+		}
 
 		// Send UPLOAD_DATA with empty data
 		uploadData := api.UploadData{
-			Data: "", // Empty data
+			Data:      "", // Empty data
+			ProcessId: allocatedProcessId,
 		}
 
 		uploadDataBytes, err := json.Marshal(uploadData)
@@ -736,6 +776,20 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture the allocated ProcessId
+		processIdChan := make(chan int64, 1)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send MEASURE_COMMAND first
 		measureCommand := api.MeasureCommand{
 			Timestamp: time.Now().UnixMicro(),
@@ -749,12 +803,19 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.large-test", commandData)
 		require.NoError(t, err)
 
-		time.Sleep(100 * time.Millisecond)
+		// Wait for PROCESS_REQUEST to get the allocated ProcessId
+		var allocatedProcessId int64
+		select {
+		case allocatedProcessId = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
+		}
 
 		// Create large data payload
 		largeData := string(make([]byte, 10000)) // 10KB of null bytes
 		uploadData := api.UploadData{
-			Data: largeData,
+			Data:      largeData,
+			ProcessId: allocatedProcessId,
 		}
 
 		uploadDataBytes, err := json.Marshal(uploadData)
@@ -818,7 +879,6 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -865,6 +925,20 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture the allocated ProcessId
+		processIdChan := make(chan int64, 1)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send MEASURE_COMMAND
 		measureCommand := api.MeasureCommand{
 			Timestamp: time.Now().UnixMicro(),
@@ -878,8 +952,13 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.busy-test", commandData)
 		require.NoError(t, err)
 
-		// Wait for command to be processed
-		time.Sleep(100 * time.Millisecond)
+		// Wait for PROCESS_REQUEST to get ProcessId and confirm command was processed
+		var allocatedProcessId int64
+		select {
+		case allocatedProcessId = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive PROCESS_REQUEST within timeout")
+		}
 
 		// IsBusy should now be true
 		assert.True(
@@ -890,7 +969,8 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 
 		// Send UPLOAD_DATA to complete the measurement
 		uploadData := api.UploadData{
-			Data: "test busy flag data",
+			Data:      "test busy flag data",
+			ProcessId: allocatedProcessId,
 		}
 
 		uploadDataBytes, err := json.Marshal(uploadData)
@@ -957,6 +1037,20 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 			"IsBusy should initially be false",
 		)
 
+		// Subscribe to PROCESS_REQUEST to capture allocated ProcessIds
+		processIdChan := make(chan int64, 2)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send first MEASURE_COMMAND
 		measureCommand1 := api.MeasureCommand{
 			Timestamp: time.Now().UnixMicro(),
@@ -970,8 +1064,13 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.multi-test", commandData1)
 		require.NoError(t, err)
 
-		// Wait for first command to be processed
-		time.Sleep(100 * time.Millisecond)
+		// Wait for first PROCESS_REQUEST
+		var processId1 int64
+		select {
+		case processId1 = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive first PROCESS_REQUEST within timeout")
+		}
 
 		// IsBusy should be true
 		assert.True(
@@ -993,8 +1092,13 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.multi-test", commandData2)
 		require.NoError(t, err)
 
-		// Wait for second command to be processed
-		time.Sleep(100 * time.Millisecond)
+		// Wait for second PROCESS_REQUEST
+		var processId2 int64
+		select {
+		case processId2 = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive second PROCESS_REQUEST within timeout")
+		}
 
 		// IsBusy should still be true (second command should also set it to
 		// true)
@@ -1004,10 +1108,12 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 			"IsBusy should remain true with multiple commands",
 		)
 
-		// Complete measurements by sending UPLOAD_DATA twice
-		for i := 0; i < 2; i++ {
+		// Complete measurements by sending UPLOAD_DATA with correct ProcessIds
+		processIds := []int64{processId1, processId2}
+		for i, pid := range processIds {
 			uploadData := api.UploadData{
-				Data: fmt.Sprintf("upload_data_%d", i),
+				Data:      fmt.Sprintf("upload_data_%d", i),
+				ProcessId: pid,
 			}
 
 			uploadDataBytes, err := json.Marshal(uploadData)
@@ -1065,7 +1171,6 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		server.ClientURL(),
 		nc,
 		cfg,
-		"python3", // Use system python for tests
 	)
 	require.NoError(t, err)
 
@@ -1105,6 +1210,20 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture all allocated ProcessIds
+		processIdChan := make(chan int64, numMeasurements)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send multiple MEASURE_COMMANDs
 		expectedHashes := make([]int64, numMeasurements)
 		for i := 0; i < numMeasurements; i++ {
@@ -1127,13 +1246,22 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 
-		// Wait for all commands to be processed
-		time.Sleep(200 * time.Millisecond)
+		// Collect all ProcessIds from PROCESS_REQUEST
+		allocatedProcessIds := make([]int64, 0, numMeasurements)
+		for i := 0; i < numMeasurements; i++ {
+			select {
+			case pid := <-processIdChan:
+				allocatedProcessIds = append(allocatedProcessIds, pid)
+			case <-time.After(2 * time.Second):
+				t.Fatalf("Did not receive PROCESS_REQUEST %d/%d within timeout", i+1, numMeasurements)
+			}
+		}
 
-		// Send corresponding UPLOAD_DATA messages
+		// Send corresponding UPLOAD_DATA messages with correct ProcessIds
 		for i := 0; i < numMeasurements; i++ {
 			uploadData := api.UploadData{
-				Data: fmt.Sprintf("upload_data_%d", i),
+				Data:      fmt.Sprintf("upload_data_%d", i),
+				ProcessId: allocatedProcessIds[i],
 			}
 
 			uploadDataBytes, err := json.Marshal(uploadData)
@@ -1203,6 +1331,20 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		require.NoError(t, err)
 		defer responseSub.Unsubscribe()
 
+		// Subscribe to PROCESS_REQUEST to capture allocated ProcessIds
+		processIdChan := make(chan int64, 2)
+		prSub, err := nc.Subscribe("PROCESS_REQUEST", func(msg *nats.Msg) {
+			var pr api.ProcessRequest
+			if err := json.Unmarshal(msg.Data, &pr); err == nil {
+				select {
+				case processIdChan <- pr.ProcessId:
+				default:
+				}
+			}
+		})
+		require.NoError(t, err)
+		defer prSub.Unsubscribe()
+
 		// Send two MEASURE_COMMANDs rapidly
 		hash1 := int64(20001)
 		hash2 := int64(20002)
@@ -1230,13 +1372,23 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		err = nc.Publish("MEASURE_COMMAND.external.timing-test", commandData2)
 		require.NoError(t, err)
 
-		// Wait for processing
-		time.Sleep(200 * time.Millisecond)
+		// Collect both ProcessIds from PROCESS_REQUEST
+		var pid1, pid2 int64
+		select {
+		case pid1 = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive first PROCESS_REQUEST within timeout")
+		}
+		select {
+		case pid2 = <-processIdChan:
+		case <-time.After(2 * time.Second):
+			t.Fatal("Did not receive second PROCESS_REQUEST within timeout")
+		}
 
-		// Send UPLOAD_DATA - should correlate with first available pending
-		// measurement
+		// Send UPLOAD_DATA with correct ProcessIds
 		uploadData1 := api.UploadData{
-			Data: "first_upload_data",
+			Data:      "first_upload_data",
+			ProcessId: pid1,
 		}
 		uploadDataBytes1, err := json.Marshal(uploadData1)
 		require.NoError(t, err)
@@ -1248,7 +1400,8 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		time.Sleep(100 * time.Millisecond)
 
 		uploadData2 := api.UploadData{
-			Data: "second_upload_data",
+			Data:      "second_upload_data",
+			ProcessId: pid2,
 		}
 		uploadDataBytes2, err := json.Marshal(uploadData2)
 		require.NoError(t, err)

@@ -60,7 +60,6 @@ func setupTestInstrumentHandler2(t *testing.T) *instrument.Handler {
 		nats.DefaultURL,
 		nc,
 		cfg,
-		"python",
 	)
 	require.NoError(t, err)
 

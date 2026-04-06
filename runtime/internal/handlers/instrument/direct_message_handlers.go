@@ -22,30 +22,27 @@ func (h *Handler) handleSetupInstrument(msg *nats.Msg) {
 		return
 	}
 
-	// Check if instrument is already running
+	name := Name(req.Name)
+
+	// Check if instrument is already registered
 	h.mutex.RLock()
-	if _, exists := h.Instruments[Name(req.Name)]; exists {
+	if _, exists := h.Instruments[name]; exists {
 		h.mutex.RUnlock()
 		h.Log.Error(
-			"Instrument %s is already running",
+			"Instrument %s is already registered",
 			req.Name,
 		)
 		return
 	}
 	h.mutex.RUnlock()
 
-	// Start the instrument
-	if err := h.startInstrument(Name(req.Name)); err != nil {
-		h.Log.Error(
-			"Failed to start instrument %s: %v",
-			req.Name,
-			err,
-		)
-		return
-	}
+	// Register the instrument
+	h.AddInstrument(name, &InstrumentProcess{
+		Name: name,
+	})
 
 	h.Log.Info(
-		"Successfully started instrument: %s",
+		"Successfully registered instrument: %s",
 		req.Name,
 	)
 }
@@ -63,16 +60,24 @@ func (h *Handler) handleDestroyInstrument(msg *nats.Msg) {
 		return
 	}
 
-	// Queue for async destruction - no mutex needed, no blocking
-	select {
-	case h.destroyQueue <- Name(req.Name):
-		h.Log.Info("Queued instrument %s for destruction", req.Name)
-	default:
-		h.Log.Error(
-			"Destruction queue full - cannot destroy instrument %s",
-			req.Name,
-		)
+	name := Name(req.Name)
+
+	// Remove from instrument map directly
+	h.mutex.Lock()
+	if _, exists := h.Instruments[name]; !exists {
+		h.mutex.Unlock()
+		h.Log.Warn("Attempted to destroy non-existent instrument %s", req.Name)
+		return
 	}
+	delete(h.Instruments, name)
+	h.mutex.Unlock()
+
+	// Invalidate cache since instruments changed
+	if h.portProcessor != nil {
+		h.portProcessor.InvalidatePortConfigCache()
+	}
+
+	h.Log.Info("Successfully destroyed instrument: %s", req.Name)
 }
 
 // handleConfirmInitialization processes CONFIRM_INITIALIZATION responses

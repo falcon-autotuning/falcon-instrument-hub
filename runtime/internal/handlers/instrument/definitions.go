@@ -1,16 +1,11 @@
 package instrument
 
 import (
-	"bytes"
-	"context"
-	"embed"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
@@ -24,9 +19,6 @@ const (
 	Knob                       port           = "Knob"
 	Meter                      port           = "Meter"
 	Port                       port           = "InstrumentPort"
-	ScriptsDir                 string         = "scripts"
-	LaunchInstrumentScriptName string         = "launch_instrument_daemon.py"
-	GracefulShutdownTimeout    int64          = 5 // seconds
 	ScreeningGate              connectionType = "ScreeningGate"
 	BarrierGate                connectionType = "BarrierGate"
 	ReservoirGate              connectionType = "ReservoirGate"
@@ -39,9 +31,6 @@ const (
 	ohmicModule                string         = "ohmic"
 	falconCoreModuleTemplate   string         = "falcon_core.physics.device_structures."
 )
-
-//go:embed launch_instrument_daemon.py
-var embeddedScript embed.FS
 
 var (
 	SetupInstrumentCommand       = api.GetCommandName(api.SetupInstrument{})
@@ -99,35 +88,24 @@ type PropertyIndex struct {
 	Index    Index        `json:"index"`
 }
 
-// InstrumentProcess represents a running instrument daemon
+// InstrumentProcess represents a registered instrument
 type InstrumentProcess struct {
 	Name          Name
-	Cmd           *exec.Cmd
-	Cancel        context.CancelFunc
 	Ports         propertyIndexedPorts
 	Configuration map[PropertyName]map[Index]PortConfiguration
 	Initialized   bool
-	StartTime     time.Time
-	Stdout        *bytes.Buffer
-	Stderr        *bytes.Buffer
-	Completed     bool
-	CompletedAt   time.Time
-	ExitError     error
 }
 
-// Handler handles instrument setup and destruction
+// Handler handles instrument registration and port management
 type Handler struct {
-	logger            *logging.Logger
-	Log               *LogWrapper
-	natsURL           string
-	nc                *nats.Conn
-	Instruments       map[Name]*InstrumentProcess
-	mutex             sync.RWMutex
-	subscriptions     []*nats.Subscription
-	portProcessor     *PortProcessor
-	pythonInterpreter string
-	cleanupStop       chan struct{}
-	destroyQueue      chan Name
+	logger        *logging.Logger
+	Log           *LogWrapper
+	natsURL       string
+	nc            *nats.Conn
+	Instruments   map[Name]*InstrumentProcess
+	mutex         sync.RWMutex
+	subscriptions []*nats.Subscription
+	portProcessor *PortProcessor
 }
 
 // subscriptionConfig represents a subscription configuration

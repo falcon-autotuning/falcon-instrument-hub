@@ -1,4 +1,3 @@
-//go:generate ./copy_script.sh
 package handlers
 
 import (
@@ -9,7 +8,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/manageVenv"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/nats-io/nats.go"
 )
@@ -31,12 +29,9 @@ type Manager struct {
 	logger                         *logging.Logger
 	nc                             *nats.Conn
 	mu                             sync.RWMutex
-	instrumentVenvMgr              *manageVenv.Manager
-	interpreterVenvMgr             *manageVenv.Manager
 	logHandler                     *LogHandler
 	deviceConfigHandler            *DeviceConfigHandler
 	instrumentHandler              *instrument.Handler
-	interpreterHandler             *InterpreterHandler
 	busyHandler                    *BusyHandler
 	measureCommandHandler          *MeasureCommandHandler
 	measureReadyHandler            *measure.MeasurementReadyHandler
@@ -54,15 +49,12 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 	measurementManager *measurements.Manager,
-	instrumentVenvMgr *manageVenv.Manager,
-	interpreterVenvMgr *manageVenv.Manager,
 ) *Manager {
 	instrumentHandler, err := instrument.NewHandler(
 		logger,
 		natsURL,
 		nc,
 		cfg,
-		instrumentVenvMgr.GetPythonInterpreter(),
 	)
 	if err != nil {
 		logger.Error(
@@ -83,16 +75,9 @@ func NewManager(
 		logger:              logger,
 		nc:                  nc,
 		natsURL:             natsURL,
-		instrumentVenvMgr:   instrumentVenvMgr,
-		interpreterVenvMgr:  interpreterVenvMgr,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
-		interpreterHandler: NewInterpreterHandler(
-			logger,
-			natsURL,
-			interpreterVenvMgr.GetPythonInterpreter(),
-		),
 		performInstrumentMethodHandler: NewPerformInstrumentMethodHandler(
 			logger,
 			instrumentHandler,
@@ -193,11 +178,6 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			name:    "instrument handler",
 			startOp: func() error { return m.instrumentHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.instrumentHandler.Unsubscribe() },
-		},
-		{
-			name:    "interpreter handler",
-			startOp: func() error { return m.interpreterHandler.Start() },
-			stopOp:  func() error { return m.interpreterHandler.Stop() },
 		},
 		{
 			name:    "busy handler",

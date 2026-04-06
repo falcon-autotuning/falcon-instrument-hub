@@ -11,7 +11,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/manageVenv"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
 	"github.com/spf13/cobra"
@@ -25,11 +24,6 @@ const (
 
 	// Database file name
 	MeasurementsDB = "measurements.db"
-
-	// defualt packages
-	templatesPackage   = "instrument_templates @ git+ssh://git@github.com/falcon-autotuning/instrument-templates.git@dev"
-	interpreterPackage = "server_daemons @ git+ssh://git@github.com/falcon-autotuning/instrument-server.git@dev"
-	corePackage        = "falcon_core @ git+ssh://git@github.com/falcon-autotuning/falcon-core.git@dev"
 )
 
 var (
@@ -93,8 +87,6 @@ type coreServices struct {
 	measurementManager *measurements.Manager
 	logger             *logging.Logger
 	handlerManager     *handlers.Manager
-	instrumentVenvMgr  *manageVenv.Manager
-	interpreterVenvMgr *manageVenv.Manager
 }
 
 func (s *coreServices) cleanup() {
@@ -155,17 +147,6 @@ func setupCoreServices() (*coreServices, error) {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 	services.logger = logger
-	// create instrument virtual environment manager
-	services.instrumentVenvMgr = manageVenv.NewManager(
-		logger,
-		filepath.Join(workingdir, "instrument_env"),
-	)
-
-	// create interpreter virtual environment manager
-	services.interpreterVenvMgr = manageVenv.NewManager(
-		logger,
-		filepath.Join(workingdir, "interpreter_env"),
-	)
 
 	return services, nil
 }
@@ -181,23 +162,6 @@ func setupHandlers(services *coreServices) error {
 		len(cfg.DeviceConfig.Groups),
 		len(cfg.DeviceConfig.WiringDC),
 	)
-	// setup instrument virtual environment
-	interpreterPackages := append(
-		append(
-			[]string{corePackage},
-			templatesPackage),
-		[]string{
-			interpreterPackage,
-		}...) // TODO: include all falcon packages for the interpreter too
-	instrumentPackages := append(
-		interpreterPackages,
-		packages...)
-	if err := services.instrumentVenvMgr.SetupEnvironment(instrumentPackages); err != nil {
-		return fmt.Errorf("failed to setup instrument environment: %w", err)
-	}
-	if err := services.interpreterVenvMgr.SetupEnvironment(interpreterPackages); err != nil {
-		return fmt.Errorf("failed to setup interpreter environment: %w", err)
-	}
 
 	services.logger.LogStats()
 
@@ -208,8 +172,6 @@ func setupHandlers(services *coreServices) error {
 		services.natsManager.GetConnection(),
 		services.natsManager.GetNATSURL(),
 		services.measurementManager,
-		services.instrumentVenvMgr,
-		services.interpreterVenvMgr,
 	)
 
 	// subscribe all handlers using the handlers manager

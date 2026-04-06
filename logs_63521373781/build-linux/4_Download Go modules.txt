@@ -1,0 +1,7 @@
+﻿2026-04-06T21:07:23.9256530Z ##[group]Run go mod download
+2026-04-06T21:07:23.9257029Z [36;1mgo mod download[0m
+2026-04-06T21:07:23.9292900Z shell: /usr/bin/bash -e {0}
+2026-04-06T21:07:23.9293329Z env:
+2026-04-06T21:07:23.9293596Z   GO_VERSION: 1.23
+2026-04-06T21:07:23.9293903Z ##[endgroup]
+2026-04-06T21:07:23.9408791Z go: downloading go1.25.2 (linux/amd64)

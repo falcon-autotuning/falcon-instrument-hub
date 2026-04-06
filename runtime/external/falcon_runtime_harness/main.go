@@ -331,7 +331,7 @@ func startLocalHub(nc *nats.Conn, natsURL string) (*localHub, error) {
 		return nil, err
 	}
 	cfg := &config.Config{DeviceConfig: &config.DeviceConfig{}, WireMap: &config.WireMap{}}
-	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg, "python3")
+	instrumentHandler, err := instrument.NewHandler(logger, natsURL, nc, cfg)
 	if err != nil {
 		return nil, err
 	}
