@@ -1,18 +1,27 @@
-# Build mkdocs and deploy the generated site to gh-pages
-name: Build and deploy MkDocs site
+# Versioned documentation using MkDocs + mike
+# - Push to main/dev  → deploys docs under /latest/
+# - Release published → deploys docs under /<version>/ and updates /stable/ alias
+# - Root index.html   → redirects visitors to /stable/
+name: Build and deploy versioned MkDocs site
 
 on:
   push:
     branches:
       - main
       - dev
+  release:
+    types: [published]
 
 permissions:
   pages: write
   contents: write
 
 jobs:
-  build-and-deploy:
+  # -------------------------------------------------------------------
+  # Deploy "latest" docs on every push to main / dev
+  # -------------------------------------------------------------------
+  deploy-latest:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -21,7 +30,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
@@ -35,13 +44,65 @@ jobs:
           python -m pip install --upgrade pip
           pip install mkdocs mkdocs-material mike
 
-      - name: Build MkDocs site (mkdoxy runs as a plugin)
+      - name: Configure git for mike
         run: |
-          mkdocs build --clean
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Deploy docs as "latest"
+        run: |
+          mike deploy --push --update-aliases latest
+
+      - name: Set default redirect to stable (if stable exists) or latest
+        run: |
+          # If a "stable" version exists, keep redirecting there;
+          # otherwise point the root at "latest".
+          if mike list | grep -q '^stable'; then
+            mike set-default --push stable
+          else
+            mike set-default --push latest
+          fi
+
+  # -------------------------------------------------------------------
+  # Deploy versioned docs on every GitHub release
+  # -------------------------------------------------------------------
+  deploy-release:
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./site
-          publish_branch: gh-pages
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install mkdocs mkdocs-material mike
+
+      - name: Configure git for mike
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Extract release version
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> "$GITHUB_ENV"
+
+      - name: Deploy docs as versioned release
+        run: |
+          mike deploy --push --update-aliases \
+            "${{ env.RELEASE_VERSION }}" stable
+
+      - name: Set default redirect to stable
+        run: |
+          mike set-default --push stable

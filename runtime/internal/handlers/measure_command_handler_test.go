@@ -60,6 +60,7 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create instrument handler with test config
 	cfg := &config.Config{
@@ -288,6 +289,7 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create test config with device mappings
 	cfg := &config.Config{
@@ -439,6 +441,7 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create instrument handler
 	cfg := &config.Config{
@@ -527,6 +530,7 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create instrument handler with test config
 	cfg := &config.Config{
@@ -873,6 +877,7 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create instrument handler with test config
 	cfg := &config.Config{
@@ -1166,6 +1171,7 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		tempDir+"/test.db",
 	)
 	require.NoError(t, err)
+	defer measurementManager.Close()
 
 	// Create instrument handler
 	cfg := &config.Config{
