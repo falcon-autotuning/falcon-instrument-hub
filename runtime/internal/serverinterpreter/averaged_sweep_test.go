@@ -3,6 +3,7 @@ package serverinterpreter
 
 import (
 	"encoding/json"
+	filepathpkg "path/filepath"
 	"path/filepath"
 	"testing"
 	"time"
@@ -189,6 +190,7 @@ func TestMeasurementDatabase_StoreAndLoad(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, filepath)
 		assert.FileExists(t, filepath)
+		assert.Equal(t, ".h5", filepathpkg.Ext(filepath))
 
 		// Load
 		loaded, err := db.Load("test-measurement-1")
@@ -197,6 +199,7 @@ func TestMeasurementDatabase_StoreAndLoad(t *testing.T) {
 		assert.Equal(t, result.MeasurementID, loaded.MeasurementID)
 		assert.Equal(t, result.SweepGate, loaded.SweepGate)
 		assert.Equal(t, result.NumPoints, loaded.NumPoints)
+		assert.Empty(t, loaded.AllTraces)
 	})
 
 	t.Run("list measurements", func(t *testing.T) {

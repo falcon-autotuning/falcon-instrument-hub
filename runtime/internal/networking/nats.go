@@ -3,6 +3,7 @@ package networking
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/nats-io/nats-server/v2/server"
@@ -79,10 +80,12 @@ func startEmbeddedNATS() (*server.Server, *nats.Conn, string, error) {
 	// Find an available port
 	port := findAvailablePort()
 
-	// Configure embedded NATS server
+	// Configure embedded NATS server with JetStream enabled
 	opts := &server.Options{
-		Host: "127.0.0.1",
-		Port: port,
+		Host:      "127.0.0.1",
+		Port:      port,
+		JetStream: true,
+		StoreDir:  os.TempDir(),
 	}
 
 	// Start the server

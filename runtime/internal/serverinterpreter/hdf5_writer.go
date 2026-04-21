@@ -5,9 +5,12 @@
 //	RawTraceDB   – stores every individual sweep trace (hub-local only)
 //	AveragedDB   – stores the averaged result + a RawDataRef link (shared with falcon)
 //
-// Only the averaged database is exposed to falcon via JetStream.
+// The averaged database is exposed to falcon via JetStream.
 // Raw traces are kept locally for post-hoc analysis, noise diagnostics,
 // or re-averaging with different filters.
+//
+// Storage backend uses the falcon-core HDF5Data type.
+// JSON loading remains only for legacy on-disk data.
 package serverinterpreter
 
 import (
@@ -87,21 +90,20 @@ func NewRawTraceDatabase(basePath string) (*RawTraceDatabase, error) {
 	return db, nil
 }
 
-// Store stores raw traces and returns a RawDataRef for linking.
+// Store stores raw traces as a single 2D HDF5 file.
 func (db *RawTraceDatabase) Store(record *RawTraceRecord) (*RawDataRef, error) {
-	filename := fmt.Sprintf("raw_%s.json", record.MeasurementID)
+	return db.storeHDF5(record)
+}
+
+// storeHDF5 writes the raw trace record as a 2D HDF5 file.
+func (db *RawTraceDatabase) storeHDF5(record *RawTraceRecord) (*RawDataRef, error) {
+	filename := fmt.Sprintf("raw_%s.h5", record.MeasurementID)
 	fp := filepath.Join(db.basePath, filename)
 
-	data, err := json.MarshalIndent(record, "", "  ")
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal raw traces: %w", err)
+	if err := storeRawTraceRecordAsHDF5(fp, record); err != nil {
+		return nil, fmt.Errorf("failed to write raw trace HDF5: %w", err)
 	}
 
-	if err := os.WriteFile(fp, data, 0644); err != nil {
-		return nil, fmt.Errorf("failed to write raw trace file: %w", err)
-	}
-
-	// Update index
 	db.index[record.MeasurementID] = RawTraceIndex{
 		MeasurementID: record.MeasurementID,
 		FilePath:      fp,
@@ -109,7 +111,6 @@ func (db *RawTraceDatabase) Store(record *RawTraceRecord) (*RawDataRef, error) {
 		NumPoints:     record.NumPoints,
 		StoredAt:      time.Now(),
 	}
-
 	if err := db.saveIndex(); err != nil {
 		return nil, fmt.Errorf("stored raw data but failed to update index: %w", err)
 	}
@@ -123,22 +124,26 @@ func (db *RawTraceDatabase) Store(record *RawTraceRecord) (*RawDataRef, error) {
 }
 
 // Load loads raw traces by measurement ID.
+// Legacy JSON loading is retained for existing on-disk data.
 func (db *RawTraceDatabase) Load(measurementID string) (*RawTraceRecord, error) {
 	idx, exists := db.index[measurementID]
 	if !exists {
 		return nil, fmt.Errorf("raw traces not found: %s", measurementID)
 	}
 
+	if strings.HasSuffix(idx.FilePath, ".h5") {
+		return loadRawTracesFromHDF5(idx.FilePath)
+	}
+
+	// Legacy JSON support
 	data, err := os.ReadFile(idx.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read raw trace file: %w", err)
 	}
-
 	var record RawTraceRecord
 	if err := json.Unmarshal(data, &record); err != nil {
 		return nil, fmt.Errorf("failed to parse raw trace file: %w", err)
 	}
-
 	return &record, nil
 }
 
@@ -182,146 +187,6 @@ func (db *RawTraceDatabase) saveIndex() error {
 // Averaged Database (shared with falcon via JetStream)
 // =============================================================================
 
-// DatabaseWriter is the interface for storing measurement results.
-type DatabaseWriter interface {
-	// WriteAveragedMeasurement stores an averaged measurement result.
-	WriteAveragedMeasurement(result *AveragedMeasurementResult) (string, error)
-
-	// Close closes the database writer.
-	Close() error
-}
-
-// HDF5Config configures the HDF5 database writer.
-type HDF5Config struct {
-	// BasePath is the base directory for HDF5 files
-	BasePath string
-
-	// FilePrefix is the prefix for generated filenames
-	FilePrefix string
-
-	// WriteRawTraces determines if individual traces are stored
-	WriteRawTraces bool
-
-	// Compression level (0-9, 0 = none)
-	Compression int
-}
-
-// DefaultHDF5Config returns reasonable defaults.
-func DefaultHDF5Config() HDF5Config {
-	return HDF5Config{
-		BasePath:       "/tmp/falcon-data",
-		FilePrefix:     "measurement",
-		WriteRawTraces: true,
-		Compression:    4,
-	}
-}
-
-// HDF5Writer writes measurement data to HDF5 format.
-// This is a wrapper that can use either native HDF5 or JSON fallback.
-type HDF5Writer struct {
-	config  HDF5Config
-	useJSON bool // Fallback to JSON if HDF5 library not available
-}
-
-// NewHDF5Writer creates a new HDF5 writer.
-// If the native HDF5 library is available (built with -tags hdf5), HDF5 is
-// preferred.  Otherwise the writer automatically falls back to JSON.
-func NewHDF5Writer(config HDF5Config) (*HDF5Writer, error) {
-	// Create base directory if it doesn't exist
-	if err := os.MkdirAll(config.BasePath, 0755); err != nil {
-		return nil, fmt.Errorf("failed to create database directory: %w", err)
-	}
-
-	// hdf5Available is set to true by hdf5_impl.go (build tag: hdf5).
-	// The stub (hdf5_stub.go) leaves it false.
-	writer := &HDF5Writer{
-		config:  config,
-		useJSON: !hdf5Available,
-	}
-
-	return writer, nil
-}
-
-// WriteAveragedMeasurement stores the measurement result.
-func (w *HDF5Writer) WriteAveragedMeasurement(result *AveragedMeasurementResult) (string, error) {
-	if w.useJSON {
-		return w.writeJSON(result)
-	}
-	return w.writeHDF5(result)
-}
-
-// writeJSON writes the result as a JSON file (fallback).
-func (w *HDF5Writer) writeJSON(result *AveragedMeasurementResult) (string, error) {
-	filename := fmt.Sprintf("%s_%s.json",
-		w.config.FilePrefix,
-		result.MeasurementID)
-	fp := filepath.Join(w.config.BasePath, filename)
-
-	data, err := json.MarshalIndent(result, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal result: %w", err)
-	}
-
-	if err := os.WriteFile(fp, data, 0644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
-	}
-
-	result.DatabasePath = fp
-	return fp, nil
-}
-
-// writeHDF5 writes the result to HDF5 format using gonum/hdf5.
-//
-// Dataset layout inside the HDF5 file:
-//
-//	/<measurementID>/
-//	    averaged_trace/          float64 [numPoints x numChannels]
-//	    voltages/                float64 [numPoints]
-//	    metadata (attrs):
-//	        measurement_id       string
-//	        sweep_gate           string
-//	        start_voltage        float64
-//	        stop_voltage         float64
-//	        num_points           int
-//	        num_sweeps           int
-//	        total_duration_ns    int64
-//
-// If the HDF5 library (libhdf5) is not installed on the host, the writer
-// automatically falls back to JSON via writeJSON.
-func (w *HDF5Writer) writeHDF5(result *AveragedMeasurementResult) (string, error) {
-	filename := fmt.Sprintf("%s_%s.h5",
-		w.config.FilePrefix,
-		result.MeasurementID)
-	fp := filepath.Join(w.config.BasePath, filename)
-
-	// Try native HDF5 first; fall back to JSON if the C library is missing.
-	if err := writeHDF5Native(fp, result); err != nil {
-		// HDF5 library might not be available — fall back to JSON and log.
-		fmt.Printf("HDF5 write failed (%v), falling back to JSON\n", err)
-		return w.writeJSON(result)
-	}
-
-	result.DatabasePath = fp
-	return fp, nil
-}
-
-// writeHDF5Native performs the actual HDF5 I/O.
-// It is extracted so that the fallback path is always available even when
-// the hdf5 C library is not linked.
-func writeHDF5Native(fp string, result *AveragedMeasurementResult) error {
-	// ---------------------------------------------------------------
-	// HDF5 C bindings are optional.  When they are not available the
-	// build uses hdf5_stub.go which makes this function return an error
-	// immediately, causing the caller to fall back to JSON.
-	// ---------------------------------------------------------------
-	return writeHDF5Impl(fp, result)
-}
-
-// Close closes the writer.
-func (w *HDF5Writer) Close() error {
-	return nil
-}
-
 // MeasurementDatabase manages both raw and averaged measurement databases.
 //
 // Layout on disk:
@@ -329,10 +194,10 @@ func (w *HDF5Writer) Close() error {
 //	<basePath>/
 //	  averaged/         <- averaged results (shared with falcon)
 //	    index.json
-//	    sweep_<id>.json
+//	    sweep_<id>.h5
 //	  raw/              <- individual traces (hub-local only)
 //	    raw_index.json
-//	    raw_<id>.json
+//	    raw_<id>.h5
 type MeasurementDatabase struct {
 	basePath string
 	rawDB    *RawTraceDatabase
@@ -421,19 +286,10 @@ func (db *MeasurementDatabase) Store(result *AveragedMeasurementResult) (string,
 
 	// 3. Write averaged result to averaged/ subdirectory
 	avgPath := filepath.Join(db.basePath, "averaged")
-	writer, err := NewHDF5Writer(HDF5Config{
-		BasePath:       avgPath,
-		FilePrefix:     "sweep",
-		WriteRawTraces: false,
-	})
-	if err != nil {
-		return "", err
-	}
-	defer writer.Close()
+	avgFilePath := filepath.Join(avgPath, fmt.Sprintf("sweep_%s.h5", avgResult.MeasurementID))
 
-	avgFilePath, err := writer.WriteAveragedMeasurement(avgResult)
-	if err != nil {
-		return "", err
+	if err := storeAveragedAsHDF5(avgFilePath, avgResult); err != nil {
+		return "", fmt.Errorf("failed to write averaged measurement: %w", err)
 	}
 
 	// Also set the path on the original result so callers can access it
@@ -459,22 +315,26 @@ func (db *MeasurementDatabase) Store(result *AveragedMeasurementResult) (string,
 }
 
 // Load loads an averaged measurement result by ID (does NOT include raw traces).
+// Legacy JSON loading is retained for existing on-disk data.
 func (db *MeasurementDatabase) Load(measurementID string) (*AveragedMeasurementResult, error) {
 	idx, exists := db.index[measurementID]
 	if !exists {
 		return nil, fmt.Errorf("measurement not found: %s", measurementID)
 	}
 
+	if strings.HasSuffix(idx.FilePath, ".h5") {
+		return loadAveragedFromHDF5(idx.FilePath, measurementID)
+	}
+
+	// Legacy JSON support
 	data, err := os.ReadFile(idx.FilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read file: %w", err)
 	}
-
 	var result AveragedMeasurementResult
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("failed to parse file: %w", err)
 	}
-
 	return &result, nil
 }
 

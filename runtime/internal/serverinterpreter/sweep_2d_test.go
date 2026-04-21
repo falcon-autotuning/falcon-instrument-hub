@@ -384,18 +384,12 @@ func TestValidateRequest_RejectsInvalidPayload(t *testing.T) {
 }
 
 // =============================================================================
-// Database Writer (HDF5 fallback → JSON) Tests
+// Database Storage Tests
 // =============================================================================
 
-func TestHDF5Writer_FallsBackToJSON(t *testing.T) {
-	// Without the hdf5 build tag, the writer should fall back to JSON.
-	// If the hdf5 tag is present, the writer should use native HDF5.
+func TestMeasurementDatabase_WritesHDF5(t *testing.T) {
 	tempDir := t.TempDir()
-
-	writer, err := NewHDF5Writer(HDF5Config{
-		BasePath:   tempDir,
-		FilePrefix: "test",
-	})
+	db, err := NewMeasurementDatabase(tempDir)
 	require.NoError(t, err)
 
 	result := &AveragedMeasurementResult{
@@ -414,8 +408,9 @@ func TestHDF5Writer_FallsBackToJSON(t *testing.T) {
 		},
 	}
 
-	path, err := writer.WriteAveragedMeasurement(result)
+	path, err := db.Store(result)
 	require.NoError(t, err)
 	assert.NotEmpty(t, path)
 	assert.FileExists(t, path)
+	assert.Equal(t, ".h5", filepath.Ext(path))
 }
