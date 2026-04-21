@@ -58,6 +58,7 @@ See [docs/LUA_SCRIPT_AUTHORING.md](docs/LUA_SCRIPT_AUTHORING.md) for script requ
 - [Falcon Instrument Hub](#falcon-instrument-hub)
   - [Architecture](#architecture)
   - [Build](#build)
+  - [Running](#running)
   - [Configuration](#configuration)
   - [Contributing](#contributing)
   - [License](#license)
@@ -71,28 +72,105 @@ support compiling both into Linux and Windows executables to support most hardwa
 ### Linux
 
 ```bash
-cd runtime
-make build
+# Development build
+make build-go
+
+# Release build (optimised, symbols stripped)
+make build-release
+
+# Build and install to /opt/falcon/bin (requires sudo)
+make install
+
+# Override install prefix
+make install INSTALL_PREFIX=$HOME/.local
 ```
 
 ### Windows
 
 ```bash
 cd runtime
-# Windows builds use Go cross-compilation
-GOOS=windows GOARCH=amd64 go build -o bin/falcon-instrument-hub.exe ./cmd/
+GOOS=windows GOARCH=amd64 go build -o bin/instrument-hub.exe ./cmd/
 ```
+
+## Running
+
+`instrument-hub` exposes a `start` subcommand that:
+1. Starts an **embedded NATS server** (or connects to an external one via `--nats-url`)
+2. Auto-starts the **`instrument-script-server` daemon** (unless `--no-iss` is given)
+3. Sets up NATS measurement handlers (when `--device-config` and `--wiremap` are provided)
+
+### Quickstart with hub config
+
+```bash
+instrument-hub start \
+  --hub-config instrument_hub_config.yaml \
+  --iss-lib-path /path/to/vcpkg/lib \
+  --working-dir /my/data
+```
+
+`--hub-config` reads `instrument_hub_config.yaml` and fills in `--device-config`, `--wiremap`, and `--nats-url` automatically.
+
+### All start flags
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--hub-config` | — | Load device-config, wiremap, nats-url from YAML |
+| `--device-config` | — | Path to quantum dot device configuration YAML |
+| `--wiremap` | — | Path to wiremap YAML |
+| `--nats-url` | — | External NATS URL; omit to start embedded NATS |
+| `--working-dir` | `.` | Directory for logs, data, and datacache |
+| `--packages` | — | Python modules containing instrument templates |
+| `--iss-binary` | `/opt/falcon/bin/instrument-script-server` | Path to ISS binary |
+| `--iss-lib-path` | — | Path prepended to `LD_LIBRARY_PATH` for ISS |
+| `--no-iss` | false | Skip auto-starting ISS daemon |
+
+### Minimal start (NATS + ISS only, no device config)
+
+```bash
+instrument-hub start \
+  --iss-lib-path /opt/falcon/instrument-script-server/vcpkg_installed/x64-linux-dynamic/lib \
+  --working-dir /tmp/hub-run
+```
+
+When `--device-config` and `--wiremap` are omitted the hub still starts NATS and ISS, but skips measurement handler registration.
+
+### ISS library path
+
+If `instrument-script-server` was built with vcpkg dynamic libraries, those libraries are not in the system linker path. Pass their location via `--iss-lib-path`:
+
+```bash
+--iss-lib-path /path/to/instrument-script-server/vcpkg_installed/x64-linux-dynamic/lib
+```
+
+On shutdown (SIGINT / SIGTERM) the hub sends `instrument-script-server daemon stop` before exiting.
 
 ## Configuration
 
-The go server is designed to accept a few inputs on startup:
+### `instrument_hub_config.yaml`
 
-- nats-url: the URL of the NATS server to connect to.
-- working-dir: the directory where the server will store its data and logs.
-- packages: any packages to load to start instrument drivers
-- device-config: a path to a yaml file containing the configuration for the
-  device(see next section)
-- wiremap: a path to a yaml file containing the wiremap for the device(see next section)
+The hub config file maps high-level paths and settings in one place:
+
+```yaml
+wiremap: /configs/wiremap.yaml
+quantum-dot-config: /configs/qdot.yaml
+inst-config: /configs/instruments
+nats-url: nats://localhost:4222
+instrument-server-port: 5555
+local-database: /data
+user-measurement-luas: /lua/user
+```
+
+Pass it to the hub with `--hub-config`. Any flags given explicitly on the command line take precedence over values from this file.
+
+### CLI flags (legacy / explicit)
+
+The `start` command also accepts the following flags directly:
+
+- `--nats-url`: the URL of the NATS server to connect to.
+- `--working-dir`: the directory where the server will store its data and logs.
+- `--packages`: Python modules for instrument drivers (comma-separated).
+- `--device-config`: path to the quantum dot device configuration YAML.
+- `--wiremap`: path to the wiremap YAML.
 
 ### Packages
 

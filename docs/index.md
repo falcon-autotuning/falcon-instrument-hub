@@ -49,18 +49,43 @@ See the [Lua Script Authoring Guide](LUA_SCRIPT_AUTHORING.md) for detailed scrip
 
 ## Getting Started
 
+### Installation
+
+```bash
+# Build and install to /opt/falcon/bin (requires sudo)
+make install
+
+# Or build only (output: runtime/bin/instrument-hub)
+make build-go
+```
+
 ### Quick Start
 
 ```bash
-# Build the hub (requires Go)
-make build
-
-# Configure your device and instruments
-# Edit instrument_hub_config.yaml with your setup
-
-# Start the hub
-./bin/falcon-instrument-hub --config instrument_hub_config.yaml
+# Start the hub with a hub config file
+# This auto-starts NATS (embedded) and instrument-script-server
+instrument-hub start \
+  --hub-config instrument_hub_config.yaml \
+  --iss-lib-path /path/to/vcpkg/lib \
+  --working-dir /my/data
 ```
+
+`--hub-config` reads `instrument_hub_config.yaml` and fills in `--device-config`, `--wiremap`, and `--nats-url` automatically.
+
+### Key flags for `instrument-hub start`
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--hub-config` | — | Load device-config, wiremap, nats-url from YAML |
+| `--device-config` | — | Quantum dot device configuration YAML |
+| `--wiremap` | — | Wiremap YAML |
+| `--nats-url` | — | External NATS URL; omit to use embedded NATS |
+| `--working-dir` | `.` | Directory for logs, data, and datacache |
+| `--iss-binary` | `/opt/falcon/bin/instrument-script-server` | ISS binary path |
+| `--iss-lib-path` | — | Prepended to `LD_LIBRARY_PATH` for ISS |
+| `--no-iss` | false | Skip auto-starting ISS daemon |
+
+On shutdown (SIGINT / SIGTERM) the hub automatically stops the ISS daemon.
 
 ### Documentation Guide
 

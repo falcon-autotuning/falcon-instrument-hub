@@ -1,7 +1,9 @@
 # Build configuration
-GO_BINARY := runtime/bin/instrument-hub-server
+GO_BINARY := runtime/bin/instrument-hub
 PYTHON_ENV := .venv
 NATS_CONTAINER := nats
+INSTALL_PREFIX ?= /opt/falcon
+SUDO ?= sudo
 
 # Default target
 .PHONY: all
@@ -14,12 +16,24 @@ build: build-go setup-python
 .PHONY: build-go
 build-go:
 ifeq ($(OS),Windows_NT)
-	cd runtime && go build -o bin/instrument-hub-server.exe cmd/main.go
+	cd runtime && go build -o bin/instrument-hub.exe cmd/main.go
 	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
 else
-	cd runtime && go build -o bin/instrument-hub-server cmd/main.go
+	cd runtime && go build -o bin/instrument-hub cmd/main.go
 	cd runtime && go build -o bin/dataviewer ./cmd/dataviewer/
 endif
+
+# Release build (optimised, symbols stripped)
+.PHONY: build-release
+build-release:
+	cd runtime && CGO_CFLAGS="-I/opt/falcon/include" CGO_LDFLAGS="-L/opt/falcon/lib -lfalcon-core-c-api" \
+		go build -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
+
+# Install the instrument-hub binary to INSTALL_PREFIX/bin
+.PHONY: install
+install: build-go
+	$(SUDO) install -d $(INSTALL_PREFIX)/bin
+	$(SUDO) install -m 0755 $(GO_BINARY) $(INSTALL_PREFIX)/bin/instrument-hub
 
 # Data viewer — plots raw & averaged measurement data in the browser.
 # Usage: make dataviewer DATA_DIR=path/to/measurement/data
