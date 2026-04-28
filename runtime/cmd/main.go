@@ -32,15 +32,19 @@ const (
 )
 
 var (
-	packages      []string
-	natsurl       string
-	deviceconfig  string
-	wiremap       string
-	workingdir    string
-	hubconfig     string
-	issBinary     string
-	issLibPath    string
-	issNoAutoStart bool
+	packages             []string
+	natsurl              string
+	deviceconfig         string
+	wiremap              string
+	workingdir           string
+	hubconfig            string
+	issBinary            string
+	issLibPath           string
+	issNoAutoStart       bool
+	instConfig           string
+	instrumentServerPort int
+	localDatabase        string
+	userMeasurementLuas  string
 )
 
 var startCmd = &cobra.Command{
@@ -69,6 +73,14 @@ func init() {
 		StringVar(&issLibPath, "iss-lib-path", "", "additional library path prepended to LD_LIBRARY_PATH for instrument-script-server")
 	startCmd.Flags().
 		BoolVar(&issNoAutoStart, "no-iss", false, "skip auto-starting instrument-script-server daemon")
+	startCmd.Flags().
+		StringVar(&instConfig, "inst-config", "", "semicolon-separated paths to instrument configuration files")
+	startCmd.Flags().
+		IntVar(&instrumentServerPort, "instrument-server-port", 0, "RPC port for instrument-script-server (overrides hub config)")
+	startCmd.Flags().
+		StringVar(&localDatabase, "local-database", "", "path to local database directory")
+	startCmd.Flags().
+		StringVar(&userMeasurementLuas, "user-measurement-luas", "", "path to user-defined Lua measurement scripts")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -91,6 +103,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		} else {
 			issProcess = proc
 			log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
+			if err := startInstruments(); err != nil {
+				log.Printf("warning: failed to start instruments: %v", err)
+			}
 		}
 	}
 
@@ -163,8 +178,12 @@ func setupCoreServices() (*coreServices, error) {
 	services.natsManager = natsManager
 
 	// create measurement manager
+	dataPath := filepath.Join(workingdir, DataDir)
+	if localDatabase != "" {
+		dataPath = localDatabase
+	}
 	measurementManager, err := measurements.NewManager(
-		filepath.Join(workingdir, DataDir),
+		dataPath,
 		filepath.Join(workingdir, DataCacheDir, MeasurementsDB),
 	)
 	if err != nil {
@@ -300,8 +319,8 @@ func validateFiles() error {
 	return nil
 }
 
-// applyHubConfig reads instrument_hub_config.yaml and populates device-config,
-// wiremap, and nats-url from it if those flags were not explicitly provided.
+// applyHubConfig reads instrument_hub_config.yaml and populates CLI flags from
+// it for any values not already provided on the command line.
 func applyHubConfig() error {
 	if hubconfig == "" {
 		return nil
@@ -313,9 +332,13 @@ func applyHubConfig() error {
 	}
 
 	var cfg struct {
-		Wiremap          string `yaml:"wiremap"`
-		QuantumDotConfig string `yaml:"quantum-dot-config"`
-		NATSUrl          string `yaml:"nats-url"`
+		Wiremap              string `yaml:"wiremap"`
+		QuantumDotConfig     string `yaml:"quantum-dot-config"`
+		NATSUrl              string `yaml:"nats-url"`
+		InstConfig           string `yaml:"inst-config"`
+		InstrumentServerPort int    `yaml:"instrument-server-port"`
+		LocalDatabase        string `yaml:"local-database"`
+		UserMeasurementLuas  string `yaml:"user-measurement-luas"`
 	}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("failed to parse hub config: %w", err)
@@ -332,6 +355,22 @@ func applyHubConfig() error {
 	if natsurl == "" && cfg.NATSUrl != "" {
 		natsurl = cfg.NATSUrl
 		log.Printf("hub config: nats-url = %s", natsurl)
+	}
+	if instConfig == "" && cfg.InstConfig != "" {
+		instConfig = cfg.InstConfig
+		log.Printf("hub config: inst-config = %s", instConfig)
+	}
+	if instrumentServerPort == 0 && cfg.InstrumentServerPort != 0 {
+		instrumentServerPort = cfg.InstrumentServerPort
+		log.Printf("hub config: instrument-server-port = %d", instrumentServerPort)
+	}
+	if localDatabase == "" && cfg.LocalDatabase != "" {
+		localDatabase = cfg.LocalDatabase
+		log.Printf("hub config: local-database = %s", localDatabase)
+	}
+	if userMeasurementLuas == "" && cfg.UserMeasurementLuas != "" {
+		userMeasurementLuas = cfg.UserMeasurementLuas
+		log.Printf("hub config: user-measurement-luas = %s", userMeasurementLuas)
 	}
 
 	return nil
@@ -365,7 +404,11 @@ func startISSDaemon() (*os.Process, error) {
 	}
 
 	cmd := exec.Command(issBinary, "daemon", "start")
-	cmd.Env = buildEnvWithLibPath(issLibPath)
+	env := buildEnvWithLibPath(issLibPath)
+	if instrumentServerPort > 0 {
+		env = append(env, fmt.Sprintf("INSTRUMENT_SCRIPT_SERVER_RPC_PORT=%d", instrumentServerPort))
+	}
+	cmd.Env = env
 
 	// Append to log file
 	logFile, err := os.OpenFile("/tmp/iss-daemon.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
@@ -382,6 +425,30 @@ func startISSDaemon() (*os.Process, error) {
 	time.Sleep(500 * time.Millisecond)
 
 	return cmd.Process, nil
+}
+
+// startInstruments starts each instrument config listed in instConfig
+// (semicolon-separated paths) by calling the ISS binary with "start <config>".
+func startInstruments() error {
+	if instConfig == "" {
+		return nil
+	}
+	configs := strings.Split(instConfig, ";")
+	for _, cfg := range configs {
+		cfg = strings.TrimSpace(cfg)
+		if cfg == "" {
+			continue
+		}
+		cmd := exec.Command(issBinary, "start", cfg)
+		cmd.Env = buildEnvWithLibPath(issLibPath)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to start instrument from %s: %w", cfg, err)
+		}
+		log.Printf("started instrument: %s", cfg)
+	}
+	return nil
 }
 
 // stopISSDaemon sends a stop command to the instrument-script-server daemon.
