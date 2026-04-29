@@ -10,11 +10,8 @@
     "wiremap",
     "quantum-dot-config",
     "inst-config",
-    "teal-apis",
-    "lua-library-types",
     "user-measurement-luas",
     "local-database",
-    "nats-url",
     "instrument-server-port"
   ],
 
@@ -35,9 +32,9 @@
 
     "inst-config": {
       "type": "string",
-      "description": "Directory containing all instrument configuration files.",
+      "description": "Semicolon-separated paths to instrument configuration files (e.g. /path/a.yml;/path/b.yml), or a directory containing all instrument configuration files.",
       "minLength": 1,
-      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+      "examples": ["/path/to/multimeter.yml;/path/to/source.yml", "/path/to/instruments/"]
     },
 
     "teal-apis": {

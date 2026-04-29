@@ -1,0 +1,101 @@
+name: MockInstrument1
+api_ref: ../generated-multimeter-api.yml
+connection:
+  type: Custom
+io_config:
+  analog1_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog2_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog3_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog4_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog5_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog6_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog7_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog8_stream:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog1_voltage:
+    type: array
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog2_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog3_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog4_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog5_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog6_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog7_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1
+  analog8_voltage:
+    type: float
+    role: input
+    unit: V
+    offset: 0
+    scale: 1

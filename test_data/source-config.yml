@@ -1,0 +1,388 @@
+name: MockInstrument2
+api_ref: ../generated-source-api.yml
+connection:
+  type: Custom
+io_config:
+  analog1_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog2_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog3_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog4_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog5_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog6_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog7_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog8_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog9_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog10_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog11_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog12_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog13_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog14_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog15_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog16_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog17_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog18_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog19_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog20_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog21_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog22_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog23_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog24_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog25_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog26_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog27_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog28_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog29_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog30_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog31_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog32_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+  analog1_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog2_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog3_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog4_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog5_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog6_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog7_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog8_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog9_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog10_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog11_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog12_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog13_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog14_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog15_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog16_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog17_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog18_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog19_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog20_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog21_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog22_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog23_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog24_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog25_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog26_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog27_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog28_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog29_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog30_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog31_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
+  analog32_measured_voltage:
+    type: float
+    role: output
+    unit: V
+    offset: 0
+    scale: 1
