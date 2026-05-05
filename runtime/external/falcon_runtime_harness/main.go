@@ -139,7 +139,7 @@ func parseFlags() harnessFlags {
 	flag.StringVar(&flags.NATSURL, "nats-url", nats.DefaultURL, "NATS URL used by the hub runtime")
 	flag.StringVar(&flags.ClientName, "client-name", "external-harness", "suffix used for MEASURE_COMMAND.external.<name>")
 	flag.DurationVar(&timeout, "timeout", 5*time.Second, "timeout for each request/response round-trip")
-	flag.BoolVar(&flags.StartEmbeddedNATS, "start-embedded-nats", false, "start an embedded NATS server for fully local smoke tests")
+	flag.BoolVar(&flags.StartEmbeddedNATS, "start-embedded-nats", true, "start an embedded NATS server for fully local smoke tests")
 	flag.BoolVar(&flags.StartLocalHub, "start-local-hub", false, "start the hub edge measure-command bridge in-process")
 	flag.BoolVar(&flags.StartDummyBackend, "start-dummy-backend", false, "start a dummy PROCESS_REQUEST -> UPLOAD_DATA backend in-process")
 	flag.Float64Var(&flags.InitialVoltage, "initial-voltage", 0.125, "initial voltage exposed by the dummy voltage source")
