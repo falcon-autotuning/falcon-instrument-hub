@@ -384,24 +384,45 @@ func applyHubConfig() error {
 	return nil
 }
 
-// buildEnvWithLibPath returns os.Environ() with extra prepended to LD_LIBRARY_PATH.
+// buildEnvWithLibPath returns os.Environ() with extra prepended to LD_LIBRARY_PATH
+// and the directory containing issBinary prepended to PATH (so instrument-worker
+// is found by posix_spawnp without requiring it to be in the system PATH).
 func buildEnvWithLibPath(extra string) []string {
 	env := os.Environ()
-	if extra == "" {
-		return env
-	}
-	for i, e := range env {
-		if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
-			existing := strings.TrimPrefix(e, "LD_LIBRARY_PATH=")
-			if existing != "" {
-				env[i] = "LD_LIBRARY_PATH=" + extra + ":" + existing
-			} else {
-				env[i] = "LD_LIBRARY_PATH=" + extra
+	if extra != "" {
+		foundLib := false
+		for i, e := range env {
+			if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
+				existing := strings.TrimPrefix(e, "LD_LIBRARY_PATH=")
+				if existing != "" {
+					env[i] = "LD_LIBRARY_PATH=" + extra + ":" + existing
+				} else {
+					env[i] = "LD_LIBRARY_PATH=" + extra
+				}
+				foundLib = true
+				break
 			}
-			return env
+		}
+		if !foundLib {
+			env = append(env, "LD_LIBRARY_PATH="+extra)
 		}
 	}
-	return append(env, "LD_LIBRARY_PATH="+extra)
+	if issBinary != "" {
+		binDir := filepath.Dir(issBinary)
+		foundPath := false
+		for i, e := range env {
+			if strings.HasPrefix(e, "PATH=") {
+				existing := strings.TrimPrefix(e, "PATH=")
+				env[i] = "PATH=" + binDir + ":" + existing
+				foundPath = true
+				break
+			}
+		}
+		if !foundPath {
+			env = append(env, "PATH="+binDir)
+		}
+	}
+	return env
 }
 
 // startISSDaemon launches instrument-script-server daemon start in the background.
@@ -481,10 +502,9 @@ func stopISSDaemon() {
 
 func main() {
 
+	// + "`" + // use for embedding backticks in the ASCII art below without breaking the string literal
 
-// + "`" + // use for embedding backticks in the ASCII art below without breaking the string literal
-
-fmt.Println(`
+	fmt.Println(`
  ______                        __                                                             __     
 |      \                      |  \                                                           |  \    
  \$$$$$$ _______    _______  _| $$_     ______   __    __  ______ ____    ______   _______  _| $$_   
