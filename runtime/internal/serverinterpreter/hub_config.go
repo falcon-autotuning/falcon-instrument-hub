@@ -24,6 +24,10 @@ type HubConfig struct {
 	// InstConfig is the path to instrument configuration files
 	InstConfig string `yaml:"inst-config" json:"inst-config"`
 
+	// InstPlugins is a semicolon-separated list of plugin paths, one per entry
+	// in InstConfig (positional). An empty entry means no plugin for that instrument.
+	InstPlugins string `yaml:"inst-plugins" json:"inst-plugins"`
+
 	// TealAPIs is the path to Teal API definitions
 	TealAPIs string `yaml:"teal-apis" json:"teal-apis"`
 

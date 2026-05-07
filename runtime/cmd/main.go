@@ -42,6 +42,7 @@ var (
 	issLibPath           string
 	issNoAutoStart       bool
 	instConfig           string
+	instPlugins          string
 	instrumentServerPort int
 	localDatabase        string
 	userMeasurementLuas  string
@@ -75,6 +76,8 @@ func init() {
 		BoolVar(&issNoAutoStart, "no-iss", false, "skip auto-starting instrument-script-server daemon")
 	startCmd.Flags().
 		StringVar(&instConfig, "inst-config", "", "semicolon-separated paths to instrument configuration files")
+	startCmd.Flags().
+		StringVar(&instPlugins, "inst-plugins", "", "semicolon-separated plugin paths corresponding to each inst-config entry (positional)")
 	startCmd.Flags().
 		IntVar(&instrumentServerPort, "instrument-server-port", 0, "RPC port for instrument-script-server (overrides hub config)")
 	startCmd.Flags().
@@ -336,6 +339,7 @@ func applyHubConfig() error {
 		QuantumDotConfig     string `yaml:"quantum-dot-config"`
 		NATSUrl              string `yaml:"nats-url"`
 		InstConfig           string `yaml:"inst-config"`
+		InstPlugins          string `yaml:"inst-plugins"`
 		InstrumentServerPort int    `yaml:"instrument-server-port"`
 		LocalDatabase        string `yaml:"local-database"`
 		UserMeasurementLuas  string `yaml:"user-measurement-luas"`
@@ -359,6 +363,10 @@ func applyHubConfig() error {
 	if instConfig == "" && cfg.InstConfig != "" {
 		instConfig = cfg.InstConfig
 		log.Printf("hub config: inst-config = %s", instConfig)
+	}
+	if instPlugins == "" && cfg.InstPlugins != "" {
+		instPlugins = cfg.InstPlugins
+		log.Printf("hub config: inst-plugins = %s", instPlugins)
 	}
 	if instrumentServerPort == 0 && cfg.InstrumentServerPort != 0 {
 		instrumentServerPort = cfg.InstrumentServerPort
@@ -429,17 +437,26 @@ func startISSDaemon() (*os.Process, error) {
 
 // startInstruments starts each instrument config listed in instConfig
 // (semicolon-separated paths) by calling the ISS binary with "start <config>".
+// If instPlugins is set, each positional entry (also semicolon-separated)
+// is passed as --plugin to the corresponding config start call.
 func startInstruments() error {
 	if instConfig == "" {
 		return nil
 	}
 	configs := strings.Split(instConfig, ";")
-	for _, cfg := range configs {
+	plugins := strings.Split(instPlugins, ";")
+	for i, cfg := range configs {
 		cfg = strings.TrimSpace(cfg)
 		if cfg == "" {
 			continue
 		}
-		cmd := exec.Command(issBinary, "start", cfg)
+		args := []string{"start", cfg}
+		if i < len(plugins) {
+			if p := strings.TrimSpace(plugins[i]); p != "" {
+				args = append(args, "--plugin", p)
+			}
+		}
+		cmd := exec.Command(issBinary, args...)
 		cmd.Env = buildEnvWithLibPath(issLibPath)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
