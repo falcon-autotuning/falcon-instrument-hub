@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,6 +14,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	rpcclient "github.com/falcon-autotuning/instrument-server/runtime/external"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -464,13 +466,21 @@ func startISSDaemon() (*os.Process, error) {
 }
 
 // startInstruments starts each instrument config listed in instConfig
-// (semicolon-separated paths) by calling the ISS binary with "start <config>".
+// (semicolon-separated paths) by calling the ISS daemon RPC "start" command.
 // If instPlugins is set, each positional entry (also semicolon-separated)
-// is passed as --plugin to the corresponding config start call.
+// is passed as the plugin override for the corresponding config start call.
 func startInstruments() error {
 	if instConfig == "" {
 		return nil
 	}
+	rpcPort := instrumentServerPort
+	if rpcPort <= 0 {
+		rpcPort = 8555
+	}
+	client := rpcclient.New(fmt.Sprintf("http://127.0.0.1:%d", rpcPort))
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	configs := strings.Split(instConfig, ";")
 	plugins := strings.Split(instPlugins, ";")
 	for i, cfg := range configs {
@@ -478,18 +488,17 @@ func startInstruments() error {
 		if cfg == "" {
 			continue
 		}
-		args := []string{"start", cfg}
+		plugin := ""
 		if i < len(plugins) {
 			if p := strings.TrimSpace(plugins[i]); p != "" {
-				args = append(args, "--plugin", p)
+				plugin = p
 			}
 		}
-		cmd := exec.Command(issBinary, args...)
-		cmd.Env = buildEnvWithLibPath(issLibPath)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("failed to start instrument from %s: %w", cfg, err)
+		if _, err := client.Call(ctx, "start", map[string]any{
+			"config_path": cfg,
+			"plugin":      plugin,
+		}); err != nil {
+			return fmt.Errorf("failed to start instrument from %s via ISS RPC: %w", cfg, err)
 		}
 		log.Printf("started instrument: %s", cfg)
 	}
