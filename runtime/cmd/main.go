@@ -97,7 +97,9 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// start instrument-script-server daemon unless disabled
+	// start instrument-script-server daemon unless disabled (instruments are
+	// started later, after NATS handlers are subscribed, so CONFIRM_INITIALIZATION
+	// messages are not lost)
 	var issProcess *os.Process
 	if !issNoAutoStart {
 		proc, err := startISSDaemon()
@@ -106,9 +108,6 @@ func runStart(cmd *cobra.Command, args []string) error {
 		} else {
 			issProcess = proc
 			log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
-			if err := startInstruments(); err != nil {
-				log.Printf("warning: failed to start instruments: %v", err)
-			}
 		}
 	}
 
@@ -120,9 +119,17 @@ func runStart(cmd *cobra.Command, args []string) error {
 	services.issProcess = issProcess
 	defer services.cleanup()
 
-	// load configuration and create handlers
+	// load configuration and create handlers (NATS subscriptions happen here)
 	if err := setupHandlers(services); err != nil {
 		return err
+	}
+
+	// start instruments only after handlers are subscribed so CONFIRM_INITIALIZATION
+	// messages are not dropped
+	if !issNoAutoStart && issProcess != nil {
+		if err := startInstruments(); err != nil {
+			log.Printf("warning: failed to start instruments: %v", err)
+		}
 	}
 
 	// start the server
