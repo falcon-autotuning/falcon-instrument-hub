@@ -8,6 +8,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/config/loader"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -125,17 +126,30 @@ func (h *DeviceConfigHandler) parseRequest(
 	return nil
 }
 
-// sendDeviceConfigResponse creates and sends the device config response
+// sendDeviceConfigResponse loads the device config via the falcon-core C API
+// (which produces cereal JSON) and sends it as the response payload.
 func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
-	// Marshal the device config to JSON
-	deviceConfigJSON, err := json.Marshal(h.config.DeviceConfig)
+	// Use the falcon-core loader to get the config in cereal JSON format.
+	loaderHandle, err := loader.New(h.config.DeviceConfigPath)
 	if err != nil {
-		return fmt.Errorf("failed to marshal device config: %v", err)
+		return fmt.Errorf("failed to create config loader: %v", err)
+	}
+	defer loaderHandle.Close()
+
+	cfgHandle, err := loaderHandle.Config()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %v", err)
+	}
+	defer cfgHandle.Close()
+
+	deviceConfigJSON, err := cfgHandle.ToJSON()
+	if err != nil {
+		return fmt.Errorf("failed to serialize device config to JSON: %v", err)
 	}
 
 	// Create the response
 	response := api.DeviceConfigResponse{
-		Response:  string(deviceConfigJSON),
+		Response:  deviceConfigJSON,
 		Timestamp: time.Now().UnixMicro(),
 	}
 

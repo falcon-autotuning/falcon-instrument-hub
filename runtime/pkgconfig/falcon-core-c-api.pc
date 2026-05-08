@@ -1,0 +1,9 @@
+prefix=/opt/falcon
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=/home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/runtime/pkgconfig/include
+Name: falcon-core-c-api
+Description: Falcon Core C API library
+Version: 1.2.11
+Libs: -L${libdir} -lfalcon-core-c-api
+Cflags: -I${includedir}

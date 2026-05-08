@@ -127,4 +127,3 @@ func TestDeviceConfigHandler(t *testing.T) {
 		}
 	})
 }
-
