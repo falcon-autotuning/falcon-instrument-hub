@@ -162,7 +162,6 @@ func serializePortsToCerealJSON(portPayloads []instrument.JsonPort) (string, err
 		if err != nil {
 			return "", fmt.Errorf("failed to parse instrument port JSON: %w", err)
 		}
-		defer h.Close()
 		portHandles = append(portHandles, h)
 	}
 
@@ -170,7 +169,6 @@ func serializePortsToCerealJSON(portPayloads []instrument.JsonPort) (string, err
 	if err != nil {
 		return "", fmt.Errorf("failed to create ports handle: %w", err)
 	}
-	defer portsHandle.Close()
 
 	jsonStr, err := portsHandle.ToJSON()
 	if err != nil {

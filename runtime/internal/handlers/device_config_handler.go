@@ -134,13 +134,11 @@ func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
 	if err != nil {
 		return fmt.Errorf("failed to create config loader: %v", err)
 	}
-	defer loaderHandle.Close()
 
 	cfgHandle, err := loaderHandle.Config()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %v", err)
 	}
-	defer cfgHandle.Close()
 
 	deviceConfigJSON, err := cfgHandle.ToJSON()
 	if err != nil {
