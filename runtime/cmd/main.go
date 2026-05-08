@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -14,12 +13,12 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	rpcclient "github.com/falcon-autotuning/instrument-server/runtime/external"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/spf13/cobra"
 )
 
@@ -477,9 +476,7 @@ func startInstruments() error {
 	if rpcPort <= 0 {
 		rpcPort = 8555
 	}
-	client := rpcclient.New(fmt.Sprintf("http://127.0.0.1:%d", rpcPort))
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
 
 	configs := strings.Split(instConfig, ";")
 	plugins := strings.Split(instPlugins, ";")
@@ -494,10 +491,7 @@ func startInstruments() error {
 				plugin = p
 			}
 		}
-		if _, err := client.Call(ctx, "start", map[string]any{
-			"config_path": cfg,
-			"plugin":      plugin,
-		}); err != nil {
+		if _, err := client.StartInstrument(cfg, plugin); err != nil {
 			return fmt.Errorf("failed to start instrument from %s via ISS RPC: %w", cfg, err)
 		}
 		log.Printf("started instrument: %s", cfg)
