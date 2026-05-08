@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
@@ -99,21 +101,22 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	// Collect port properties using the instrument handler's existing
 	// functionality
 	knobs, meters := h.instrumentHandler.CollectPortProperties()
-	bytes, err := json.Marshal(knobs)
-	encodedKnobs := string(bytes)
+	encodedKnobs, err := serializePortsToCerealJSON(knobs)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
-			fmt.Sprintf("Failed to marshal knobs: %v", err),
+			fmt.Sprintf("Failed to serialize knobs: %v", err),
 		)
+		return
 	}
-	bytes, err = json.Marshal(meters)
-	encodedMeters := string(bytes)
+
+	encodedMeters, err := serializePortsToCerealJSON(meters)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
-			fmt.Sprintf("Failed to marshal meters: %v", err),
+			fmt.Sprintf("Failed to serialize meters: %v", err),
 		)
+		return
 	}
 
 	// Create response
@@ -148,6 +151,33 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		PortRequestHandlerName,
 		fmt.Sprintf("Sent  %s ", PortPayloadType),
 	)
+}
+
+// serializePortsToCerealJSON converts a list of serialized InstrumentPort
+// objects into a serialized Ports object using falcon-core C API wrappers.
+func serializePortsToCerealJSON(portPayloads []instrument.JsonPort) (string, error) {
+	portHandles := make([]*instrumentport.Handle, 0, len(portPayloads))
+	for _, p := range portPayloads {
+		h, err := instrumentport.FromJSON(p.String())
+		if err != nil {
+			return "", fmt.Errorf("failed to parse instrument port JSON: %w", err)
+		}
+		defer h.Close()
+		portHandles = append(portHandles, h)
+	}
+
+	portsHandle, err := ports.New(portHandles)
+	if err != nil {
+		return "", fmt.Errorf("failed to create ports handle: %w", err)
+	}
+	defer portsHandle.Close()
+
+	jsonStr, err := portsHandle.ToJSON()
+	if err != nil {
+		return "", fmt.Errorf("failed to serialize ports: %w", err)
+	}
+
+	return jsonStr, nil
 }
 
 // isOhmicConnection checks if a port JSON represents an Ohmic connection
