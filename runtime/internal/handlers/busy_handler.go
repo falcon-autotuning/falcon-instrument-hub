@@ -12,7 +12,7 @@ import (
 const (
 	BusyHandlerName    = "BUSY_HANDLER"
 	busySegment        = "BUSY"
-	busyExternalPrefix = busySegment + "." + externalSegment
+	busyExternalPrefix = busySegment + ".external"
 	busyPattern        = busyExternalPrefix + ".*"
 )
 

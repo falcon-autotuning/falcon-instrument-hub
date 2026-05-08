@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -16,12 +15,8 @@ import (
 
 const (
 	handlerName                 = "DEVICE_CONFIG_HANDLER"
-	deviceConfigRequestSegment  = "DEVICE_CONFIG_REQUEST"
-	deviceConfigResponseSegment = "DEVICE_CONFIG_RESPONSE"
-	externalSegment             = "external"
-	deviceConfigRequestPrefix   = deviceConfigRequestSegment + "." + externalSegment
-	deviceConfigRequestPattern  = deviceConfigRequestPrefix + ".*"
-	deviceConfigResponsePrefix  = deviceConfigResponseSegment + "." + externalSegment
+	deviceConfigRequestSubject  = "INSTRUMENTHUB.DEVICE_CONFIG_REQUEST"
+	deviceConfigResponseSubject = "FALCON.DEVICE_CONFIG_RESPONSE"
 )
 
 // DeviceConfigHandler handles DEVICE_CONFIG_REQUEST.external.<name> messages
@@ -43,19 +38,18 @@ func NewDeviceConfigHandler(
 	}
 }
 
-// Subscribe subscribes to DEVICE_CONFIG_REQUEST.external.* channels
+// Subscribe subscribes to INSTRUMENTHUB.DEVICE_CONFIG_REQUEST
 func (h *DeviceConfigHandler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 
-	// Subscribe to DEVICE_CONFIG_REQUEST.external.*
 	sub, err := nc.Subscribe(
-		deviceConfigRequestPattern,
+		deviceConfigRequestSubject,
 		h.handleDeviceConfigRequest,
 	)
 	if err != nil {
 		return fmt.Errorf(
 			"failed to subscribe to %s: %w",
-			deviceConfigRequestPattern,
+			deviceConfigRequestSubject,
 			err,
 		)
 	}
@@ -63,12 +57,12 @@ func (h *DeviceConfigHandler) Subscribe(nc *nats.Conn) error {
 
 	h.logger.Info(
 		handlerName,
-		fmt.Sprintf("Subscribed to %s channels", deviceConfigRequestPattern),
+		fmt.Sprintf("Subscribed to %s channels", deviceConfigRequestSubject),
 	)
 	log.Printf(
 		"%s subscribed to %s channels",
 		handlerName,
-		deviceConfigRequestPattern,
+		deviceConfigRequestSubject,
 	)
 
 	return nil
@@ -89,7 +83,7 @@ func (h *DeviceConfigHandler) Unsubscribe() error {
 			handlerName,
 			fmt.Sprintf(
 				"Unsubscribed from %s channels",
-				deviceConfigRequestPattern,
+				deviceConfigRequestSubject,
 			),
 		)
 		h.subscription = nil
@@ -97,51 +91,24 @@ func (h *DeviceConfigHandler) Unsubscribe() error {
 	return nil
 }
 
-// handleDeviceConfigRequest processes incoming DEVICE_CONFIG_REQUEST messages
+// handleDeviceConfigRequest processes incoming INSTRUMENTHUB.DEVICE_CONFIG_REQUEST messages
 func (h *DeviceConfigHandler) handleDeviceConfigRequest(msg *nats.Msg) {
-	channel := msg.Subject
 	rawData := msg.Data
 
 	h.logger.Debug(
 		handlerName,
-		fmt.Sprintf("Received request on %s: %s", channel, string(rawData)),
+		fmt.Sprintf("Received request on %s: %s", deviceConfigRequestSubject, string(rawData)),
 	)
-
-	name, err := h.parseChannelName(channel)
-	if err != nil {
-		h.logger.Error(handlerName, err.Error())
-		h.sendErrorResponse(msg, "Invalid channel format")
-		return
-	}
 
 	var deviceConfigReq api.DeviceConfigRequest
 	if err := h.parseRequest(rawData, &deviceConfigReq); err != nil {
 		h.logger.Error(handlerName, err.Error())
-		h.sendErrorResponse(
-			msg,
-			fmt.Sprintf("Failed to unmarshal request: %v", err),
-		)
 		return
 	}
 
-	if err := h.sendDeviceConfigResponse(name); err != nil {
+	if err := h.sendDeviceConfigResponse(); err != nil {
 		h.logger.Error(handlerName, err.Error())
-		h.sendErrorResponse(msg, "Failed to send device config")
 	}
-}
-
-// parseChannelName extracts and validates the name from the channel
-func (h *DeviceConfigHandler) parseChannelName(channel string) (string, error) {
-	parts := strings.Split(channel, ".")
-	if len(parts) != 3 || parts[0] != deviceConfigRequestSegment ||
-		parts[1] != externalSegment {
-		return "", fmt.Errorf(
-			"invalid channel format %s, expected %s.<name>",
-			channel,
-			deviceConfigRequestPrefix,
-		)
-	}
-	return parts[2], nil
 }
 
 // parseRequest unmarshals the request data
@@ -159,7 +126,7 @@ func (h *DeviceConfigHandler) parseRequest(
 }
 
 // sendDeviceConfigResponse creates and sends the device config response
-func (h *DeviceConfigHandler) sendDeviceConfigResponse(name string) error {
+func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
 	// Marshal the device config to JSON
 	deviceConfigJSON, err := json.Marshal(h.config.DeviceConfig)
 	if err != nil {
@@ -178,41 +145,24 @@ func (h *DeviceConfigHandler) sendDeviceConfigResponse(name string) error {
 		return fmt.Errorf("failed to marshal device config response: %v", err)
 	}
 
-	// Send response back to DEVICE_CONFIG_RESPONSE.external.<name>
-	responseChannel := fmt.Sprintf("%s.%s", deviceConfigResponsePrefix, name)
-	if err := h.nc.Publish(responseChannel, responseData); err != nil {
+	// Send response to FALCON.DEVICE_CONFIG_RESPONSE
+	if err := h.nc.Publish(deviceConfigResponseSubject, responseData); err != nil {
 		return fmt.Errorf(
 			"failed to send response to %s: %v",
-			responseChannel,
+			deviceConfigResponseSubject,
 			err,
 		)
 	}
 
 	h.logger.Debug(
 		handlerName,
-		fmt.Sprintf("Sent device config response to %s", responseChannel),
+		fmt.Sprintf("Sent device config response to %s", deviceConfigResponseSubject),
 	)
 	h.logger.Info(
 		handlerName,
-		fmt.Sprintf("Successfully sent device config response to %s", name),
+		"Successfully sent device config response",
 	)
 	return nil
-}
-
-// sendErrorResponse sends an error response
-func (h *DeviceConfigHandler) sendErrorResponse(
-	msg *nats.Msg,
-	errorMsg string,
-) {
-	if msg.Reply != "" {
-		response := fmt.Sprintf("ERROR: %s", errorMsg)
-		if err := msg.Respond([]byte(response)); err != nil {
-			h.logger.Error(
-				handlerName,
-				fmt.Sprintf("Failed to send error response: %v", err),
-			)
-		}
-	}
 }
 
 // GetSubscription returns the current subscription (for testing)

@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/nats-io/nats.go"
 
@@ -18,10 +17,10 @@ const (
 	PortRequestType = "PORT_REQUEST"
 	PortPayloadType = "PORT_PAYLOAD"
 
-	// Handler and subject constants derived from base types
+	// Handler and subject constants
 	PortRequestHandlerName = "PORT_REQUEST_HANDLER"
-	PortRequestSubject     = PortRequestType + ".external.>"
-	PortPayloadSubject     = PortPayloadType + ".external"
+	PortRequestSubject     = "INSTRUMENTHUB.PORT_REQUEST"
+	PortPayloadSubject     = "FALCON.PORT_PAYLOAD"
 )
 
 // PortRequestHandler handles PORT_REQUEST messages
@@ -136,11 +135,8 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		return
 	}
 
-	parts := strings.Split(msg.Subject, ".")
-	externalServerName := parts[len(parts)-1] // Get last part
-
 	// Send response
-	if err := h.nc.Publish(PortPayloadSubject+externalServerName, responseData); err != nil {
+	if err := h.nc.Publish(PortPayloadSubject, responseData); err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
 			fmt.Sprintf("Failed to publish %s : %v", PortPayloadType, err),

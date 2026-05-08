@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"strings"
 	"testing"
 	"time"
 
@@ -85,26 +84,22 @@ func TestDeviceConfigHandler(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	t.Run("successful device config request", func(t *testing.T) {
-		// Create response channel using constant
+		// Subscribe to the response subject used by falcon-comms
 		responseCh := make(chan *nats.Msg, 1)
-		responseSubject := deviceConfigResponsePrefix + ".test"
-
-		sub, err := nc.Subscribe(responseSubject, func(msg *nats.Msg) {
+		sub, err := nc.Subscribe(deviceConfigResponseSubject, func(msg *nats.Msg) {
 			responseCh <- msg
 		})
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 
-		// Create and send request
+		// Create and send request to the subject the hub listens on
 		request := api.DeviceConfigRequest{
 			Timestamp: time.Now().UnixMicro(),
 		}
 		requestData, err := json.Marshal(request)
 		require.NoError(t, err)
 
-		// Send request using constant
-		requestSubject := deviceConfigRequestPrefix + ".test"
-		err = nc.Publish(requestSubject, requestData)
+		err = nc.Publish(deviceConfigRequestSubject, requestData)
 		require.NoError(t, err)
 
 		// Wait for response
@@ -131,45 +126,5 @@ func TestDeviceConfigHandler(t *testing.T) {
 			t.Fatal("Timeout waiting for device config response")
 		}
 	})
-
-	t.Run("invalid channel format", func(t *testing.T) {
-		// Create and send request to invalid channel
-		request := api.DeviceConfigRequest{
-			Timestamp: time.Now().UnixMicro(),
-		}
-		requestData, err := json.Marshal(request)
-		require.NoError(t, err)
-
-		// This should be handled but no response should be sent to a valid
-		// response channel
-		invalidSubject := deviceConfigRequestPrefix + ".invalid"
-		err = nc.Publish(invalidSubject, requestData)
-		require.NoError(t, err)
-
-		// Brief wait to ensure message is processed
-		time.Sleep(100 * time.Millisecond)
-		// No assertions - just ensuring no panic occurs
-	})
 }
 
-func TestExtractNameFromChannel(t *testing.T) {
-	testCases := []struct {
-		subject  string
-		expected string
-	}{
-		{deviceConfigRequestPrefix + ".test", "test"},
-		{deviceConfigRequestPrefix + ".myname", "myname"},
-		{deviceConfigRequestPrefix + ".complex-name", "complex-name"},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.subject, func(t *testing.T) {
-			parts := strings.Split(tc.subject, ".")
-			if len(parts) == 3 && parts[0] == deviceConfigRequestSegment &&
-				parts[1] == externalSegment {
-				result := parts[2]
-				assert.Equal(t, tc.expected, result)
-			}
-		})
-	}
-}

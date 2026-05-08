@@ -234,7 +234,7 @@ func TestPortRequestHandler_E2E(t *testing.T) {
 
 	// Subscribe to response
 	responseReceived := make(chan *api.PortPayload, 1)
-	sub, err := nc.Subscribe("PORT_PAYLOAD.external.test", func(msg *nats.Msg) {
+	sub, err := nc.Subscribe(PortPayloadSubject, func(msg *nats.Msg) {
 		var payload api.PortPayload
 		if err := json.Unmarshal(msg.Data, &payload); err == nil {
 			responseReceived <- &payload
@@ -250,7 +250,7 @@ func TestPortRequestHandler_E2E(t *testing.T) {
 	requestData, err := json.Marshal(request)
 	require.NoError(t, err)
 
-	err = nc.Publish("PORT_REQUEST.external.test", requestData)
+	err = nc.Publish(PortRequestSubject, requestData)
 	require.NoError(t, err)
 
 	// Wait for response
@@ -296,7 +296,7 @@ func TestPortRequestHandler_InvalidJSON(t *testing.T) {
 	defer handler.Unsubscribe()
 
 	// Send invalid JSON - should not crash
-	err = nc.Publish("PORT_REQUEST.external.test", []byte("invalid json"))
+	err = nc.Publish(PortRequestSubject, []byte("invalid json"))
 	require.NoError(t, err)
 
 	// Give it time to process - should not crash
