@@ -25,13 +25,13 @@ var RuntimeChannels = struct {
 	UploadData           string
 
 	// Instrument coordination channels (from instrument-server role)
-	Set         string
-	Get         string
-	Trigger     string
-	Armed       string
-	Executing   string
-	ReturnData  string
-	ReturnGet   string
+	Set        string
+	Get        string
+	Trigger    string
+	Armed      string
+	Executing  string
+	ReturnData string
+	ReturnGet  string
 }{
 	// Core channels owned by server-interpreter
 	Log:                  "LOG",
@@ -43,13 +43,13 @@ var RuntimeChannels = struct {
 	UploadData:           "UPLOAD_DATA",
 
 	// Instrument coordination channels
-	Set:         "SET",
-	Get:         "GET",
-	Trigger:     "TRIGGER",
-	Armed:       "ARMED",
-	Executing:   "EXECUTING",
-	ReturnData:  "RETURN_DATA",
-	ReturnGet:   "RETURN_GET",
+	Set:        "SET",
+	Get:        "GET",
+	Trigger:    "TRIGGER",
+	Armed:      "ARMED",
+	Executing:  "EXECUTING",
+	ReturnData: "RETURN_DATA",
+	ReturnGet:  "RETURN_GET",
 }
 
 // LogMessage represents a log message sent to the NATS server.
@@ -102,10 +102,10 @@ type ProcessDataMessageMap struct {
 // ProcessRequestMessage is a request to the interpreter to process a measurement.
 // Matches falcon-api/embedded/commands/v1/process_request.yaml
 type ProcessRequestMessage struct {
-	ProcessID      int64       `json:"process_id"`      // Process identifier
-	Request        interface{} `json:"request"`         // The MeasurementRequest (jsonable)
-	Configurations interface{} `json:"configurations"`  // Instrument configurations (json)
-	DataPath       string      `json:"data_path"`       // Filepath to store collected data
+	ProcessID      int64       `json:"process_id"`     // Process identifier
+	Request        interface{} `json:"request"`        // The MeasurementRequest (jsonable)
+	Configurations interface{} `json:"configurations"` // Instrument configurations (json)
+	DataPath       string      `json:"data_path"`      // Filepath to store collected data
 }
 
 // StatusMessage provides the status of the interpreter process.
@@ -158,11 +158,11 @@ var SupportedProperties = struct {
 
 // Default configuration values for the server interpreter.
 const (
-	DefaultSlope            = 100.0  // V/sec
-	DefaultSampleRate       = 10000  // samples/sec
+	DefaultSlope            = 100.0 // V/sec
+	DefaultSampleRate       = 10000 // samples/sec
 	MaxNumDataPoints        = 10000
-	StaleMeasurementTimeout = 3600   // seconds
-	StaleMeasurementCheckup = 60.0   // seconds
+	StaleMeasurementTimeout = 3600 // seconds
+	StaleMeasurementCheckup = 60.0 // seconds
 	TimeoutScaleFactor      = 1.5
 )
 

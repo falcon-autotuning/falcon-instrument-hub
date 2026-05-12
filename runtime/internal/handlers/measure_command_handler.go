@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,14 +16,18 @@ import (
 
 const (
 	MeasureCommandHandlerName = "MEASURE_COMMAND_HANDLER"
-	MeasureCommandSubject     = "MEASURE_COMMAND.external"
-	MeasureResponseSubject    = "MEASURE_RESPONSE.external"
-	ProcessRequestSubject     = "PROCESS_REQUEST"
-	UploadDataSubject         = "UPLOAD_DATA"
-	MeasureCommandName        = "MEASURE_COMMAND"
-	MeasureResponseName       = "MEASURE_RESPONSE"
-	ProcessRequestName        = "PROCESS_REQUEST"
-	UploadDataName            = "UPLOAD_DATA"
+	// INSTRUMENTHUB.MEASURE_COMMAND is the subject published by falcon-comms
+	// RoutineComms on the controller side (routine_comms.cpp make_measure_command_subject).
+	MeasureCommandSubject = "INSTRUMENTHUB.MEASURE_COMMAND"
+	// FALCON.MEASURE_RESPONSE is the subject subscribed to by falcon-comms
+	// RoutineComms on the controller side (routine_comms.cpp make_measure_response_subject).
+	MeasureResponseSubject = "FALCON.MEASURE_RESPONSE"
+	ProcessRequestSubject  = "PROCESS_REQUEST"
+	UploadDataSubject      = "UPLOAD_DATA"
+	MeasureCommandName     = "MEASURE_COMMAND"
+	MeasureResponseName    = "MEASURE_RESPONSE"
+	ProcessRequestName     = "PROCESS_REQUEST"
+	UploadDataName         = "UPLOAD_DATA"
 )
 
 // BusyManager interface allows the handler to manage busy state
@@ -34,9 +37,8 @@ type BusyManager interface {
 
 // PendingMeasurement tracks measurements waiting for UPLOAD_DATA
 type PendingMeasurement struct {
-	Hash         int64
-	ResponseName string
-	ProcessId    instrument.ID
+	Hash      int64
+	ProcessId instrument.ID
 }
 
 // MeasureCommandHandler handles MEASURE_COMMAND requests
@@ -73,9 +75,9 @@ func (h *MeasureCommandHandler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 	var err error
 
-	// Subscribe to MEASURE_COMMAND
+	// Subscribe to MEASURE_COMMAND (flat subject — no wildcard suffix needed)
 	h.subscription, err = nc.Subscribe(
-		MeasureCommandSubject+".>",
+		MeasureCommandSubject,
 		h.handleMessage,
 	)
 	if err != nil {
@@ -140,16 +142,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		fmt.Sprintf("Received command: %s", string(msg.Data)),
 	)
 
-	// Extract the name from the subject (MEASURE_COMMAND.external.<name>)
-	subjectParts := strings.Split(msg.Subject, ".")
-	if len(subjectParts) < 3 {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Invalid subject format: %s", msg.Subject),
-		)
-		return
-	}
-	name := subjectParts[2]
+	// Subject is the flat INSTRUMENTHUB.MEASURE_COMMAND — no name suffix.
+	// Use the Hash field from the command payload as the correlation key.
 
 	// Parse the incoming message
 	var measureCommand api.MeasureCommand
@@ -196,9 +190,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	processId := instrument.ID(uniqueID)
 	h.mutex.Lock()
 	h.pendingMeasurements[processId] = PendingMeasurement{
-		Hash:         measureCommand.Hash,
-		ResponseName: name,
-		ProcessId:    processId,
+		Hash:      measureCommand.Hash,
+		ProcessId: processId,
 	}
 	h.mutex.Unlock()
 
@@ -280,18 +273,14 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 		return
 	}
 
-	// Send response on MEASURE_RESPONSE.external.<name>
-	responseSubject := fmt.Sprintf(
-		"%s.%s",
-		MeasureResponseSubject,
-		pendingMeasurement.ResponseName,
-	)
-	if err := h.nc.Publish(responseSubject, responseData); err != nil {
+	// Send response on FALCON.MEASURE_RESPONSE (flat subject — no name suffix).
+	// The controller's falcon-comms RoutineComms subscribes on this exact subject.
+	if err := h.nc.Publish(MeasureResponseSubject, responseData); err != nil {
 		h.logger.Error(
 			MeasureCommandHandlerName,
 			fmt.Sprintf(
 				"Failed to publish response to %s: %v",
-				responseSubject,
+				MeasureResponseSubject,
 				err,
 			),
 		)
@@ -310,7 +299,7 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 		fmt.Sprintf(
 			"Sent %s to %s for hash %d with uploaded data",
 			MeasureResponseName,
-			responseSubject,
+			MeasureResponseSubject,
 			pendingMeasurement.Hash,
 		),
 	)
