@@ -604,3 +604,5 @@ func (db *MeasurementDatabase) Store2D(result *Sweep2DMeasurementResult) (string
 
 	return filePath, nil
 }
+
+

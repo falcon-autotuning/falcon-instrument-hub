@@ -6,9 +6,9 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/nats-io/nats.go"
 )
 
@@ -25,21 +25,18 @@ type handlerOperation struct {
 
 // Manager manages all message handlers
 type Manager struct {
-	config                         *config.Config
-	logger                         *logging.Logger
-	nc                             *nats.Conn
-	mu                             sync.RWMutex
-	logHandler                     *LogHandler
-	deviceConfigHandler            *DeviceConfigHandler
-	instrumentHandler              *instrument.Handler
-	busyHandler                    *BusyHandler
-	measureCommandHandler          *MeasureCommandHandler
-	measureReadyHandler            *measure.MeasurementReadyHandler
-	performInstrumentMethodHandler *PerformInstrumentMethodHandler
-	statusHandler                  *StatusHandler
-	portRequestHandler             *PortRequestHandler
-	natsURL                        string
-	isBusy                         bool
+	config                *config.Config
+	logger                *logging.Logger
+	nc                    *nats.Conn
+	mu                    sync.RWMutex
+	logHandler            *LogHandler
+	deviceConfigHandler   *DeviceConfigHandler
+	instrumentHandler     *instrument.Handler
+	measureCommandHandler *MeasureCommandHandler
+	statusHandler         *StatusHandler
+	portRequestHandler    *PortRequestHandler
+	natsURL               string
+	isBusy                bool
 }
 
 // NewManager creates a new handler manager
@@ -49,6 +46,7 @@ func NewManager(
 	nc *nats.Conn,
 	natsURL string,
 	measurementManager *measurements.Manager,
+	dispatcher *serverinterpreter.ScriptDispatcher,
 ) *Manager {
 	instrumentHandler, err := instrument.NewHandler(
 		logger,
@@ -61,8 +59,6 @@ func NewManager(
 			HandlerManagerName,
 			fmt.Sprintf("Failed to create instrument handler: %v", err),
 		)
-		// For now, return a basic handler - you might want to return an error
-		// instead
 		instrumentHandler = &instrument.Handler{
 			Instruments: make(
 				map[instrument.Name]*instrument.InstrumentProcess,
@@ -78,16 +74,7 @@ func NewManager(
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
-		performInstrumentMethodHandler: NewPerformInstrumentMethodHandler(
-			logger,
-			instrumentHandler,
-		),
 		portRequestHandler: NewPortRequestHandler(
-			logger,
-			instrumentHandler,
-			cfg,
-		),
-		measureReadyHandler: measure.NewMeasurementReadyHandler(
 			logger,
 			instrumentHandler,
 			cfg,
@@ -95,14 +82,12 @@ func NewManager(
 		statusHandler: NewStatusHandler(logger),
 		isBusy:        false,
 	}
-	// Create busy handler with reference to manager's busy state
-	manager.busyHandler = NewBusyHandler(logger, &manager.isBusy)
-	// Create measure command handler with manager as busy manager
 	manager.measureCommandHandler = NewMeasureCommandHandler(
 		logger,
 		measurementManager,
 		instrumentHandler,
 		manager,
+		dispatcher,
 	)
 
 	return manager
@@ -180,29 +165,14 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			stopOp:  func() error { return m.instrumentHandler.Unsubscribe() },
 		},
 		{
-			name:    "busy handler",
-			startOp: func() error { return m.busyHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.busyHandler.Unsubscribe() },
-		},
-		{
 			name:    "measure command handler",
 			startOp: func() error { return m.measureCommandHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.measureCommandHandler.Unsubscribe() },
 		},
 		{
-			name:    "perform instrument method handler",
-			startOp: func() error { return m.performInstrumentMethodHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.performInstrumentMethodHandler.Unsubscribe() },
-		},
-		{
 			name:    "port request handler",
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
-		},
-		{
-			name:    "measurement ready handler",
-			startOp: func() error { return m.measureReadyHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.measureReadyHandler.Unsubscribe() },
 		},
 		{
 			name:    "status handler",

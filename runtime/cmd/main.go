@@ -216,22 +216,34 @@ func setupCoreServices() (*coreServices, error) {
 }
 
 func setupHandlers(services *coreServices) error {
-	if deviceconfig == "" || wiremap == "" {
-		log.Println("warning: device-config or wiremap not specified, skipping handler setup")
-		log.Println("hint: provide --device-config and --wiremap (or --hub-config) to enable full measurement handling")
-		return nil
+	// Create script dispatcher — always needed for measurement handling.
+	rpcPort := instrumentServerPort
+	if rpcPort <= 0 {
+		rpcPort = 8555
 	}
+	dispatcher := serverinterpreter.NewScriptDispatcher(serverinterpreter.ScriptDispatcherConfig{
+		ServerHost:  "127.0.0.1",
+		ServerPort:  rpcPort,
+		ScriptsPath: userMeasurementLuas,
+	})
 
-	// load device configuration and wiremap first
-	cfg, err := config.LoadConfig(deviceconfig, wiremap)
-	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+	// Load device config / wiremap if provided; otherwise use an empty config.
+	var cfg *config.Config
+	if deviceconfig != "" && wiremap != "" {
+		var err error
+		cfg, err = config.LoadConfig(deviceconfig, wiremap)
+		if err != nil {
+			return fmt.Errorf("failed to load configuration: %w", err)
+		}
+		log.Printf(
+			"loaded device config with %d groups and %d wiring specs",
+			len(cfg.DeviceConfig.Groups),
+			len(cfg.DeviceConfig.WiringDC),
+		)
+	} else {
+		log.Println("warning: device-config or wiremap not specified, using empty configuration")
+		cfg = &config.Config{}
 	}
-	log.Printf(
-		"loaded device config with %d groups and %d wiring specs",
-		len(cfg.DeviceConfig.Groups),
-		len(cfg.DeviceConfig.WiringDC),
-	)
 
 	services.logger.LogStats()
 
@@ -242,6 +254,7 @@ func setupHandlers(services *coreServices) error {
 		services.natsManager.GetConnection(),
 		services.natsManager.GetNATSURL(),
 		services.measurementManager,
+		dispatcher,
 	)
 
 	// subscribe all handlers using the handlers manager

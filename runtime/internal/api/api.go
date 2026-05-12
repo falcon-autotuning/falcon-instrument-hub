@@ -184,9 +184,9 @@ type MeasureCommand struct {
 
 // MeasureResponse: Recieve a response from the runtime as to the measurement performed
 type MeasureResponse struct {
-    Response string `yaml:"response" json:"response"` // the measurement response containing the information from the server
-    Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
-    Hash int64 `yaml:"hash" json:"hash"` // the hash for the requesting unit
+    Stream    string `yaml:"stream" json:"stream"`       // the MeasurementResponse JSON from the hub
+    Channel   string `yaml:"channel" json:"channel"`     // channel identifier
+    Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 }
 
 // CommandRegistry maps command names to empty struct instances

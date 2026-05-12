@@ -2,12 +2,9 @@
 package serverinterpreter
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"path/filepath"
 	"time"
 )
@@ -15,14 +12,16 @@ import (
 // ScriptDispatcher communicates with the instrument-script-server to execute
 // user-provided Lua measurement scripts.
 type ScriptDispatcher struct {
-	serverURL   string
-	httpClient  *http.Client
+	client      *ScriptServerClient
 	scriptsPath string // Base path where Lua scripts are stored
+	pollTimeout time.Duration
 }
 
 // ScriptDispatcherConfig configures the script dispatcher.
 type ScriptDispatcherConfig struct {
 	ServerURL      string        // HTTP URL of instrument-script-server (e.g., "http://localhost:8080")
+	ServerHost     string        // Host of ISS (used if ServerURL is empty)
+	ServerPort     int           // Port of ISS (used if ServerURL is empty)
 	ScriptsPath    string        // Local directory containing Lua scripts
 	RequestTimeout time.Duration // Timeout for script execution
 }
@@ -31,86 +30,84 @@ type ScriptDispatcherConfig struct {
 func NewScriptDispatcher(config ScriptDispatcherConfig) *ScriptDispatcher {
 	timeout := config.RequestTimeout
 	if timeout == 0 {
-		timeout = 5 * time.Minute // Default timeout for long measurements
+		timeout = 5 * time.Minute
 	}
+
+	host := config.ServerHost
+	port := config.ServerPort
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	if port == 0 {
+		port = 8555
+	}
+
+	client := NewScriptServerClient(host, port)
 
 	return &ScriptDispatcher{
-		serverURL:   config.ServerURL,
+		client:      client,
 		scriptsPath: config.ScriptsPath,
-		httpClient: &http.Client{
-			Timeout: timeout,
-		},
+		pollTimeout: timeout,
 	}
-}
-
-// ExecuteScriptRequest is the JSON body sent to instrument-script-server.
-type ExecuteScriptRequest struct {
-	ScriptName    string                 `json:"scriptName"`              // Name of the Lua script (without .lua extension)
-	ScriptPath    string                 `json:"scriptPath"`              // Full path to script file
-	Parameters    map[string]interface{} `json:"parameters"`              // Parameters passed to main(ctx, params)
-	MeasurementID string                 `json:"measurementId,omitempty"` // Optional tracking ID
-}
-
-// ExecuteScriptResponse is the JSON response from instrument-script-server.
-type ExecuteScriptResponse struct {
-	Success       bool            `json:"success"`
-	Result        json.RawMessage `json:"result,omitempty"`    // Script return value as JSON
-	Error         string          `json:"error,omitempty"`     // Error message if failed
-	ExecutionTime float64         `json:"executionTimeMs"`     // Time taken in milliseconds
-	Logs          []string        `json:"logs,omitempty"`      // Log messages from ctx:log()
-	BufferIDs     []string        `json:"bufferIds,omitempty"` // IDs of any data buffers created
 }
 
 // ExecuteScript implements ScriptExecutor interface.
-// It sends a script execution request to the instrument-script-server.
+// It submits a script to ISS via submit_measure, polls for completion, and
+// returns the job result as JSON.
 func (d *ScriptDispatcher) ExecuteScript(ctx context.Context, scriptName string, params map[string]interface{}) ([]byte, error) {
-	// Build script path
 	scriptPath := filepath.Join(d.scriptsPath, scriptName+".lua")
 
-	req := ExecuteScriptRequest{
-		ScriptName: scriptName,
-		ScriptPath: scriptPath,
-		Parameters: params,
-	}
-
-	// Serialize request
-	reqBody, err := json.Marshal(req)
+	jobID, err := d.client.SubmitMeasureWithGlobals(scriptPath, params)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal request: %w", err)
+		return nil, fmt.Errorf("failed to submit script %s: %w", scriptName, err)
 	}
 
-	// Create HTTP request
-	url := d.serverURL + "/api/v1/execute"
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewReader(reqBody))
+	pollInterval := 100 * time.Millisecond
+	_, err = d.client.WaitForJob(jobID, pollInterval, d.pollTimeout)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, fmt.Errorf("script %s (job %s) timed out or failed: %w", scriptName, jobID, err)
 	}
-	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Execute request
-	resp, err := d.httpClient.Do(httpReq)
+	rawResult, err := d.client.JobResult(jobID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to execute request: %w", err)
+		return nil, fmt.Errorf("failed to retrieve result for job %s: %w", jobID, err)
 	}
-	defer resp.Body.Close()
 
-	// Read response
-	respBody, err := io.ReadAll(resp.Body)
+	resultJSON, err := json.Marshal(rawResult)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
+		return nil, fmt.Errorf("failed to serialize result for job %s: %w", jobID, err)
 	}
 
-	// Parse response
-	var scriptResp ExecuteScriptResponse
-	if err := json.Unmarshal(respBody, &scriptResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
+	return resultJSON, nil
+}
+
+// ResolvedCallResult extends ISSCallResult with buffer data resolved inline.
+type ResolvedCallResult struct {
+	ISSCallResult
+	BufferData []float64 // populated when Return.Type == "buffer"
+}
+
+// RunMeasurement calls ISS measure (sync), resolves all buffer results, returns
+// the full call list with buffer data populated.
+func (d *ScriptDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}) ([]ResolvedCallResult, error) {
+	scriptPath := filepath.Join(d.scriptsPath, scriptName+".lua")
+	results, err := d.client.Measure(scriptPath, globals)
+	if err != nil {
+		return nil, fmt.Errorf("measure script %s: %w", scriptName, err)
 	}
 
-	if !scriptResp.Success {
-		return nil, fmt.Errorf("script execution failed: %s", scriptResp.Error)
+	resolved := make([]ResolvedCallResult, len(results))
+	for i, r := range results {
+		resolved[i] = ResolvedCallResult{ISSCallResult: r}
+		if r.Return.Type == "buffer" && r.Return.BufferID != "" {
+			data, err := d.client.ReadBuffer(r.Return.BufferID)
+			if err != nil {
+				return nil, fmt.Errorf("read_buffer %s: %w", r.Return.BufferID, err)
+			}
+			resolved[i].BufferData = data
+		}
 	}
-
-	return scriptResp.Result, nil
+	return resolved, nil
 }
 
 // =============================================================================

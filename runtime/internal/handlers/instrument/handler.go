@@ -32,6 +32,17 @@ func NewHandler(
 	return h, nil
 }
 
+// Subscribe is a no-op for ISS-based instruments (no NATS lifecycle needed).
+func (h *Handler) Subscribe(nc *nats.Conn) error {
+	h.nc = nc
+	return nil
+}
+
+// Unsubscribe is a no-op for ISS-based instruments.
+func (h *Handler) Unsubscribe() error {
+	return nil
+}
+
 // GetActiveInstruments returns a list of currently registered instruments
 func (h *Handler) GetActiveInstruments() []Name {
 	h.Log.Debug("Fetching all the active instrument")

@@ -63,8 +63,14 @@ func (c *ScriptServerClient) call(command string, params interface{}) (*RPCRespo
 
 // SubmitMeasure submits a measurement script to be executed.
 func (c *ScriptServerClient) SubmitMeasure(scriptPath string) (string, error) {
+	return c.SubmitMeasureWithGlobals(scriptPath, nil)
+}
+
+// SubmitMeasureWithGlobals submits a measurement script with optional global variables.
+func (c *ScriptServerClient) SubmitMeasureWithGlobals(scriptPath string, globals map[string]interface{}) (string, error) {
 	params := SubmitMeasureParams{
 		ScriptPath: scriptPath,
+		Globals:    globals,
 	}
 
 	response, err := c.call("submit_measure", params)
@@ -182,4 +188,41 @@ func (c *ScriptServerClient) StopInstrument(name string) error {
 		"name": name,
 	})
 	return err
+}
+
+// Measure runs a Lua script synchronously and returns the parsed call results.
+// globals are injected into the Lua environment as named variables.
+func (c *ScriptServerClient) Measure(scriptPath string, globals map[string]interface{}) ([]ISSCallResult, error) {
+	params := map[string]interface{}{
+		"script_path": scriptPath,
+	}
+	if globals != nil {
+		params["globals"] = globals
+	}
+
+	response, err := c.call("measure", params)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.Results == nil {
+		return []ISSCallResult{}, nil
+	}
+
+	var results []ISSCallResult
+	if err := json.Unmarshal(response.Results, &results); err != nil {
+		return nil, fmt.Errorf("failed to parse measure results: %w", err)
+	}
+	return results, nil
+}
+
+// ReadBuffer retrieves the float64 data for a buffer_id from ISS.
+func (c *ScriptServerClient) ReadBuffer(bufferID string) ([]float64, error) {
+	response, err := c.call("read_buffer", map[string]interface{}{
+		"buffer_id": bufferID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }

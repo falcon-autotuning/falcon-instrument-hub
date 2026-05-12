@@ -60,18 +60,46 @@ type RPCRequest struct {
 // RPCResponse is the structure for HTTP RPC responses from instrument-script-server.
 // Fields are top-level in the ISS wire format (not nested under a "result" key).
 type RPCResponse struct {
-	OK          bool        `json:"ok"`                    // Whether the request succeeded
-	Error       string      `json:"error,omitempty"`       // Error message if failed
-	JobID       string      `json:"job_id,omitempty"`      // Returned by submit_measure
-	Status      string      `json:"status,omitempty"`      // Returned by job_status
-	Result      interface{} `json:"result,omitempty"`      // Returned by job_result
-	Instruments []string    `json:"instruments,omitempty"` // Returned by list
-	Instrument  string      `json:"instrument,omitempty"`  // Returned by start
+	OK           bool            `json:"ok"`                     // Whether the request succeeded
+	Error        string          `json:"error,omitempty"`        // Error message if failed
+	JobID        string          `json:"job_id,omitempty"`       // Returned by submit_measure
+	Status       string          `json:"status,omitempty"`       // Returned by job_status
+	Result       interface{}     `json:"result,omitempty"`       // Returned by job_result (collect_results_json array)
+	Instruments  []string        `json:"instruments,omitempty"`  // Returned by list
+	Instrument   string          `json:"instrument,omitempty"`   // Returned by start
+	// read_buffer response fields
+	BufferID     string          `json:"buffer_id,omitempty"`
+	ElementCount int             `json:"element_count,omitempty"`
+	Data         []float64       `json:"data,omitempty"`
+	DataType     string          `json:"data_type,omitempty"`
+	// measure command response fields
+	Script       string          `json:"script,omitempty"`
+	Results      json.RawMessage `json:"results,omitempty"`
+}
+
+// ISSCallResult is a single entry in the results array returned by the ISS
+// synchronous `measure` command (collect_results_json).
+type ISSCallResult struct {
+	Index        int             `json:"index"`
+	Instrument   string          `json:"instrument"`
+	Verb         string          `json:"verb"`
+	ExecutedAtMs int64           `json:"executed_at_ms"`
+	Return       ISSReturnValue  `json:"return"`
+}
+
+// ISSReturnValue is the return field of an ISSCallResult.
+type ISSReturnValue struct {
+	Type        string          `json:"type"`                  // "float","integer","string","boolean","buffer","void"
+	Value       interface{}     `json:"value,omitempty"`       // scalar value
+	BufferID    string          `json:"buffer_id,omitempty"`   // set when type=="buffer"
+	ElementCount int            `json:"element_count,omitempty"`
+	DataType    string          `json:"data_type,omitempty"`
 }
 
 // SubmitMeasureParams are the parameters for the submit_measure RPC command.
 type SubmitMeasureParams struct {
-	ScriptPath string `json:"script_path"` // Path to Lua measurement script
+	ScriptPath string                 `json:"script_path"`        // Path to Lua measurement script
+	Globals    map[string]interface{} `json:"globals,omitempty"` // Global variables passed to the script
 }
 
 // JobStatusParams are the parameters for the job_status RPC command.
