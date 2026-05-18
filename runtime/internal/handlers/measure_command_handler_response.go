@@ -3,9 +3,7 @@
 package handlers
 
 import (
-	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/autotuner-interfaces/contexts/acquisitioncontext"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementresponse"
@@ -15,20 +13,18 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
-
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 )
 
 // buildMeasurementResponseJSON constructs a falcon-core MeasurementResponse
-// from the raw buffer data and port metadata, then wraps it in a
-// api.MeasureResponse JSON string.
+// from the raw buffer data and port metadata and returns the cereal JSON string.
+// The caller is responsible for wrapping this in the NATS wire envelope.
 //
 // Parameters:
 //   - bufferData:      float64 samples from ISS
 //   - setterConnJSON:  cereal JSON for the setter port's pseudo-name (connection)
 //   - getterInstrType: instrument type string of the getter (e.g. "VOLTMETER")
 //   - getterUnitsJSON: cereal JSON for the getter's units (symbolunit)
-//   - hash:            measurement hash from MeasureCommand, forwarded to response
+//   - hash:            unused here; kept for a consistent signature
 func buildMeasurementResponseJSON(
 	bufferData []float64,
 	setterConnJSON string,
@@ -95,21 +91,7 @@ func buildMeasurementResponseJSON(
 	}
 	defer resp.Close()
 
-	// 9. Serialise the MeasurementResponse to cereal JSON.
-	respJSON, err := resp.ToJSON()
-	if err != nil {
-		return "", fmt.Errorf("buildMeasurementResponseJSON resp.ToJSON: %w", err)
-	}
-
-	// 10. Wrap in the NATS wire format (api.MeasureResponse.Stream carries the cereal JSON).
-	wrapped := api.MeasureResponse{
-		Stream:    respJSON,
-		Hash:      hash,
-		Timestamp: time.Now().UnixMicro(),
-	}
-	data, err := json.Marshal(wrapped)
-	if err != nil {
-		return "", fmt.Errorf("buildMeasurementResponseJSON json.Marshal: %w", err)
-	}
-	return string(data), nil
+	// 9. Serialise the MeasurementResponse to cereal JSON and return it.
+	// The caller wraps this in api.MeasureResponse{Stream: <this value>}.
+	return resp.ToJSON()
 }
