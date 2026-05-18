@@ -1,0 +1,15 @@
+wiremap: /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/test_data/2-dot-1-chargesensor-wiremap.yml
+quantum-dot-config: /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/test_data/2-dot-1-chargesensor.yml
+inst-config:
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/test_data/multimeter-config.yml;
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/test_data/source-config.yml
+inst-plugins:
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/build/linux-clang-release/test_data/instrument-plugins/mock_multimeter.so;
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/build/linux-clang-release/test_data/instrument-plugin/mock_voltage_source.so
+inst-apis:
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/build/linux-clang-release/test_data/instrument-apis/generated-multimeter-api.yml;
+  /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/build/linux-clang-release/test_data/instrument-apis/generated-source-api.yml
+instrument-server-port: 5555
+local-database: /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/test_data/data
+start-embedded-nats: true
+user-measurement-luas: /home/zdm2/Documents/github/FAlCon/falcon-instrument-hub/Scripts

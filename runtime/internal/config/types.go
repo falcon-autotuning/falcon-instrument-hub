@@ -50,8 +50,10 @@ func (ic InstrumentConnection) Contains(other string) bool {
 
 // Config holds all configuration data and file paths
 type Config struct {
-	DeviceConfigPath string
-	WiremapPath      string
-	DeviceConfig     *DeviceConfig
-	WireMap          *WireMap
+	DeviceConfigPath    string
+	WiremapPath         string
+	DeviceConfig        *DeviceConfig
+	WireMap             *WireMap
+	// InstrumentAPIPaths is the list of paths to instrument API YAML files.
+	InstrumentAPIPaths []string
 }

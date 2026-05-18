@@ -1,0 +1,74 @@
+api_version: "1.0.0"
+instrument:
+  vendor: "Mock"
+  model: "5"
+  identifier: "Meter1"
+  description: "Mock Voltage Meter"
+protocol:
+  type: "MockMultimeter"
+channel_groups:
+  - name: analog
+    description: "Analog input channels"
+    channel_parameter:
+      name: channel
+      type: int
+      min: 1
+      max: 8
+      description: "Voltage meter channel number (1-8)"
+    io_types:
+      - name: stream 
+        type: array 
+        role: input
+        description: "Voltage to set"
+        suffix: stream
+        unit: "V"
+      - name: voltage
+        type: float
+        role: input
+        description: "Measured DC voltage"
+        suffix: voltage
+        unit: "V"
+      - name: sample_rate
+        type: int
+        role: setting
+        description: "Sample rate of the channel"
+        suffix: sample_rate
+        unit: "Hz"
+      - name: bins
+        type: int
+        role: setting
+        description: "Number of bins to average for each data point"
+        suffix: bins
+io: []
+commands:
+  SET_SAMPLE_RATE:
+    template: "SOUR:SAMPle:{analog}:{sample_rate}"
+    description: "Set the sample rate"
+    channel_group: analog
+    parameters:
+      - io: sample_rate
+    outputs: []
+  SET_BINS:
+    template: "SOUR:BINS:{analog}:{bins}"
+    description: "Set the number of bins to average for each data point"
+    channel_group: analog
+    parameters:
+      - io: bins
+    outputs: []
+  MEASURE_STREAM:
+    template: "MEAS:VOLT:{analog}"
+    description: "Set output voltage"
+    channel_group: analog
+    parameters: []
+    outputs: [stream]
+  GET_DATAPOINT:
+    template: "MEAS:POINt:{analog}"
+    description: "Measure a single data point"
+    channel_group: analog
+    parameters: []
+    outputs: [voltage]
+  RESET:
+    template: "RESET"
+    description: "resets the mock instrument"
+    parameters: []
+    outputs: []

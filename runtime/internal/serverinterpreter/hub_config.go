@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -45,6 +46,9 @@ type HubConfig struct {
 
 	// InstrumentServerPort is the port for the instrument script server
 	InstrumentServerPort int `yaml:"instrument-server-port" json:"instrument-server-port"`
+
+	// InstAPIs is a semicolon-separated list of paths to instrument API YAML files.
+	InstAPIs string `yaml:"inst-apis" json:"inst-apis"`
 
 	// configPath stores the path this config was loaded from
 	configPath string
@@ -95,16 +99,6 @@ func (c *HubConfig) ResolvePath(p string) string {
 	return filepath.Join(filepath.Dir(c.configPath), p)
 }
 
-// GetQuantumDotDeviceConfig loads the quantum dot device configuration.
-func (c *HubConfig) GetQuantumDotDeviceConfig() (*QuantumDotDeviceConfig, error) {
-	if c.QuantumDotConfig == "" {
-		return nil, fmt.Errorf("quantum-dot-config not specified in hub config")
-	}
-
-	path := c.ResolvePath(c.QuantumDotConfig)
-	return LoadQuantumDotDeviceConfig(path)
-}
-
 // GetDatabasePath returns the full path for a database file.
 func (c *HubConfig) GetDatabasePath(filename string) string {
 	if c.LocalDatabase == "" {
@@ -129,6 +123,22 @@ func (c *HubConfig) GetInstrumentServerPort() int {
 	return c.InstrumentServerPort
 }
 
+// GetInstAPIPaths parses InstAPIs (semicolon-separated) into a slice of
+// resolved file paths. Empty entries are skipped.
+func (c *HubConfig) GetInstAPIPaths() []string {
+	if c.InstAPIs == "" {
+		return nil
+	}
+	var paths []string
+	for _, p := range strings.Split(c.InstAPIs, ";") {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			paths = append(paths, c.ResolvePath(p))
+		}
+	}
+	return paths
+}
+
 // Validate checks that required configuration is present.
 func (c *HubConfig) Validate() error {
 	if c.LocalDatabase == "" {
@@ -143,36 +153,4 @@ func (c *HubConfig) EnsureDatabaseDir() error {
 	return os.MkdirAll(path, 0755)
 }
 
-// WireMapConfig represents wire mapping between gates and physical channels.
-type WireMapConfig struct {
-	// Mappings maps gate names to physical DAC/ADC channels
-	Mappings map[string]WireMapping `yaml:"mappings" json:"mappings"`
-}
 
-// WireMapping represents a single wire mapping.
-type WireMapping struct {
-	InstrumentID string  `yaml:"instrument_id" json:"instrument_id"`
-	Channel      int     `yaml:"channel" json:"channel"`
-	Attenuation  float64 `yaml:"attenuation,omitempty" json:"attenuation,omitempty"`
-	Offset       float64 `yaml:"offset,omitempty" json:"offset,omitempty"`
-}
-
-// LoadWireMapConfig loads wire mapping configuration.
-func (c *HubConfig) LoadWireMapConfig() (*WireMapConfig, error) {
-	if c.Wiremap == "" {
-		return nil, fmt.Errorf("wiremap not specified in hub config")
-	}
-
-	path := c.ResolvePath(c.Wiremap)
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read wiremap: %w", err)
-	}
-
-	var wm WireMapConfig
-	if err := yaml.Unmarshal(data, &wm); err != nil {
-		return nil, fmt.Errorf("failed to parse wiremap: %w", err)
-	}
-
-	return &wm, nil
-}

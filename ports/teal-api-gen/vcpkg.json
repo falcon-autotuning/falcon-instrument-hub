@@ -1,0 +1,16 @@
+{
+  "name": "teal-api-gen",
+  "description": "Generator for teal library bindings",
+  "version": "1.0.0",
+  "license": "MPL-2.0",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake"
+    },
+    {
+      "name": "vcpkg-cmake-config"
+    },
+    "yaml-cpp"
+  ],
+  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c"
+}

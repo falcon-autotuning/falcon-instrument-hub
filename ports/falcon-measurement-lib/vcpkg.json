@@ -1,0 +1,6 @@
+{
+  "name": "falcon-measurement-lib",
+  "version": "1.0.1",
+  "description": "Falcon measurement library for preparing measurement scripts for the instrument script server",
+  "license": "BSD-3-Clause"
+}

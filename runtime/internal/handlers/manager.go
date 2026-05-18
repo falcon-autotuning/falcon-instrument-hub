@@ -88,6 +88,7 @@ func NewManager(
 		instrumentHandler,
 		manager,
 		dispatcher,
+		cfg.WireMap,
 	)
 
 	return manager

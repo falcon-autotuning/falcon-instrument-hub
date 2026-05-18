@@ -1,11 +1,14 @@
 
 # ignore testing data
-
 /test-outs
 *.npz
 *.npy
 *.h5
 *.db
+
+# ignore vcpkg data installed in Makefile
+/vcpkg
+/vcpkg_installed
 
 # ignore local data files: data, datacache, log files, etc. from falcon/iss/hub
 /log

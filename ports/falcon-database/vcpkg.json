@@ -1,0 +1,23 @@
+{
+  "name": "falcon-database",
+  "version": "1.0.7",
+  "description": "PostGreSQL binding for falcon DSL interaction to store global variables",
+  "homepage": "https://github.com/falcon-autotuning/falcon-database",
+  "license": "MPL-2.0",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake"
+    },
+    {
+      "name": "vcpkg-cmake-config"
+    },
+    {
+      "name": "libpqxx",
+      "version>=": "7.10.5"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.2"
+    }
+  ]
+}

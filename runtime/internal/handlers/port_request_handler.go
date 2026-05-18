@@ -3,15 +3,19 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 const (
@@ -101,7 +105,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	// Collect port properties using the instrument handler's existing
 	// functionality
 	knobs, meters := h.instrumentHandler.CollectPortProperties()
-	encodedKnobs, err := serializePortsToCerealJSON(knobs)
+	encodedKnobs, err := serializePortsToCerealJSON(knobs, h.config.DeviceConfig)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
@@ -110,7 +114,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		return
 	}
 
-	encodedMeters, err := serializePortsToCerealJSON(meters)
+	encodedMeters, err := serializePortsToCerealJSON(meters, h.config.DeviceConfig)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
@@ -153,19 +157,45 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	)
 }
 
-// serializePortsToCerealJSON converts a list of serialized InstrumentPort
-// objects into a serialized Ports object using falcon-core C API wrappers.
-func serializePortsToCerealJSON(portPayloads []instrument.JsonPort) (string, error) {
-	portHandles := make([]*instrumentport.Handle, 0, len(portPayloads))
-	for _, p := range portPayloads {
-		h, err := instrumentport.FromJSON(p.String())
+// serializePortsToCerealJSON converts a slice of ConnectedPort values into a
+// serialized Ports object using the falcon-core C API.
+//
+// Each ConnectedPort is converted to an InstrumentPort using the typed
+// constructors (NewKnob / NewMeter) rather than FromJSON, because
+// InstrumentPort_from_json_string expects the C++ cereal wire format —
+// not the Python-style __class__/__module__ shape that was previously
+// assembled here by hand.
+//
+// The connection type for pseudo_name is resolved from DeviceConfig gate
+// lists (ScreeningGates, PlungerGates, BarrierGates, ReservoirGates,
+// Ohmics).  Any device name not found in those lists falls back to a
+// generic PlungerGate connection.
+func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg *config.DeviceConfig) (string, error) {
+	portHandles := make([]*instrumentport.Handle, 0, len(connectedPorts))
+	for _, cp := range connectedPorts {
+		conn, err := connectionFromDeviceName(cp.DeviceName, deviceCfg)
 		if err != nil {
-			return "", fmt.Errorf("failed to parse instrument port JSON: %w", err)
+			return "", fmt.Errorf("failed to create connection for %s: %w", cp.DeviceName, err)
+		}
+
+		unit, err := symbolUnitFromString(cp.Unit)
+		if err != nil {
+			return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
+		}
+
+		var h *instrumentport.Handle
+		if cp.IsKnob() {
+			h, err = instrumentport.NewKnob(string(cp.PortName), conn, cp.InstrumentName, unit, cp.Description)
+		} else {
+			h, err = instrumentport.NewMeter(string(cp.PortName), conn, cp.InstrumentName, unit, cp.Description)
+		}
+		if err != nil {
+			return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)
 		}
 		portHandles = append(portHandles, h)
 	}
 
-	portsHandle, err := ports.New(portHandles)
+	portsHandle, err := falconports.New(portHandles)
 	if err != nil {
 		return "", fmt.Errorf("failed to create ports handle: %w", err)
 	}
@@ -176,6 +206,108 @@ func serializePortsToCerealJSON(portPayloads []instrument.JsonPort) (string, err
 	}
 
 	return jsonStr, nil
+}
+
+// connectionFromDeviceName creates a connection.Handle for the given device
+// gate name by looking it up in the DeviceConfig gate lists.  The lookup
+// order is: ScreeningGates → PlungerGates → BarrierGates → ReservoirGates →
+// Ohmics.  If the name is not found, a PlungerGate is used as a default.
+func connectionFromDeviceName(name string, cfg *config.DeviceConfig) (*connection.Handle, error) {
+	if cfg != nil {
+		if containsGateName(cfg.ScreeningGates, name) {
+			return connection.NewScreeningGate(name)
+		}
+		if containsGateName(cfg.PlungerGates, name) {
+			return connection.NewPlungerGate(name)
+		}
+		if containsGateName(cfg.BarrierGates, name) {
+			return connection.NewBarrierGate(name)
+		}
+		if containsGateName(cfg.ReservoirGates, name) {
+			return connection.NewReservoirGate(name)
+		}
+		if containsGateName(cfg.Ohmics, name) {
+			return connection.NewOhmic(name)
+		}
+	}
+	// Default: use PlungerGate for any device not explicitly categorised.
+	return connection.NewPlungerGate(name)
+}
+
+// containsGateName reports whether semicolon-separated list contains name.
+func containsGateName(list, name string) bool {
+	for _, g := range strings.Split(list, ";") {
+		if strings.TrimSpace(g) == name {
+			return true
+		}
+	}
+	return false
+}
+
+// symbolUnitFromString maps a unit symbol string (as written in instrument API
+// YAML files) to the corresponding symbolunit.Handle.  The symbols follow the
+// standard SI convention used by falcon-core's Constants.cpp.
+func symbolUnitFromString(unit string) (*symbolunit.Handle, error) {
+	switch unit {
+	case "m":
+		return symbolunit.NewMeter()
+	case "kg":
+		return symbolunit.NewKilogram()
+	case "s":
+		return symbolunit.NewSecond()
+	case "A":
+		return symbolunit.NewAmpere()
+	case "K":
+		return symbolunit.NewKelvin()
+	case "mol":
+		return symbolunit.NewMole()
+	case "cd":
+		return symbolunit.NewCandela()
+	case "Hz":
+		return symbolunit.NewHertz()
+	case "N":
+		return symbolunit.NewNewton()
+	case "Pa":
+		return symbolunit.NewPascal()
+	case "J":
+		return symbolunit.NewJoule()
+	case "W":
+		return symbolunit.NewWatt()
+	case "C":
+		return symbolunit.NewCoulomb()
+	case "V":
+		return symbolunit.NewVolt()
+	case "F":
+		return symbolunit.NewFarad()
+	case "Ω", "ohm":
+		return symbolunit.NewOhm()
+	case "S":
+		return symbolunit.NewSiemens()
+	case "Wb":
+		return symbolunit.NewWeber()
+	case "T":
+		return symbolunit.NewTesla()
+	case "H":
+		return symbolunit.NewHenry()
+	case "min":
+		return symbolunit.NewMinute()
+	case "mV":
+		return symbolunit.NewMillivolt()
+	case "mA":
+		return symbolunit.NewMilliampere()
+	case "μA", "uA":
+		return symbolunit.NewMicroampere()
+	case "nA":
+		return symbolunit.NewNanoampere()
+	case "pA":
+		return symbolunit.NewPicoampere()
+	case "ns":
+		return symbolunit.NewNanosecond()
+	case "":
+		return symbolunit.NewDimensionless()
+	default:
+		return symbolunit.NewDimensionless()
+	}
 }
 
 // isOhmicConnection checks if a port JSON represents an Ohmic connection

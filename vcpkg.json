@@ -1,0 +1,28 @@
+{
+  "name": "falcon-instrument-hub",
+  "description": "Falcon Instrument Hub - dependency manifest for vcpkg C library installation",
+  "dependencies": [
+    {
+      "name": "falcon-core",
+      "features": [
+        "c-api"
+      ],
+      "version>=": "1.2.12"
+    }
+  ],
+  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c",
+  "overrides": [
+    {
+      "name": "xtensor",
+      "version": "0.25.0"
+    },
+    {
+      "name": "xtl",
+      "version": "0.7.5"
+    },
+    {
+      "name": "cereal-xtensor",
+      "version": "1.3.2"
+    }
+  ]
+}

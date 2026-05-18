@@ -1,0 +1,50 @@
+api_version: "1.0.0"
+instrument:
+  vendor: "Mock"
+  model: "1"
+  identifier: "Source1"
+  description: "Mock Voltage Source"
+protocol:
+  type: "MockVoltageSource"
+channel_groups:
+  - name: analog
+    description: "Analog output channels"
+    channel_parameter:
+      name: channel
+      type: int
+      min: 1
+      max: 32
+      description: "Voltage source channel number (1-32)"
+    io_types:
+      - name: voltage
+        type: float
+        role: output
+        description: "Voltage to set"
+        suffix: voltage
+        unit: "V"
+      - name: measured_voltage
+        type: float
+        role: input
+        description: "Measured DC voltage"
+        suffix: measured_voltage
+        unit: "V"
+io: []
+commands:
+  SET_VOLTAGE:
+    template: "SOUR:VOLT:{analog}:{voltage}"
+    description: "Set output voltage"
+    channel_group: analog
+    parameters:
+      - io: voltage
+    outputs: []
+  GET_VOLTAGE:
+    template: "MEAS:VOLT:{analog}:DC?"
+    description: "Measure DC voltage"
+    channel_group: analog
+    parameters: []
+    outputs: [measured_voltage]
+  RESET:
+    template: "RESET"
+    description: "resets the mock instrument"
+    parameters: []
+    outputs: []

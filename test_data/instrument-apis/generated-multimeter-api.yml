@@ -1,0 +1,226 @@
+api_version: 1.0.0
+instrument:
+  vendor: Mock
+  model: 5
+  identifier: Meter1
+  description: Mock Voltage Meter
+protocol:
+  type: MockMultimeter
+channel_groups:
+  - name: analog
+    description: Analog input channels
+    channel_parameter:
+      name: channel
+      type: int
+      min: 1
+      max: 8
+      description: Voltage meter channel number (1-8)
+    io_types:
+      - name: stream
+        type: array
+        role: input
+        description: Voltage to set
+        suffix: stream
+        unit: V
+      - name: voltage
+        type: float
+        role: input
+        description: Measured DC voltage
+        suffix: voltage
+        unit: V
+      - name: sample_rate
+        type: int
+        role: setting
+        description: Sample rate of the channel
+        suffix: sample_rate
+        unit: Hz
+      - name: bins
+        type: int
+        role: setting
+        description: Number of bins to average for each data point
+        suffix: bins
+io:
+  - name: analog1_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog1_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog1_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog1_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog2_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog2_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog2_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog2_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog3_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog3_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog3_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog3_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog4_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog4_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog4_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog4_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog5_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog5_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog5_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog5_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog6_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog6_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog6_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog6_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog7_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog7_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog7_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog7_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+  - name: analog8_stream
+    type: array
+    role: input
+    description: Voltage to set
+    unit: V
+  - name: analog8_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog8_sample_rate
+    type: int
+    role: setting
+    description: Sample rate of the channel
+    unit: Hz
+  - name: analog8_bins
+    type: int
+    role: setting
+    description: Number of bins to average for each data point
+commands:
+  SET_SAMPLE_RATE:
+    template: SOUR:SAMPle:{analog}:{sample_rate}
+    description: Set the sample rate
+    channel_group: analog
+    parameters:
+      - io: sample_rate
+    outputs: []
+  SET_BINS:
+    template: SOUR:BINS:{analog}:{bins}
+    description: Set the number of bins to average for each data point
+    channel_group: analog
+    parameters:
+      - io: bins
+    outputs: []
+  MEASURE_STREAM:
+    template: MEAS:VOLT:{analog}
+    description: Set output voltage
+    channel_group: analog
+    parameters: []
+    outputs: [stream]
+  GET_DATAPOINT:
+    template: MEAS:POINt:{analog}
+    description: Measure a single data point
+    channel_group: analog
+    parameters: []
+    outputs: [voltage]
+  RESET:
+    template: RESET
+    description: resets the mock instrument
+    parameters: []
+    outputs: []

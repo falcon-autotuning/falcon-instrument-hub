@@ -1,0 +1,16 @@
+wiremap:
+  - name: P1
+    instrument:
+      name: xxx
+      channel_name: yyy
+      index: 1
+
+  - instrument:
+      name: www
+      channel_name: zzzz
+      index: 2
+
+  - instrument:
+      name: qqq
+      channel_name: yyy
+      index: 3

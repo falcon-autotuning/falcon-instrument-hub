@@ -84,6 +84,8 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	// Subscribe to handler
@@ -312,33 +314,6 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	// Set up mock instruments with ports and configurations
-	mockInstrument := &instrument.InstrumentProcess{
-		Name:        "dac1",
-		Initialized: true,
-		Ports: map[instrument.PropertyName]map[instrument.Index]instrument.JsonPort{
-			"knobs": {
-				"0": createTestKnobJSON("DAC", "SG1"),
-				"1": createTestKnobJSON("DAC", "OH1"),
-			},
-		},
-		Configuration: map[instrument.PropertyName]map[instrument.Index]instrument.PortConfiguration{
-			"knobs": {
-				"0": map[string]any{
-					"bounds": []float64{-10, 10},
-					"unit":   "V",
-				},
-				"1": map[string]any{
-					"bounds": []float64{-5, 5},
-					"unit":   "V",
-				},
-			},
-		},
-	}
-
-	// Add to handler (note: this is direct access for testing)
-	instrumentHandler.Instruments["dac1"] = mockInstrument
-
 	// Create mock busy manager
 	mockBusyManager := &MockBusyManager{}
 
@@ -348,6 +323,8 @@ func TestMeasureCommandHandler_WithInstruments(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	// Subscribe to handler
@@ -465,6 +442,8 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	t.Run("subscribe_and_unsubscribe", func(t *testing.T) {
@@ -554,6 +533,8 @@ func TestMeasureCommandHandler_UploadData(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	// Subscribe to handler
@@ -901,6 +882,8 @@ func TestMeasureCommandHandler_IsBusyFlag(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	// Subscribe to handler
@@ -1195,6 +1178,8 @@ func TestMeasureCommandHandler_MultipleUploadData(t *testing.T) {
 		measurementManager,
 		instrumentHandler,
 		mockBusyManager,
+		nil,
+		nil,
 	)
 
 	// Subscribe to handler

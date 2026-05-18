@@ -47,6 +47,7 @@ var (
 	instrumentServerPort int
 	localDatabase        string
 	userMeasurementLuas  string
+	instrumentAPIPaths   []string
 )
 
 var startCmd = &cobra.Command{
@@ -85,6 +86,8 @@ func init() {
 		StringVar(&localDatabase, "local-database", "", "path to local database directory")
 	startCmd.Flags().
 		StringVar(&userMeasurementLuas, "user-measurement-luas", "", "path to user-defined Lua measurement scripts")
+	startCmd.Flags().
+		StringSliceVar(&instrumentAPIPaths, "instrument-apis", []string{}, "comma-separated paths to instrument API YAML files")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -244,6 +247,7 @@ func setupHandlers(services *coreServices) error {
 		log.Println("warning: device-config or wiremap not specified, using empty configuration")
 		cfg = &config.Config{}
 	}
+	cfg.InstrumentAPIPaths = instrumentAPIPaths
 
 	services.logger.LogStats()
 
@@ -356,14 +360,15 @@ func applyHubConfig() error {
 	}
 
 	var cfg struct {
-		Wiremap              string `yaml:"wiremap"`
-		QuantumDotConfig     string `yaml:"quantum-dot-config"`
-		NATSUrl              string `yaml:"nats-url"`
-		InstConfig           string `yaml:"inst-config"`
-		InstPlugins          string `yaml:"inst-plugins"`
-		InstrumentServerPort int    `yaml:"instrument-server-port"`
-		LocalDatabase        string `yaml:"local-database"`
-		UserMeasurementLuas  string `yaml:"user-measurement-luas"`
+		Wiremap              string   `yaml:"wiremap"`
+		QuantumDotConfig     string   `yaml:"quantum-dot-config"`
+		NATSUrl              string   `yaml:"nats-url"`
+		InstConfig           string   `yaml:"inst-config"`
+		InstPlugins          string   `yaml:"inst-plugins"`
+		InstrumentServerPort int      `yaml:"instrument-server-port"`
+		LocalDatabase        string   `yaml:"local-database"`
+		UserMeasurementLuas  string   `yaml:"user-measurement-luas"`
+		InstrumentAPIs       []string `yaml:"instrument-apis"`
 	}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("failed to parse hub config: %w", err)
@@ -400,6 +405,10 @@ func applyHubConfig() error {
 	if userMeasurementLuas == "" && cfg.UserMeasurementLuas != "" {
 		userMeasurementLuas = cfg.UserMeasurementLuas
 		log.Printf("hub config: user-measurement-luas = %s", userMeasurementLuas)
+	}
+	if len(instrumentAPIPaths) == 0 && len(cfg.InstrumentAPIs) > 0 {
+		instrumentAPIPaths = cfg.InstrumentAPIs
+		log.Printf("hub config: instrument-apis = %v", instrumentAPIPaths)
 	}
 
 	return nil
@@ -527,7 +536,7 @@ func main() {
 
 	// + "`" + // use for embedding backticks in the ASCII art below without breaking the string literal
 
-	fmt.Println(`
+	fmt.Print(`
  ______                        __                                                             __     
 |      \                      |  \                                                           |  \    
  \$$$$$$ _______    _______  _| $$_     ______   __    __  ______ ____    ______   _______  _| $$_   

@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
@@ -52,6 +53,7 @@ type MeasureCommandHandler struct {
 	instrumentHandler   *instrument.Handler
 	busyManager         BusyManager
 	dispatcher          *serverinterpreter.ScriptDispatcher
+	wireMap             *config.WireMap
 	pendingMeasurements map[instrument.ID]PendingMeasurement
 	mutex               sync.RWMutex
 }
@@ -63,6 +65,7 @@ func NewMeasureCommandHandler(
 	instrumentHandler *instrument.Handler,
 	busyManager BusyManager,
 	dispatcher *serverinterpreter.ScriptDispatcher,
+	wireMap *config.WireMap,
 ) *MeasureCommandHandler {
 	return &MeasureCommandHandler{
 		logger:              logger,
@@ -70,6 +73,7 @@ func NewMeasureCommandHandler(
 		instrumentHandler:   instrumentHandler,
 		busyManager:         busyManager,
 		dispatcher:          dispatcher,
+		wireMap:             wireMap,
 		pendingMeasurements: make(map[instrument.ID]PendingMeasurement),
 	}
 }
@@ -261,9 +265,10 @@ func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
 	}
 
 	// Create the response using the uploaded data
-	_ = pendingMeasurement.Hash // TODO: use hash in new measure_command_handler implementation
 	measureResponse := api.MeasureResponse{
 		Stream:    uploadData.Data,
+		Response:  uploadData.Data,
+		Hash:      pendingMeasurement.Hash,
 		Timestamp: time.Now().UnixMicro(),
 	}
 

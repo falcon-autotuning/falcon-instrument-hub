@@ -1,0 +1,25 @@
+[[wiremap]]
+
+name = "P1"
+
+[wiremap.instrument]
+name = "xxx"
+channel_name = "yyy"
+index = 1
+
+[[wiremap]]
+
+[wiremap.instrument]
+name = "www"
+channel_name = "zzzz"
+index = 2
+
+[[wiremap]]
+
+[wiremap.instrument]
+name = "qqq"
+channel_name = "yyy"
+index = 3
+
+
+

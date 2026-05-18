@@ -1,0 +1,28 @@
+{
+  "name": "falcon-comms",
+  "version": "1.0.10",
+  "port-version": 2,
+  "description": "NATS communication API for falcon network DSL interactions",
+  "homepage": "https://github.com/falcon-autotuning/falcon-comms",
+  "license": "MPL-2.0",
+  "dependencies": [
+    {
+      "name": "vcpkg-cmake"
+    },
+    {
+      "name": "vcpkg-cmake-config"
+    },
+    {
+      "name": "cnats",
+      "version>=": "3.7.0"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.2"
+    },
+    {
+      "name": "spdlog"
+    }
+  ],
+  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c"
+}

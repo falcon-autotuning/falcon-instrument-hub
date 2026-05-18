@@ -4,11 +4,10 @@ PYTHON_ENV := .venv
 NATS_CONTAINER := nats
 INSTALL_PREFIX ?= /opt/falcon
 SUDO ?= sudo
-CONTROLLER_REPO ?= ../instrument-controller
-CONTROLLER_VCPKG_TRIPLET ?= x64-linux-dynamic
-CONTROLLER_REPO_ABS := $(abspath $(CONTROLLER_REPO))
-CONTROLLER_VCPKG_INSTALLED ?= $(CONTROLLER_REPO_ABS)/vcpkg_installed/$(CONTROLLER_VCPKG_TRIPLET)
-CONTROLLER_PKGCONFIG ?= $(CONTROLLER_VCPKG_INSTALLED)/lib/pkgconfig
+PRESET ?= linux-clang-release
+VCPKG_TRIPLET ?= x64-linux-dynamic
+LOCAL_VCPKG_INSTALLED := $(abspath vcpkg_installed/$(VCPKG_TRIPLET))
+LOCAL_PKGCONFIG := $(LOCAL_VCPKG_INSTALLED)/lib/pkgconfig
 
 # Default target
 .PHONY: all
@@ -18,10 +17,19 @@ all: build test
 .PHONY: build
 build: build-go setup-python
 
+.PHONY: vcpkg-bootstrap
+vcpkg-bootstrap:
+	@echo "Bootstrapping vcpkg..."
+	MAKELEVEL=0 cmake -P cmake/bootstrap/bootstrap-vcpkg.cmake
+
+.PHONY: configure
+configure: vcpkg-bootstrap
+	@echo "Configuring $(PRESET)..."
+	MAKELEVEL=0 cmake --preset $(PRESET)
+
 .PHONY: install-falcon-deps
-install-falcon-deps:
-	$(MAKE) -C $(CONTROLLER_REPO) vcpkg-bootstrap
-	@echo "Using controller vcpkg install at $(CONTROLLER_VCPKG_INSTALLED)"
+install-falcon-deps: configure
+	@echo "vcpkg dependencies installed at $(LOCAL_VCPKG_INSTALLED)"
 
 .PHONY: build-go
 build-go:
@@ -29,14 +37,14 @@ ifeq ($(OS),Windows_NT)
 	cd runtime && go build -o bin/instrument-hub.exe cmd/main.go
 	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
 else
-	cd runtime && PKG_CONFIG_PATH="$(CONTROLLER_PKGCONFIG)" LD_LIBRARY_PATH="$(CONTROLLER_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/instrument-hub cmd/main.go
-	cd runtime && PKG_CONFIG_PATH="$(CONTROLLER_PKGCONFIG)" LD_LIBRARY_PATH="$(CONTROLLER_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/dataviewer ./cmd/dataviewer/
+	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/instrument-hub cmd/main.go
+	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/dataviewer ./cmd/dataviewer/
 endif
 
 # Release build (optimised, symbols stripped)
 .PHONY: build-release
 build-release:
-	cd runtime && PKG_CONFIG_PATH="$(CONTROLLER_PKGCONFIG)" LD_LIBRARY_PATH="$(CONTROLLER_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
+	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
 		go build -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
 
 # Install the instrument-hub binary to INSTALL_PREFIX/bin

@@ -1,0 +1,370 @@
+api_version: 1.0.0
+instrument:
+  vendor: Mock
+  model: 1
+  identifier: Source1
+  description: Mock Voltage Source
+protocol:
+  type: MockVoltageSource
+channel_groups:
+  - name: analog
+    description: Analog output channels
+    channel_parameter:
+      name: channel
+      type: int
+      min: 1
+      max: 32
+      description: Voltage source channel number (1-32)
+    io_types:
+      - name: voltage
+        type: float
+        role: output
+        description: Voltage to set
+        suffix: voltage
+        unit: V
+      - name: measured_voltage
+        type: float
+        role: input
+        description: Measured DC voltage
+        suffix: measured_voltage
+        unit: V
+io:
+  - name: analog1_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog1_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog2_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog2_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog3_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog3_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog4_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog4_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog5_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog5_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog6_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog6_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog7_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog7_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog8_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog8_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog9_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog9_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog10_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog10_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog11_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog11_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog12_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog12_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog13_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog13_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog14_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog14_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog15_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog15_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog16_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog16_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog17_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog17_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog18_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog18_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog19_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog19_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog20_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog20_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog21_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog21_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog22_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog22_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog23_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog23_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog24_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog24_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog25_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog25_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog26_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog26_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog27_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog27_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog28_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog28_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog29_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog29_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog30_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog30_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog31_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog31_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+  - name: analog32_voltage
+    type: float
+    role: output
+    description: Voltage to set
+    unit: V
+  - name: analog32_measured_voltage
+    type: float
+    role: input
+    description: Measured DC voltage
+    unit: V
+commands:
+  SET_VOLTAGE:
+    template: SOUR:VOLT:{analog}:{voltage}
+    description: Set output voltage
+    channel_group: analog
+    parameters:
+      - io: voltage
+    outputs: []
+  GET_VOLTAGE:
+    template: MEAS:VOLT:{analog}:DC?
+    description: Measure DC voltage
+    channel_group: analog
+    parameters: []
+    outputs: [measured_voltage]
+  RESET:
+    template: RESET
+    description: resets the mock instrument
+    parameters: []
+    outputs: []

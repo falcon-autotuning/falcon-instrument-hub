@@ -94,17 +94,41 @@ func addConnections(
 	}
 }
 
+// wiremapFile is the top-level YAML structure for the new wiremap format.
+type wiremapFile struct {
+	Wiremap []wiremapEntry `yaml:"wiremap"`
+}
+
+// wiremapEntry is one entry in the wiremap sequence.
+type wiremapEntry struct {
+	Name       string            `yaml:"name"`
+	Instrument wiremapInstrument `yaml:"instrument"`
+}
+
+// wiremapInstrument holds the instrument channel details for a wiremap entry.
+type wiremapInstrument struct {
+	Name        string `yaml:"name"`
+	ChannelName string `yaml:"channel_name"`
+	Index       int    `yaml:"index"`
+}
+
 func loadWireMap(path string) (*WireMap, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	var wireMap WireMap
-	if err := yaml.Unmarshal(data, &wireMap); err != nil {
+	var raw wiremapFile
+	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 
+	wireMap := make(WireMap, len(raw.Wiremap))
+	for _, entry := range raw.Wiremap {
+		// Key format: "InstrumentIdentifier.ChannelName.Index" e.g. "Source1.analog.4"
+		key := fmt.Sprintf("%s.%s.%d", entry.Instrument.Name, entry.Instrument.ChannelName, entry.Instrument.Index)
+		wireMap[InstrumentConnection(key)] = InstrumentConnection(entry.Name)
+	}
 	return &wireMap, nil
 }
 
