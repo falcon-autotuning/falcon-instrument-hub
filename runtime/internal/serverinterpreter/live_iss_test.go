@@ -12,7 +12,6 @@ package serverinterpreter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -21,7 +20,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -54,6 +52,26 @@ func issTestScripts() string { return filepath.Join(issTestData(), "test_scripts
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+// startEmbeddedNATS starts an embedded NATS server for use in tests.
+// The caller is responsible for calling ns.Shutdown() and nc.Close().
+func startEmbeddedNATS(t *testing.T) (*server.Server, *nats.Conn) {
+	t.Helper()
+	port := freePort()
+	opts := &server.Options{
+		Host:      "127.0.0.1",
+		Port:      port,
+		JetStream: true,
+		StoreDir:  t.TempDir(),
+	}
+	ns, err := server.NewServer(opts)
+	require.NoError(t, err)
+	go ns.Start()
+	require.True(t, ns.ReadyForConnections(5*time.Second), "NATS not ready")
+	nc, err := nats.Connect(ns.ClientURL())
+	require.NoError(t, err)
+	return ns, nc
+}
 
 // freePort asks the OS for an available TCP port.
 func freePort() int {
@@ -249,244 +267,4 @@ func TestLiveISS_StartMockInstruments(t *testing.T) {
 	assert.Contains(t, instruments, "MockInstrument1")
 	assert.Contains(t, instruments, "MockInstrument2")
 	assert.Contains(t, instruments, "MockInstrument3")
-}
-
-// ---------------------------------------------------------------------------
-// Step 2 – Submit a measurement script and poll for result
-// ---------------------------------------------------------------------------
-
-func TestLiveISS_SubmitMeasure(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live ISS test in -short mode")
-	}
-
-	iss := startISS(t)
-	defer iss.stop(t)
-
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
-	startMockInstruments(t, client, 3)
-
-	// Submit the simplest test script (uses MockInstrument1.ECHO).
-	scriptPath := filepath.Join("tests", "data", "test_scripts", "simple_call.lua")
-	jobID, err := client.SubmitMeasure(scriptPath)
-	require.NoError(t, err)
-	require.NotEmpty(t, jobID)
-	t.Logf("submitted job: %s", jobID)
-
-	// Poll to completion.
-	status, err := client.WaitForJob(jobID, 200*time.Millisecond, 30*time.Second)
-	require.NoError(t, err)
-	t.Logf("job status: %s", status)
-	assert.Equal(t, "completed", status)
-
-	// Retrieve result.
-	result, err := client.JobResult(jobID)
-	require.NoError(t, err)
-	t.Logf("job result: %+v", result)
-}
-
-// ---------------------------------------------------------------------------
-// Step 2 – Use the Bridge high-level API against real ISS
-// ---------------------------------------------------------------------------
-
-func TestLiveISS_BridgeSetGetVoltage(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live ISS test in -short mode")
-	}
-
-	iss := startISS(t)
-	defer iss.stop(t)
-
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
-	startMockInstruments(t, client, 1)
-
-	config := BridgeConfig{
-		ScriptServerHost: "127.0.0.1",
-		ScriptServerPort: iss.rpcPort,
-	}
-	bridge, err := NewBridge(config)
-	require.NoError(t, err)
-
-	// Set voltage.
-	setResult, err := bridge.ExecuteSetVoltage("MockInstrument1", 0, 2.5)
-	require.NoError(t, err)
-	t.Logf("SetVoltage result: %+v", setResult)
-
-	// Get voltage.
-	getResult, err := bridge.ExecuteGetVoltage("MockInstrument1", 0)
-	require.NoError(t, err)
-	t.Logf("GetVoltage result: %+v", getResult)
-}
-
-// ---------------------------------------------------------------------------
-// Step 2 – Execute a MeasurementRequest JSON through the bridge
-// ---------------------------------------------------------------------------
-
-func TestLiveISS_BridgeMeasurementRequestJSON(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live ISS test in -short mode")
-	}
-
-	iss := startISS(t)
-	defer iss.stop(t)
-
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
-	startMockInstruments(t, client, 1)
-
-	config := BridgeConfig{
-		ScriptServerHost: "127.0.0.1",
-		ScriptServerPort: iss.rpcPort,
-	}
-	bridge, err := NewBridge(config)
-	require.NoError(t, err)
-
-	jsonStr := `{
-		"measurementName": "test_get_set",
-		"setters": [{"id": "MockInstrument1", "channel": 0}],
-		"getters": [{"id": "MockInstrument1", "channel": 0}],
-		"setVoltages": {"MockInstrument1": 1.5}
-	}`
-
-	result, err := bridge.ExecuteMeasurementRequestJSON(jsonStr)
-	require.NoError(t, err)
-	t.Logf("MeasurementRequestJSON result: %+v", result)
-}
-
-// ===========================================================================
-// Step 3 – Full NATS end-to-end: falcon → hub → ISS
-// ===========================================================================
-
-// startEmbeddedNATS spins up an in-process NATS server on a random port and
-// returns a connected client. Caller should defer nc.Close() and ns.Shutdown().
-func startEmbeddedNATS(t *testing.T) (*server.Server, *nats.Conn) {
-	t.Helper()
-	port := freePort()
-	opts := &server.Options{
-		Host: "127.0.0.1",
-		Port: port,
-		// JetStream is not required for the basic MEASURE_COMMAND flow, but
-		// enable it in case we expand the test later.
-		JetStream: true,
-		StoreDir:  t.TempDir(),
-	}
-	ns, err := server.NewServer(opts)
-	require.NoError(t, err)
-	go ns.Start()
-	require.True(t, ns.ReadyForConnections(5*time.Second), "NATS not ready")
-
-	nc, err := nats.Connect(ns.ClientURL())
-	require.NoError(t, err)
-	return ns, nc
-}
-
-// TestLiveISS_NATS_EndToEnd exercises the complete chain:
-//
-//	falcon client → NATS MEASURE_COMMAND.external.* → Hub handler →
-//	Bridge HTTP RPC → real ISS daemon → mock instruments →
-//	bridge returns result → Hub handler → NATS MEASURE_RESPONSE.external.* → falcon client
-//
-// This is the "Step 3" integration test.
-func TestLiveISS_NATS_EndToEnd(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping live ISS NATS end-to-end test in -short mode")
-	}
-
-	// 1. Start real ISS daemon with mock instruments.
-	iss := startISS(t)
-	defer iss.stop(t)
-
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
-	startMockInstruments(t, client, 3)
-
-	// 2. Start embedded NATS.
-	ns, nc := startEmbeddedNATS(t)
-	defer ns.Shutdown()
-	defer nc.Close()
-
-	// 3. Set up a hub-side Bridge that points at the live ISS.
-	bridgeCfg := BridgeConfig{
-		ScriptServerHost: "127.0.0.1",
-		ScriptServerPort: iss.rpcPort,
-	}
-	bridge, err := NewBridge(bridgeCfg)
-	require.NoError(t, err)
-
-	// 4. Subscribe to MEASURE_COMMAND.external.* on NATS and act as the hub
-	//    handler: parse the command, forward to ISS via Bridge, publish result
-	//    on MEASURE_RESPONSE.external.*.
-	var wg sync.WaitGroup
-
-	_, subErr := nc.Subscribe("MEASURE_COMMAND.external.*", func(msg *nats.Msg) {
-		// Tokens: MEASURE_COMMAND.external.<name>
-		tokens := strings.Split(msg.Subject, ".")
-		name := tokens[len(tokens)-1]
-		t.Logf("[hub] received MEASURE_COMMAND for %q", name)
-
-		// The payload is a falcon MeasurementRequest JSON envelope.
-		result, bErr := bridge.ExecuteMeasurementRequestJSON(string(msg.Data))
-		var respBytes []byte
-		if bErr != nil {
-			respBytes, _ = json.Marshal(map[string]interface{}{
-				"error":  bErr.Error(),
-				"status": "failed",
-			})
-		} else {
-			respBytes, _ = json.Marshal(result)
-		}
-
-		// Publish response.
-		respSubject := "MEASURE_RESPONSE.external." + name
-		if pubErr := nc.Publish(respSubject, respBytes); pubErr != nil {
-			t.Logf("[hub] publish error: %v", pubErr)
-		}
-		nc.Flush()
-		t.Logf("[hub] published MEASURE_RESPONSE.external.%s", name)
-	})
-	require.NoError(t, subErr)
-
-	// 5. Now act as falcon: subscribe to MEASURE_RESPONSE, send a command.
-	responseCh := make(chan *nats.Msg, 1)
-	_, err = nc.Subscribe("MEASURE_RESPONSE.external.test_measure", func(msg *nats.Msg) {
-		responseCh <- msg
-	})
-	require.NoError(t, err)
-	require.NoError(t, nc.Flush())
-
-	// Build a falcon-style MeasurementRequest JSON.
-	falconRequest := map[string]interface{}{
-		"measurementName": "test_measure",
-		"setters":         []map[string]interface{}{{"id": "MockInstrument1", "channel": 0}},
-		"getters":         []map[string]interface{}{{"id": "MockInstrument1", "channel": 0}},
-		"setVoltages":     map[string]interface{}{"MockInstrument1": 3.3},
-	}
-	requestJSON, _ := json.Marshal(falconRequest)
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		pErr := nc.Publish("MEASURE_COMMAND.external.test_measure", requestJSON)
-		if pErr != nil {
-			t.Logf("[falcon] publish error: %v", pErr)
-		}
-		nc.Flush()
-		t.Log("[falcon] published MEASURE_COMMAND.external.test_measure")
-	}()
-
-	// Wait for the response (or timeout).
-	select {
-	case resp := <-responseCh:
-		t.Logf("[falcon] received MEASURE_RESPONSE: %s", string(resp.Data))
-
-		var result map[string]interface{}
-		require.NoError(t, json.Unmarshal(resp.Data, &result))
-		// We don't assert "completed" because the Bridge may forward to
-		// submit_measure which can fail if scripts are missing; the critical
-		// thing is that the full NATS round-trip worked.
-		t.Logf("[falcon] parsed result: %+v", result)
-
-	case <-time.After(30 * time.Second):
-		t.Fatal("timed out waiting for MEASURE_RESPONSE")
-	}
-
-	wg.Wait()
 }

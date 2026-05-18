@@ -2,8 +2,6 @@
 package serverinterpreter
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -51,36 +49,6 @@ func NewScriptDispatcher(config ScriptDispatcherConfig) *ScriptDispatcher {
 	}
 }
 
-// ExecuteScript implements ScriptExecutor interface.
-// It submits a script to ISS via submit_measure, polls for completion, and
-// returns the job result as JSON.
-func (d *ScriptDispatcher) ExecuteScript(ctx context.Context, scriptName string, params map[string]interface{}) ([]byte, error) {
-	scriptPath := filepath.Join(d.scriptsPath, scriptName+".lua")
-
-	jobID, err := d.client.SubmitMeasureWithGlobals(scriptPath, params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to submit script %s: %w", scriptName, err)
-	}
-
-	pollInterval := 100 * time.Millisecond
-	_, err = d.client.WaitForJob(jobID, pollInterval, d.pollTimeout)
-	if err != nil {
-		return nil, fmt.Errorf("script %s (job %s) timed out or failed: %w", scriptName, jobID, err)
-	}
-
-	rawResult, err := d.client.JobResult(jobID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to retrieve result for job %s: %w", jobID, err)
-	}
-
-	resultJSON, err := json.Marshal(rawResult)
-	if err != nil {
-		return nil, fmt.Errorf("failed to serialize result for job %s: %w", jobID, err)
-	}
-
-	return resultJSON, nil
-}
-
 // ResolvedCallResult extends ISSCallResult with buffer data resolved inline.
 type ResolvedCallResult struct {
 	ISSCallResult
@@ -89,9 +57,11 @@ type ResolvedCallResult struct {
 
 // RunMeasurement calls ISS measure (sync), resolves all buffer results, returns
 // the full call list with buffer data populated.
-func (d *ScriptDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}) ([]ResolvedCallResult, error) {
+// typeManifest, if non-nil, tells ISS to call main with positional arguments
+// (required for Teal-compiled scripts with named parameters).
+func (d *ScriptDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ResolvedCallResult, error) {
 	scriptPath := filepath.Join(d.scriptsPath, scriptName+".lua")
-	results, err := d.client.Measure(scriptPath, globals)
+	results, err := d.client.Measure(scriptPath, globals, typeManifest)
 	if err != nil {
 		return nil, fmt.Errorf("measure script %s: %w", scriptName, err)
 	}

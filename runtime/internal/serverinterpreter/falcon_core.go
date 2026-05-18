@@ -39,6 +39,7 @@
 package serverinterpreter
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementrequest"
@@ -106,6 +107,56 @@ func (r *FalconMeasurementRequest) MeasurementName() (string, error) {
 	return r.handle.MeasurementName()
 }
 
+// ExtractNumPoints returns the number of sweep points from the first waveform.
+// Falls back to 100 if the value cannot be extracted.
+func (r *FalconMeasurementRequest) ExtractNumPoints() (int, error) {
+	if r.handle == nil {
+		return 100, fmt.Errorf("handle is nil")
+	}
+	waveforms, err := r.handle.Waveforms()
+	if err != nil || waveforms == nil {
+		return 100, fmt.Errorf("failed to get waveforms: %w", err)
+	}
+	defer waveforms.Close()
+
+	size, err := waveforms.Size()
+	if err != nil || size == 0 {
+		return 100, nil
+	}
+
+	wf, err := waveforms.At(0)
+	if err != nil || wf == nil {
+		return 100, nil
+	}
+	defer wf.Close()
+
+	// Serialize the waveform to JSON and parse the divisions/size from it.
+	js, err := wf.ToJSON()
+	if err != nil || js == "" {
+		return 100, nil
+	}
+
+	var raw map[string]interface{}
+	if err := json.Unmarshal([]byte(js), &raw); err != nil {
+		return 100, nil
+	}
+	for _, key := range []string{"divisions", "num_points"} {
+		if v, ok := raw[key]; ok {
+			switch n := v.(type) {
+			case float64:
+				if int(n) > 0 {
+					return int(n), nil
+				}
+			case int:
+				if n > 0 {
+					return n, nil
+				}
+			}
+		}
+	}
+	return 100, nil
+}
+
 // ExtractedInstrumentInfo contains information extracted from a falcon-core InstrumentPort.
 type ExtractedInstrumentInfo struct {
 	DefaultName          string // The default/configured name (e.g., "DAC1")
@@ -114,6 +165,8 @@ type ExtractedInstrumentInfo struct {
 	IsKnob               bool   // True if this is a setter/knob
 	IsMeter              bool   // True if this is a getter/meter
 	Description          string // Human-readable description
+	ConnectionJSON       string // JSON serialization of the port's pseudo-name (connection.Handle)
+	UnitsJSON            string // JSON serialization of the port's units (symbolunit.Handle)
 }
 
 // ExtractGetters extracts getter instrument information from the MeasurementRequest.
@@ -297,6 +350,20 @@ func extractInfoFromInstrumentPort(portHandle *instrumentport.Handle) (Extracted
 		info.Description = ""
 	} else {
 		info.Description = description
+	}
+
+	pseudoHandle, err := portHandle.PsuedoName()
+	if err == nil {
+		connJSON, _ := pseudoHandle.ToJSON()
+		info.ConnectionJSON = connJSON
+		pseudoHandle.Close()
+	}
+
+	unitsHandle, err := portHandle.Units()
+	if err == nil {
+		unitsJSON, _ := unitsHandle.ToJSON()
+		info.UnitsJSON = unitsJSON
+		unitsHandle.Close()
 	}
 
 	return info, nil

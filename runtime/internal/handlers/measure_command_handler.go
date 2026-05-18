@@ -3,7 +3,8 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"sync"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/nats-io/nats.go"
@@ -24,12 +25,8 @@ const (
 	// FALCON.MEASURE_RESPONSE is the subject subscribed to by falcon-comms
 	// RoutineComms on the controller side (routine_comms.cpp make_measure_response_subject).
 	MeasureResponseSubject = "FALCON.MEASURE_RESPONSE"
-	ProcessRequestSubject  = "PROCESS_REQUEST"
-	UploadDataSubject      = "UPLOAD_DATA"
 	MeasureCommandName     = "MEASURE_COMMAND"
 	MeasureResponseName    = "MEASURE_RESPONSE"
-	ProcessRequestName     = "PROCESS_REQUEST"
-	UploadDataName         = "UPLOAD_DATA"
 )
 
 // BusyManager interface allows the handler to manage busy state
@@ -37,25 +34,51 @@ type BusyManager interface {
 	SetIsBusy(busy bool)
 }
 
-// PendingMeasurement tracks measurements waiting for UPLOAD_DATA
-type PendingMeasurement struct {
-	Hash      int64
-	ProcessId instrument.ID
+// MeasurementDispatcher dispatches measurement scripts to the instrument-script-server.
+type MeasurementDispatcher interface {
+	RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]serverinterpreter.ResolvedCallResult, error)
+}
+
+// reverseWireMap builds a gate-name → InstrumentConnection lookup from the
+// standard wiremap (which stores InstrumentConnection → gate-name).
+func reverseWireMap(wm *config.WireMap) map[string]config.InstrumentConnection {
+	if wm == nil {
+		return nil
+	}
+	rev := make(map[string]config.InstrumentConnection, len(*wm))
+	for instrConn, gateName := range *wm {
+		rev[string(gateName)] = instrConn
+	}
+	return rev
+}
+
+// parseWireMapEntry splits a wiremap key of the form
+// "InstrumentId.channelGroup.index" (e.g. "Source1.analog.4") into
+// the instrument ID ("Source1") and channel index (4).
+func parseWireMapEntry(entry config.InstrumentConnection) (instrumentID string, channelIndex int, ok bool) {
+	parts := strings.Split(string(entry), ".")
+	// Need at least 3 parts: id . group . index
+	if len(parts) < 3 {
+		return "", 0, false
+	}
+	idx, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return "", 0, false
+	}
+	// Skip the channel group name (second-to-last part)
+	return strings.Join(parts[:len(parts)-2], "."), idx, true
 }
 
 // MeasureCommandHandler handles MEASURE_COMMAND requests
 type MeasureCommandHandler struct {
-	logger              *logging.Logger
-	nc                  *nats.Conn
-	subscription        *nats.Subscription
-	uploadSubscription  *nats.Subscription
-	measurementManager  *measurements.Manager
-	instrumentHandler   *instrument.Handler
-	busyManager         BusyManager
-	dispatcher          *serverinterpreter.ScriptDispatcher
-	wireMap             *config.WireMap
-	pendingMeasurements map[instrument.ID]PendingMeasurement
-	mutex               sync.RWMutex
+	logger             *logging.Logger
+	nc                 *nats.Conn
+	subscription       *nats.Subscription
+	measurementManager *measurements.Manager
+	instrumentHandler  *instrument.Handler
+	busyManager        BusyManager
+	dispatcher         MeasurementDispatcher
+	wireMap            *config.WireMap
 }
 
 // NewMeasureCommandHandler creates a new handler
@@ -64,26 +87,24 @@ func NewMeasureCommandHandler(
 	measurementManager *measurements.Manager,
 	instrumentHandler *instrument.Handler,
 	busyManager BusyManager,
-	dispatcher *serverinterpreter.ScriptDispatcher,
+	dispatcher MeasurementDispatcher,
 	wireMap *config.WireMap,
 ) *MeasureCommandHandler {
 	return &MeasureCommandHandler{
-		logger:              logger,
-		measurementManager:  measurementManager,
-		instrumentHandler:   instrumentHandler,
-		busyManager:         busyManager,
-		dispatcher:          dispatcher,
-		wireMap:             wireMap,
-		pendingMeasurements: make(map[instrument.ID]PendingMeasurement),
+		logger:             logger,
+		measurementManager: measurementManager,
+		instrumentHandler:  instrumentHandler,
+		busyManager:        busyManager,
+		dispatcher:         dispatcher,
+		wireMap:            wireMap,
 	}
 }
 
-// Subscribe starts listening for MEASURE_COMMAND requests and UPLOAD_DATA
+// Subscribe starts listening for MEASURE_COMMAND requests
 func (h *MeasureCommandHandler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 	var err error
 
-	// Subscribe to MEASURE_COMMAND (flat subject — no wildcard suffix needed)
 	h.subscription, err = nc.Subscribe(
 		MeasureCommandSubject,
 		h.handleMessage,
@@ -95,293 +116,186 @@ func (h *MeasureCommandHandler) Subscribe(nc *nats.Conn) error {
 		)
 	}
 
-	// Subscribe to UPLOAD_DATA
-	h.uploadSubscription, err = nc.Subscribe(
-		UploadDataSubject,
-		h.handleUploadData,
-	)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to subscribe to "+UploadDataSubject+": %w",
-			err,
-		)
-	}
-
 	h.logger.Info(
 		MeasureCommandHandlerName,
-		"Subscribed to "+MeasureCommandSubject+".> and "+UploadDataSubject,
+		"Subscribed to "+MeasureCommandSubject,
 	)
 	return nil
 }
 
 // Unsubscribe stops listening for commands
 func (h *MeasureCommandHandler) Unsubscribe() error {
-	var errs []error
-
 	if h.subscription != nil {
 		if err := h.subscription.Unsubscribe(); err != nil {
-			errs = append(errs, err)
+			return fmt.Errorf("failed to unsubscribe: %w", err)
 		}
 		h.subscription = nil
 	}
 
-	if h.uploadSubscription != nil {
-		if err := h.uploadSubscription.Unsubscribe(); err != nil {
-			errs = append(errs, err)
-		}
-		h.uploadSubscription = nil
-	}
-
-	if len(errs) > 0 {
-		return fmt.Errorf("failed to unsubscribe: %v", errs)
-	}
-
 	h.logger.Info(
 		MeasureCommandHandlerName,
-		"Unsubscribed from "+MeasureCommandSubject+" and "+UploadDataSubject,
+		"Unsubscribed from "+MeasureCommandSubject,
 	)
 	return nil
 }
 
-// handleMessage processes incoming MEASURE_COMMAND requests
+// handleMessage processes an INSTRUMENTHUB.MEASURE_COMMAND message, dispatches
+// the measurement script to ISS, and publishes a FALCON.MEASURE_RESPONSE.
 func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	h.logger.Debug(
 		MeasureCommandHandlerName,
 		fmt.Sprintf("Received command: %s", string(msg.Data)),
 	)
 
-	// Subject is the flat INSTRUMENTHUB.MEASURE_COMMAND — no name suffix.
-	// Use the Hash field from the command payload as the correlation key.
-
-	// Parse the incoming message
-	var measureCommand api.MeasureCommand
-	if err := json.Unmarshal(msg.Data, &measureCommand); err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Failed to unmarshal MEASURE_COMMAND: %v", err),
-		)
+	var cmd api.MeasureCommand
+	if err := json.Unmarshal(msg.Data, &cmd); err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to unmarshal MEASURE_COMMAND: %v", err))
 		return
 	}
 
-	// Set IsBusy flag to true when starting measurement
+	if cmd.Request == "" {
+		h.logger.Debug(MeasureCommandHandlerName, "empty request, ignoring")
+		return
+	}
+
 	h.busyManager.SetIsBusy(true)
-	h.logger.Debug(
-		MeasureCommandHandlerName,
-		"Set IsBusy flag to true - measurement started",
-	)
+	defer h.busyManager.SetIsBusy(false)
 
-	// Allocate measurement ID and get expected path
-	timestamp := time.Now()
-	uniqueID, expectedPath, err := h.measurementManager.AllocateMeasurementID(
-		timestamp,
+	falconReq, err := serverinterpreter.NewFalconMeasurementRequestFromJSON(cmd.Request)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to parse MeasurementRequest: %v", err))
+		return
+	}
+	defer falconReq.Close()
+
+	setters, err := falconReq.ExtractSetters()
+	if err != nil || len(setters) == 0 {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to extract setters (got %d): %v", len(setters), err))
+		return
+	}
+
+	getters, err := falconReq.ExtractGetters()
+	if err != nil || len(getters) == 0 {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
+		return
+	}
+
+	revWire := reverseWireMap(h.wireMap)
+
+	// Setter: ConnectionJSON → gate name → reverse wiremap → {id, channel}
+	setterGate, err := gateNameFromConnectionJSON(setters[0].ConnectionJSON)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to get setter gate name: %v", err))
+		return
+	}
+	setterEntry, ok := revWire[setterGate]
+	if !ok {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("setter gate %q not found in wiremap", setterGate))
+		return
+	}
+	setterInstrID, setterChIdx, ok := parseWireMapEntry(setterEntry)
+	if !ok {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to parse setter wiremap entry %q", setterEntry))
+		return
+	}
+
+	// Getter: ConnectionJSON → gate name → reverse wiremap → {id, channel}
+	getterGate, err := gateNameFromConnectionJSON(getters[0].ConnectionJSON)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to get getter gate name: %v", err))
+		return
+	}
+	getterEntry, ok := revWire[getterGate]
+	if !ok {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("getter gate %q not found in wiremap", getterGate))
+		return
+	}
+	getterInstrID, getterChIdx, ok := parseWireMapEntry(getterEntry)
+	if !ok {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to parse getter wiremap entry %q", getterEntry))
+		return
+	}
+
+	scriptName, _ := falconReq.MeasurementName()
+	if scriptName == "" {
+		scriptName = "measure_get_set"
+	}
+
+	numPoints, _ := falconReq.ExtractNumPoints()
+	if numPoints <= 0 {
+		numPoints = 100
+	}
+
+	globals := map[string]interface{}{
+		"getters":     []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+		"setters":     []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+		"setVoltages": map[string]interface{}{setterInstrID: 0.0},
+		"numPoints":   numPoints,
+		"sampleRate":  1000.0,
+	}
+	typeManifest := map[string]interface{}{
+		"parameters": []map[string]interface{}{
+			{"name": "ctx", "type": "RuntimeContext"},
+			{"name": "getters", "type": "{InstrumentTarget}"},
+			{"name": "numPoints", "type": "number"},
+			{"name": "sampleRate", "type": "number"},
+			{"name": "setVoltages", "type": "{string:number}"},
+			{"name": "setters", "type": "{InstrumentTarget}"},
+		},
+	}
+
+	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("measurement dispatch failed: %v", err))
+		return
+	}
+
+	var bufferData []float64
+	for _, r := range results {
+		if r.Return.Type == "buffer" {
+			bufferData = r.BufferData
+			break
+		}
+	}
+
+	respJSON, err := buildMeasurementResponseJSON(
+		bufferData,
+		setters[0].ConnectionJSON,
+		getters[0].InstrumentType,
+		getters[0].UnitsJSON,
+		cmd.Hash,
 	)
 	if err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Failed to allocate measurement ID: %v", err),
-		)
-		// Reset IsBusy flag on error
-		h.busyManager.SetIsBusy(false)
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
 		return
 	}
 
-	h.logger.Info(
-		MeasureCommandHandlerName,
-		fmt.Sprintf(
-			"Allocated measurement ID %d for hash %d",
-			uniqueID,
-			measureCommand.Hash,
-		),
-	)
-
-	// Store pending measurement for correlation with UPLOAD_DATA
-	processId := instrument.ID(uniqueID)
-	h.mutex.Lock()
-	h.pendingMeasurements[processId] = PendingMeasurement{
-		Hash:      measureCommand.Hash,
-		ProcessId: processId,
-	}
-	h.mutex.Unlock()
-
-	// Send PROCESS_REQUEST to interpreter
-	if err := h.sendProcessRequest(measureCommand.Request, processId, expectedPath); err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Failed to send PROCESS_REQUEST: %v", err),
-		)
-		// Clean up pending measurement and reset IsBusy flag on error
-		h.mutex.Lock()
-		delete(h.pendingMeasurements, processId)
-		h.mutex.Unlock()
-		h.busyManager.SetIsBusy(false)
-		return
-	}
-}
-
-// handleUploadData processes incoming UPLOAD_DATA and sends MEASURE_RESPONSE
-func (h *MeasureCommandHandler) handleUploadData(msg *nats.Msg) {
-	h.logger.Debug(
-		MeasureCommandHandlerName,
-		fmt.Sprintf("Received %s: %s", UploadDataName, string(msg.Data)),
-	)
-
-	// TODO: Update the data stored in the database to have a copy of the real
-	// config.
-
-	// Parse the incoming UPLOAD_DATA
-	var uploadData api.UploadData
-	if err := json.Unmarshal(msg.Data, &uploadData); err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Failed to unmarshal %s: %v", UploadDataName, err),
-		)
-		return
-	}
-
-	// We need to identify which measurement this belongs to
-	// For now, we'll assume the latest pending measurement
-	var found bool
-	var pendingMeasurement PendingMeasurement
-	id := instrument.ID(uploadData.ProcessId)
-	h.mutex.Lock()
-	if pM, exists := h.pendingMeasurements[id]; exists {
-		pendingMeasurement = pM
-		found = true
-		delete(h.pendingMeasurements, id)
-	}
-	h.mutex.Unlock()
-
-	if !found {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf(
-				"Received %s but no pending measurements found for ProcessId %d. The available IDs are %v",
-				UploadDataName,
-				id,
-				getKeys(h.pendingMeasurements),
-			),
-		)
-		return
-	}
-
-	// Create the response using the uploaded data
-	measureResponse := api.MeasureResponse{
-		Stream:    uploadData.Data,
-		Response:  uploadData.Data,
-		Hash:      pendingMeasurement.Hash,
+	measureResp := api.MeasureResponse{
+		Stream:    respJSON,
 		Timestamp: time.Now().UnixMicro(),
+		Hash:      cmd.Hash,
 	}
-
-	// Marshal the response
-	responseData, err := json.Marshal(measureResponse)
+	respData, err := json.Marshal(measureResp)
 	if err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf("Failed to marshal %s: %v", MeasureResponseName, err),
-		)
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
 		return
 	}
 
-	// Send response on FALCON.MEASURE_RESPONSE (flat subject — no name suffix).
-	// The controller's falcon-comms RoutineComms subscribes on this exact subject.
-	if err := h.nc.Publish(MeasureResponseSubject, responseData); err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf(
-				"Failed to publish response to %s: %v",
-				MeasureResponseSubject,
-				err,
-			),
-		)
-		return
+	if err := h.nc.Publish(MeasureResponseSubject, respData); err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to publish %s: %v", MeasureResponseSubject, err))
 	}
-
-	// Reset IsBusy flag to false when measurement response is sent
-	h.busyManager.SetIsBusy(false)
-	h.logger.Debug(
-		MeasureCommandHandlerName,
-		"Set IsBusy flag to false - measurement completed",
-	)
-
-	h.logger.Info(
-		MeasureCommandHandlerName,
-		fmt.Sprintf(
-			"Sent %s to %s for hash %d with uploaded data",
-			MeasureResponseName,
-			MeasureResponseSubject,
-			pendingMeasurement.Hash,
-		),
-	)
-}
-
-func getKeys[K comparable, V any](m map[K]V) []K {
-	keys := make([]K, 0, len(m))
-	for key := range m {
-		keys = append(keys, key)
-	}
-	return keys
-}
-
-// sendProcessRequest sends a PROCESS_REQUEST to the interpreter
-func (h *MeasureCommandHandler) sendProcessRequest(
-	request string,
-	uniqueID instrument.ID,
-	dataPath string,
-) error {
-	// Build configurations from current instrument ports
-	configurations, err := h.instrumentHandler.BuildConfigurations()
-	if err != nil {
-		return fmt.Errorf("failed to build configurations: %w", err)
-	}
-
-	// Marshal configurations to JSON string
-	configurationsJSON, err := json.Marshal(configurations)
-	if err != nil {
-		return fmt.Errorf("failed to marshal configurations: %w", err)
-	}
-
-	// Create the ProcessRequest
-	processRequest := api.ProcessRequest{
-		Request:        request,
-		Configurations: string(configurationsJSON),
-		DataPath:       dataPath,
-		ProcessId:      int64(uniqueID),
-	}
-
-	// Marshal the request
-	requestData, err := json.Marshal(processRequest)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to marshal %s : %w",
-			ProcessRequestSubject,
-			err,
-		)
-	}
-
-	// Send to interpreter
-	if err := h.nc.Publish(ProcessRequestSubject, requestData); err != nil {
-		return fmt.Errorf(
-			"failed to publish %s : %w",
-			ProcessRequestSubject,
-			err,
-		)
-	}
-
-	h.logger.Info(
-		MeasureCommandHandlerName,
-		fmt.Sprintf(
-			"Sent %s to interpreter for measurement ID %d with %d port configurations",
-			ProcessRequestSubject,
-			uniqueID,
-			len(configurations),
-		),
-	)
-	if len(configurations) == 0 {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			"0 port configurations. Did you set up your instruments correctly?",
-		)
-	}
-
-	return nil
 }

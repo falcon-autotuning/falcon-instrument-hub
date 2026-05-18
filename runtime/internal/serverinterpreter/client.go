@@ -61,75 +61,6 @@ func (c *ScriptServerClient) call(command string, params interface{}) (*RPCRespo
 	return &response, nil
 }
 
-// SubmitMeasure submits a measurement script to be executed.
-func (c *ScriptServerClient) SubmitMeasure(scriptPath string) (string, error) {
-	return c.SubmitMeasureWithGlobals(scriptPath, nil)
-}
-
-// SubmitMeasureWithGlobals submits a measurement script with optional global variables.
-func (c *ScriptServerClient) SubmitMeasureWithGlobals(scriptPath string, globals map[string]interface{}) (string, error) {
-	params := SubmitMeasureParams{
-		ScriptPath: scriptPath,
-		Globals:    globals,
-	}
-
-	response, err := c.call("submit_measure", params)
-	if err != nil {
-		return "", err
-	}
-
-	return response.JobID, nil
-}
-
-// JobStatus queries the status of a measurement job.
-func (c *ScriptServerClient) JobStatus(jobID string) (string, error) {
-	params := JobStatusParams{
-		JobID: jobID,
-	}
-
-	response, err := c.call("job_status", params)
-	if err != nil {
-		return "", err
-	}
-
-	return response.Status, nil
-}
-
-// JobResult retrieves the result of a completed measurement job.
-func (c *ScriptServerClient) JobResult(jobID string) (interface{}, error) {
-	params := JobResultParams{
-		JobID: jobID,
-	}
-
-	response, err := c.call("job_result", params)
-	if err != nil {
-		return nil, err
-	}
-
-	return response.Result, nil
-}
-
-// WaitForJob polls the job status until completion or timeout.
-func (c *ScriptServerClient) WaitForJob(jobID string, pollInterval time.Duration, timeout time.Duration) (string, error) {
-	deadline := time.Now().Add(timeout)
-
-	for time.Now().Before(deadline) {
-		status, err := c.JobStatus(jobID)
-		if err != nil {
-			return "", err
-		}
-
-		switch status {
-		case "completed", "failed", "canceled":
-			return status, nil
-		}
-
-		time.Sleep(pollInterval)
-	}
-
-	return "", fmt.Errorf("timeout waiting for job %s", jobID)
-}
-
 // ListInstruments returns the list of available instruments.
 func (c *ScriptServerClient) ListInstruments() ([]string, error) {
 	response, err := c.call("list", map[string]interface{}{})
@@ -192,12 +123,17 @@ func (c *ScriptServerClient) StopInstrument(name string) error {
 
 // Measure runs a Lua script synchronously and returns the parsed call results.
 // globals are injected into the Lua environment as named variables.
-func (c *ScriptServerClient) Measure(scriptPath string, globals map[string]interface{}) ([]ISSCallResult, error) {
+// typeManifest, if non-nil, is passed as "type_manifest" so ISS calls main with
+// positional arguments rather than relying on global injection alone.
+func (c *ScriptServerClient) Measure(scriptPath string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ISSCallResult, error) {
 	params := map[string]interface{}{
 		"script_path": scriptPath,
 	}
 	if globals != nil {
 		params["globals"] = globals
+	}
+	if typeManifest != nil {
+		params["type_manifest"] = typeManifest
 	}
 
 	response, err := c.call("measure", params)

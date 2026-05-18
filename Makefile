@@ -37,15 +37,15 @@ ifeq ($(OS),Windows_NT)
 	cd runtime && go build -o bin/instrument-hub.exe cmd/main.go
 	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
 else
-	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/instrument-hub cmd/main.go
+	cd runtime && $(GO_CGO_ENV) LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -tags cgo,falcon_core -o bin/instrument-hub cmd/main.go
 	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/dataviewer ./cmd/dataviewer/
 endif
 
 # Release build (optimised, symbols stripped)
 .PHONY: build-release
 build-release:
-	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
-		go build -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
+	cd runtime && $(GO_CGO_ENV) LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
+		go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
 
 # Install the instrument-hub binary to INSTALL_PREFIX/bin
 .PHONY: install
@@ -124,6 +124,20 @@ test-2D-integration: start-nats setup-python build-go
 .PHONY: test-3D-integration
 test-3D-integration: start-nats setup-python build-go
 	$(PYTHON_ENV)/bin/pytest tests/integration/two_channel_device/test_3D_data.py tests/integration/two_channel_device/test_3D_data_double.py -v -s
+
+# Go unit/integration tests (CGO + falcon_core build tags).
+# All required environment variables are derived from LOCAL_VCPKG_INSTALLED.
+GO_CGO_ENV = CGO_ENABLED=1 \
+	PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" \
+	CGO_LDFLAGS="-L$(LOCAL_VCPKG_INSTALLED)/lib -Wl,-rpath,$(LOCAL_VCPKG_INSTALLED)/lib"
+
+.PHONY: test-go
+test-go: build-go
+	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core ./...
+
+.PHONY: test-go-short
+test-go-short: build-go
+	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core -short ./...
 
 .PHONY: test
 test: test-unit test-launch test-integration

@@ -76,6 +76,34 @@ func (r *FalconMeasurementRequest) MeasurementName() (string, error) {
 	return "", nil
 }
 
+// ExtractNumPoints attempts to extract the number of sweep points from the
+// first waveform in the parsed JSON. Returns 100 if it cannot be found.
+func (r *FalconMeasurementRequest) ExtractNumPoints() (int, error) {
+	waveforms, ok := r.parsedData["waveforms"].([]interface{})
+	if !ok || len(waveforms) == 0 {
+		return 100, nil
+	}
+	wf, ok := waveforms[0].(map[string]interface{})
+	if !ok {
+		return 100, nil
+	}
+	for _, key := range []string{"divisions", "num_points"} {
+		if v, ok := wf[key]; ok {
+			switch n := v.(type) {
+			case float64:
+				if int(n) > 0 {
+					return int(n), nil
+				}
+			case int:
+				if n > 0 {
+					return n, nil
+				}
+			}
+		}
+	}
+	return 100, nil
+}
+
 // RawData returns the parsed JSON data for direct access.
 func (r *FalconMeasurementRequest) RawData() map[string]interface{} {
 	return r.parsedData
@@ -90,6 +118,8 @@ type ExtractedInstrumentInfo struct {
 	IsMeter              bool
 	Description          string
 	PortJSON             string // The original JSON for this port
+	ConnectionJSON       string // JSON serialization of the port's pseudo-name (connection)
+	UnitsJSON            string // JSON serialization of the port's units
 }
 
 // ExtractGetters extracts getter info from the parsed JSON.
@@ -203,6 +233,23 @@ func extractInfoFromPortMap(port map[string]interface{}) ExtractedInstrumentInfo
 	// Store original JSON
 	if jsonBytes, err := json.Marshal(port); err == nil {
 		info.PortJSON = string(jsonBytes)
+	}
+
+	// Populate ConnectionJSON from connection or pseudo_name field.
+	for _, key := range []string{"connection", "pseudo_name"} {
+		if conn, ok := port[key]; ok {
+			if jsonBytes, err := json.Marshal(conn); err == nil {
+				info.ConnectionJSON = string(jsonBytes)
+				break
+			}
+		}
+	}
+
+	// Populate UnitsJSON from units field.
+	if units, ok := port["units"]; ok {
+		if jsonBytes, err := json.Marshal(units); err == nil {
+			info.UnitsJSON = string(jsonBytes)
+		}
 	}
 
 	return info

@@ -71,6 +71,18 @@ func hubTestDataDir() string {
 	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "test_data")
 }
 
+// hubVcpkgLibPath returns the falcon-instrument-hub vcpkg lib dir, which
+// contains libfalcon-core-c-api.so and other hub-specific shared libraries.
+func hubVcpkgLibPath() string {
+	if v := os.Getenv("HUB_VCPKG_LIB"); v != "" {
+		return v
+	}
+	_, thisFile, _, _ := runtime.Caller(0)
+	// hub root = serverinterpreter/../../../  =>  falcon-instrument-hub/
+	return filepath.Join(filepath.Dir(thisFile), "..", "..", "..",
+		"vcpkg_installed", "x64-linux-dynamic", "lib")
+}
+
 // ---------------------------------------------------------------------------
 // Fixture data
 // ---------------------------------------------------------------------------
@@ -206,10 +218,11 @@ func startHubBinary(t *testing.T, configPath, workDir, issBinPath string, noISS 
 		args = append(args, "--no-iss")
 	}
 
-	// Build LD_LIBRARY_PATH: prepend /opt/falcon/lib and the vcpkg lib dir to
-	// whatever the current environment already has.
+	// Build LD_LIBRARY_PATH: prepend /opt/falcon/lib, the hub vcpkg lib dir
+	// (libfalcon-core-c-api.so), and the ISS vcpkg lib dir to whatever the
+	// current environment already has.
 	existingLD := os.Getenv("LD_LIBRARY_PATH")
-	newLD := "/opt/falcon/lib:" + libPath
+	newLD := "/opt/falcon/lib:" + hubVcpkgLibPath() + ":" + libPath
 	if existingLD != "" {
 		newLD += ":" + existingLD
 	}
@@ -326,15 +339,15 @@ func TestHubBinary_StartWithConfigFile(t *testing.T) {
 
 	// --- Verify DEVICE_CONFIG_REQUEST → DEVICE_CONFIG_RESPONSE round-trip ---
 	respCh := make(chan *nats.Msg, 1)
-	sub, err := testNC.Subscribe("DEVICE_CONFIG_RESPONSE.external.test", func(msg *nats.Msg) {
+	sub, err := testNC.Subscribe("FALCON.DEVICE_CONFIG_RESPONSE", func(msg *nats.Msg) {
 		respCh <- msg
 	})
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 	require.NoError(t, testNC.Flush())
 
-	reqPayload, _ := json.Marshal(map[string]interface{}{"requestID": "test"})
-	require.NoError(t, testNC.Publish("DEVICE_CONFIG_REQUEST.external.test", reqPayload))
+	reqPayload, _ := json.Marshal(map[string]interface{}{"timestamp": time.Now().UnixMicro()})
+	require.NoError(t, testNC.Publish("INSTRUMENTHUB.DEVICE_CONFIG_REQUEST", reqPayload))
 	require.NoError(t, testNC.Flush())
 
 	select {
@@ -344,7 +357,7 @@ func TestHubBinary_StartWithConfigFile(t *testing.T) {
 		require.NoError(t, json.Unmarshal(msg.Data, &resp))
 		assert.NotEmpty(t, resp, "expected a non-empty device config response")
 	case <-time.After(10 * time.Second):
-		t.Fatal("timed out waiting for DEVICE_CONFIG_RESPONSE.external.test")
+		t.Fatal("timed out waiting for FALCON.DEVICE_CONFIG_RESPONSE")
 	}
 }
 
