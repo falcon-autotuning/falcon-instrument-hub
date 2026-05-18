@@ -283,7 +283,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	}
 
 	measureResp := api.MeasureResponse{
-		Stream:    respJSON,
+		Response:  respJSON,
 		Timestamp: time.Now().UnixMicro(),
 		Hash:      cmd.Hash,
 	}
