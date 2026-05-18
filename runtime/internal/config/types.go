@@ -50,10 +50,14 @@ func (ic InstrumentConnection) Contains(other string) bool {
 
 // Config holds all configuration data and file paths
 type Config struct {
-	DeviceConfigPath    string
-	WiremapPath         string
-	DeviceConfig        *DeviceConfig
-	WireMap             *WireMap
+	DeviceConfigPath       string
+	WiremapPath            string
+	DeviceConfig           *DeviceConfig
+	// DeviceConfigCerealJSON is the cereal-format JSON produced by
+	// Config_to_json_string (via the falcon-core CGO bindings).  It is the
+	// format expected by C++ Config::from_json_string.
+	DeviceConfigCerealJSON string
+	WireMap                *WireMap
 	// InstrumentAPIPaths is the list of paths to instrument API YAML files.
 	InstrumentAPIPaths []string
 }

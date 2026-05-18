@@ -59,11 +59,12 @@ func LoadConfigCGO(deviceConfigPath, wiremapPath string) (*Config, error) {
 		WiremapPath:      wiremapPath,
 	}
 
-	deviceConfig, err := loadDeviceConfigCGO(deviceConfigPath)
+	deviceConfig, cerealJSON, err := loadDeviceConfigCGO(deviceConfigPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load device config: %w", err)
 	}
 	cfg.DeviceConfig = deviceConfig
+	cfg.DeviceConfigCerealJSON = cerealJSON
 
 	// The wiremap is a flat YAML file not handled by falcon-core; reuse the
 	// existing loader.
@@ -78,53 +79,60 @@ func LoadConfigCGO(deviceConfigPath, wiremapPath string) (*Config, error) {
 
 // loadDeviceConfigCGO uses the falcon-core Loader binding to parse the device
 // config YAML and converts the resulting Config handle into the hub's DeviceConfig
-// struct.
-func loadDeviceConfigCGO(path string) (*DeviceConfig, error) {
+// struct. It also returns the cereal-format JSON string (from Config_to_json_string)
+// that C++ can parse directly with Config::from_json_string.
+func loadDeviceConfigCGO(path string) (*DeviceConfig, string, error) {
 	lh, err := falconloader.New(path)
 	if err != nil {
-		return nil, fmt.Errorf("falconloader.New: %w", err)
+		return nil, "", fmt.Errorf("falconloader.New: %w", err)
 	}
 	defer lh.Close()
 
 	ch, err := lh.Config()
 	if err != nil {
-		return nil, fmt.Errorf("Loader.Config: %w", err)
+		return nil, "", fmt.Errorf("Loader.Config: %w", err)
 	}
 	defer ch.Close()
+
+	// Capture the cereal JSON while the handle is still open.
+	cerealJSON, err := ch.ToJSON()
+	if err != nil {
+		return nil, "", fmt.Errorf("Config.ToJSON: %w", err)
+	}
 
 	dc := &DeviceConfig{}
 
 	if dc.ScreeningGates, err = connectionsToSemicolon(ch, (*falconconfig.Handle).ScreeningGates); err != nil {
-		return nil, fmt.Errorf("ScreeningGates: %w", err)
+		return nil, "", fmt.Errorf("ScreeningGates: %w", err)
 	}
 	if dc.PlungerGates, err = connectionsToSemicolon(ch, (*falconconfig.Handle).PlungerGates); err != nil {
-		return nil, fmt.Errorf("PlungerGates: %w", err)
+		return nil, "", fmt.Errorf("PlungerGates: %w", err)
 	}
 	if dc.Ohmics, err = connectionsToSemicolon(ch, (*falconconfig.Handle).Ohmics); err != nil {
-		return nil, fmt.Errorf("Ohmics: %w", err)
+		return nil, "", fmt.Errorf("Ohmics: %w", err)
 	}
 	if dc.BarrierGates, err = connectionsToSemicolon(ch, (*falconconfig.Handle).BarrierGates); err != nil {
-		return nil, fmt.Errorf("BarrierGates: %w", err)
+		return nil, "", fmt.Errorf("BarrierGates: %w", err)
 	}
 	if dc.ReservoirGates, err = connectionsToSemicolon(ch, (*falconconfig.Handle).ReservoirGates); err != nil {
-		return nil, fmt.Errorf("ReservoirGates: %w", err)
+		return nil, "", fmt.Errorf("ReservoirGates: %w", err)
 	}
 
 	n, err := ch.NumUniqueChannels()
 	if err != nil {
-		return nil, fmt.Errorf("NumUniqueChannels: %w", err)
+		return nil, "", fmt.Errorf("NumUniqueChannels: %w", err)
 	}
 	dc.NumUniqueChannels = int(n)
 
 	if dc.Groups, err = extractGroups(ch); err != nil {
-		return nil, fmt.Errorf("groups: %w", err)
+		return nil, "", fmt.Errorf("groups: %w", err)
 	}
 
 	if dc.WiringDC, err = extractWiringDC(ch); err != nil {
-		return nil, fmt.Errorf("wiringDC: %w", err)
+		return nil, "", fmt.Errorf("wiringDC: %w", err)
 	}
 
-	return dc, nil
+	return dc, cerealJSON, nil
 }
 
 // connectionsToSemicolon calls accessor on cfgHandle, then iterates the returned

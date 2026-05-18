@@ -125,17 +125,25 @@ func (h *DeviceConfigHandler) parseRequest(
 	return nil
 }
 
-// sendDeviceConfigResponse serializes the in-memory DeviceConfig to JSON and
-// sends it as the response payload.
+// sendDeviceConfigResponse sends the device config in cereal JSON format so that
+// C++ Config::from_json_string can parse it directly.  When the CGO path is used
+// the cereal JSON was captured at load time via Config_to_json_string; otherwise
+// we fall back to the Go-marshalled representation.
 func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
-	deviceConfigBytes, err := json.Marshal(h.config.DeviceConfig)
-	if err != nil {
-		return fmt.Errorf("failed to serialize device config to JSON: %v", err)
+	var configJSON string
+	if h.config.DeviceConfigCerealJSON != "" {
+		configJSON = h.config.DeviceConfigCerealJSON
+	} else {
+		deviceConfigBytes, err := json.Marshal(h.config.DeviceConfig)
+		if err != nil {
+			return fmt.Errorf("failed to serialize device config to JSON: %v", err)
+		}
+		configJSON = string(deviceConfigBytes)
 	}
 
 	// Create the response
 	response := api.DeviceConfigResponse{
-		Response:  string(deviceConfigBytes),
+		Response:  configJSON,
 		Timestamp: time.Now().UnixMicro(),
 	}
 
