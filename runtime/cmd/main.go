@@ -234,7 +234,7 @@ func setupHandlers(services *coreServices) error {
 	var cfg *config.Config
 	if deviceconfig != "" && wiremap != "" {
 		var err error
-		cfg, err = config.LoadConfig(deviceconfig, wiremap)
+		cfg, err = config.Load(deviceconfig, wiremap)
 		if err != nil {
 			return fmt.Errorf("failed to load configuration: %w", err)
 		}
