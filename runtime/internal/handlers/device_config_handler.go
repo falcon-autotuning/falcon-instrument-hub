@@ -141,6 +141,13 @@ func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
 		configJSON = string(deviceConfigBytes)
 	}
 
+	log.Printf("[DEBUG] sendDeviceConfigResponse: configJSON[:200]=%q", func() string {
+		if len(configJSON) > 200 {
+			return configJSON[:200]
+		}
+		return configJSON
+	}())
+
 	// Create the response
 	response := api.DeviceConfigResponse{
 		Response:  configJSON,
