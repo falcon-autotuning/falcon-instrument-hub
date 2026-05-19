@@ -462,6 +462,11 @@ func startISSDaemon() (*os.Process, error) {
 		return nil, fmt.Errorf("instrument-script-server binary not found at %s", issBinary)
 	}
 
+	// Stop any stale daemon from a previous run before starting fresh.
+	stopISSDaemon()
+	// Give the stopped daemon a moment to fully terminate before starting a new one.
+	time.Sleep(200 * time.Millisecond)
+
 	cmd := exec.Command(issBinary, "daemon", "start")
 	env := buildEnvWithLibPath(issLibPath)
 	if instrumentServerPort > 0 {
