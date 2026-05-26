@@ -163,6 +163,7 @@ func (s *coreServices) cleanup() {
 	}
 	if s.issProcess != nil {
 		log.Println("stopping instrument-script-server daemon...")
+		stopInstruments()
 		stopISSDaemon()
 	}
 }
@@ -526,6 +527,28 @@ func startInstruments() error {
 	return nil
 }
 
+// stopInstruments stops all running instrument workers via the ISS RPC before
+// the daemon itself is shut down.
+func stopInstruments() {
+	rpcPort := instrumentServerPort
+	if rpcPort <= 0 {
+		rpcPort = 8555
+	}
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
+	instruments, err := client.ListInstruments()
+	if err != nil {
+		log.Printf("warning: could not list instruments for shutdown: %v", err)
+		return
+	}
+	for _, name := range instruments {
+		if err := client.StopInstrument(name); err != nil {
+			log.Printf("warning: failed to stop instrument %s: %v", name, err)
+		} else {
+			log.Printf("stopped instrument: %s", name)
+		}
+	}
+}
+
 // stopISSDaemon sends a stop command to the instrument-script-server daemon.
 func stopISSDaemon() {
 	cmd := exec.Command(issBinary, "daemon", "stop")
@@ -551,7 +574,7 @@ func main() {
  _| $$_ | $$  | $$ _\$$$$$$\  | $$|  \| $$      | $$__/ $$| $$ | $$ | $$| $$$$$$$$| $$  | $$ | $$|  \
 |   $$ \| $$  | $$|       $$   \$$  $$| $$       \$$    $$| $$ | $$ | $$ \$$     \| $$  | $$  \$$  $$
  \$$$$$$ \$$   \$$ \$$$$$$$     \$$$$  \$$        \$$$$$$  \$$  \$$  \$$  \$$$$$$$ \$$   \$$   \$$$$ 
-                                                                                                                                                                                
+                                                                                                     
  __    __            __                                                                              
 |  \  |  \          |  \                                                                             
 | $$  | $$ __    __ | $$____                                                                         
@@ -560,7 +583,7 @@ func main() {
 | $$$$$$$$| $$  | $$| $$  | $$                                                                       
 | $$  | $$| $$__/ $$| $$__/ $$                                                                       
 | $$  | $$ \$$    $$| $$    $$                                                                       
- \$$   \$$  \$$$$$$  \$$$$$$$                                                                                                                                                                                              
+ \$$   \$$  \$$$$$$  \$$$$$$$                                                                        
 `)
 
 	rootCmd := &cobra.Command{

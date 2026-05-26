@@ -99,4 +99,3 @@ func TestMeasurementResponse_JSON(t *testing.T) {
 	// Value will be parsed as float64
 	assert.InDelta(t, 2.718, parsed.Value.(float64), 0.001)
 }
-

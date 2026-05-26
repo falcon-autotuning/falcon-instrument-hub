@@ -121,7 +121,6 @@ func TestMeasureCommandHandler_HandleMessage(t *testing.T) {
 	})
 }
 
-
 func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 	handler, nc := setupMeasureHandler(t, &mockDispatcher{})
 
@@ -136,4 +135,3 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		assert.NoError(t, err, "Should handle double unsubscribe gracefully")
 	})
 }
-

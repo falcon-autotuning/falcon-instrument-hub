@@ -231,30 +231,43 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		scriptName = "measure_get_set"
 	}
 
-	numPoints, _ := falconReq.ExtractNumPoints()
-	if numPoints <= 0 {
-		numPoints = 100
+	waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to extract waveform data: %v", err))
+		return
+	}
+
+	sweepVoltages := make([]interface{}, len(waveformData.RawTimeTrace))
+	for i, row := range waveformData.RawTimeTrace {
+		if len(row) > 0 {
+			sweepVoltages[i] = row[0]
+		} else {
+			sweepVoltages[i] = 0.0
+		}
 	}
 
 	globals := map[string]interface{}{
-		"getters":     []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
-		"setters":     []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
-		"setVoltages": map[string]interface{}{setterInstrID: 0.0},
-		"numPoints":   numPoints,
-		"sampleRate":  1000.0,
+		"getters":       []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+		"setters":       []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+		"sweepVoltages": sweepVoltages,
 	}
 	typeManifest := map[string]interface{}{
 		"parameters": []map[string]interface{}{
 			{"name": "ctx", "type": "RuntimeContext"},
 			{"name": "getters", "type": "{InstrumentTarget}"},
-			{"name": "numPoints", "type": "number"},
-			{"name": "sampleRate", "type": "number"},
-			{"name": "setVoltages", "type": "{string:number}"},
+			{"name": "sweepVoltages", "type": "{number}"},
 			{"name": "setters", "type": "{InstrumentTarget}"},
 		},
 	}
 
 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+
+	fmt.Printf("Measurement script returned %d results, and success flag %v, err = %v\n", len(results), err == nil, err)
+	// Log each result for debugging
+	for i, r := range results {
+		fmt.Printf("Result %d: Type=%s, Return=%v, BufferDataLen=%d\n", i, r.Return.Type, r.Return.Value, len(r.BufferData))
+	}
 	if err != nil {
 		h.logger.Error(MeasureCommandHandlerName,
 			fmt.Sprintf("measurement dispatch failed: %v", err))
@@ -263,9 +276,13 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 
 	var bufferData []float64
 	for _, r := range results {
-		if r.Return.Type == "buffer" {
-			bufferData = r.BufferData
-			break
+		switch r.Return.Type {
+		case "buffer":
+			bufferData = append(bufferData, r.BufferData...)
+		case "float", "double", "number":
+			if v, ok := r.Return.Value.(float64); ok {
+				bufferData = append(bufferData, v)
+			}
 		}
 	}
 

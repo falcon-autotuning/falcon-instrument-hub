@@ -50,6 +50,8 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/port-transforms/porttransform"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/waveform"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axescoupledlabelleddomain"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/unitspace"
 )
 
 // FalconMeasurementRequest wraps a falcon-core MeasurementRequest handle
@@ -414,13 +416,14 @@ func (r *FalconMeasurementResponse) Message() (string, error) {
 }
 
 // ExtractWaveformDataFromRequest extracts waveform data for processing by the interpreter.
-// This uses the falcon-core API to properly parse the MeasurementRequest.
+// Uses CGO to extract getter information, and the cereal JSON representation
+// to extract the voltage sweep (discrete space) data reliably.
 func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformData, []GetterInfo, error) {
 	if req == nil || req.handle == nil {
 		return nil, nil, fmt.Errorf("request is nil")
 	}
 
-	// Extract getters
+	// Extract getters via CGO API (this is well-tested)
 	gettersHandle, err := req.handle.Getters()
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get getters: %w", err)
@@ -432,33 +435,84 @@ func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformDat
 		return nil, nil, fmt.Errorf("failed to extract getter infos: %w", err)
 	}
 
-	// Extract time domain
-	timeDomainHandle, err := req.handle.TimeDomain()
+	// Extract waveform data via JSON parsing (same approach as stub).
+	// The cereal JSON is the most reliable way to get the discrete space values;
+	// the C API requires Compile() to be called on the UnitSpace first.
+	reqJSON, err := req.ToJSON()
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get time domain: %w", err)
-	}
-	defer timeDomainHandle.Close()
-
-	timeDomain, err := extractDomainBounds(timeDomainHandle)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract time domain bounds: %w", err)
+		return nil, nil, fmt.Errorf("failed to serialize request to JSON: %w", err)
 	}
 
-	// Extract waveforms
-	waveformsHandle, err := req.handle.Waveforms()
+	waveformData, err := extractWaveformDataFromJSON(reqJSON)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get waveforms: %w", err)
+		return nil, nil, fmt.Errorf("failed to extract waveform from JSON: %w", err)
 	}
-	defer waveformsHandle.Close()
-
-	waveformData, err := extractFirstValidWaveform(waveformsHandle)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to extract waveform: %w", err)
-	}
-
-	waveformData.TimeDomain = timeDomain
 
 	return waveformData, getters, nil
+}
+
+// extractWaveformDataFromJSON parses the cereal-serialized MeasurementRequest JSON
+// to extract the discrete voltage sweep and domain bounds.
+// This mirrors the logic in falcon_core_stub.go's ExtractWaveformDataFromRequest.
+func extractWaveformDataFromJSON(reqJSON string) (*WaveformData, error) {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(reqJSON), &parsed); err != nil {
+		return nil, fmt.Errorf("JSON unmarshal: %w", err)
+	}
+
+	// Navigate to Waveform[0] data
+	wf0 := navJSON(parsed,
+		"value0", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data")
+	if wf0 == nil {
+		return stubWaveformData(), nil
+	}
+
+	// Navigate to DiscreteSpace (Waveform.value1)
+	ds := navJSON(wf0, "value1", "ptr_wrapper", "data")
+	if ds == nil {
+		return stubWaveformData(), nil
+	}
+
+	// Extract normalized float array from DiscreteSpace._space
+	rawArr := navJSON(ds,
+		"value1", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0", "value0", "value1", "value1")
+	normalizedSlice, ok := rawArr.([]interface{})
+	if !ok || len(normalizedSlice) < 2 {
+		return stubWaveformData(), nil
+	}
+
+	// Extract domain bounds
+	domainObj := navJSON(ds,
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0")
+	domainMin := 0.0
+	domainMax := 1.0
+	if dm, ok := domainObj.(map[string]interface{}); ok {
+		domainMin = convertToFloat64(dm["value1"])
+		domainMax = convertToFloat64(dm["value2"])
+	}
+
+	numPoints := len(normalizedSlice) - 1
+	rawTimeTrace := make([][]float64, numPoints)
+	for i := 0; i < numPoints; i++ {
+		t := convertToFloat64(normalizedSlice[i])
+		voltage := domainMin + t*(domainMax-domainMin)
+		rawTimeTrace[i] = []float64{voltage}
+	}
+
+	return &WaveformData{
+		RawTimeTrace: rawTimeTrace,
+		AxisDomains:  [][]LabelledDomainInfo{},
+		TimeDomain:   DomainBounds{Min: domainMin, Max: domainMax},
+		Shape:        []int{numPoints},
+	}, nil
 }
 
 // extractGetterInfos extracts getter information from a Ports handle.
@@ -487,15 +541,53 @@ func extractGetterInfos(portsHandle *ports.Handle) ([]GetterInfo, error) {
 	return getters, nil
 }
 
-// extractDomainBounds extracts domain bounds from a LabelledDomain.
-// Note: This requires the labelleddomain package which should be imported.
-func extractDomainBounds(handle interface{}) (DomainBounds, error) {
-	// This is a simplified implementation
-	// In a full implementation, you'd use the actual labelleddomain API
-	return DomainBounds{Min: 0, Max: 0.001}, nil
+// extractDomainBounds extracts min/max from the first labelled domain in an
+// axescoupledlabelleddomain handle (the outer axis of the discrete space).
+func extractDomainBounds(axesHandle *axescoupledlabelleddomain.Handle) (DomainBounds, error) {
+	axesSize, err := axesHandle.Size()
+	if err != nil || axesSize == 0 {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	cld, err := axesHandle.At(0)
+	if err != nil {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	defer cld.Close()
+
+	cldSize, err := cld.Size()
+	if err != nil || cldSize == 0 {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	ld, err := cld.At(0)
+	if err != nil {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	defer ld.Close()
+
+	min, err := ld.LesserBound()
+	if err != nil {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	max, err := ld.GreaterBound()
+	if err != nil {
+		return DomainBounds{Min: 0, Max: 1}, nil
+	}
+	return DomainBounds{Min: min, Max: max}, nil
 }
 
-// extractFirstValidWaveform extracts data from the first valid waveform.
+// extractVoltageFromUnitSpace extracts normalized float values from a UnitSpace handle.
+func extractVoltageFromUnitSpace(us *unitspace.Handle) ([]float64, error) {
+	fa, err := us.Space()
+	if err != nil {
+		return nil, err
+	}
+	defer fa.Close()
+	return fa.Data()
+}
+
+// extractFirstValidWaveform extracts voltage sweep data from the first waveform
+// by navigating the Waveform → DiscreteSpace → UnitSpace → float array chain,
+// and reading the voltage domain bounds from DiscreteSpace → Axes.
 func extractFirstValidWaveform(waveformsHandle *listwaveform.Handle) (*WaveformData, error) {
 	size, err := waveformsHandle.Size()
 	if err != nil {
@@ -524,15 +616,56 @@ func extractFirstValidWaveform(waveformsHandle *listwaveform.Handle) (*WaveformD
 		return nil, err
 	}
 
-	// For the raw time trace and shape, we need the discrete space
-	// This is a simplified extraction
-	waveformData := &WaveformData{
-		RawTimeTrace: [][]float64{{0.0}},
-		AxisDomains:  axisDomains,
-		Shape:        []int{1},
+	// Navigate Waveform → DiscreteSpace → UnitSpace → float array
+	dsHandle, err := wfHandle.Space()
+	if err != nil {
+		return nil, fmt.Errorf("Waveform.Space: %w", err)
+	}
+	defer dsHandle.Close()
+
+	usHandle, err := dsHandle.Space()
+	if err != nil {
+		return nil, fmt.Errorf("DiscreteSpace.Space: %w", err)
+	}
+	defer usHandle.Close()
+
+	normalized, err := extractVoltageFromUnitSpace(usHandle)
+	if err != nil || len(normalized) < 2 {
+		// Fall back to placeholder if discrete space is empty
+		return &WaveformData{
+			RawTimeTrace: [][]float64{{0.0}},
+			AxisDomains:  axisDomains,
+			Shape:        []int{1},
+		}, nil
 	}
 
-	return waveformData, nil
+	// Extract voltage domain bounds (DiscreteSpace._axes → first coupled domain → first labelled domain)
+	axesHandle, err := dsHandle.Axes()
+	if err != nil {
+		return nil, fmt.Errorf("DiscreteSpace.Axes: %w", err)
+	}
+	defer axesHandle.Close()
+
+	domainBounds, err := extractDomainBounds(axesHandle)
+	if err != nil {
+		return nil, fmt.Errorf("extractDomainBounds: %w", err)
+	}
+
+	// Build voltage sweep: normalizedArr has division+1 elements (half-open [min, max))
+	numPoints := len(normalized) - 1
+	rawTimeTrace := make([][]float64, numPoints)
+	for i := 0; i < numPoints; i++ {
+		t := normalized[i]
+		voltage := domainBounds.Min + t*(domainBounds.Max-domainBounds.Min)
+		rawTimeTrace[i] = []float64{voltage}
+	}
+
+	return &WaveformData{
+		RawTimeTrace: rawTimeTrace,
+		AxisDomains:  axisDomains,
+		TimeDomain:   domainBounds,
+		Shape:        []int{numPoints},
+	}, nil
 }
 
 // extractAxisDomainsFromTransforms extracts labelled domain info from port transforms.

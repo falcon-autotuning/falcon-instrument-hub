@@ -293,7 +293,15 @@ func (r *FalconMeasurementResponse) Message() (string, error) {
 	return "", nil
 }
 
-// ExtractWaveformDataFromRequest extracts waveform data using pure-Go JSON parsing.
+// GettersToJSONList returns getter port JSONs.
+// of the cereal-serialized MeasurementRequest.
+//
+// The cereal JSON encodes the discrete space as a normalized float array [0.0..1.0]
+// inside the Waveform's DiscreteSpace._space, and the voltage domain bounds
+// (min, max) inside DiscreteSpace._axes → CoupledLabelledDomain → LabelledDomain → Domain.
+//
+// Voltage at step i = domainMin + normalizedArr[i] * (domainMax - domainMin)
+// The array has division+1 elements; we take the first division (= NUM_POINTS) steps.
 func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformData, []GetterInfo, error) {
 	if req == nil {
 		return nil, nil, fmt.Errorf("request is nil")
@@ -304,55 +312,70 @@ func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformDat
 	if err != nil {
 		return nil, nil, err
 	}
-
 	getters := make([]GetterInfo, len(getterInfos))
 	for i, g := range getterInfos {
 		getters[i] = GetterInfo{PortJSON: g.PortJSON}
 	}
 
-	// Extract waveform data
-	waveformData := &WaveformData{
-		RawTimeTrace: [][]float64{{0.0}},
+	// Navigate to Waveform[0] data
+	// Path: value0.ptr_wrapper.data.value2.ptr_wrapper.data.value1[0].ptr_wrapper.data
+	wf0 := navJSON(req.parsedData,
+		"value0", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data")
+	if wf0 == nil {
+		return stubWaveformData(), getters, nil
+	}
+
+	// Navigate to DiscreteSpace (Waveform.value1)
+	ds := navJSON(wf0, "value1", "ptr_wrapper", "data")
+	if ds == nil {
+		return stubWaveformData(), getters, nil
+	}
+
+	// Extract normalized float array from DiscreteSpace._space (value1)
+	// Path within ds: value1.ptr_wrapper.data.value2.ptr_wrapper.data.value1[0].ptr_wrapper.data.value0.value0.value1.value1
+	rawArr := navJSON(ds,
+		"value1", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0", "value0", "value1", "value1")
+	normalizedSlice, ok := rawArr.([]interface{})
+	if !ok || len(normalizedSlice) < 2 {
+		return stubWaveformData(), getters, nil
+	}
+
+	// Extract domain bounds from DiscreteSpace._axes (value2)
+	// Path within ds: value2.ptr_wrapper.data.value1[0].ptr_wrapper.data.value1[0].ptr_wrapper.data.value0
+	// Domain.value1 = lesser_bound (min), Domain.value2 = greater_bound (max)
+	domainObj := navJSON(ds,
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0")
+	domainMin := 0.0
+	domainMax := 1.0
+	if dm, ok := domainObj.(map[string]interface{}); ok {
+		domainMin = convertToFloat64(dm["value1"])
+		domainMax = convertToFloat64(dm["value2"])
+	}
+
+	// Build voltage sweep: normalizedSlice has division+1 elements;
+	// take the first division steps (half-open interval [min, max)).
+	numPoints := len(normalizedSlice) - 1
+	rawTimeTrace := make([][]float64, numPoints)
+	for i := 0; i < numPoints; i++ {
+		t := convertToFloat64(normalizedSlice[i])
+		voltage := domainMin + t*(domainMax-domainMin)
+		rawTimeTrace[i] = []float64{voltage}
+	}
+
+	return &WaveformData{
+		RawTimeTrace: rawTimeTrace,
 		AxisDomains:  [][]LabelledDomainInfo{},
-		TimeDomain:   DomainBounds{Min: 0, Max: 0.001},
-		Shape:        []int{1},
-	}
-
-	// Try to extract time domain
-	if td, ok := req.parsedData["time_domain"].(map[string]interface{}); ok {
-		if domain, ok := td["domain"].(map[string]interface{}); ok {
-			if bounds, ok := domain["bounds"].([]interface{}); ok && len(bounds) >= 2 {
-				waveformData.TimeDomain.Min = convertToFloat64(bounds[0])
-				waveformData.TimeDomain.Max = convertToFloat64(bounds[1])
-			}
-		}
-	}
-
-	// Extract setter domains from waveforms
-	setters, _ := req.ExtractSetters()
-	for _, setter := range setters {
-		info := LabelledDomainInfo{
-			LabelJSON:    setter.PortJSON,
-			DomainBounds: DomainBounds{Min: -1.0, Max: 1.0},
-		}
-		waveformData.AxisDomains = append(waveformData.AxisDomains, []LabelledDomainInfo{info})
-	}
-
-	return waveformData, getters, nil
-}
-
-// convertToFloat64 converts an interface{} to float64.
-func convertToFloat64(v interface{}) float64 {
-	switch val := v.(type) {
-	case float64:
-		return val
-	case int:
-		return float64(val)
-	case int64:
-		return float64(val)
-	default:
-		return 0
-	}
+		TimeDomain:   DomainBounds{Min: domainMin, Max: domainMax},
+		Shape:        []int{numPoints},
+	}, getters, nil
 }
 
 // GettersToJSONList returns getter port JSONs.
