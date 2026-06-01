@@ -73,6 +73,7 @@ func parseWireMapEntry(entry config.InstrumentConnection) (instrumentID string, 
 type MeasureCommandHandler struct {
 	logger             *logging.Logger
 	nc                 *nats.Conn
+	js                 nats.JetStreamContext
 	subscription       *nats.Subscription
 	measurementManager *measurements.Manager
 	instrumentHandler  *instrument.Handler
@@ -104,6 +105,19 @@ func NewMeasureCommandHandler(
 func (h *MeasureCommandHandler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 	var err error
+
+	h.js, err = nc.JetStream()
+	if err != nil {
+		return fmt.Errorf("failed to create JetStream context: %w", err)
+	}
+	_, addErr := h.js.AddStream(&nats.StreamConfig{
+		Name:     "FALCON_MEASURE",
+		Subjects: []string{"FALCON.MEASURE_DATA.*"},
+		MaxAge:   60 * time.Second,
+	})
+	if addErr != nil && addErr != nats.ErrStreamNameAlreadyInUse {
+		return fmt.Errorf("failed to ensure FALCON_MEASURE stream: %w", addErr)
+	}
 
 	h.subscription, err = nc.Subscribe(
 		MeasureCommandSubject,
@@ -262,12 +276,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	}
 
 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-
-	fmt.Printf("Measurement script returned %d results, and success flag %v, err = %v\n", len(results), err == nil, err)
-	// Log each result for debugging
-	for i, r := range results {
-		fmt.Printf("Result %d: Type=%s, Return=%v, BufferDataLen=%d\n", i, r.Return.Type, r.Return.Value, len(r.BufferData))
-	}
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
 	if err != nil {
 		h.logger.Error(MeasureCommandHandlerName,
 			fmt.Sprintf("measurement dispatch failed: %v", err))
@@ -285,7 +295,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 		}
 	}
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("bufferData collected: len=%d", len(bufferData)))
 
+	h.logger.Info(MeasureCommandHandlerName, "Calling buildMeasurementResponseJSON")
 	respJSON, err := buildMeasurementResponseJSON(
 		bufferData,
 		setters[0].ConnectionJSON,
@@ -298,8 +311,19 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
 		return
 	}
+	h.logger.Info(MeasureCommandHandlerName, "buildMeasurementResponseJSON complete")
+
+	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Hash, 10)
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Publishing measurement to JetStream subject %s", measureSubject))
+	if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
+		return
+	}
 
 	measureResp := api.MeasureResponse{
+		Stream:    measureSubject,
 		Response:  respJSON,
 		Timestamp: time.Now().UnixMicro(),
 		Hash:      cmd.Hash,
@@ -311,8 +335,11 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		return
 	}
 
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Publishing to NATS subject %s", MeasureResponseSubject))
 	if err := h.nc.Publish(MeasureResponseSubject, respData); err != nil {
 		h.logger.Error(MeasureCommandHandlerName,
 			fmt.Sprintf("failed to publish %s: %v", MeasureResponseSubject, err))
 	}
+	h.logger.Info(MeasureCommandHandlerName, "NATS publish complete; handler done")
 }

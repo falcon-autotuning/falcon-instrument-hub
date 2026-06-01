@@ -476,7 +476,7 @@ func startISSDaemon() (*os.Process, error) {
 	cmd.Env = env
 
 	// Append to log file
-	logFile, err := os.OpenFile("/tmp/iss-daemon.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	logFile, err := os.OpenFile("tests/hub/log/iss-daemon.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
 	if err == nil {
 		cmd.Stdout = logFile
 		cmd.Stderr = logFile
