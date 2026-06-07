@@ -150,6 +150,11 @@ clean: stop-nats
 	rm -rf __pycache__
 	rm -rf tests/__pycache__
 
+clean:
+	@echo "Cleaning all build artifacts..."
+	rm -rf build vcpkg_installed
+	@echo "✓ Clean complete"
+
 # Platform-specific targets
 .PHONY: test-linux
 test-linux: test

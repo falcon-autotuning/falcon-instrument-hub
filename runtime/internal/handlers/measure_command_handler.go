@@ -241,9 +241,6 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	}
 
 	scriptName, _ := falconReq.MeasurementName()
-	if scriptName == "" {
-		scriptName = "measure_get_set"
-	}
 
 	waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
 	if err != nil {
@@ -261,18 +258,107 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		}
 	}
 
-	globals := map[string]interface{}{
-		"getters":       []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
-		"setters":       []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
-		"sweepVoltages": sweepVoltages,
-	}
-	typeManifest := map[string]interface{}{
-		"parameters": []map[string]interface{}{
-			{"name": "ctx", "type": "RuntimeContext"},
-			{"name": "getters", "type": "{InstrumentTarget}"},
-			{"name": "sweepVoltages", "type": "{number}"},
-			{"name": "setters", "type": "{InstrumentTarget}"},
-		},
+	var globals map[string]interface{}
+	var typeManifest map[string]interface{}
+	if len(setters) >= 2 {
+		// 2D sweep: fast axis = setters[0], slow axis = setters[1]
+		slowSetterGate, err := gateNameFromConnectionJSON(setters[1].ConnectionJSON)
+		if err != nil {
+			h.logger.Error(MeasureCommandHandlerName,
+				fmt.Sprintf("failed to get slow setter gate name: %v", err))
+			return
+		}
+		slowSetterEntry, ok := revWire[slowSetterGate]
+		if !ok {
+			h.logger.Error(MeasureCommandHandlerName,
+				fmt.Sprintf("slow setter gate %q not found in wiremap", slowSetterGate))
+			return
+		}
+		slowSetterInstrID, slowSetterChIdx, ok := parseWireMapEntry(slowSetterEntry)
+		if !ok {
+			h.logger.Error(MeasureCommandHandlerName,
+				fmt.Sprintf("failed to parse slow setter wiremap entry %q", slowSetterEntry))
+			return
+		}
+		slowWaveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 1)
+		if err != nil {
+			h.logger.Error(MeasureCommandHandlerName,
+				fmt.Sprintf("failed to extract slow axis waveform data: %v", err))
+			return
+		}
+		slowSweepVoltages := make([]interface{}, len(slowWaveformData.RawTimeTrace))
+		for i, row := range slowWaveformData.RawTimeTrace {
+			if len(row) > 0 {
+				slowSweepVoltages[i] = row[0]
+			} else {
+				slowSweepVoltages[i] = 0.0
+			}
+		}
+		globals = map[string]interface{}{
+			"getters":           []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+			"fastSweepVoltages": sweepVoltages,
+			"slowSweepVoltages": slowSweepVoltages,
+			"fastSetter":        map[string]interface{}{"id": setterInstrID, "channel": setterChIdx},
+			"slowSetter":        map[string]interface{}{"id": slowSetterInstrID, "channel": slowSetterChIdx},
+		}
+		typeManifest = map[string]interface{}{
+			"parameters": []map[string]interface{}{
+				{"name": "ctx", "type": "RuntimeContext"},
+				{"name": "getters", "type": "{InstrumentTarget}"},
+				{"name": "fastSweepVoltages", "type": "{number}"},
+				{"name": "slowSweepVoltages", "type": "{number}"},
+				{"name": "fastSetter", "type": "InstrumentTarget"},
+				{"name": "slowSetter", "type": "InstrumentTarget"},
+			},
+		}
+	} else {
+		if scriptName == "measure_get_set" {
+			numPoints := len(sweepVoltages)
+			if numPoints == 0 {
+				numPoints = 1
+			}
+			sampleRate := 1000
+			setVoltage := 0.0
+			if len(sweepVoltages) > 0 {
+				if v, ok := sweepVoltages[0].(float64); ok {
+					setVoltage = v
+				}
+			}
+			globals = map[string]interface{}{
+				"getters":    []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+				"numPoints":  numPoints,
+				"sampleRate": sampleRate,
+				"setVoltages": map[string]interface{}{
+					setterInstrID: setVoltage,
+				},
+				"setters": []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+			}
+			typeManifest = map[string]interface{}{
+				"parameters": []map[string]interface{}{
+					{"name": "ctx", "type": "RuntimeContext"},
+					{"name": "getters", "type": "{InstrumentTarget}"},
+					{"name": "numPoints", "type": "number"},
+					{"name": "sampleRate", "type": "number"},
+					{"name": "setVoltages", "type": "{string: number}"},
+					{"name": "setters", "type": "{InstrumentTarget}"},
+				},
+			}
+		} else {
+			// 1D sweep
+			globals = map[string]interface{}{
+				"getters":       []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+				"setters":       []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+				"sweepVoltages": sweepVoltages,
+			}
+			typeManifest = map[string]interface{}{
+				"parameters": []map[string]interface{}{
+					{"name": "ctx", "type": "RuntimeContext"},
+					{"name": "getters", "type": "{InstrumentTarget}"},
+					{"name": "sweepVoltages", "type": "{number}"},
+					{"name": "setters", "type": "{InstrumentTarget}"},
+				},
+			}
+		}
 	}
 
 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)

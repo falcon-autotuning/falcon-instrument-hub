@@ -159,8 +159,15 @@ func (r *FalconMeasurementRequest) ExtractSetters() ([]ExtractedInstrumentInfo, 
 				}
 
 				info := extractInfoFromPortMap(port)
-				if !seen[info.DefaultName] {
-					seen[info.DefaultName] = true
+				key := info.PortJSON
+				if key == "" {
+					key = info.ConnectionJSON
+				}
+				if key == "" {
+					key = info.DefaultName
+				}
+				if !seen[key] {
+					seen[key] = true
 					results = append(results, info)
 				}
 			}
@@ -412,4 +419,61 @@ func SettersToJSONList(req *FalconMeasurementRequest) ([]string, error) {
 		result[i] = s.PortJSON
 	}
 	return result, nil
+}
+
+// ExtractWaveformDataFromRequestByIndex extracts waveform data for the waveform at wfIndex.
+// Use wfIndex=0 for the fast axis and wfIndex=1 for the slow axis in 2D sweeps.
+func ExtractWaveformDataFromRequestByIndex(req *FalconMeasurementRequest, wfIndex int) (*WaveformData, error) {
+	if req == nil {
+		return nil, fmt.Errorf("request is nil")
+	}
+	wf := navJSON(req.parsedData,
+		"value0", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", wfIndex, "ptr_wrapper", "data")
+	if wf == nil {
+		return stubWaveformData(), nil
+	}
+
+	ds := navJSON(wf, "value1", "ptr_wrapper", "data")
+	if ds == nil {
+		return stubWaveformData(), nil
+	}
+
+	rawArr := navJSON(ds,
+		"value1", "ptr_wrapper", "data",
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0", "value0", "value1", "value1")
+	normalizedSlice, ok := rawArr.([]interface{})
+	if !ok || len(normalizedSlice) < 2 {
+		return stubWaveformData(), nil
+	}
+
+	domainObj := navJSON(ds,
+		"value2", "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value1", 0, "ptr_wrapper", "data",
+		"value0")
+	domainMin := 0.0
+	domainMax := 1.0
+	if dm, ok := domainObj.(map[string]interface{}); ok {
+		domainMin = convertToFloat64(dm["value1"])
+		domainMax = convertToFloat64(dm["value2"])
+	}
+
+	numPoints := len(normalizedSlice) - 1
+	rawTimeTrace := make([][]float64, numPoints)
+	for i := 0; i < numPoints; i++ {
+		t := convertToFloat64(normalizedSlice[i])
+		voltage := domainMin + t*(domainMax-domainMin)
+		rawTimeTrace[i] = []float64{voltage}
+	}
+
+	return &WaveformData{
+		RawTimeTrace: rawTimeTrace,
+		AxisDomains:  [][]LabelledDomainInfo{},
+		TimeDomain:   DomainBounds{Min: domainMin, Max: domainMax},
+		Shape:        []int{numPoints},
+	}, nil
 }

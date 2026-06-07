@@ -167,6 +167,7 @@ type ExtractedInstrumentInfo struct {
 	IsKnob               bool   // True if this is a setter/knob
 	IsMeter              bool   // True if this is a getter/meter
 	Description          string // Human-readable description
+	PortJSON             string // JSON serialization of the full InstrumentPort
 	ConnectionJSON       string // JSON serialization of the port's pseudo-name (connection.Handle)
 	UnitsJSON            string // JSON serialization of the port's units (symbolunit.Handle)
 }
@@ -237,7 +238,7 @@ func extractInstrumentInfoFromWaveforms(waveformsHandle *listwaveform.Handle) ([
 	}
 
 	var results []ExtractedInstrumentInfo
-	seenPorts := make(map[string]bool) // Deduplicate by default name
+	seenPorts := make(map[string]bool) // Deduplicate by unique port identity
 
 	for i := uint64(0); i < size; i++ {
 		wfHandle, err := waveformsHandle.At(i)
@@ -252,8 +253,15 @@ func extractInstrumentInfoFromWaveforms(waveformsHandle *listwaveform.Handle) ([
 		}
 
 		for _, info := range wfInfos {
-			if !seenPorts[info.DefaultName] {
-				seenPorts[info.DefaultName] = true
+			key := info.PortJSON
+			if key == "" {
+				key = info.ConnectionJSON
+			}
+			if key == "" {
+				key = info.DefaultName
+			}
+			if !seenPorts[key] {
+				seenPorts[key] = true
 				results = append(results, info)
 			}
 		}
@@ -315,6 +323,11 @@ func extractInfoFromPortTransform(ptHandle *porttransform.Handle) (ExtractedInst
 // extractInfoFromInstrumentPort extracts instrument info from an InstrumentPort.
 func extractInfoFromInstrumentPort(portHandle *instrumentport.Handle) (ExtractedInstrumentInfo, error) {
 	info := ExtractedInstrumentInfo{}
+
+	portJSON, err := portHandle.ToJSON()
+	if err == nil {
+		info.PortJSON = portJSON
+	}
 
 	defaultName, err := portHandle.DefaultName()
 	if err != nil {
@@ -451,26 +464,20 @@ func ExtractWaveformDataFromRequest(req *FalconMeasurementRequest) (*WaveformDat
 	return waveformData, getters, nil
 }
 
-// extractWaveformDataFromJSON parses the cereal-serialized MeasurementRequest JSON
-// to extract the discrete voltage sweep and domain bounds.
-// This mirrors the logic in falcon_core_stub.go's ExtractWaveformDataFromRequest.
-func extractWaveformDataFromJSON(reqJSON string) (*WaveformData, error) {
-	var parsed map[string]interface{}
-	if err := json.Unmarshal([]byte(reqJSON), &parsed); err != nil {
-		return nil, fmt.Errorf("JSON unmarshal: %w", err)
-	}
-
-	// Navigate to Waveform[0] data
-	wf0 := navJSON(parsed,
+// extractWaveformFromParsedJSON extracts waveform data for the waveform at wfIndex
+// from a cereal-parsed MeasurementRequest JSON map.
+func extractWaveformFromParsedJSON(parsed map[string]interface{}, wfIndex int) (*WaveformData, error) {
+	// Navigate to Waveform[wfIndex] data
+	wf := navJSON(parsed,
 		"value0", "ptr_wrapper", "data",
 		"value2", "ptr_wrapper", "data",
-		"value1", 0, "ptr_wrapper", "data")
-	if wf0 == nil {
+		"value1", wfIndex, "ptr_wrapper", "data")
+	if wf == nil {
 		return stubWaveformData(), nil
 	}
 
 	// Navigate to DiscreteSpace (Waveform.value1)
-	ds := navJSON(wf0, "value1", "ptr_wrapper", "data")
+	ds := navJSON(wf, "value1", "ptr_wrapper", "data")
 	if ds == nil {
 		return stubWaveformData(), nil
 	}
@@ -513,6 +520,34 @@ func extractWaveformDataFromJSON(reqJSON string) (*WaveformData, error) {
 		TimeDomain:   DomainBounds{Min: domainMin, Max: domainMax},
 		Shape:        []int{numPoints},
 	}, nil
+}
+
+// extractWaveformDataFromJSON parses the cereal-serialized MeasurementRequest JSON
+// to extract the discrete voltage sweep and domain bounds for waveform index 0.
+// This mirrors the logic in falcon_core_stub.go's ExtractWaveformDataFromRequest.
+func extractWaveformDataFromJSON(reqJSON string) (*WaveformData, error) {
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(reqJSON), &parsed); err != nil {
+		return nil, fmt.Errorf("JSON unmarshal: %w", err)
+	}
+	return extractWaveformFromParsedJSON(parsed, 0)
+}
+
+// ExtractWaveformDataFromRequestByIndex extracts waveform data for the waveform at wfIndex.
+// Use wfIndex=0 for the fast axis and wfIndex=1 for the slow axis in 2D sweeps.
+func ExtractWaveformDataFromRequestByIndex(req *FalconMeasurementRequest, wfIndex int) (*WaveformData, error) {
+	if req == nil || req.handle == nil {
+		return nil, fmt.Errorf("request is nil")
+	}
+	reqJSON, err := req.ToJSON()
+	if err != nil {
+		return nil, fmt.Errorf("failed to serialize request to JSON: %w", err)
+	}
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(reqJSON), &parsed); err != nil {
+		return nil, fmt.Errorf("JSON unmarshal: %w", err)
+	}
+	return extractWaveformFromParsedJSON(parsed, wfIndex)
 }
 
 // extractGetterInfos extracts getter information from a Ports handle.
