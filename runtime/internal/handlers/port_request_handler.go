@@ -171,6 +171,20 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 // Ohmics).  Any device name not found in those lists falls back to a
 // generic PlungerGate connection.
 func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg *config.DeviceConfig) (string, error) {
+	if len(connectedPorts) == 0 {
+		portsHandle, err := falconports.NewEmpty()
+		if err != nil {
+			return "", fmt.Errorf("failed to create empty ports handle: %w", err)
+		}
+
+		jsonStr, err := portsHandle.ToJSON()
+		if err != nil {
+			return "", fmt.Errorf("failed to serialize empty ports: %w", err)
+		}
+
+		return jsonStr, nil
+	}
+
 	portHandles := make([]*instrumentport.Handle, 0, len(connectedPorts))
 	for _, cp := range connectedPorts {
 		conn, err := connectionFromDeviceName(cp.DeviceName, deviceCfg)
@@ -185,9 +199,9 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg 
 
 		var h *instrumentport.Handle
 		if cp.IsKnob() {
-			h, err = instrumentport.NewKnob(string(cp.PortName), conn, cp.InstrumentName, unit, cp.Description)
+			h, err = instrumentport.NewKnob(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
 		} else {
-			h, err = instrumentport.NewMeter(string(cp.PortName), conn, cp.InstrumentName, unit, cp.Description)
+			h, err = instrumentport.NewMeter(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
 		}
 		if err != nil {
 			return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)

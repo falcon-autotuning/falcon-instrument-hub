@@ -19,6 +19,8 @@ type ConnectedPort struct {
 	ChannelName string
 	// ChannelIndex is the 1-based channel index from the wiremap entry.
 	ChannelIndex int
+	// InstrumentType is the canonical falcon-core instrument type string.
+	InstrumentType string
 	// Role mirrors PortEntry.Role: "input", "output", or "setting".
 	Role string
 	// Unit is the physical unit string, e.g. "V".
@@ -84,6 +86,7 @@ func ConnectWireMap(wireMap map[string]string, lib PortLibrary) ([]ConnectedPort
 					InstrumentName: instrumentName,
 					ChannelName:    channelName,
 					ChannelIndex:   idx,
+					InstrumentType: entry.InstrumentType,
 					Role:           entry.Role,
 					Unit:           entry.Unit,
 					Description:    entry.Description,

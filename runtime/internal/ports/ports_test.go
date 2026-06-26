@@ -18,6 +18,9 @@ func TestBuildPortLibrary(t *testing.T) {
 				Vendor:     "Mock",
 				Identifier: "Source1",
 			},
+			Protocol: ports.APIProtocol{
+				Type: "MockVoltageSource",
+			},
 			ChannelGroups: []ports.ChannelGroup{
 				{
 					Name: "analog",
@@ -37,11 +40,13 @@ func TestBuildPortLibrary(t *testing.T) {
 	voltage := lib["Mock.Source1.analog.voltage"]
 	assert.Equal(t, "output", voltage.Role)
 	assert.Equal(t, "V", voltage.Unit)
+	assert.Equal(t, "dc_voltage_source", voltage.InstrumentType)
 	assert.True(t, voltage.IsKnob())
 	assert.False(t, voltage.IsMeter())
 
 	measured := lib["Mock.Source1.analog.measured_voltage"]
 	assert.Equal(t, "input", measured.Role)
+	assert.Equal(t, "voltmeter", measured.InstrumentType)
 	assert.False(t, measured.IsKnob())
 	assert.True(t, measured.IsMeter())
 }
@@ -52,6 +57,9 @@ func TestConnectWireMap(t *testing.T) {
 			Instrument: ports.APIInstrument{
 				Vendor:     "Mock",
 				Identifier: "Source1",
+			},
+			Protocol: ports.APIProtocol{
+				Type: "MockVoltageSource",
 			},
 			ChannelGroups: []ports.ChannelGroup{
 				{
@@ -82,14 +90,44 @@ func TestConnectWireMap(t *testing.T) {
 		assert.Equal(t, "analog", cp.ChannelName)
 		assert.Equal(t, 4, cp.ChannelIndex)
 		if cp.IsKnob() {
+			assert.Equal(t, "dc_voltage_source", cp.InstrumentType)
 			knobs++
 		}
 		if cp.IsMeter() {
+			assert.Equal(t, "voltmeter", cp.InstrumentType)
 			meters++
 		}
 	}
 	assert.Equal(t, 1, knobs)
 	assert.Equal(t, 1, meters)
+}
+
+func TestBuildPortLibrary_MultimeterCurrentInference(t *testing.T) {
+	apis := []ports.InstrumentAPI{
+		{
+			Instrument: ports.APIInstrument{
+				Vendor:     "Mock",
+				Identifier: "Meter1",
+			},
+			Protocol: ports.APIProtocol{
+				Type: "MockMultimeter",
+			},
+			ChannelGroups: []ports.ChannelGroup{
+				{
+					Name: "analog",
+					IoTypes: []ports.IoType{
+						{Name: "current", Role: "input", Unit: "nA"},
+						{Name: "voltage", Role: "input", Unit: "V"},
+					},
+				},
+			},
+		},
+	}
+
+	lib := ports.BuildPortLibrary(apis)
+
+	assert.Equal(t, "amnmeter", lib["Mock.Meter1.analog.current"].InstrumentType)
+	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.voltage"].InstrumentType)
 }
 
 func TestConnectWireMap_InvalidKey(t *testing.T) {

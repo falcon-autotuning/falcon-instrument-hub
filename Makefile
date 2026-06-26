@@ -31,8 +31,12 @@ configure: vcpkg-bootstrap
 install-falcon-deps: configure
 	@echo "vcpkg dependencies installed at $(LOCAL_VCPKG_INSTALLED)"
 
+.PHONY: go-mod-prepare
+go-mod-prepare:
+	cd runtime && go mod tidy
+
 .PHONY: build-go
-build-go:
+build-go: go-mod-prepare
 ifeq ($(OS),Windows_NT)
 	cd runtime && go build -o bin/instrument-hub.exe cmd/main.go
 	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
@@ -43,7 +47,7 @@ endif
 
 # Release build (optimised, symbols stripped)
 .PHONY: build-release
-build-release:
+build-release: go-mod-prepare
 	cd runtime && $(GO_CGO_ENV) LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
 		go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
 
@@ -132,11 +136,11 @@ GO_CGO_ENV = CGO_ENABLED=1 \
 	CGO_LDFLAGS="-L$(LOCAL_VCPKG_INSTALLED)/lib -Wl,-rpath,$(LOCAL_VCPKG_INSTALLED)/lib"
 
 .PHONY: test-go
-test-go: build-go
+test-go: go-mod-prepare build-go
 	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core ./...
 
 .PHONY: test-go-short
-test-go-short: build-go
+test-go-short: go-mod-prepare build-go
 	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core -short ./...
 
 .PHONY: test
@@ -149,8 +153,6 @@ clean: stop-nats
 	rm -rf *.egg-info
 	rm -rf __pycache__
 	rm -rf tests/__pycache__
-
-clean:
 	@echo "Cleaning all build artifacts..."
 	rm -rf build vcpkg_installed
 	@echo "✓ Clean complete"

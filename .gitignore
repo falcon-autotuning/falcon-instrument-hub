@@ -10,6 +10,9 @@
 /vcpkg
 /vcpkg_installed
 
+# ignore build
+/build
+
 # ignore local data files: data, datacache, log files, etc. from falcon/iss/hub
 /log
 /datacache

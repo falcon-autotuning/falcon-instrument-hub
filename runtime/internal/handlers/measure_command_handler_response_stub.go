@@ -17,3 +17,10 @@ func buildMeasurementResponseJSON(
 ) (string, error) {
 	return "", fmt.Errorf("buildMeasurementResponseJSON requires -tags cgo,falcon_core")
 }
+
+func buildMeasurementResponseJSONForTargets(
+	targets []measurementResponseTarget,
+	hash int64,
+) (string, error) {
+	return "", fmt.Errorf("buildMeasurementResponseJSONForTargets requires -tags cgo,falcon_core")
+}

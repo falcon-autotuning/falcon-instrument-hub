@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +53,7 @@ func setupTestInstrumentHandlerForPortRequest(
 			InstrumentName: "dac1",
 			ChannelName:    "analog",
 			ChannelIndex:   1,
+			InstrumentType: "dc_voltage_source",
 			Role:           "output",
 			Unit:           "V",
 			Description:    "Test knob 1",
@@ -61,6 +64,7 @@ func setupTestInstrumentHandlerForPortRequest(
 			InstrumentName: "dac1",
 			ChannelName:    "analog",
 			ChannelIndex:   2,
+			InstrumentType: "dc_voltage_source",
 			Role:           "output",
 			Unit:           "V",
 			Description:    "Test knob 2",
@@ -71,6 +75,7 @@ func setupTestInstrumentHandlerForPortRequest(
 			InstrumentName: "dac2",
 			ChannelName:    "analog",
 			ChannelIndex:   1,
+			InstrumentType: "amnmeter",
 			Role:           "input",
 			Unit:           "A",
 			Description:    "Test meter 1",
@@ -81,6 +86,7 @@ func setupTestInstrumentHandlerForPortRequest(
 			InstrumentName: "dac2",
 			ChannelName:    "analog",
 			ChannelIndex:   2,
+			InstrumentType: "amnmeter",
 			Role:           "input",
 			Unit:           "A",
 			Description:    "Test meter 2",
@@ -313,4 +319,103 @@ func TestPortRequestHandler_E2E(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timeout waiting for PORT_PAYLOAD response")
 	}
+}
+
+func TestSerializePortsToCerealJSON_RoundTripsCanonicalMetadata(t *testing.T) {
+	cfg := &config.DeviceConfig{
+		PlungerGates: "P1",
+		Ohmics:       "O1",
+	}
+
+	encodedKnobs, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+		{
+			PortName:       "Mock.Source1.analog.voltage",
+			DeviceName:     "P1",
+			InstrumentName: "Source1",
+			ChannelName:    "analog",
+			ChannelIndex:   4,
+			InstrumentType: "dc_voltage_source",
+			Role:           "output",
+			Unit:           "V",
+			Description:    "Voltage source knob",
+		},
+	}, cfg)
+	require.NoError(t, err)
+
+	encodedMeters, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+		{
+			PortName:       "Mock.Meter1.analog.stream",
+			DeviceName:     "O1",
+			InstrumentName: "Meter1",
+			ChannelName:    "analog",
+			ChannelIndex:   1,
+			InstrumentType: "voltmeter",
+			Role:           "input",
+			Unit:           "mV",
+			Description:    "Voltage meter",
+		},
+	}, cfg)
+	require.NoError(t, err)
+
+	knobsHandle, err := falconports.FromJSON(encodedKnobs)
+	require.NoError(t, err)
+	defer knobsHandle.Close()
+
+	metersHandle, err := falconports.FromJSON(encodedMeters)
+	require.NoError(t, err)
+	defer metersHandle.Close()
+
+	rawKnobs, err := knobsHandle.Ports()
+	require.NoError(t, err)
+	defer rawKnobs.Close()
+
+	rawMeters, err := metersHandle.Ports()
+	require.NoError(t, err)
+	defer rawMeters.Close()
+
+	knobPorts, err := rawKnobs.Items()
+	require.NoError(t, err)
+	require.Len(t, knobPorts, 1)
+	defer knobPorts[0].Close()
+
+	meterPorts, err := rawMeters.Items()
+	require.NoError(t, err)
+	require.Len(t, meterPorts, 1)
+	defer meterPorts[0].Close()
+
+	knobType, err := knobPorts[0].InstrumentType()
+	require.NoError(t, err)
+	assert.Equal(t, "dc_voltage_source", knobType)
+
+	meterType, err := meterPorts[0].InstrumentType()
+	require.NoError(t, err)
+	assert.Equal(t, "voltmeter", meterType)
+
+	knobUnits, err := knobPorts[0].Units()
+	require.NoError(t, err)
+	defer knobUnits.Close()
+
+	expectedKnobUnits, err := symbolunit.NewVolt()
+	require.NoError(t, err)
+	defer expectedKnobUnits.Close()
+
+	knobUnitsJSON, err := knobUnits.ToJSON()
+	require.NoError(t, err)
+	expectedKnobUnitsJSON, err := expectedKnobUnits.ToJSON()
+	require.NoError(t, err)
+	assert.Equal(t, expectedKnobUnitsJSON, knobUnitsJSON)
+
+	meterUnits, err := meterPorts[0].Units()
+	require.NoError(t, err)
+	defer meterUnits.Close()
+
+	expectedMeterUnits, err := symbolunit.NewMillivolt()
+	require.NoError(t, err)
+	defer expectedMeterUnits.Close()
+
+	meterUnitsJSON, err := meterUnits.ToJSON()
+	require.NoError(t, err)
+	expectedMeterUnitsJSON, err := expectedMeterUnits.ToJSON()
+	require.NoError(t, err)
+	assert.Equal(t, expectedMeterUnitsJSON, meterUnitsJSON)
 }

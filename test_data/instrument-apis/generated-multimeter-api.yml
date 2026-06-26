@@ -21,13 +21,13 @@ channel_groups:
         role: input
         description: Voltage to set
         suffix: stream
-        unit: V
+        unit: mV
       - name: voltage
         type: float
         role: input
         description: Measured DC voltage
         suffix: voltage
-        unit: V
+        unit: mV
       - name: sample_rate
         type: int
         role: setting
@@ -44,12 +44,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog1_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog1_sample_rate
     type: int
     role: setting
@@ -63,12 +63,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog2_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog2_sample_rate
     type: int
     role: setting
@@ -82,12 +82,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog3_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog3_sample_rate
     type: int
     role: setting
@@ -101,12 +101,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog4_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog4_sample_rate
     type: int
     role: setting
@@ -120,12 +120,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog5_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog5_sample_rate
     type: int
     role: setting
@@ -139,12 +139,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog6_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog6_sample_rate
     type: int
     role: setting
@@ -158,12 +158,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog7_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog7_sample_rate
     type: int
     role: setting
@@ -177,12 +177,12 @@ io:
     type: array
     role: input
     description: Voltage to set
-    unit: V
+    unit: mV
   - name: analog8_voltage
     type: float
     role: input
     description: Measured DC voltage
-    unit: V
+    unit: mV
   - name: analog8_sample_rate
     type: int
     role: setting
