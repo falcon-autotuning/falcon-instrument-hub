@@ -229,6 +229,8 @@ func setupHandlers(services *coreServices) error {
 		ServerHost:  "127.0.0.1",
 		ServerPort:  rpcPort,
 		ScriptsPath: userMeasurementLuas,
+		ISSBinary:   issBinary,
+		ISSLibPath:  issLibPath,
 	})
 
 	// Load device config / wiremap if provided; otherwise use an empty config.
@@ -551,6 +553,17 @@ func stopInstruments() {
 
 // stopISSDaemon sends a stop command to the instrument-script-server daemon.
 func stopISSDaemon() {
+	rpcPort := instrumentServerPort
+	if rpcPort <= 0 {
+		rpcPort = 8555
+	}
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
+	if err := client.StopDaemon(); err == nil {
+		return
+	} else {
+		log.Printf("warning: gRPC daemon stop failed, falling back to CLI: %v", err)
+	}
+
 	cmd := exec.Command(issBinary, "daemon", "stop")
 	cmd.Env = buildEnvWithLibPath(issLibPath)
 	cmd.Stdout = os.Stdout

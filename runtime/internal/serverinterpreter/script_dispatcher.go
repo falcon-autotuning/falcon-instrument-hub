@@ -22,6 +22,8 @@ type ScriptDispatcherConfig struct {
 	ServerPort     int           // Port of ISS (used if ServerURL is empty)
 	ScriptsPath    string        // Local directory containing Lua scripts
 	RequestTimeout time.Duration // Timeout for script execution
+	ISSBinary      string        // Path to instrument-script-server CLI for local helpers
+	ISSLibPath     string        // Extra library path for instrument-script-server CLI
 }
 
 // NewScriptDispatcher creates a new dispatcher.
@@ -40,7 +42,10 @@ func NewScriptDispatcher(config ScriptDispatcherConfig) *ScriptDispatcher {
 		port = 8555
 	}
 
-	client := NewScriptServerClient(host, port)
+	client := NewScriptServerClientWithOptions(host, port, ScriptServerClientOptions{
+		ISSBinary:  config.ISSBinary,
+		ISSLibPath: config.ISSLibPath,
+	})
 
 	return &ScriptDispatcher{
 		client:      client,
