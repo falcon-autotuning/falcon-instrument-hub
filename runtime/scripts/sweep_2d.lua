@@ -123,10 +123,15 @@ function main(ctx, params)
     end
 
     local function callInstrument(instrument, command, callParams)
+        local channel = callParams and callParams.channel or nil
         local cs = instrument_call_stack.new({
             instrument = instrument,
-            command = command
+            command = command,
+            channel = channel
         })
+        if callParams == nil or next(callParams) == nil then
+            return ctx:call(cs)
+        end
         return ctx:call(cs, callParams)
     end
 

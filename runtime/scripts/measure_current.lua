@@ -31,11 +31,10 @@ function main(ctx, params)
     for i = 1, averaging do
         local cs = instrument_call_stack.new({
             instrument = instrument,
-            command = "GET_VOLTAGE"
-        })
-        local resp = ctx:call(cs, {
+            command = "GET_VOLTAGE",
             channel = channel
         })
+        local resp = ctx:call(cs)
         local value = resp:value()
         table.insert(readings, value)
         sum = sum + value

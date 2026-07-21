@@ -24,7 +24,8 @@ function main(ctx, params)
     for i, s in ipairs(sets) do
         local cs = instrument_call_stack.new({
             instrument = s.instrument,
-            command = "SET_VOLTAGE"
+            command = "SET_VOLTAGE",
+            channel = s.channel
         })
         ctx:call(cs, {
             channel = s.channel,
@@ -40,11 +41,10 @@ function main(ctx, params)
     for i, g in ipairs(gets) do
         local cs = instrument_call_stack.new({
             instrument = g.instrument,
-            command = "GET_VOLTAGE"
-        })
-        local resp = ctx:call(cs, {
+            command = "GET_VOLTAGE",
             channel = g.channel
         })
+        local resp = ctx:call(cs)
         local label = g.label or string.format("%s_ch%d", g.instrument, g.channel)
         local value = resp:value()
         results[label] = value

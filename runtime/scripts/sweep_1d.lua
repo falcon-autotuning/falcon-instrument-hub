@@ -35,7 +35,8 @@ function main(ctx, params)
         -- Set sweep voltage
         local setCs = instrument_call_stack.new({
             instrument = params.sweepInstrument,
-            command = "SET_VOLTAGE"
+            command = "SET_VOLTAGE",
+            channel = params.sweepChannel
         })
         ctx:call(setCs, {
             channel = params.sweepChannel,
@@ -50,11 +51,10 @@ function main(ctx, params)
         -- Read current
         local getCs = instrument_call_stack.new({
             instrument = params.currentMeter,
-            command = "GET_VOLTAGE"
-        })
-        local current_resp = ctx:call(getCs, {
+            command = "GET_VOLTAGE",
             channel = params.currentChannel
         })
+        local current_resp = ctx:call(getCs)
         
         table.insert(results, {
             voltage = voltage,

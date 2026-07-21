@@ -28,11 +28,10 @@ function main(ctx, params)
     if currentVoltage == nil then
         local getCs = instrument_call_stack.new({
             instrument = instrument,
-            command = "GET_VOLTAGE"
-        })
-        local resp = ctx:call(getCs, {
+            command = "GET_VOLTAGE",
             channel = channel
         })
+        local resp = ctx:call(getCs)
         currentVoltage = resp:value()
     end
     
@@ -69,7 +68,8 @@ function main(ctx, params)
         
         local setCs = instrument_call_stack.new({
             instrument = instrument,
-            command = "SET_VOLTAGE"
+            command = "SET_VOLTAGE",
+            channel = channel
         })
         ctx:call(setCs, {
             channel = channel,
@@ -83,11 +83,10 @@ function main(ctx, params)
     -- Confirm final voltage
     local finalCs = instrument_call_stack.new({
         instrument = instrument,
-        command = "GET_VOLTAGE"
-    })
-    local finalResp = ctx:call(finalCs, {
+        command = "GET_VOLTAGE",
         channel = channel
     })
+    local finalResp = ctx:call(finalCs)
     local finalVoltage = finalResp:value()
     
     ctx:log(string.format("Ramp complete: final voltage %.4f V", finalVoltage))

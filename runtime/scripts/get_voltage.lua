@@ -13,11 +13,10 @@
 function main(ctx, params)
     local cs = instrument_call_stack.new({
         instrument = params.instrument,
-        command = "GET_VOLTAGE"
-    })
-    local response = ctx:call(cs, {
+        command = "GET_VOLTAGE",
         channel = params.channel
     })
+    local response = ctx:call(cs)
     
     ctx:log(string.format("Read %s:%d = %.6f V", 
         params.instrument, params.channel, response:value()))

@@ -16,7 +16,8 @@ function main(ctx, params)
     
     local cs = instrument_call_stack.new({
         instrument = params.instrument,
-        command = "SET_VOLTAGE"
+        command = "SET_VOLTAGE",
+        channel = params.channel
     })
     ctx:call(cs, {
         channel = params.channel,
