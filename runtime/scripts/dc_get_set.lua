@@ -1,10 +1,8 @@
 -- dc_get_set.lua
--- Performs parallel get/set operations for DC measurements
+-- Performs get/set operations for DC measurements
 --
 -- This script handles the common case of setting multiple voltages
--- and measuring multiple currents in parallel. It leverages the
--- RuntimeContext's parallel() method for efficient multi-instrument
--- operations.
+-- and measuring multiple currents.
 --
 -- Parameters:
 --   sets: array of {instrument: string, channel: number, voltage: number}
@@ -23,50 +21,34 @@ function main(ctx, params)
     
     ctx:log(string.format("DC measurement: %d sets, %d gets", #sets, #gets))
     
-    -- Build parallel set operations
-    local setOps = {}
     for i, s in ipairs(sets) do
-        table.insert(setOps, function()
-            return ctx:call(s.instrument .. ".SET_VOLTAGE", {
-                channel = s.channel,
-                voltage = s.voltage
-            })
-        end)
+        local cs = instrument_call_stack.new({
+            instrument = s.instrument,
+            command = "SET_VOLTAGE"
+        })
+        ctx:call(cs, {
+            channel = s.channel,
+            voltage = s.voltage
+        })
     end
-    
-    -- Execute all sets in parallel
-    if #setOps > 0 then
-        local setResults = ctx:parallel(setOps)
-        ctx:log(string.format("Set %d voltages in parallel", #setResults))
-    end
+    ctx:log(string.format("Set %d voltages", #sets))
     
     -- Note: Settling time would be handled here if ctx:sleep is available
     -- For now, we rely on instrument-level settling
     
-    -- Build parallel get operations
-    local getOps = {}
-    local getLabels = {}
-    for i, g in ipairs(gets) do
-        table.insert(getOps, function()
-            return ctx:call(g.instrument .. ".GET_VOLTAGE", {
-                channel = g.channel
-            })
-        end)
-        -- Use provided label or generate one
-        getLabels[i] = g.label or string.format("%s_ch%d", g.instrument, g.channel)
-    end
-    
-    -- Execute all gets in parallel
     local results = {}
-    if #getOps > 0 then
-        local getResults = ctx:parallel(getOps)
-        
-        for i, resp in ipairs(getResults) do
-            local label = getLabels[i]
-            local value = resp:value()
-            results[label] = value
-            ctx:log(string.format("  %s = %.6f", label, value))
-        end
+    for i, g in ipairs(gets) do
+        local cs = instrument_call_stack.new({
+            instrument = g.instrument,
+            command = "GET_VOLTAGE"
+        })
+        local resp = ctx:call(cs, {
+            channel = g.channel
+        })
+        local label = g.label or string.format("%s_ch%d", g.instrument, g.channel)
+        local value = resp:value()
+        results[label] = value
+        ctx:log(string.format("  %s = %.6f", label, value))
     end
     
     return results

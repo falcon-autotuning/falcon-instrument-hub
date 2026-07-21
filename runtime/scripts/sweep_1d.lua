@@ -33,7 +33,11 @@ function main(ctx, params)
         local voltage = params.startVoltage + (i * step)
         
         -- Set sweep voltage
-        ctx:call(params.sweepInstrument .. ".SET_VOLTAGE", {
+        local setCs = instrument_call_stack.new({
+            instrument = params.sweepInstrument,
+            command = "SET_VOLTAGE"
+        })
+        ctx:call(setCs, {
             channel = params.sweepChannel,
             voltage = voltage
         })
@@ -44,7 +48,11 @@ function main(ctx, params)
         -- built into the instrument driver instead.
         
         -- Read current
-        local current_resp = ctx:call(params.currentMeter .. ".GET_VOLTAGE", {
+        local getCs = instrument_call_stack.new({
+            instrument = params.currentMeter,
+            command = "GET_VOLTAGE"
+        })
+        local current_resp = ctx:call(getCs, {
             channel = params.currentChannel
         })
         

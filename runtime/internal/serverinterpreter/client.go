@@ -121,6 +121,18 @@ func standardError(resp *daemonv1.StandardResponse) error {
 // ListInstruments returns the list of available instruments.
 func (c *ScriptServerClient) ListInstruments() ([]string, error) {
 	ctx, cancel, err := c.callContext(defaultCallTimeout)
+	return c.listInstruments(ctx, cancel, err)
+}
+
+// ListInstrumentsWithTimeout returns the list of available instruments using a
+// caller-provided timeout. It is used by startup readiness probes so retries do
+// not block for the full default RPC timeout.
+func (c *ScriptServerClient) ListInstrumentsWithTimeout(timeout time.Duration) ([]string, error) {
+	ctx, cancel, err := c.callContext(timeout)
+	return c.listInstruments(ctx, cancel, err)
+}
+
+func (c *ScriptServerClient) listInstruments(ctx context.Context, cancel context.CancelFunc, err error) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}

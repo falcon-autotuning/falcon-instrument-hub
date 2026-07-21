@@ -26,7 +26,11 @@ function main(ctx, params)
     -- Get current voltage if not provided
     local currentVoltage = params.currentVoltage
     if currentVoltage == nil then
-        local resp = ctx:call(instrument .. ".GET_VOLTAGE", {
+        local getCs = instrument_call_stack.new({
+            instrument = instrument,
+            command = "GET_VOLTAGE"
+        })
+        local resp = ctx:call(getCs, {
             channel = channel
         })
         currentVoltage = resp:value()
@@ -63,7 +67,11 @@ function main(ctx, params)
             voltage = targetVoltage
         end
         
-        ctx:call(instrument .. ".SET_VOLTAGE", {
+        local setCs = instrument_call_stack.new({
+            instrument = instrument,
+            command = "SET_VOLTAGE"
+        })
+        ctx:call(setCs, {
             channel = channel,
             voltage = voltage
         })
@@ -73,7 +81,11 @@ function main(ctx, params)
     end
     
     -- Confirm final voltage
-    local finalResp = ctx:call(instrument .. ".GET_VOLTAGE", {
+    local finalCs = instrument_call_stack.new({
+        instrument = instrument,
+        command = "GET_VOLTAGE"
+    })
+    local finalResp = ctx:call(finalCs, {
         channel = channel
     })
     local finalVoltage = finalResp:value()

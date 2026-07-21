@@ -11,7 +11,11 @@
 ---@param params {instrument: string, channel: number}
 ---@return table MeasurementResponse-like table
 function main(ctx, params)
-    local response = ctx:call(params.instrument .. ".GET_VOLTAGE", {
+    local cs = instrument_call_stack.new({
+        instrument = params.instrument,
+        command = "GET_VOLTAGE"
+    })
+    local response = ctx:call(cs, {
         channel = params.channel
     })
     

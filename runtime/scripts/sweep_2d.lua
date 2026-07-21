@@ -121,13 +121,76 @@ function main(ctx, params)
     for i = 0, params.yNumPoints - 1 do
         table.insert(result.yVoltages, params.yStartV + i * yStep)
     end
+
+    local function callInstrument(instrument, command, callParams)
+        local cs = instrument_call_stack.new({
+            instrument = instrument,
+            command = command
+        })
+        return ctx:call(cs, callParams)
+    end
+
+    local function rampVoltage(instrument, channel, targetVoltage, rampRateVperS)
+        local rampRate = rampRateVperS or 0.1
+        local currentResp = callInstrument(instrument, "GET_VOLTAGE", {
+            channel = channel
+        })
+        local currentVoltage = currentResp:value()
+        local deltaV = targetVoltage - currentVoltage
+
+        if math.abs(deltaV) < 1e-6 then
+            return currentVoltage
+        end
+
+        local totalTime = math.abs(deltaV) / rampRate
+        local numSteps = math.max(10, math.floor(totalTime * 100))
+        local stepVoltage = deltaV / numSteps
+
+        for i = 1, numSteps do
+            local voltage = currentVoltage + (i * stepVoltage)
+            if i == numSteps then
+                voltage = targetVoltage
+            end
+            callInstrument(instrument, "SET_VOLTAGE", {
+                channel = channel,
+                voltage = voltage
+            })
+        end
+
+        return targetVoltage
+    end
     
     -- Step 1: Set static gate voltages if provided
     if params.staticVoltages then
         ctx:log("Setting static gate voltages...")
-        for gate, voltage in pairs(params.staticVoltages) do
-            ctx:call("set_voltage", {
-                gate = gate,
+        for gate, spec in pairs(params.staticVoltages) do
+            local instrument = nil
+            local channel = nil
+            local voltage = nil
+
+            if type(spec) == "table" then
+                instrument = spec.instrument
+                channel = spec.channel
+                voltage = spec.voltage
+            else
+                voltage = spec
+                if gate == params.xGate then
+                    instrument = params.xInstrument
+                    channel = params.xChannel
+                elseif gate == params.yGate then
+                    instrument = params.yInstrument
+                    channel = params.yChannel
+                end
+            end
+
+            if instrument == nil or channel == nil then
+                ctx:error("Static voltage for gate " .. tostring(gate) ..
+                    " must include instrument and channel")
+                return nil
+            end
+
+            callInstrument(instrument, "SET_VOLTAGE", {
+                channel = channel,
                 voltage = voltage
             })
         end
@@ -143,8 +206,7 @@ function main(ctx, params)
             progress, yIdx + 1, params.yNumPoints, yVoltage))
         
         -- 2a. Set Y gate voltage
-        ctx:call("set_voltage", {
-            instrument = params.yInstrument,
+        callInstrument(params.yInstrument, "SET_VOLTAGE", {
             channel = params.yChannel,
             voltage = yVoltage
         })
@@ -157,33 +219,22 @@ function main(ctx, params)
         end
         
         -- 2c. Execute 1D sweep along X axis
-        local sweep1DParams = {
-            sweepInstrument = params.xInstrument,
-            sweepChannel = params.xChannel,
-            startVoltage = params.xStartV,
-            stopVoltage = params.xStopV,
-            numPoints = params.xNumPoints,
-            settlingTimeMs = params.settlingTimeMs,
-            currentMeter = params.currentMeter,
-            currentChannel = params.currentChannel
-        }
-        
-        local sweep1DResult = ctx:call("sweep_1d", sweep1DParams)
-        
-        -- 2d. Extract current values from 1D sweep result
         local currents = {}
-        local sweep1DData = sweep1DResult:value()
-        
-        -- Parse the 1D sweep result - it should be an array of {voltage, current} pairs
-        if type(sweep1DData) == "table" then
-            for i, point in ipairs(sweep1DData) do
-                if type(point) == "table" and point.current then
-                    table.insert(currents, point.current)
-                elseif type(point) == "number" then
-                    -- Fallback: if it's just numbers, assume they're current values
-                    table.insert(currents, point)
-                end
+        for xIdx = 0, params.xNumPoints - 1 do
+            local xVoltage = result.xVoltages[xIdx + 1]
+            callInstrument(params.xInstrument, "SET_VOLTAGE", {
+                channel = params.xChannel,
+                voltage = xVoltage
+            })
+
+            if ctx.sleep and params.settlingTimeMs > 0 then
+                ctx:sleep(params.settlingTimeMs)
             end
+
+            local currentResp = callInstrument(params.currentMeter, "GET_VOLTAGE", {
+                channel = params.currentChannel
+            })
+            table.insert(currents, currentResp:value())
         end
         
         -- Verify we got the expected number of points
@@ -207,12 +258,8 @@ function main(ctx, params)
         
         -- 2e. Ramp X gate back to start voltage for next iteration
         if yIdx < params.yNumPoints - 1 then  -- Skip ramp on last iteration
-            ctx:call("ramp_voltage", {
-                instrument = params.xInstrument,
-                channel = params.xChannel,
-                targetVoltage = params.xStartV,
-                rampRateVperS = params.rampSlopeVPerS
-            })
+            rampVoltage(params.xInstrument, params.xChannel, params.xStartV,
+                params.rampSlopeVPerS)
         end
     end
     

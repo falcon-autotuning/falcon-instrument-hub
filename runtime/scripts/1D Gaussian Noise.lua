@@ -19,30 +19,26 @@ local function Gaussian1D(
    setters)
 
 
-   ctx:parallel(function()
-      for setter in setters do
-         local voltage = setVoltages[setter.id]
-         if voltage == nil then
-            ctx:error("No voltage specified for setter id: " .. setter.id)
-            return nil
-         end
-         if setter.id ~= "Source1" then
-            ctx:error("Invalid setter id: " .. setter.id)
-            return nil
-         end
-         Mock1Source1:setVoltage(setter.channel, voltage)
+   for _, setter in ipairs(setters) do
+      local voltage = setVoltages[setter.id]
+      if voltage == nil then
+         ctx:error("No voltage specified for setter id: " .. setter.id)
+         return nil
       end
-      for getter in getters do
-         Mock5Meter1:setSampleRate(getter.channel, sampleRate)
-         Mock5Meter1:setBins(getter.channel, numPoints)
+      if setter.id ~= "Source1" then
+         ctx:error("Invalid setter id: " .. setter.id)
+         return nil
       end
-   end)
+      Mock1Source1:setVoltage(setter.id, setter.channel, voltage)
+   end
+   for _, getter in ipairs(getters) do
+      Mock5Meter1:setSampleRate(getter.id, getter.channel, sampleRate)
+      Mock5Meter1:setBins(getter.id, getter.channel, numPoints)
+   end
 
-   ctx:parallel(function()
-      for getter in getters do
-         Mock5Meter1:measureStream(getter.channel)
-      end
-   end)
+   for _, getter in ipairs(getters) do
+      Mock5Meter1:measureStream(getter.id, getter.channel)
+   end
    return ""
 end
 return { main = Gaussian1D }

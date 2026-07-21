@@ -29,7 +29,11 @@ function main(ctx, params)
     local readings = {}
     
     for i = 1, averaging do
-        local resp = ctx:call(instrument .. ".GET_VOLTAGE", {
+        local cs = instrument_call_stack.new({
+            instrument = instrument,
+            command = "GET_VOLTAGE"
+        })
+        local resp = ctx:call(cs, {
             channel = channel
         })
         local value = resp:value()

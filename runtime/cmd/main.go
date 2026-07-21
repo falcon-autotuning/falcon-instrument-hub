@@ -505,8 +505,10 @@ func startISSDaemon() (*os.Process, error) {
 		return nil, fmt.Errorf("instrument-script-server start did not report success: %s", strings.TrimSpace(outputText))
 	}
 
-	// Give the daemon a moment to initialize
-	time.Sleep(500 * time.Millisecond)
+	if err := waitForISSDaemonReady(10 * time.Second); err != nil {
+		stopISSDaemon()
+		return nil, err
+	}
 
 	return cmd.Process, nil
 }
@@ -532,6 +534,25 @@ func waitForISSDaemonStopped(timeout time.Duration) bool {
 	return false
 }
 
+func waitForISSDaemonReady(timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
+		_, err := client.ListInstrumentsWithTimeout(500 * time.Millisecond)
+		_ = client.Close()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		time.Sleep(100 * time.Millisecond)
+	}
+	if lastErr == nil {
+		return fmt.Errorf("instrument-script-server gRPC daemon on 127.0.0.1:%d did not become ready within %s", issRPCPort(), timeout)
+	}
+	return fmt.Errorf("instrument-script-server gRPC daemon on 127.0.0.1:%d did not become ready within %s: %w", issRPCPort(), timeout, lastErr)
+}
+
 // startInstruments starts each instrument config listed in instConfig
 // (semicolon-separated paths) by calling the ISS daemon RPC "start" command.
 // If instPlugins is set, each positional entry (also semicolon-separated)
@@ -541,6 +562,7 @@ func startInstruments() error {
 		return nil
 	}
 	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
+	defer client.Close()
 
 	configs := strings.Split(instConfig, ";")
 	plugins := strings.Split(instPlugins, ";")
@@ -567,6 +589,7 @@ func startInstruments() error {
 // the daemon itself is shut down.
 func stopInstruments() {
 	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
+	defer client.Close()
 	instruments, err := client.ListInstruments()
 	if err != nil {
 		log.Printf("warning: could not list instruments for shutdown: %v", err)
@@ -584,6 +607,7 @@ func stopInstruments() {
 // stopISSDaemon sends a stop command to the instrument-script-server daemon.
 func stopISSDaemon() {
 	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
+	defer client.Close()
 	if err := client.StopDaemon(); err == nil {
 		return
 	} else {
