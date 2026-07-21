@@ -84,59 +84,6 @@ func hubVcpkgLibPath() string {
 }
 
 // ---------------------------------------------------------------------------
-// Fixture data
-// ---------------------------------------------------------------------------
-
-// validDeviceConfigYAML is a 2-dot 1-charge-sensor device config in the flat
-// YAML format expected by the hub's Go config loader (internal/config/types.go).
-// The topology mirrors the 2-dot-1-chargesensor fixture used by the
-// instrument-controller data-retrieval integration test.
-const validDeviceConfigYAML = `ScreeningGates: "S1;S2;S3"
-PlungerGates: "P1;P2;P3"
-Ohmics: "O1;O2;O3;O4"
-BarrierGates: "B1;B2;B3;B4;B5"
-ReservoirGates: "R1;R2;R3;R4"
-num-unique-channels: 2
-groups:
-  group1:
-    Name: "I_O1"
-    NumDots: 2
-    ScreeningGates: "S1;S2"
-    ReservoirGates: "R1;R2"
-    PlungerGates: "P1;P2"
-    BarrierGates: "B1;B2;B3"
-    Order: "O1;R1;B1;P1;B2;P2;B3;R2;O2"
-  group2:
-    Name: "I_O3"
-    NumDots: 1
-    ScreeningGates: "S2;S3"
-    ReservoirGates: "R3;R4"
-    PlungerGates: "P3"
-    BarrierGates: "B4;B5"
-    Order: "O3;R3;B4;P3;B5;R4;O4"
-wiringDC:
-  S1: {resistance: 1000.0, capacitance: 1.0e-12}
-  S2: {resistance: 1000.0, capacitance: 1.0e-12}
-  S3: {resistance: 1000.0, capacitance: 1.0e-12}
-  P1: {resistance: 1000.0, capacitance: 1.0e-12}
-  P2: {resistance: 1000.0, capacitance: 1.0e-12}
-  P3: {resistance: 1000.0, capacitance: 1.0e-12}
-  O1: {resistance: 1000.0, capacitance: 1.0e-12}
-  O2: {resistance: 1000.0, capacitance: 1.0e-12}
-  O3: {resistance: 1000.0, capacitance: 1.0e-12}
-  O4: {resistance: 1000.0, capacitance: 1.0e-12}
-  R1: {resistance: 1000.0, capacitance: 1.0e-12}
-  R2: {resistance: 1000.0, capacitance: 1.0e-12}
-  R3: {resistance: 1000.0, capacitance: 1.0e-12}
-  R4: {resistance: 1000.0, capacitance: 1.0e-12}
-  B1: {resistance: 1000.0, capacitance: 1.0e-12}
-  B2: {resistance: 1000.0, capacitance: 1.0e-12}
-  B3: {resistance: 1000.0, capacitance: 1.0e-12}
-  B4: {resistance: 1000.0, capacitance: 1.0e-12}
-  B5: {resistance: 1000.0, capacitance: 1.0e-12}
-`
-
-// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -181,6 +128,17 @@ func writeHubConfigFile(
 	}
 	require.NoError(t, os.WriteFile(configPath, []byte(b.String()), 0o644))
 	t.Logf("hub config written to %s:\n%s", configPath, b.String())
+}
+
+func copyDeviceConfigFixture(t *testing.T, destPath string) {
+	t.Helper()
+	sourcePath := filepath.Join(hubTestDataDir(), "2-dot-1-chargesensor.yaml")
+	data, err := os.ReadFile(sourcePath)
+	if os.IsNotExist(err) {
+		t.Skipf("test_data device config not found at %s", sourcePath)
+	}
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(destPath, data, 0o644))
 }
 
 // startHubBinary launches the instrument-hub binary with --hub-config,
@@ -299,9 +257,8 @@ func TestHubBinary_StartWithConfigFile(t *testing.T) {
 	require.NoError(t, os.MkdirAll(luaDir, 0o755))
 	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
-	// Write the device config in the flat YAML format the Go loader expects.
 	deviceConfigPath := filepath.Join(tmpDir, "2-dot-1-chargesensor.yml")
-	require.NoError(t, os.WriteFile(deviceConfigPath, []byte(validDeviceConfigYAML), 0o644))
+	copyDeviceConfigFixture(t, deviceConfigPath)
 
 	// Wiremap lives in test_data alongside the instrument configs.
 	wiremapPath := filepath.Join(hubTestDataDir(), "2-dot-1-chargesensor-wiremap.yml")
@@ -392,7 +349,7 @@ func TestHubBinary_StartWithConfigFile_WithISS(t *testing.T) {
 	require.NoError(t, os.MkdirAll(workDir, 0o755))
 
 	deviceConfigPath := filepath.Join(tmpDir, "2-dot-1-chargesensor.yml")
-	require.NoError(t, os.WriteFile(deviceConfigPath, []byte(validDeviceConfigYAML), 0o644))
+	copyDeviceConfigFixture(t, deviceConfigPath)
 
 	wiremapPath := filepath.Join(hubTestDataDir(), "2-dot-1-chargesensor-wiremap.yml")
 	if _, err := os.Stat(wiremapPath); os.IsNotExist(err) {

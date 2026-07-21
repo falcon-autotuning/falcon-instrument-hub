@@ -12,6 +12,11 @@ if(EXISTS "${FALCON_ROUTINE_HUB_OVERRIDE}")
     file(COPY "${FALCON_ROUTINE_HUB_OVERRIDE}" DESTINATION "${SOURCE_PATH}/src")
 endif()
 
+set(FALCON_ROUTINE_HUB_HEADER_OVERRIDE "${WORKSPACE_ROOT}/falcon-routine/include/falcon-routine/hub.hpp")
+if(EXISTS "${FALCON_ROUTINE_HUB_HEADER_OVERRIDE}")
+    file(COPY "${FALCON_ROUTINE_HUB_HEADER_OVERRIDE}" DESTINATION "${SOURCE_PATH}/include/falcon-routine")
+endif()
+
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
 )

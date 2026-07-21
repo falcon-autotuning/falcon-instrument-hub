@@ -1,7 +1,7 @@
 {
   "name": "falcon-comms",
   "version": "1.0.10",
-  "port-version": 2,
+  "port-version": 9,
   "description": "NATS communication API for falcon network DSL interactions",
   "homepage": "https://github.com/falcon-autotuning/falcon-comms",
   "license": "MPL-2.0",

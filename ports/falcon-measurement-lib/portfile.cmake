@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO falcon-autotuning/falcon-measurement-lib
     REF v${VERSION}
-    SHA512 8a6f44ad2732a98f7543f48647d9a6354b47a409ddaa74690228f99aa392b6a7ed7e94908e14a787e009b8fbcfccbd2f70db6af414531c214bddd497fe521d35
+    SHA512 5e2426efb11ec03b0d253aa5f2a1c89aa8f38cabc9adac582d651d9639459e26a4ee4f4ae4a55de6d9bc5d67f8ec491f5a335aa013502660ce312f29e7832c00
 )
 
 # Set up Lua venv paths inside the package

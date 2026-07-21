@@ -1,17 +1,19 @@
 vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
-    REPO falcon-autotuning/teal-api-gen
+    REPO falcon-autotuning/instrument-log
     REF v${VERSION}
-    SHA512 02f52f6afa1ceb16bb25fcc3db609215db9738359fc1ecce10ce59838f07f26fda51ee233bccca074293d1f440ba704b4544f00170e0277f4b11920fe52079d2
+    SHA512 e41bd962f3a4de175d754966a07d1fe914bd34c7c79fbd7634436554d3b79353046bbba48f529c3368a42bead0481bc7e2e6a5484b5137578bcdb3b26a2821ce
 )
+
 vcpkg_cmake_configure(
     SOURCE_PATH "${SOURCE_PATH}"
-    OPTIONS
-        -DCMAKE_BUILD_TYPE=Release
 )
+
 vcpkg_cmake_install()
 vcpkg_cmake_config_fixup()
+
 file(INSTALL "${SOURCE_PATH}/LICENSE"
      DESTINATION "${CURRENT_PACKAGES_DIR}/share/${PORT}"
      RENAME copyright)
+
 vcpkg_copy_pdbs()

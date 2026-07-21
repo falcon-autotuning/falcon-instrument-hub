@@ -54,6 +54,34 @@ func TestBuildMeasureJobRequestConvertsGlobalsAndSkipsContext(t *testing.T) {
 	}
 }
 
+func TestBuildMeasureJobRequestConvertsTypedScalarMaps(t *testing.T) {
+	req, err := buildMeasureJobRequest(
+		"/tmp/measure.lua",
+		map[string]interface{}{
+			"setVoltages": map[string]float64{
+				"Source1:1": 0.25,
+				"Source1:2": -0.5,
+			},
+		},
+		map[string]interface{}{
+			"parameters": []map[string]interface{}{
+				{"name": "setVoltages", "type": "{string: number}"},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatalf("buildMeasureJobRequest returned error: %v", err)
+	}
+
+	values := req.GetGlobals().GetMap()["setVoltages"].GetMMap().GetValues()
+	if got := values["Source1:1"].GetD(); got != 0.25 {
+		t.Fatalf("Source1:1 voltage = %v, want 0.25", got)
+	}
+	if got := values["Source1:2"].GetD(); got != -0.5 {
+		t.Fatalf("Source1:2 voltage = %v, want -0.5", got)
+	}
+}
+
 func TestMeasureJobResultToCallResultsMapsBufferReturn(t *testing.T) {
 	resp := &daemonv1.MeasureJobResultResponse{
 		Results: []*daemonv1.CommandResult{

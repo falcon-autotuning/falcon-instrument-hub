@@ -32,5 +32,3 @@ require (
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
 )
-
-replace github.com/falcon-autotuning/falcon-core-libs/go/falcon-core => /home/zdm2/Documents/github/FAlCon/falcon-core-libs/go/falcon-core

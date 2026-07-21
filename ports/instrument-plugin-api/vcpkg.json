@@ -1,0 +1,21 @@
+{
+  "name": "instrument-plugin-api",
+  "version": "2.0.2",
+  "description": "The API that the instrument-script-server uses to communicate with instruments implemented by users",
+  "homepage": "https://github.com/falcon-autotuning/instrument-plugin-api",
+  "dependencies": [
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ],
+  "features": {
+    "plugin": {
+      "description": "Plugin-side API",
+      "dependencies": []
+    },
+    "host": {
+      "description": "Host-side API",
+      "dependencies": []
+    }
+  },
+  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c"
+}

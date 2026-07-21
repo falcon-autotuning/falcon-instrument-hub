@@ -1,0 +1,12 @@
+{
+  "name": "instrument-log",
+  "version": "1.0.5",
+  "description": "Logging library build for the instrument-script-server processes",
+  "homepage": "https://github.com/falcon-autotuning/instrument-log",
+  "dependencies": [
+    "spdlog",
+    "vcpkg-cmake",
+    "vcpkg-cmake-config"
+  ],
+  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c"
+}

@@ -99,7 +99,7 @@ func (m *Manager) Start() error {
 	m.logger.Info(HandlerManagerName, "Starting handler manager")
 
 	// Execute each startup operation
-	for _, op := range m.getHandlerOperations() {
+	for _, op := range m.getHandlerOperations(true) {
 		if err := op.startOp(); err != nil {
 			m.logger.Error(
 				HandlerManagerName,
@@ -113,12 +113,42 @@ func (m *Manager) Start() error {
 	return nil
 }
 
+// StartCoreHandlers starts all handlers except status publishing. The hub uses
+// this during startup so STATUS.instrument-server is only emitted after ISS
+// instruments are also ready.
+func (m *Manager) StartCoreHandlers() error {
+	m.logger.Info(HandlerManagerName, "Starting core handler manager")
+
+	for _, op := range m.getHandlerOperations(false) {
+		if err := op.startOp(); err != nil {
+			m.logger.Error(
+				HandlerManagerName,
+				fmt.Sprintf("Failed to start %s", op.name),
+			)
+			return err
+		}
+	}
+
+	m.logger.Info(HandlerManagerName, "Core handlers started successfully")
+	return nil
+}
+
+// StartStatus begins STATUS.instrument-server publication.
+func (m *Manager) StartStatus() error {
+	if err := m.statusHandler.Start(m.nc); err != nil {
+		m.logger.Error(HandlerManagerName, "Failed to start status handler")
+		return err
+	}
+	m.logger.Info(HandlerManagerName, "All handlers started successfully")
+	return nil
+}
+
 // Stop gracefully shuts down all handlers
 func (m *Manager) Stop() error {
 	m.logger.Info(HandlerManagerName, "Stopping handler manager")
 
 	// Execute each shutdown operation in reverse order (continue on errors)
-	ops := m.getHandlerOperations()
+	ops := m.getHandlerOperations(true)
 	for i := len(ops) - 1; i >= 0; i-- {
 		if err := ops[i].stopOp(); err != nil {
 			m.logger.Error(
@@ -148,8 +178,8 @@ func (m *Manager) GetInstrumentHandler() *instrument.Handler {
 }
 
 // getHandlerOperations returns the ordered list of handler operations
-func (m *Manager) getHandlerOperations() []handlerOperation {
-	return []handlerOperation{
+func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
+	ops := []handlerOperation{
 		{
 			name:    "log handler",
 			startOp: func() error { return m.logHandler.Subscribe(m.nc) },
@@ -175,12 +205,15 @@ func (m *Manager) getHandlerOperations() []handlerOperation {
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
 		},
-		{
+	}
+	if includeStatus {
+		ops = append(ops, handlerOperation{
 			name:    "status handler",
 			startOp: func() error { return m.statusHandler.Start(m.nc) },
 			stopOp:  func() error { return m.statusHandler.Stop() },
-		},
+		})
 	}
+	return ops
 }
 
 // IsBusy checks if the system is currently busy with any operations

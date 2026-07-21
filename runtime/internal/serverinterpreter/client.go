@@ -417,6 +417,16 @@ func interfaceToVariableValue(v interface{}) (*daemonv1.VariableValue, error) {
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_MArray{MArray: &daemonv1.MixedArray{Values: items}}}, nil
 	case []interface{}:
 		return interfaceSliceToVariableValue(value)
+	case map[string]bool:
+		return scalarMapToVariableValue(value)
+	case map[string]int:
+		return scalarMapToVariableValue(value)
+	case map[string]int64:
+		return scalarMapToVariableValue(value)
+	case map[string]float64:
+		return scalarMapToVariableValue(value)
+	case map[string]string:
+		return scalarMapToVariableValue(value)
 	case map[string]interface{}:
 		values := make(map[string]*daemonv1.VariableValue, len(value))
 		for k, item := range value {
@@ -430,6 +440,18 @@ func interfaceToVariableValue(v interface{}) (*daemonv1.VariableValue, error) {
 	default:
 		return nil, fmt.Errorf("unsupported value type %T", v)
 	}
+}
+
+func scalarMapToVariableValue[T bool | int | int64 | float64 | string](items map[string]T) (*daemonv1.VariableValue, error) {
+	values := make(map[string]*daemonv1.VariableValue, len(items))
+	for k, item := range items {
+		converted, err := interfaceToVariableValue(item)
+		if err != nil {
+			return nil, fmt.Errorf("map key %q: %w", k, err)
+		}
+		values[k] = converted
+	}
+	return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_MMap{MMap: &daemonv1.MixedMap{Values: values}}}, nil
 }
 
 func interfaceSliceToVariableValue(items []interface{}) (*daemonv1.VariableValue, error) {

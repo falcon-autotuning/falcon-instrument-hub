@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -108,7 +109,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if !issNoAutoStart {
 		proc, err := startISSDaemon()
 		if err != nil {
-			log.Printf("warning: could not start instrument-script-server: %v", err)
+			return fmt.Errorf("could not start instrument-script-server: %w", err)
 		} else {
 			issProcess = proc
 			log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
@@ -132,7 +133,13 @@ func runStart(cmd *cobra.Command, args []string) error {
 	// messages are not dropped
 	if !issNoAutoStart && issProcess != nil {
 		if err := startInstruments(); err != nil {
-			log.Printf("warning: failed to start instruments: %v", err)
+			return fmt.Errorf("failed to start instruments: %w", err)
+		}
+	}
+
+	if services.handlerManager != nil {
+		if err := services.handlerManager.StartStatus(); err != nil {
+			return fmt.Errorf("failed to start status handler: %w", err)
 		}
 	}
 
@@ -264,8 +271,9 @@ func setupHandlers(services *coreServices) error {
 		dispatcher,
 	)
 
-	// subscribe all handlers using the handlers manager
-	if err := services.handlerManager.Start(); err != nil {
+	// Subscribe operational handlers first. Status publishing starts only after
+	// ISS instruments are started so STATUS.instrument-server means fully ready.
+	if err := services.handlerManager.StartCoreHandlers(); err != nil {
 		return fmt.Errorf("failed to start handlers: %w", err)
 	}
 
@@ -467,8 +475,9 @@ func startISSDaemon() (*os.Process, error) {
 
 	// Stop any stale daemon from a previous run before starting fresh.
 	stopISSDaemon()
-	// Give the stopped daemon a moment to fully terminate before starting a new one.
-	time.Sleep(200 * time.Millisecond)
+	if !waitForISSDaemonStopped(5 * time.Second) {
+		return nil, fmt.Errorf("instrument-script-server did not release port %d after stop", issRPCPort())
+	}
 
 	cmd := exec.Command(issBinary, "daemon", "start")
 	env := buildEnvWithLibPath(issLibPath)
@@ -477,21 +486,50 @@ func startISSDaemon() (*os.Process, error) {
 	}
 	cmd.Env = env
 
-	// Append to log file
-	logFile, err := os.OpenFile("tests/hub/log/iss-daemon.log", os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
-	if err == nil {
-		cmd.Stdout = logFile
-		cmd.Stderr = logFile
+	output, err := cmd.CombinedOutput()
+	if len(output) > 0 {
+		logPath := filepath.Join(LogsDir, "iss-daemon.log")
+		if logFile, openErr := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644); openErr == nil {
+			_, _ = logFile.Write(output)
+			_ = logFile.Close()
+		}
 	}
-
-	if err := cmd.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start instrument-script-server: %w", err)
+	outputText := string(output)
+	if strings.Contains(outputText, "Daemon is already running") {
+		return nil, fmt.Errorf("instrument-script-server refused fresh startup: %s", strings.TrimSpace(outputText))
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to start instrument-script-server: %w: %s", err, strings.TrimSpace(outputText))
+	}
+	if !strings.Contains(outputText, "Daemon started") {
+		return nil, fmt.Errorf("instrument-script-server start did not report success: %s", strings.TrimSpace(outputText))
 	}
 
 	// Give the daemon a moment to initialize
 	time.Sleep(500 * time.Millisecond)
 
 	return cmd.Process, nil
+}
+
+func issRPCPort() int {
+	if instrumentServerPort > 0 {
+		return instrumentServerPort
+	}
+	return 8555
+}
+
+func waitForISSDaemonStopped(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	address := fmt.Sprintf("127.0.0.1:%d", issRPCPort())
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
+		if err != nil {
+			return true
+		}
+		_ = conn.Close()
+		time.Sleep(100 * time.Millisecond)
+	}
+	return false
 }
 
 // startInstruments starts each instrument config listed in instConfig
@@ -502,11 +540,7 @@ func startInstruments() error {
 	if instConfig == "" {
 		return nil
 	}
-	rpcPort := instrumentServerPort
-	if rpcPort <= 0 {
-		rpcPort = 8555
-	}
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
 
 	configs := strings.Split(instConfig, ";")
 	plugins := strings.Split(instPlugins, ";")
@@ -532,11 +566,7 @@ func startInstruments() error {
 // stopInstruments stops all running instrument workers via the ISS RPC before
 // the daemon itself is shut down.
 func stopInstruments() {
-	rpcPort := instrumentServerPort
-	if rpcPort <= 0 {
-		rpcPort = 8555
-	}
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
 	instruments, err := client.ListInstruments()
 	if err != nil {
 		log.Printf("warning: could not list instruments for shutdown: %v", err)
@@ -553,11 +583,7 @@ func stopInstruments() {
 
 // stopISSDaemon sends a stop command to the instrument-script-server daemon.
 func stopISSDaemon() {
-	rpcPort := instrumentServerPort
-	if rpcPort <= 0 {
-		rpcPort = 8555
-	}
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", rpcPort)
+	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
 	if err := client.StopDaemon(); err == nil {
 		return
 	} else {

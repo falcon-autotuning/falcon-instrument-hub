@@ -16,8 +16,10 @@ import (
 
 func runNATSServer(t *testing.T) *server.Server {
 	opts := &server.Options{
-		Host: "127.0.0.1",
-		Port: -1, // Use random port
+		Host:      "127.0.0.1",
+		Port:      -1, // Use random port
+		JetStream: true,
+		StoreDir:  t.TempDir(),
 	}
 	s, err := server.NewServer(opts)
 	require.NoError(t, err)
