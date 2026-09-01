@@ -135,3 +135,11 @@ func TestMeasureCommandHandler_EdgeCases(t *testing.T) {
 		assert.NoError(t, err, "Should handle double unsubscribe gracefully")
 	})
 }
+
+func TestMeasurementResponseSubject(t *testing.T) {
+	assert.Equal(
+		t,
+		"FALCON.MEASURE_RESPONSE.12345",
+		measurementResponseSubject(12345),
+	)
+}

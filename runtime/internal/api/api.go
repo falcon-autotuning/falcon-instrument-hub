@@ -178,7 +178,7 @@ type DeviceConfigResponse struct {
 // MeasureCommand: issued to runtime to request a measurement from the instrument server
 type MeasureCommand struct {
 	Request   string `yaml:"request" json:"request"`     // the measurement request to be taken
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // Correlates this command with its response
 	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
 }
 
@@ -186,7 +186,7 @@ type MeasureCommand struct {
 type MeasureResponse struct {
 	Stream    string `yaml:"stream" json:"stream"`       // the MeasurementResponse JSON from the hub
 	Channel   string `yaml:"channel" json:"channel"`     // channel identifier
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // Correlates this response with its command
 	Hash      int64  `yaml:"hash" json:"hash"`           // correlation hash from the MeasureCommand
 	Response  string `yaml:"response" json:"response"`   // uploaded data from the runtime
 }
