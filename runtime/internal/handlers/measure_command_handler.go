@@ -236,6 +236,43 @@ func (h *MeasureCommandHandler) Unsubscribe() error {
 	return nil
 }
 
+func (h *MeasureCommandHandler) publishMeasurementResponse(cmd api.MeasureCommand, responseSubject, respJSON string) bool {
+	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Publishing measurement data: subject=%s bytes=%d", measureSubject, len(respJSON)))
+	if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
+		return false
+	}
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Published measurement data: subject=%s", measureSubject))
+
+	measureResp := api.MeasureResponse{
+		Stream:    measureSubject,
+		Response:  respJSON,
+		Timestamp: cmd.Timestamp,
+		Hash:      cmd.Hash,
+	}
+	respData, err := json.Marshal(measureResp)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
+		return false
+	}
+
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Publishing %s: subject=%s stream=%s bytes=%d", MeasureResponseName, responseSubject, measureSubject, len(respData)))
+	if err := h.nc.Publish(responseSubject, respData); err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
+		return false
+	}
+	h.logger.Info(MeasureCommandHandlerName,
+		fmt.Sprintf("Published %s: subject=%s stream=%s", MeasureResponseName, responseSubject, measureSubject))
+	return true
+}
+
 // handleMessage processes an INSTRUMENTHUB.MEASURE_COMMAND message, dispatches
 // the measurement script to ISS, and publishes a timestamp-scoped response.
 func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
@@ -368,30 +405,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -498,30 +512,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -688,30 +679,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -861,30 +829,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -970,30 +915,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -1083,30 +1005,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-		if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-			return
-		}
-
-		measureResp := api.MeasureResponse{
-			Stream:    measureSubject,
-			Response:  respJSON,
-			Timestamp: cmd.Timestamp,
-			Hash:      cmd.Hash,
-		}
-		respData, err := json.Marshal(measureResp)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-			return
-		}
-
-		if err := h.nc.Publish(responseSubject, respData); err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-		}
+		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 		return
 	}
 
@@ -1357,33 +1256,5 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	}
 	h.logger.Info(MeasureCommandHandlerName, "buildMeasurementResponseJSON complete")
 
-	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing measurement to JetStream subject %s", measureSubject))
-	if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-		return
-	}
-
-	measureResp := api.MeasureResponse{
-		Stream:    measureSubject,
-		Response:  respJSON,
-		Timestamp: cmd.Timestamp,
-		Hash:      cmd.Hash,
-	}
-	respData, err := json.Marshal(measureResp)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
-		return
-	}
-
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing to NATS subject %s", responseSubject))
-	if err := h.nc.Publish(responseSubject, respData); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
-	}
-	h.logger.Info(MeasureCommandHandlerName, "NATS publish complete; handler done")
+	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 }
