@@ -196,6 +196,73 @@ type StatusMessage struct {
 }
 ```
 
+### CAPABILITY_REQUEST
+
+Request one connected port by logical device connection and IO/capability name.
+
+**Subject:** `INSTRUMENTHUB.CAPABILITY_REQUEST`
+
+```yaml
+channel: CAPABILITY_REQUEST
+parameters:
+  timestamp: int
+  device_name: string      # Logical device connection, e.g. O1
+  capability: string       # IO/capability name, e.g. trigger_level
+  role: string             # input, output, or setting
+```
+
+**Go Type:**
+```go
+type CapabilityRequest struct {
+    Timestamp  int64  `json:"timestamp"`
+    DeviceName string `json:"device_name"`
+    Capability string `json:"capability"`
+    Role       string `json:"role"`
+}
+```
+
+### CAPABILITY_PAYLOAD
+
+Response containing the resolved connected port metadata and a cereal
+`InstrumentPort` JSON string. The hub publishes this to
+`FALCON.CAPABILITY_PAYLOAD`, or to the NATS reply subject when the request uses
+request/reply.
+
+**Subject:** `FALCON.CAPABILITY_PAYLOAD`
+
+```yaml
+channel: CAPABILITY_PAYLOAD
+parameters:
+  timestamp: int
+  port: string             # Resolved InstrumentPort cereal JSON
+  port_name: string        # Fully qualified canonical port name
+  device_name: string      # Logical device connection
+  instrument_name: string  # ISS instrument identifier
+  channel_name: string     # Instrument channel group
+  channel_index: int       # 1-based instrument channel index
+  capability: string       # IO/capability name
+  role: string             # input, output, or setting
+  unit: string             # Unit symbol
+  error: string            # Present when lookup or serialization fails
+```
+
+**Go Type:**
+```go
+type CapabilityPayload struct {
+    Timestamp      int64  `json:"timestamp"`
+    Port           string `json:"port"`
+    PortName       string `json:"port_name"`
+    DeviceName     string `json:"device_name"`
+    InstrumentName string `json:"instrument_name"`
+    ChannelName    string `json:"channel_name"`
+    ChannelIndex   int    `json:"channel_index"`
+    Capability     string `json:"capability"`
+    Role           string `json:"role"`
+    Unit           string `json:"unit"`
+    Error          string `json:"error,omitempty"`
+}
+```
+
 ## Instrument Coordination Channels
 
 ### SET

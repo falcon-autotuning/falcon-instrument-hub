@@ -164,6 +164,29 @@ type PortPayload struct {
 	Meters    string `yaml:"meters" json:"meters"`       // All of the meters attached to the instrument server
 }
 
+// CapabilityRequest: Request one connected port by logical device name and capability
+type CapabilityRequest struct {
+	DeviceName string `yaml:"device_name" json:"device_name"` // Logical device connection name, e.g. O1
+	Capability string `yaml:"capability" json:"capability"`   // IO/capability name, e.g. trigger_level
+	Role       string `yaml:"role" json:"role"`               // Port role: input, output, or setting
+	Timestamp  int64  `yaml:"timestamp" json:"timestamp"`     // When the response was completed
+}
+
+// CapabilityPayload: Response containing one resolved connected port
+type CapabilityPayload struct {
+	Timestamp      int64  `yaml:"timestamp" json:"timestamp"`             // Correlates this payload with the request
+	Port           string `yaml:"port" json:"port"`                       // Resolved InstrumentPort cereal JSON
+	PortName       string `yaml:"port_name" json:"port_name"`             // Fully qualified canonical port name
+	DeviceName     string `yaml:"device_name" json:"device_name"`         // Logical device connection name
+	InstrumentName string `yaml:"instrument_name" json:"instrument_name"` // ISS instrument identifier
+	ChannelName    string `yaml:"channel_name" json:"channel_name"`       // Instrument channel group name
+	ChannelIndex   int    `yaml:"channel_index" json:"channel_index"`     // 1-based instrument channel index
+	Capability     string `yaml:"capability" json:"capability"`           // IO/capability name
+	Role           string `yaml:"role" json:"role"`                       // Port role
+	Unit           string `yaml:"unit" json:"unit"`                       // Unit symbol
+	Error          string `yaml:"error,omitempty" json:"error,omitempty"` // Lookup or serialization error
+}
+
 // DeviceConfigRequest: A request for the device configuration
 type DeviceConfigRequest struct {
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
@@ -215,6 +238,8 @@ var CommandRegistry = map[string]interface{}{
 	"BUSY":                      Busy{},
 	"PORT_REQUEST":              PortRequest{},
 	"PORT_PAYLOAD":              PortPayload{},
+	"CAPABILITY_REQUEST":        CapabilityRequest{},
+	"CAPABILITY_PAYLOAD":        CapabilityPayload{},
 	"DEVICE_CONFIG_REQUEST":     DeviceConfigRequest{},
 	"DEVICE_CONFIG_RESPONSE":    DeviceConfigResponse{},
 	"MEASURE_COMMAND":           MeasureCommand{},

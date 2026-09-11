@@ -35,6 +35,7 @@ type Manager struct {
 	measureCommandHandler *MeasureCommandHandler
 	statusHandler         *StatusHandler
 	portRequestHandler    *PortRequestHandler
+	capabilityHandler     *CapabilityLookupHandler
 	natsURL               string
 	isBusy                bool
 }
@@ -75,6 +76,11 @@ func NewManager(
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
 		portRequestHandler: NewPortRequestHandler(
+			logger,
+			instrumentHandler,
+			cfg,
+		),
+		capabilityHandler: NewCapabilityLookupHandler(
 			logger,
 			instrumentHandler,
 			cfg,
@@ -204,6 +210,11 @@ func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 			name:    "port request handler",
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
+		},
+		{
+			name:    "capability lookup handler",
+			startOp: func() error { return m.capabilityHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.capabilityHandler.Unsubscribe() },
 		},
 	}
 	if includeStatus {

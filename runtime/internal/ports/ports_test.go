@@ -90,10 +90,12 @@ func TestConnectWireMap(t *testing.T) {
 		assert.Equal(t, "analog", cp.ChannelName)
 		assert.Equal(t, 4, cp.ChannelIndex)
 		if cp.IsKnob() {
+			assert.Equal(t, "voltage", cp.IoTypeName)
 			assert.Equal(t, "dc_voltage_source", cp.InstrumentType)
 			knobs++
 		}
 		if cp.IsMeter() {
+			assert.Equal(t, "measured_voltage", cp.IoTypeName)
 			assert.Equal(t, "voltmeter", cp.InstrumentType)
 			meters++
 		}
