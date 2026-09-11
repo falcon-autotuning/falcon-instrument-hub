@@ -87,6 +87,7 @@ This replaces the current `BuildConfigurations()` / `PortOptions` cache lookup.
 1. `cd runtime && go build -tags cgo,falcon_core ./...` — zero errors
 2. `go test -tags cgo,falcon_core ./internal/ports/...` — new unit tests using `test_data/`
 3. `go test -tags cgo,falcon_core ./...` — all existing tests pass
+4. `make test-schema` — wiremap schema validator builds and validates good/bad fixtures
 
 ---
 

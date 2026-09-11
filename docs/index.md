@@ -59,6 +59,16 @@ make install
 make build-go
 ```
 
+### Testing
+
+```bash
+# Run Go tests and schema validator tests
+make test
+
+# Run only wiremap schema validator tests
+make test-schema
+```
+
 ### Quick Start
 
 ```bash
@@ -89,7 +99,7 @@ On shutdown (SIGINT / SIGTERM) the hub automatically stops the ISS daemon.
 
 ### Documentation Guide
 
-- **[Device Configuration](CONFIG_VALIDATION.md)** - Configure quantum dot devices and gate mappings
+- **[Configuration Validation](CONFIG_VALIDATION.md)** - Validate wiremap files and review the wiremap schema
 - **[Lua Script Authoring](LUA_SCRIPT_AUTHORING.md)** - Write custom measurement scripts
 - **[Server & Interpreter](server-interpreter.md)** - Understand the hub's server architecture
 - **[NATS Protocol](nats-protocol.md)** - Communication protocol with falcon-core
@@ -113,9 +123,11 @@ The hub supports 1D array-style quantum dot devices with parallel charge sensors
 - **Gate Types**: Screening, Plunger, Barrier, Reservoir, and Ohmic gates
 - **Channel Groups**: Organize gates into readout channels
 - **DC Wiring**: Specify parasitic resistance and capacitance
-- **Wire Maps**: Physical connections between instruments and device
+- **Wire Maps**: Logical device connections mapped to physical instrument endpoints
 
-See [Device Configuration](CONFIG_VALIDATION.md) for complete details.
+Wiremap files are validated by the shipped `validate-wiremap-config` tool. See
+[Configuration Validation](CONFIG_VALIDATION.md) for the schema, validator
+commands, and installed paths.
 
 ## Contributing
 
@@ -123,4 +135,4 @@ Contributions are welcome! Please follow the project's coding standards and test
 
 ## License
 
-See [LICENSE](../LICENSE.txt) for details.
+See [LICENSE](../LICENSE) for details.

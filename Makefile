@@ -6,6 +6,7 @@ PRESET ?= linux-clang-release
 VCPKG_TRIPLET ?= x64-linux-dynamic
 LOCAL_VCPKG_INSTALLED := $(abspath vcpkg_installed/$(VCPKG_TRIPLET))
 LOCAL_PKGCONFIG := $(LOCAL_VCPKG_INSTALLED)/lib/pkgconfig
+SCHEMA_BUILD_DIR ?= build/wiremap-validator
 
 # Default target
 .PHONY: all
@@ -76,8 +77,25 @@ test-go: go-mod-prepare build-go
 test-go-short: go-mod-prepare build-go
 	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core -short ./...
 
+.PHONY: configure-schema
+configure-schema: vcpkg-bootstrap
+	cmake -S . -B $(SCHEMA_BUILD_DIR) -G Ninja \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DBUILD_TESTING=ON \
+		-DCMAKE_TOOLCHAIN_FILE="$(abspath vcpkg/scripts/buildsystems/vcpkg.cmake)" \
+		-DVCPKG_INSTALLED_DIR="$(abspath vcpkg_installed)" \
+		-DVCPKG_OVERLAY_TRIPLETS="$(abspath my-vcpkg-triplets)" \
+		-DVCPKG_OVERLAY_PORTS="$(abspath ports)" \
+		-DVCPKG_TARGET_TRIPLET="$(VCPKG_TRIPLET)" \
+		-DCMAKE_PREFIX_PATH="$(LOCAL_VCPKG_INSTALLED)/share;$(abspath vcpkg_installed)"
+
+.PHONY: test-schema
+test-schema: configure-schema
+	cmake --build $(SCHEMA_BUILD_DIR) --target validate-wiremap-config
+	ctest --test-dir $(SCHEMA_BUILD_DIR) --output-on-failure
+
 .PHONY: test
-test: test-go
+test: test-go test-schema
 
 .PHONY: test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration
 test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration: test-go

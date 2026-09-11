@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://falcon.io/schemas/wiremap.json",
+  "title": "Instrument Wiremap",
+  "description": "Maps logical device connection names to concrete instrument channel endpoints.",
+  "type": "object",
+  "required": [
+    "wiremap"
+  ],
+  "properties": {
+    "wiremap": {
+      "type": "array",
+      "description": "Logical-to-physical connection mappings.",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/wiremapEntry"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "connectionName": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]*$",
+      "description": "Identifier beginning with a letter and containing only letters, digits, underscores, or hyphens."
+    },
+    "wiremapEntry": {
+      "type": "object",
+      "required": [
+        "name",
+        "instrument"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/connectionName",
+          "description": "Logical device connection name, for example P1, B2, or O1."
+        },
+        "instrument": {
+          "$ref": "#/definitions/instrumentEndpoint"
+        }
+      },
+      "additionalProperties": false
+    },
+    "instrumentEndpoint": {
+      "type": "object",
+      "required": [
+        "name",
+        "channel_name",
+        "index"
+      ],
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/connectionName",
+          "description": "Instrument instance name, for example Source1 or Meter1."
+        },
+        "channel_name": {
+          "$ref": "#/definitions/connectionName",
+          "description": "Instrument channel family used by the hub when building endpoint keys."
+        },
+        "index": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "One-based physical channel index."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

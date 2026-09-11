@@ -1,126 +1,110 @@
 # Configuration Validation
 
-This directory contains tools for validating the instrument hub configuration against its JSON schema.
+The hub ships a C++ wiremap validator for checking wiremap YAML before startup.
+It validates the file against `schemas/wiremap.schema.json` and performs a
+small semantic pass for duplicate mappings.
 
 ## Quick Start
 
-### Option 1: Using the standalone script
+From the repository root:
 
 ```bash
-# From project root
-python bin/validate_config.py
+make test-schema
 ```
 
-### Option 2: Using Python directly
+This configures a local CMake build in `build/wiremap-validator`, builds
+`validate-wiremap-config`, and runs the validator test suite.
 
-```python
-from pathlib import Path
-from instrument_server.config_validator import validate_config_files
+`make test` runs the existing Go tests plus these schema tests.
 
-# Validate config
-is_valid = validate_config_files(
-    config_path="instrument_hub_config.yaml",
-    schema_path="config.schema.json"
-)
-```
+## Manual Usage
 
-## Installation
-
-Install the required dependencies:
+Build the validator:
 
 ```bash
-pip install -r requirements.txt
+make test-schema
 ```
 
-Or if using the package:
+Validate a wiremap directly:
 
 ```bash
-pip install -e .
+build/wiremap-validator/validate-wiremap-config \
+  test_data/2-dot-1-chargesensor-wiremap.yml
 ```
 
-## Command Line Usage
+Successful validation prints:
 
-```bash
-# Validate with default paths (looks for files in project root)
-python bin/validate_config.py
-
-# Validate with custom paths
-python bin/validate_config.py --config /path/to/config.yaml --schema /path/to/schema.json
-
-# Quiet mode (only exit codes)
-python bin/validate_config.py --quiet
+```text
+Validation succeeded.
 ```
 
-### Exit Codes
+Validation failures return exit code `2` and print one or more errors:
 
-- `0`: Validation successful
-- `1`: Validation failed or error occurred
-
-## Programmatic Usage
-
-```python
-from instrument_server.config_validator import (
-    validate_config_files,
-    load_yaml_config,
-    load_json_schema,
-    validate_config,
-    ConfigValidationError
-)
-
-# Full validation from files
-try:
-    is_valid = validate_config_files("config.yaml", "schema.json")
-    if is_valid:
-        print("Config is valid!")
-except ConfigValidationError as e:
-    print(f"Validation error: {e}")
-
-# Load and validate separately
-config = load_yaml_config("config.yaml")
-schema = load_json_schema("schema.json")
-is_valid, errors = validate_config(config, schema)
-
-if not is_valid:
-    for error in errors:
-        print(error)
+```text
+Validation failed:
+  - /wiremap/1/instrument: duplicate physical instrument endpoint 'Source1.analog.1'; first used at /wiremap/0
 ```
 
-## Cross-Platform Compatibility
+## Wiremap Format
 
-The validation tools are designed to work on both Linux and Windows:
+Wiremaps use a top-level `wiremap` array. Each entry maps one logical device
+connection to one instrument channel endpoint:
 
-- Uses `pathlib.Path` for cross-platform path handling
-- Handles different path separators automatically
-- Works with both Unix and Windows line endings
-- No platform-specific dependencies
-
-## Integration with CI/CD
-
-You can integrate validation into your CI/CD pipeline:
-
-```bash
-# In your CI script
-python bin/validate_config.py || exit 1
+```yaml
+wiremap:
+  - name: P1
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 4
 ```
 
-Or create a pre-commit hook:
+The hub converts each entry into an internal lookup key:
 
-```bash
-#!/bin/bash
-# .git/hooks/pre-commit
-python bin/validate_config.py --quiet
-if [ $? -ne 0 ]; then
-    echo "Config validation failed. Please fix errors before committing."
-    exit 1
-fi
+```text
+Source1.analog.4 -> P1
 ```
 
-## Features
+## Validation Rules
 
-- ✓ Validates YAML config against JSON Schema (Draft 2020-12)
-- ✓ Clear, human-readable error messages
-- ✓ Cross-platform (Linux/Windows/macOS)
-- ✓ Can be used as library or standalone script
-- ✓ Automatic project root detection
-- ✓ Detailed validation error reporting
-- ✓ Type hints for better IDE support
+The JSON schema checks:
+
+- top-level document is an object with only `wiremap`
+- `wiremap` is a non-empty array
+- every entry has `name` and `instrument`
+- every `instrument` has `name`, `channel_name`, and one-based integer `index`
+- identifiers start with a letter and contain only letters, digits, underscores,
+  or hyphens
+- extra fields are rejected
+
+The C++ semantic pass also checks:
+
+- no duplicate logical connection names
+- no duplicate physical endpoints
+
+## Test Fixtures
+
+The schema tests include the real fixture:
+
+```text
+test_data/2-dot-1-chargesensor-wiremap.yml
+```
+
+Invalid fixtures live under:
+
+```text
+tests/wiremap/
+```
+
+They cover missing required fields, bad names, unknown fields, duplicate logical
+names, and duplicate physical endpoints.
+
+## Installed Layout
+
+When installed through CMake or the hub package, the validator and schema are
+installed as:
+
+```text
+bin/validate-wiremap-config
+share/falcon-instrument-hub/schemas/wiremap.schema.json
+```

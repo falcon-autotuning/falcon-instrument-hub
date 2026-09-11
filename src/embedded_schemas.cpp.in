@@ -1,0 +1,8 @@
+// Auto-generated file - do not edit manually.
+
+namespace hub_schema {
+
+extern const char WIREMAP_SCHEMA[] =
+    R"schema(@WIREMAP_SCHEMA@)schema";
+
+} // namespace hub_schema

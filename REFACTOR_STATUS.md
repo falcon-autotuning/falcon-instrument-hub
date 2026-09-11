@@ -45,33 +45,34 @@ runtime if called. `RunMeasurement` uses the correct new API and should be the o
 
 ---
 
-## 3. `serverinterpreter/hub_config.go` — `WireMapConfig`/`LoadWireMapConfig` is broken and redundant
-
-`hub_config.go` defines `WireMapConfig` with a `Mappings map[string]WireMapping` field and
-expects a YAML schema with a `mappings:` top-level key. The actual wiremap format used by the
-test and the controller is a flat `InstrumentName.Channel: GateName` mapping, for example:
+## 3. Wiremap loading and validation
 
 ```yaml
-Source1.4: P1
-Meter1.1: O2
+wiremap:
+  - name: P1
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 4
 ```
 
-This format is **already handled correctly** by `internal/config.loadWireMap`, which parses the
-wiremap into `WireMap = map[InstrumentConnection]InstrumentConnection` (i.e. `"Source1.4" → "P1"`).
-That map is stored in `config.Config.WireMap` and is passed to `handlers.Manager` via `NewManager`.
+The active wiremap loader is `internal/config.loadWireMap`. It parses the top-level `wiremap`
+array and stores it as `WireMap = map[InstrumentConnection]InstrumentConnection`, using keys
+such as `"Source1.analog.4" -> "P1"`. That map is stored in `config.Config.WireMap` and is
+passed to `handlers.Manager` via `NewManager`.
 
-`LoadWireMapConfig()` on `HubConfig` would silently produce an empty `WireMapConfig.Mappings`
-map when called on the real wiremap file, with no error, because the top-level key `"mappings"`
-doesn't exist. It does not return an error — it just gives you nothing.
+The hub ships `schemas/wiremap.schema.json` and a C++ `validate-wiremap-config` tool. The
+validator catches structural errors and rejects duplicate logical names or duplicate physical
+endpoints before the runtime loader collapses entries into a map.
 
-**Action needed:** Remove `WireMapConfig`, `WireMapping`, and `LoadWireMapConfig` from
-`hub_config.go`. The correct wiremap data is already in `config.Config.WireMap`.
+**Status:** Current format and validator are aligned. Keep future loader changes mirrored in
+`schemas/wiremap.schema.json` and `docs/CONFIG_VALIDATION.md`.
 
 ---
 
 ## 4. `handlers/measure_command_handler.go` — Wiremap is available but not reachable
 
-`Manager.config.WireMap` contains the parsed flat wiremap (`"Source1.4" → "P1"`). To build the
+`Manager.config.WireMap` contains the parsed wiremap (`"Source1.analog.4" → "P1"`). To build the
 Lua globals in `handleMessage`, the handler needs the reverse lookup: given a gate name from the
 `MeasurementRequest` setter port (e.g. `"P1"`), find `{id: "Source1", channel: 4}`.
 
@@ -185,6 +186,9 @@ compiled by default. This must change for the hub to produce a valid `Measuremen
    `vcpkg_installed` to use `${pcfiledir}/../..`.
 2. Update `Makefile` to add `-tags falcon_core` to the `build-go` target and use the hub's own
    `vcpkg_installed` for `PKG_CONFIG_PATH` and `LD_LIBRARY_PATH`.
+
+The Makefile also exposes `make test-schema`, which builds the C++ wiremap validator under
+`build/wiremap-validator` using the hub's own `vcpkg_installed`.
 
 ---
 

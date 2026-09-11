@@ -1,0 +1,6 @@
+wiremap:
+  - name: "P 1"
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 1

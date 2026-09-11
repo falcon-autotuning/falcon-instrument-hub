@@ -5,12 +5,14 @@ wiremap:
       channel_name: yyy
       index: 1
 
-  - instrument:
+  - name: P2
+    instrument:
       name: www
       channel_name: zzzz
       index: 2
 
-  - instrument:
+  - name: P3
+    instrument:
       name: qqq
       channel_name: yyy
       index: 3

@@ -1,0 +1,7 @@
+wiremap:
+  - name: P1
+    note: extra fields should fail validation
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 1

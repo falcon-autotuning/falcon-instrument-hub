@@ -1,0 +1,11 @@
+wiremap:
+  - name: P1
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 1
+  - name: P1
+    instrument:
+      name: Source1
+      channel_name: analog
+      index: 2
