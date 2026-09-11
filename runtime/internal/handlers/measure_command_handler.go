@@ -56,6 +56,9 @@ func inferSetterOnlyScriptName(setters []serverinterpreter.ExtractedInstrumentIn
 		switch {
 		case strings.Contains(lowerCandidate, "sample_rate"):
 			return "set_sample_rate"
+		case strings.Contains(lowerCandidate, "trigger_level"),
+			strings.Contains(lowerCandidate, "trigger level"):
+			return "set_trigger_level"
 		case strings.Contains(lowerCandidate, "trigger_leader"),
 			strings.Contains(lowerCandidate, "trigger leader"):
 			return "set_trigger_leader"
@@ -157,7 +160,7 @@ type MeasureCommandHandler struct {
 	sampleRates        map[string]float64
 	numberOfSamples    map[string]int
 	slopes             map[string]float64
-	triggerLeaders     map[string]bool
+	triggerLevels      map[string]float64
 }
 
 // NewMeasureCommandHandler creates a new handler
@@ -180,7 +183,7 @@ func NewMeasureCommandHandler(
 		sampleRates:        map[string]float64{},
 		numberOfSamples:    map[string]int{},
 		slopes:             map[string]float64{},
-		triggerLeaders:     map[string]bool{},
+		triggerLevels:      map[string]float64{},
 	}
 }
 
@@ -518,7 +521,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 
 	if scriptName == "get_voltage" || scriptName == "get_sample_rate" ||
 		scriptName == "get_number_of_samples" || scriptName == "get_slope" ||
-		scriptName == "get_trigger_leader" {
+		scriptName == "get_trigger_level" || scriptName == "get_trigger_leader" {
 		getters, err := falconReq.ExtractGetters()
 		if err != nil || len(getters) == 0 {
 			h.logger.Error(MeasureCommandHandlerName,
@@ -565,8 +568,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		voltage, hasVoltage := h.voltages[stateKey]
 		sampleRate, hasSampleRate := h.sampleRates[stateKey]
 		numberOfSamples, hasNumberOfSamples := h.numberOfSamples[stateKey]
-		slope, hasSlope := h.slopes[stateKey]
-		triggerLeader, hasTriggerLeader := h.triggerLeaders[stateKey]
+		slope, _ := h.slopes[stateKey]
+		triggerLevel, hasTriggerLevel := h.triggerLevels[stateKey]
 		h.stateMu.Unlock()
 
 		switch scriptName {
@@ -588,8 +591,14 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				"name": "slope",
 				"type": "number",
 			})
+		case "get_trigger_level":
+			globals["triggerLevel"] = triggerLevel
+			parameters = append(parameters, map[string]interface{}{
+				"name": "triggerLevel",
+				"type": "number",
+			})
 		case "get_trigger_leader":
-			globals["triggerLeader"] = triggerLeader
+			globals["triggerLeader"] = triggerLevel != 0
 			parameters = append(parameters, map[string]interface{}{
 				"name": "triggerLeader",
 				"type": "boolean",
@@ -646,17 +655,9 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				if hasNumberOfSamples {
 					bufferData = []float64{float64(numberOfSamples)}
 				}
-			case "get_slope":
-				if hasSlope {
-					bufferData = []float64{slope}
-				}
 			case "get_trigger_leader":
-				if hasTriggerLeader {
-					if triggerLeader {
-						bufferData = []float64{1.0}
-					} else {
-						bufferData = []float64{0.0}
-					}
+				if hasTriggerLevel {
+					bufferData = []float64{triggerLevel}
 				}
 			}
 			if len(bufferData) > 0 {
@@ -722,7 +723,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 
 	if scriptName == "set_voltage" || scriptName == "set_sample_rate" ||
 		scriptName == "set_number_of_samples" || scriptName == "set_slope" ||
-		scriptName == "set_trigger_leader" {
+		scriptName == "set_trigger_level" || scriptName == "set_trigger_leader" {
 		waveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 0)
 		if err != nil {
 			h.logger.Error(MeasureCommandHandlerName,
@@ -759,6 +760,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		case "set_slope":
 			targetName = "setter"
 			valueName = "slope"
+			responseValue = scalarValue
+		case "set_trigger_level":
+			targetName = "getter"
+			valueName = "triggerLevel"
 			responseValue = scalarValue
 		case "set_trigger_leader":
 			targetName = "getter"
@@ -809,8 +814,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			h.numberOfSamples[stateKey] = int(responseValue)
 		case "set_slope":
 			h.slopes[stateKey] = responseValue
+		case "set_trigger_level":
+			h.triggerLevels[stateKey] = responseValue
 		case "set_trigger_leader":
-			h.triggerLeaders[stateKey] = true
+			h.triggerLevels[stateKey] = 1.0
 		}
 		h.stateMu.Unlock()
 
