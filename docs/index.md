@@ -91,7 +91,7 @@ instrument-hub start \
 | `--wiremap` | — | Wiremap YAML |
 | `--nats-url` | — | External NATS URL; omit to use embedded NATS |
 | `--working-dir` | `.` | Directory for logs, data, and datacache |
-| `--iss-binary` | `/opt/falcon/bin/instrument-script-server` | ISS binary path |
+| `--iss-binary` | `/opt/instrument-controller/bin/instrument-script-server` | ISS binary path |
 | `--iss-lib-path` | — | Prepended to `LD_LIBRARY_PATH` for ISS |
 | `--no-iss` | false | Skip auto-starting ISS daemon |
 

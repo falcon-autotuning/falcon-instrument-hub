@@ -72,7 +72,7 @@ func init() {
 	startCmd.Flags().
 		StringVar(&hubconfig, "hub-config", "", "path to instrument_hub_config.yaml (sets device-config, wiremap, nats-url if not provided)")
 	startCmd.Flags().
-		StringVar(&issBinary, "iss-binary", "/opt/falcon/bin/instrument-script-server", "path to instrument-script-server binary")
+		StringVar(&issBinary, "iss-binary", "/opt/instrument-controller/bin/instrument-script-server", "path to instrument-script-server binary")
 	startCmd.Flags().
 		StringVar(&issLibPath, "iss-lib-path", "", "additional library path prepended to LD_LIBRARY_PATH for instrument-script-server")
 	startCmd.Flags().
