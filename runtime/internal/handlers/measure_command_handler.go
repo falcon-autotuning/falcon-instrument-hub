@@ -84,6 +84,108 @@ func targetStateKey(id string, channel int) string {
 	return fmt.Sprintf("%s:%d", id, channel)
 }
 
+type scriptPortRequirement struct {
+	capability string
+	role       string
+}
+
+type scriptTarget struct {
+	id      string
+	channel int
+}
+
+func (t scriptTarget) asMap() map[string]interface{} {
+	return map[string]interface{}{
+		"id":      t.id,
+		"channel": t.channel,
+	}
+}
+
+func (t scriptTarget) stateKey() string {
+	return targetStateKey(t.id, t.channel)
+}
+
+// scriptPortRequirementForTarget captures the capability a script intends to
+// use for each Lua InstrumentTarget it receives.
+func scriptPortRequirementForTarget(scriptName, targetKind string) (scriptPortRequirement, bool) {
+	switch targetKind {
+	case "setter":
+		switch scriptName {
+		case "set_voltage", "set_many_voltages", "ramp",
+			"measure_get_set", "measure_1D_buffered", "measure_2D_buffered":
+			return scriptPortRequirement{capability: "voltage", role: "output"}, true
+		case "set_slope":
+			return scriptPortRequirement{capability: "slope", role: "setting"}, true
+		}
+	case "getter":
+		switch scriptName {
+		case "get_voltage", "get_many_voltages", "get_all_voltages", "measure_leakage":
+			return scriptPortRequirement{capability: "measured_voltage", role: "input"}, true
+		case "measure_current", "measure_illumination":
+			return scriptPortRequirement{capability: "voltage", role: "input"}, true
+		case "measure_get_set", "measure_1D_buffered", "measure_2D_buffered":
+			return scriptPortRequirement{capability: "stream", role: "input"}, true
+		case "set_sample_rate", "get_sample_rate":
+			return scriptPortRequirement{capability: "sample_rate", role: "setting"}, true
+		case "set_number_of_samples", "get_number_of_samples":
+			return scriptPortRequirement{capability: "bins", role: "setting"}, true
+		case "set_trigger_level", "get_trigger_level", "set_trigger_leader", "get_trigger_leader":
+			return scriptPortRequirement{capability: "trigger_level", role: "setting"}, true
+		}
+	}
+	return scriptPortRequirement{}, false
+}
+
+func (h *MeasureCommandHandler) resolveScriptTarget(
+	scriptName string,
+	targetKind string,
+	info serverinterpreter.ExtractedInstrumentInfo,
+	revWire map[string]config.InstrumentConnection,
+) (scriptTarget, error) {
+	gateName, err := gateNameFromConnectionJSON(info.ConnectionJSON)
+	if err != nil {
+		return scriptTarget{}, fmt.Errorf("failed to get %s gate name: %w", targetKind, err)
+	}
+
+	return h.resolveScriptTargetForGate(scriptName, targetKind, gateName, revWire)
+}
+
+func (h *MeasureCommandHandler) resolveScriptTargetForGate(
+	scriptName string,
+	targetKind string,
+	gateName string,
+	revWire map[string]config.InstrumentConnection,
+) (scriptTarget, error) {
+	if req, ok := scriptPortRequirementForTarget(scriptName, targetKind); ok && h.instrumentHandler != nil {
+		connectedPort, err := h.instrumentHandler.ResolveConnectedPort(gateName, req.capability, req.role)
+		if err != nil {
+			return scriptTarget{}, fmt.Errorf(
+				"failed to resolve %s %q capability %q role %q for gate %q: %w",
+				targetKind,
+				scriptName,
+				req.capability,
+				req.role,
+				gateName,
+				err,
+			)
+		}
+		return scriptTarget{
+			id:      connectedPort.InstrumentName,
+			channel: connectedPort.ChannelIndex,
+		}, nil
+	}
+
+	wireEntry, ok := revWire[gateName]
+	if !ok {
+		return scriptTarget{}, fmt.Errorf("%s gate %q not found in wiremap", targetKind, gateName)
+	}
+	instrumentID, channelIndex, ok := parseWireMapEntry(wireEntry)
+	if !ok {
+		return scriptTarget{}, fmt.Errorf("failed to parse %s wiremap entry %q", targetKind, wireEntry)
+	}
+	return scriptTarget{id: instrumentID, channel: channelIndex}, nil
+}
+
 func measurementResponseSubject(timestamp int64) string {
 	return MeasureResponseSubject + "." + strconv.FormatInt(timestamp, 10)
 }
@@ -331,29 +433,14 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		cachedVoltages := make([][]float64, len(getters))
 
 		for i, getter := range getters {
-			getterGate, err := gateNameFromConnectionJSON(getter.ConnectionJSON)
+			getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter, revWire)
 			if err != nil {
 				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to get getter gate name at index %d: %v", i, err))
-				return
-			}
-			getterEntry, ok := revWire[getterGate]
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("getter gate %q not found in wiremap", getterGate))
-				return
-			}
-			getterInstrID, getterChIdx, ok := parseWireMapEntry(getterEntry)
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to parse getter wiremap entry %q", getterEntry))
+					fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
 				return
 			}
 
-			getterTargets = append(getterTargets, map[string]interface{}{
-				"id":      getterInstrID,
-				"channel": getterChIdx,
-			})
+			getterTargets = append(getterTargets, getterTarget.asMap())
 			responseTargets = append(responseTargets, measurementResponseTarget{
 				PortJSON:       getter.PortJSON,
 				ConnectionJSON: getter.ConnectionJSON,
@@ -362,7 +449,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			})
 
 			h.stateMu.Lock()
-			if voltage, ok := h.voltages[targetStateKey(getterInstrID, getterChIdx)]; ok {
+			if voltage, ok := h.voltages[getterTarget.stateKey()]; ok {
 				cachedVoltages[i] = []float64{voltage}
 			}
 			h.stateMu.Unlock()
@@ -423,29 +510,14 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		getterTargets := make([]map[string]interface{}, 0, len(getters))
 		responseTargets := make([]measurementResponseTarget, 0, len(getters))
 		for i, getter := range getters {
-			getterGate, err := gateNameFromConnectionJSON(getter.ConnectionJSON)
+			getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter, revWire)
 			if err != nil {
 				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to get getter gate name at index %d: %v", i, err))
-				return
-			}
-			getterEntry, ok := revWire[getterGate]
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("getter gate %q not found in wiremap", getterGate))
-				return
-			}
-			getterInstrID, getterChIdx, ok := parseWireMapEntry(getterEntry)
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to parse getter wiremap entry %q", getterEntry))
+					fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
 				return
 			}
 
-			getterTargets = append(getterTargets, map[string]interface{}{
-				"id":      getterInstrID,
-				"channel": getterChIdx,
-			})
+			getterTargets = append(getterTargets, getterTarget.asMap())
 			responseTargets = append(responseTargets, measurementResponseTarget{
 				PortJSON:       getter.PortJSON,
 				ConnectionJSON: getter.ConnectionJSON,
@@ -536,34 +608,22 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				getters[0].InstrumentFacingName,
 			))
 
-		getterGate, err := gateNameFromConnectionJSON(getters[0].ConnectionJSON)
+		getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0], revWire)
 		if err != nil {
 			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to get getter gate name: %v", err))
-			return
-		}
-		getterEntry, ok := revWire[getterGate]
-		if !ok {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("getter gate %q not found in wiremap", getterGate))
-			return
-		}
-		getterInstrID, getterChIdx, ok := parseWireMapEntry(getterEntry)
-		if !ok {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to parse getter wiremap entry %q", getterEntry))
+				fmt.Sprintf("failed to resolve getter target: %v", err))
 			return
 		}
 
 		globals := map[string]interface{}{
-			"getter": map[string]interface{}{"id": getterInstrID, "channel": getterChIdx},
+			"getter": getterTarget.asMap(),
 		}
 		parameters := []map[string]interface{}{
 			{"name": "ctx", "type": "RuntimeContext"},
 			{"name": "getter", "type": "InstrumentTarget"},
 		}
 
-		stateKey := targetStateKey(getterInstrID, getterChIdx)
+		stateKey := getterTarget.stateKey()
 		h.stateMu.Lock()
 		voltage, hasVoltage := h.voltages[stateKey]
 		sampleRate, hasSampleRate := h.sampleRates[stateKey]
@@ -701,26 +761,6 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			setters[0].InstrumentFacingName,
 		))
 
-	// Setter: ConnectionJSON → gate name → reverse wiremap → {id, channel}
-	setterGate, err := gateNameFromConnectionJSON(setters[0].ConnectionJSON)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to get setter gate name: %v", err))
-		return
-	}
-	setterEntry, ok := revWire[setterGate]
-	if !ok {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("setter gate %q not found in wiremap", setterGate))
-		return
-	}
-	setterInstrID, setterChIdx, ok := parseWireMapEntry(setterEntry)
-	if !ok {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to parse setter wiremap entry %q", setterEntry))
-		return
-	}
-
 	if scriptName == "set_voltage" || scriptName == "set_sample_rate" ||
 		scriptName == "set_number_of_samples" || scriptName == "set_slope" ||
 		scriptName == "set_trigger_level" || scriptName == "set_trigger_leader" {
@@ -740,7 +780,6 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		valueName := "setVoltage"
 		responseValue := scalarValue
 		globals := map[string]interface{}{}
-		targetValue := map[string]interface{}{"id": setterInstrID, "channel": setterChIdx}
 		includeValue := true
 		valueType := "number"
 
@@ -773,6 +812,14 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			valueType = ""
 		}
 
+		target, err := h.resolveScriptTarget(scriptName, targetName, setters[0], revWire)
+		if err != nil {
+			h.logger.Error(MeasureCommandHandlerName,
+				fmt.Sprintf("failed to resolve %s target: %v", targetName, err))
+			return
+		}
+		targetValue := target.asMap()
+
 		globals[targetName] = targetValue
 		if includeValue {
 			if scriptName == "set_number_of_samples" {
@@ -803,7 +850,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			return
 		}
 
-		stateKey := targetStateKey(setterInstrID, setterChIdx)
+		stateKey := target.stateKey()
 		h.stateMu.Lock()
 		switch scriptName {
 		case "set_voltage":
@@ -846,22 +893,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		responseTargets := make([]measurementResponseTarget, 0, len(setters))
 
 		for i, setter := range setters {
-			setterGate, err := gateNameFromConnectionJSON(setter.ConnectionJSON)
+			setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setter, revWire)
 			if err != nil {
 				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to get setter gate name at index %d: %v", i, err))
-				return
-			}
-			setterEntry, ok := revWire[setterGate]
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("setter gate %q not found in wiremap", setterGate))
-				return
-			}
-			setterInstrID, setterChIdx, ok := parseWireMapEntry(setterEntry)
-			if !ok {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to parse setter wiremap entry %q", setterEntry))
+					fmt.Sprintf("failed to resolve setter target at index %d: %v", i, err))
 				return
 			}
 
@@ -877,13 +912,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				scalarValue = waveformData.RawTimeTrace[0][0]
 			}
 
-			setterTargets = append(setterTargets, map[string]interface{}{
-				"id":      setterInstrID,
-				"channel": setterChIdx,
-			})
-			setVoltages[fmt.Sprintf("%s:%d", setterInstrID, setterChIdx)] = scalarValue
+			setterTargets = append(setterTargets, setterTarget.asMap())
+			setVoltages[setterTarget.stateKey()] = scalarValue
 			h.stateMu.Lock()
-			h.voltages[targetStateKey(setterInstrID, setterChIdx)] = scalarValue
+			h.voltages[setterTarget.stateKey()] = scalarValue
 			h.stateMu.Unlock()
 			responseTargets = append(responseTargets, measurementResponseTarget{
 				BufferData:     []float64{scalarValue},
@@ -933,23 +965,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		return
 	}
 
-	// Getter: ConnectionJSON → gate name → reverse wiremap → {id, channel}
-	getterGate, err := gateNameFromConnectionJSON(getters[0].ConnectionJSON)
+	getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0], revWire)
 	if err != nil {
 		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to get getter gate name: %v", err))
-		return
-	}
-	getterEntry, ok := revWire[getterGate]
-	if !ok {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("getter gate %q not found in wiremap", getterGate))
-		return
-	}
-	getterInstrID, getterChIdx, ok := parseWireMapEntry(getterEntry)
-	if !ok {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to parse getter wiremap entry %q", getterEntry))
+			fmt.Sprintf("failed to resolve getter target: %v", err))
 		return
 	}
 
@@ -967,10 +986,7 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		}
 
 		globals := map[string]interface{}{
-			"getter": map[string]interface{}{
-				"id":      getterInstrID,
-				"channel": getterChIdx,
-			},
+			"getter":  getterTarget.asMap(),
 			"voltage": leakageVoltage,
 		}
 		typeManifest := map[string]interface{}{
@@ -1016,6 +1032,13 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		return
 	}
 
+	setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[0], revWire)
+	if err != nil {
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to resolve setter target: %v", err))
+		return
+	}
+
 	waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
 	if err != nil {
 		h.logger.Error(MeasureCommandHandlerName,
@@ -1036,22 +1059,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 	var typeManifest map[string]interface{}
 	if len(setters) >= 2 {
 		// 2D sweep: fast axis = setters[0], slow axis = setters[1]
-		slowSetterGate, err := gateNameFromConnectionJSON(setters[1].ConnectionJSON)
+		slowSetterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[1], revWire)
 		if err != nil {
 			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to get slow setter gate name: %v", err))
-			return
-		}
-		slowSetterEntry, ok := revWire[slowSetterGate]
-		if !ok {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("slow setter gate %q not found in wiremap", slowSetterGate))
-			return
-		}
-		slowSetterInstrID, slowSetterChIdx, ok := parseWireMapEntry(slowSetterEntry)
-		if !ok {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to parse slow setter wiremap entry %q", slowSetterEntry))
+				fmt.Sprintf("failed to resolve slow setter target: %v", err))
 			return
 		}
 		slowWaveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 1)
@@ -1079,24 +1090,24 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 			globals = map[string]interface{}{
 				"bufferedXSetters": []map[string]interface{}{
-					{"id": setterInstrID, "channel": setterChIdx},
+					setterTarget.asMap(),
 				},
 				"sampleRate": 1000,
 				"bufferedGetters": []map[string]interface{}{
-					{"id": getterInstrID, "channel": getterChIdx},
+					getterTarget.asMap(),
 				},
 				"bufferedYSetters": []map[string]interface{}{
-					{"id": slowSetterInstrID, "channel": slowSetterChIdx},
+					slowSetterTarget.asMap(),
 				},
 				"numXSteps": numXSteps,
 				"setYVoltageDomains": map[string]interface{}{
-					slowSetterInstrID: map[string]interface{}{
+					slowSetterTarget.id: map[string]interface{}{
 						"min": slowWaveformData.TimeDomain.Min,
 						"max": slowWaveformData.TimeDomain.Max,
 					},
 				},
 				"setXVoltageDomains": map[string]interface{}{
-					setterInstrID: map[string]interface{}{
+					setterTarget.id: map[string]interface{}{
 						"min": waveformData.TimeDomain.Min,
 						"max": waveformData.TimeDomain.Max,
 					},
@@ -1122,11 +1133,11 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 		} else {
 			globals = map[string]interface{}{
-				"getters":           []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+				"getters":           []map[string]interface{}{getterTarget.asMap()},
 				"fastSweepVoltages": sweepVoltages,
 				"slowSweepVoltages": slowSweepVoltages,
-				"fastSetter":        map[string]interface{}{"id": setterInstrID, "channel": setterChIdx},
-				"slowSetter":        map[string]interface{}{"id": slowSetterInstrID, "channel": slowSetterChIdx},
+				"fastSetter":        setterTarget.asMap(),
+				"slowSetter":        slowSetterTarget.asMap(),
 			}
 			typeManifest = map[string]interface{}{
 				"parameters": []map[string]interface{}{
@@ -1153,13 +1164,13 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				}
 			}
 			globals = map[string]interface{}{
-				"getters":    []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
+				"getters":    []map[string]interface{}{getterTarget.asMap()},
 				"numPoints":  numPoints,
 				"sampleRate": sampleRate,
 				"setVoltages": map[string]interface{}{
-					setterInstrID: setVoltage,
+					setterTarget.id: setVoltage,
 				},
-				"setters": []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+				"setters": []map[string]interface{}{setterTarget.asMap()},
 			}
 			typeManifest = map[string]interface{}{
 				"parameters": []map[string]interface{}{
@@ -1180,18 +1191,18 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 				"sampleRate": 1000,
 				"setters":    []map[string]interface{}{},
 				"setVoltageDomains": map[string]interface{}{
-					setterInstrID: map[string]interface{}{
+					setterTarget.id: map[string]interface{}{
 						"min": waveformData.TimeDomain.Min,
 						"max": waveformData.TimeDomain.Max,
 					},
 				},
 				"bufferedGetters": []map[string]interface{}{
-					{"id": getterInstrID, "channel": getterChIdx},
+					getterTarget.asMap(),
 				},
 				"numPoints": 1,
 				"numSteps":  numSteps,
 				"bufferedSetters": []map[string]interface{}{
-					{"id": setterInstrID, "channel": setterChIdx},
+					setterTarget.asMap(),
 				},
 			}
 			typeManifest = map[string]interface{}{
@@ -1209,8 +1220,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		} else {
 			// 1D sweep
 			globals = map[string]interface{}{
-				"getters":       []map[string]interface{}{{"id": getterInstrID, "channel": getterChIdx}},
-				"setters":       []map[string]interface{}{{"id": setterInstrID, "channel": setterChIdx}},
+				"getters":       []map[string]interface{}{getterTarget.asMap()},
+				"setters":       []map[string]interface{}{setterTarget.asMap()},
 				"sweepVoltages": sweepVoltages,
 			}
 			typeManifest = map[string]interface{}{

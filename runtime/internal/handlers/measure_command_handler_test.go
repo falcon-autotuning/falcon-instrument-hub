@@ -15,6 +15,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 )
 
@@ -142,4 +143,67 @@ func TestMeasurementResponseSubject(t *testing.T) {
 		"FALCON.MEASURE_RESPONSE.12345",
 		measurementResponseSubject(12345),
 	)
+}
+
+func TestResolveScriptTargetUsesScriptCapability(t *testing.T) {
+	handler := &MeasureCommandHandler{
+		instrumentHandler: &instrument.Handler{
+			PortConnections: []ports.ConnectedPort{
+				{
+					DeviceName:     "P1",
+					InstrumentName: "Source1",
+					ChannelIndex:   4,
+					IoTypeName:     "voltage",
+					Role:           "output",
+				},
+				{
+					DeviceName:     "P1",
+					InstrumentName: "Source1",
+					ChannelIndex:   4,
+					IoTypeName:     "measured_voltage",
+					Role:           "input",
+				},
+				{
+					DeviceName:     "O1",
+					InstrumentName: "Meter1",
+					ChannelIndex:   1,
+					IoTypeName:     "sample_rate",
+					Role:           "setting",
+				},
+			},
+		},
+	}
+
+	setterTarget, err := handler.resolveScriptTargetForGate(
+		"set_voltage",
+		"setter",
+		"P1",
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, scriptTarget{id: "Source1", channel: 4}, setterTarget)
+
+	getterTarget, err := handler.resolveScriptTargetForGate(
+		"set_sample_rate",
+		"getter",
+		"O1",
+		nil,
+	)
+	require.NoError(t, err)
+	assert.Equal(t, scriptTarget{id: "Meter1", channel: 1}, getterTarget)
+}
+
+func TestResolveScriptTargetFallsBackToWireMapForUnknownScript(t *testing.T) {
+	handler := &MeasureCommandHandler{}
+
+	target, err := handler.resolveScriptTargetForGate(
+		"custom_script",
+		"getter",
+		"P2",
+		map[string]config.InstrumentConnection{
+			"P2": "Source1.analog.5",
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, scriptTarget{id: "Source1", channel: 5}, target)
 }
