@@ -15,6 +15,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 )
 
@@ -90,8 +91,9 @@ type scriptPortRequirement struct {
 }
 
 type scriptTarget struct {
-	id      string
-	channel int
+	id            string
+	channel       int
+	connectedPort *ports.ConnectedPort
 }
 
 func (t scriptTarget) asMap() map[string]interface{} {
@@ -103,37 +105,6 @@ func (t scriptTarget) asMap() map[string]interface{} {
 
 func (t scriptTarget) stateKey() string {
 	return targetStateKey(t.id, t.channel)
-}
-
-// scriptPortRequirementForTarget captures the capability a script intends to
-// use for each Lua InstrumentTarget it receives.
-func scriptPortRequirementForTarget(scriptName, targetKind string) (scriptPortRequirement, bool) {
-	switch targetKind {
-	case "setter":
-		switch scriptName {
-		case "set_voltage", "set_many_voltages", "ramp",
-			"measure_get_set", "measure_1D_buffered", "measure_2D_buffered":
-			return scriptPortRequirement{capability: "voltage", role: "output"}, true
-		case "set_slope":
-			return scriptPortRequirement{capability: "slope", role: "setting"}, true
-		}
-	case "getter":
-		switch scriptName {
-		case "get_voltage", "get_many_voltages", "get_all_voltages", "measure_leakage":
-			return scriptPortRequirement{capability: "measured_voltage", role: "input"}, true
-		case "measure_current", "measure_illumination":
-			return scriptPortRequirement{capability: "voltage", role: "input"}, true
-		case "measure_get_set", "measure_1D_buffered", "measure_2D_buffered":
-			return scriptPortRequirement{capability: "stream", role: "input"}, true
-		case "set_sample_rate", "get_sample_rate":
-			return scriptPortRequirement{capability: "sample_rate", role: "setting"}, true
-		case "set_number_of_samples", "get_number_of_samples":
-			return scriptPortRequirement{capability: "bins", role: "setting"}, true
-		case "set_trigger_level", "get_trigger_level", "set_trigger_leader", "get_trigger_leader":
-			return scriptPortRequirement{capability: "trigger_level", role: "setting"}, true
-		}
-	}
-	return scriptPortRequirement{}, false
 }
 
 func (h *MeasureCommandHandler) resolveScriptTarget(
@@ -156,7 +127,11 @@ func (h *MeasureCommandHandler) resolveScriptTargetForGate(
 	gateName string,
 	revWire map[string]config.InstrumentConnection,
 ) (scriptTarget, error) {
-	if req, ok := scriptPortRequirementForTarget(scriptName, targetKind); ok && h.instrumentHandler != nil {
+	metadata := h.measurementMetadata
+	if metadata.Measurements == nil {
+		metadata = defaultMeasurementMetadataRegistry()
+	}
+	if req, ok := metadata.requirement(scriptName, targetKind); ok && h.instrumentHandler != nil {
 		connectedPort, err := h.instrumentHandler.ResolveConnectedPort(gateName, req.capability, req.role)
 		if err != nil {
 			return scriptTarget{}, fmt.Errorf(
@@ -169,9 +144,11 @@ func (h *MeasureCommandHandler) resolveScriptTargetForGate(
 				err,
 			)
 		}
+		cp := connectedPort
 		return scriptTarget{
-			id:      connectedPort.InstrumentName,
-			channel: connectedPort.ChannelIndex,
+			id:            connectedPort.InstrumentName,
+			channel:       connectedPort.ChannelIndex,
+			connectedPort: &cp,
 		}, nil
 	}
 
@@ -246,23 +223,44 @@ func parseWireMapEntry(entry config.InstrumentConnection) (instrumentID string, 
 	return strings.Join(parts[:len(parts)-2], "."), idx, true
 }
 
+func responseTargetFromResolvedPort(
+	bufferData []float64,
+	target scriptTarget,
+	connectionJSON string,
+	fallback serverinterpreter.ExtractedInstrumentInfo,
+) measurementResponseTarget {
+	responseTarget := measurementResponseTarget{
+		BufferData:     bufferData,
+		PortJSON:       fallback.PortJSON,
+		ConnectionJSON: connectionJSON,
+		InstrumentType: fallback.InstrumentType,
+		UnitsJSON:      fallback.UnitsJSON,
+	}
+	if target.connectedPort != nil {
+		responseTarget.PortJSON = ""
+		responseTarget.ConnectedPort = target.connectedPort
+	}
+	return responseTarget
+}
+
 // MeasureCommandHandler handles MEASURE_COMMAND requests
 type MeasureCommandHandler struct {
-	logger             *logging.Logger
-	nc                 *nats.Conn
-	js                 nats.JetStreamContext
-	subscription       *nats.Subscription
-	measurementManager *measurements.Manager
-	instrumentHandler  *instrument.Handler
-	busyManager        BusyManager
-	dispatcher         MeasurementDispatcher
-	wireMap            *config.WireMap
-	stateMu            sync.Mutex
-	voltages           map[string]float64
-	sampleRates        map[string]float64
-	numberOfSamples    map[string]int
-	slopes             map[string]float64
-	triggerLevels      map[string]float64
+	logger              *logging.Logger
+	nc                  *nats.Conn
+	js                  nats.JetStreamContext
+	subscription        *nats.Subscription
+	measurementManager  *measurements.Manager
+	instrumentHandler   *instrument.Handler
+	busyManager         BusyManager
+	dispatcher          MeasurementDispatcher
+	wireMap             *config.WireMap
+	stateMu             sync.Mutex
+	voltages            map[string]float64
+	sampleRates         map[string]float64
+	numberOfSamples     map[string]int
+	slopes              map[string]float64
+	triggerLevels       map[string]float64
+	measurementMetadata measurementMetadataRegistry
 }
 
 // NewMeasureCommandHandler creates a new handler
@@ -273,19 +271,24 @@ func NewMeasureCommandHandler(
 	busyManager BusyManager,
 	dispatcher MeasurementDispatcher,
 	wireMap *config.WireMap,
+	measurementMetadata measurementMetadataRegistry,
 ) *MeasureCommandHandler {
+	if measurementMetadata.Measurements == nil {
+		measurementMetadata = defaultMeasurementMetadataRegistry()
+	}
 	return &MeasureCommandHandler{
-		logger:             logger,
-		measurementManager: measurementManager,
-		instrumentHandler:  instrumentHandler,
-		busyManager:        busyManager,
-		dispatcher:         dispatcher,
-		wireMap:            wireMap,
-		voltages:           map[string]float64{},
-		sampleRates:        map[string]float64{},
-		numberOfSamples:    map[string]int{},
-		slopes:             map[string]float64{},
-		triggerLevels:      map[string]float64{},
+		logger:              logger,
+		measurementManager:  measurementManager,
+		instrumentHandler:   instrumentHandler,
+		busyManager:         busyManager,
+		dispatcher:          dispatcher,
+		wireMap:             wireMap,
+		voltages:            map[string]float64{},
+		sampleRates:         map[string]float64{},
+		numberOfSamples:     map[string]int{},
+		slopes:              map[string]float64{},
+		triggerLevels:       map[string]float64{},
+		measurementMetadata: measurementMetadata,
 	}
 }
 
@@ -441,12 +444,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 
 			getterTargets = append(getterTargets, getterTarget.asMap())
-			responseTargets = append(responseTargets, measurementResponseTarget{
-				PortJSON:       getter.PortJSON,
-				ConnectionJSON: getter.ConnectionJSON,
-				InstrumentType: getter.InstrumentType,
-				UnitsJSON:      getter.UnitsJSON,
-			})
+			responseTargets = append(responseTargets,
+				responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
 
 			h.stateMu.Lock()
 			if voltage, ok := h.voltages[getterTarget.stateKey()]; ok {
@@ -518,12 +517,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 
 			getterTargets = append(getterTargets, getterTarget.asMap())
-			responseTargets = append(responseTargets, measurementResponseTarget{
-				PortJSON:       getter.PortJSON,
-				ConnectionJSON: getter.ConnectionJSON,
-				InstrumentType: getter.InstrumentType,
-				UnitsJSON:      getter.UnitsJSON,
-			})
+			responseTargets = append(responseTargets,
+				responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
 		}
 
 		globals := map[string]interface{}{
@@ -726,12 +721,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			}
 		}
 
-		respJSON, err := buildMeasurementResponseJSON(
-			bufferData,
-			getters[0].PortJSON,
-			getters[0].ConnectionJSON,
-			getters[0].InstrumentType,
-			getters[0].UnitsJSON,
+		respJSON, err := buildMeasurementResponseJSONForTargets(
+			[]measurementResponseTarget{
+				responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
+			},
 			cmd.Hash,
 		)
 		if err != nil {
@@ -869,12 +862,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		h.stateMu.Unlock()
 
 		bufferData := []float64{responseValue}
-		respJSON, err := buildMeasurementResponseJSON(
-			bufferData,
-			setters[0].PortJSON,
-			setters[0].ConnectionJSON,
-			setters[0].InstrumentType,
-			setters[0].UnitsJSON,
+		respJSON, err := buildMeasurementResponseJSONForTargets(
+			[]measurementResponseTarget{
+				responseTargetFromResolvedPort(bufferData, target, setters[0].ConnectionJSON, setters[0]),
+			},
 			cmd.Hash,
 		)
 		if err != nil {
@@ -917,13 +908,8 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			h.stateMu.Lock()
 			h.voltages[setterTarget.stateKey()] = scalarValue
 			h.stateMu.Unlock()
-			responseTargets = append(responseTargets, measurementResponseTarget{
-				BufferData:     []float64{scalarValue},
-				PortJSON:       setter.PortJSON,
-				ConnectionJSON: setter.ConnectionJSON,
-				InstrumentType: setter.InstrumentType,
-				UnitsJSON:      setter.UnitsJSON,
-			})
+			responseTargets = append(responseTargets,
+				responseTargetFromResolvedPort([]float64{scalarValue}, setterTarget, setter.ConnectionJSON, setter))
 		}
 
 		globals := map[string]interface{}{
@@ -1014,12 +1000,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 			bufferData = []float64{leakageVoltage}
 		}
 
-		respJSON, err := buildMeasurementResponseJSON(
-			bufferData,
-			getters[0].PortJSON,
-			getters[0].ConnectionJSON,
-			getters[0].InstrumentType,
-			getters[0].UnitsJSON,
+		respJSON, err := buildMeasurementResponseJSONForTargets(
+			[]measurementResponseTarget{
+				responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
+			},
 			cmd.Hash,
 		)
 		if err != nil {
@@ -1259,12 +1243,10 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		fmt.Sprintf("bufferData collected: len=%d", len(bufferData)))
 
 	h.logger.Info(MeasureCommandHandlerName, "Calling buildMeasurementResponseJSON")
-	respJSON, err := buildMeasurementResponseJSON(
-		bufferData,
-		"",
-		setters[0].ConnectionJSON,
-		getters[0].InstrumentType,
-		getters[0].UnitsJSON,
+	respJSON, err := buildMeasurementResponseJSONForTargets(
+		[]measurementResponseTarget{
+			responseTargetFromResolvedPort(bufferData, getterTarget, setters[0].ConnectionJSON, getters[0]),
+		},
 		cmd.Hash,
 	)
 	if err != nil {

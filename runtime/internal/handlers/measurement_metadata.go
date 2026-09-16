@@ -1,0 +1,126 @@
+package handlers
+
+import (
+	"fmt"
+	"os"
+
+	"gopkg.in/yaml.v3"
+)
+
+type measurementMetadataRegistry struct {
+	Measurements map[string]measurementMetadata `yaml:"measurements"`
+}
+
+type measurementMetadata struct {
+	Targets   map[string]measurementTargetMetadata `yaml:"targets"`
+	Responses []measurementResponseMetadata        `yaml:"responses"`
+}
+
+type measurementTargetMetadata struct {
+	RequestSource string `yaml:"request_source"`
+	Capability    string `yaml:"capability"`
+	Role          string `yaml:"role"`
+}
+
+type measurementResponseMetadata struct {
+	MetadataFrom   string `yaml:"metadata_from"`
+	ConnectionFrom string `yaml:"connection_from"`
+}
+
+func defaultMeasurementMetadataRegistry() measurementMetadataRegistry {
+	return measurementMetadataRegistry{
+		Measurements: map[string]measurementMetadata{
+			"set_voltage":           singleTargetMetadata("setter", "voltage", "output"),
+			"set_many_voltages":     singleTargetMetadata("setter", "voltage", "output"),
+			"ramp":                  singleTargetMetadata("setter", "voltage", "output"),
+			"get_voltage":           singleTargetMetadata("getter", "measured_voltage", "input"),
+			"get_many_voltages":     singleTargetMetadata("getter", "measured_voltage", "input"),
+			"get_all_voltages":      singleTargetMetadata("getter", "measured_voltage", "input"),
+			"measure_leakage":       singleTargetMetadata("getter", "measured_voltage", "input"),
+			"measure_current":       singleTargetMetadata("getter", "voltage", "input"),
+			"measure_illumination":  singleTargetMetadata("getter", "voltage", "input"),
+			"set_sample_rate":       singleTargetMetadata("getter", "sample_rate", "setting"),
+			"get_sample_rate":       singleTargetMetadata("getter", "sample_rate", "setting"),
+			"set_number_of_samples": singleTargetMetadata("getter", "bins", "setting"),
+			"get_number_of_samples": singleTargetMetadata("getter", "bins", "setting"),
+			"set_slope":             singleTargetMetadata("setter", "slope", "setting"),
+			"get_slope":             singleTargetMetadata("getter", "slope", "setting"),
+			"set_trigger_level":     singleTargetMetadata("getter", "trigger_level", "setting"),
+			"get_trigger_level":     singleTargetMetadata("getter", "trigger_level", "setting"),
+			"set_trigger_leader":    singleTargetMetadata("getter", "trigger_level", "setting"),
+			"get_trigger_leader":    singleTargetMetadata("getter", "trigger_level", "setting"),
+			"measure_get_set":       sweepMetadata("stream"),
+			"measure_1D_buffered":   sweepMetadata("stream"),
+			"measure_2D_buffered":   sweepMetadata("stream"),
+		},
+	}
+}
+
+func singleTargetMetadata(targetKind, capability, role string) measurementMetadata {
+	return measurementMetadata{
+		Targets: map[string]measurementTargetMetadata{
+			targetKind: {
+				RequestSource: targetKind,
+				Capability:    capability,
+				Role:          role,
+			},
+		},
+		Responses: []measurementResponseMetadata{
+			{MetadataFrom: targetKind, ConnectionFrom: targetKind},
+		},
+	}
+}
+
+func sweepMetadata(getterCapability string) measurementMetadata {
+	return measurementMetadata{
+		Targets: map[string]measurementTargetMetadata{
+			"setter": {
+				RequestSource: "setter",
+				Capability:    "voltage",
+				Role:          "output",
+			},
+			"getter": {
+				RequestSource: "getter",
+				Capability:    getterCapability,
+				Role:          "input",
+			},
+		},
+		Responses: []measurementResponseMetadata{
+			{MetadataFrom: "getter", ConnectionFrom: "setter"},
+		},
+	}
+}
+
+func loadMeasurementMetadataRegistry(path string) (measurementMetadataRegistry, error) {
+	registry := defaultMeasurementMetadataRegistry()
+	if path == "" {
+		return registry, nil
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return registry, fmt.Errorf("read measurement metadata %s: %w", path, err)
+	}
+
+	var loaded measurementMetadataRegistry
+	if err := yaml.Unmarshal(data, &loaded); err != nil {
+		return registry, fmt.Errorf("parse measurement metadata %s: %w", path, err)
+	}
+
+	for name, metadata := range loaded.Measurements {
+		registry.Measurements[name] = metadata
+	}
+	return registry, nil
+}
+
+func (r measurementMetadataRegistry) requirement(scriptName, targetKind string) (scriptPortRequirement, bool) {
+	metadata, ok := r.Measurements[scriptName]
+	if !ok {
+		return scriptPortRequirement{}, false
+	}
+	target, ok := metadata.Targets[targetKind]
+	if !ok || target.Capability == "" || target.Role == "" {
+		return scriptPortRequirement{}, false
+	}
+	return scriptPortRequirement{capability: target.Capability, role: target.Role}, true
+}

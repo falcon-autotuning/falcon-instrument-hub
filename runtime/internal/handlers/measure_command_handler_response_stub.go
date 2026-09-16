@@ -10,6 +10,7 @@ import "fmt"
 // error to make the limitation explicit.
 func buildMeasurementResponseJSON(
 	bufferData []float64,
+	portJSON string,
 	setterConnJSON string,
 	getterInstrType string,
 	getterUnitsJSON string,

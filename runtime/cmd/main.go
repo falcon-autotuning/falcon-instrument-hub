@@ -49,6 +49,7 @@ var (
 	localDatabase        string
 	userMeasurementLuas  string
 	instrumentAPIPaths   []string
+	measurementMetadata  string
 )
 
 var startCmd = &cobra.Command{
@@ -89,6 +90,8 @@ func init() {
 		StringVar(&userMeasurementLuas, "user-measurement-luas", "", "path to user-defined Lua measurement scripts")
 	startCmd.Flags().
 		StringSliceVar(&instrumentAPIPaths, "instrument-apis", []string{}, "comma-separated paths to instrument API YAML files")
+	startCmd.Flags().
+		StringVar(&measurementMetadata, "measurement-metadata", "", "path to measurement metadata YAML file")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -258,6 +261,7 @@ func setupHandlers(services *coreServices) error {
 		cfg = &config.Config{}
 	}
 	cfg.InstrumentAPIPaths = instrumentAPIPaths
+	cfg.MeasurementMetadataPath = measurementMetadata
 
 	services.logger.LogStats()
 
@@ -380,6 +384,7 @@ func applyHubConfig() error {
 		LocalDatabase        string   `yaml:"local-database"`
 		UserMeasurementLuas  string   `yaml:"user-measurement-luas"`
 		InstrumentAPIs       []string `yaml:"instrument-apis"`
+		MeasurementMetadata  string   `yaml:"measurement-metadata"`
 	}
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("failed to parse hub config: %w", err)
@@ -420,6 +425,10 @@ func applyHubConfig() error {
 	if len(instrumentAPIPaths) == 0 && len(cfg.InstrumentAPIs) > 0 {
 		instrumentAPIPaths = cfg.InstrumentAPIs
 		log.Printf("hub config: instrument-apis = %v", instrumentAPIPaths)
+	}
+	if measurementMetadata == "" && cfg.MeasurementMetadata != "" {
+		measurementMetadata = cfg.MeasurementMetadata
+		log.Printf("hub config: measurement-metadata = %s", measurementMetadata)
 	}
 
 	return nil

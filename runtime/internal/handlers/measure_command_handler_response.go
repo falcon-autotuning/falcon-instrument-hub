@@ -16,14 +16,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 )
 
-type measurementResponseTarget struct {
-	BufferData     []float64
-	PortJSON       string
-	ConnectionJSON string
-	InstrumentType string
-	UnitsJSON      string
-}
-
 // buildMeasurementResponseJSON constructs a falcon-core MeasurementResponse
 // from the raw buffer data and port metadata and returns the cereal JSON string.
 // The caller is responsible for wrapping this in the NATS wire envelope.
@@ -80,13 +72,30 @@ func buildMeasurementResponseJSONForTargets(
 				return "", fmt.Errorf("buildMeasurementResponseJSON connection.FromJSON: %w", err)
 			}
 
-			units, err := symbolunit.FromJSON(target.UnitsJSON)
-			if err != nil {
-				conn.Close()
-				return "", fmt.Errorf("buildMeasurementResponseJSON symbolunit.FromJSON: %w", err)
+			instrumentType := target.InstrumentType
+			unitsJSON := target.UnitsJSON
+			unitSymbol := ""
+			if target.ConnectedPort != nil {
+				instrumentType = target.ConnectedPort.InstrumentType
+				unitSymbol = target.ConnectedPort.Unit
 			}
 
-			ac, err = acquisitioncontext.New(conn, target.InstrumentType, units)
+			var units *symbolunit.Handle
+			if unitSymbol != "" || unitsJSON == "" {
+				units, err = symbolUnitFromString(unitSymbol)
+				if err != nil {
+					conn.Close()
+					return "", fmt.Errorf("buildMeasurementResponseJSON symbolUnitFromString: %w", err)
+				}
+			} else {
+				units, err = symbolunit.FromJSON(unitsJSON)
+				if err != nil {
+					conn.Close()
+					return "", fmt.Errorf("buildMeasurementResponseJSON symbolunit.FromJSON: %w", err)
+				}
+			}
+
+			ac, err = acquisitioncontext.New(conn, instrumentType, units)
 			units.Close()
 			conn.Close()
 			if err != nil {

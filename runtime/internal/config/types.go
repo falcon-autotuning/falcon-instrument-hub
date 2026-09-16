@@ -59,5 +59,6 @@ type Config struct {
 	DeviceConfigCerealJSON string
 	WireMap                *WireMap
 	// InstrumentAPIPaths is the list of paths to instrument API YAML files.
-	InstrumentAPIPaths []string
+	InstrumentAPIPaths      []string
+	MeasurementMetadataPath string
 }

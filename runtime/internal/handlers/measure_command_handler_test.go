@@ -91,6 +91,7 @@ func setupMeasureHandler(t *testing.T, dispatcher MeasurementDispatcher) (*Measu
 		&MockBusyManager{},
 		dispatcher,
 		nil,
+		defaultMeasurementMetadataRegistry(),
 	)
 	return handler, nc
 }
@@ -181,7 +182,11 @@ func TestResolveScriptTargetUsesScriptCapability(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, scriptTarget{id: "Source1", channel: 4}, setterTarget)
+	assert.Equal(t, "Source1", setterTarget.id)
+	assert.Equal(t, 4, setterTarget.channel)
+	require.NotNil(t, setterTarget.connectedPort)
+	assert.Equal(t, "voltage", setterTarget.connectedPort.IoTypeName)
+	assert.Equal(t, "output", setterTarget.connectedPort.Role)
 
 	getterTarget, err := handler.resolveScriptTargetForGate(
 		"set_sample_rate",
@@ -190,7 +195,11 @@ func TestResolveScriptTargetUsesScriptCapability(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, err)
-	assert.Equal(t, scriptTarget{id: "Meter1", channel: 1}, getterTarget)
+	assert.Equal(t, "Meter1", getterTarget.id)
+	assert.Equal(t, 1, getterTarget.channel)
+	require.NotNil(t, getterTarget.connectedPort)
+	assert.Equal(t, "sample_rate", getterTarget.connectedPort.IoTypeName)
+	assert.Equal(t, "setting", getterTarget.connectedPort.Role)
 }
 
 func TestResolveScriptTargetFallsBackToWireMapForUnknownScript(t *testing.T) {
@@ -205,5 +214,7 @@ func TestResolveScriptTargetFallsBackToWireMapForUnknownScript(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, scriptTarget{id: "Source1", channel: 5}, target)
+	assert.Equal(t, "Source1", target.id)
+	assert.Equal(t, 5, target.channel)
+	assert.Nil(t, target.connectedPort)
 }

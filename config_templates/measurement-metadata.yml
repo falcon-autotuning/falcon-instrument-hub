@@ -1,0 +1,104 @@
+measurements:
+  set_voltage:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+    responses:
+      - {metadata_from: setter, connection_from: setter}
+  set_many_voltages:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+    responses:
+      - {metadata_from: setter, connection_from: setter}
+  ramp:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+    responses:
+      - {metadata_from: setter, connection_from: setter}
+  get_voltage:
+    targets:
+      getter: {request_source: getter, capability: measured_voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  get_many_voltages:
+    targets:
+      getter: {request_source: getter, capability: measured_voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  get_all_voltages:
+    targets:
+      getter: {request_source: getter, capability: measured_voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  measure_current:
+    targets:
+      getter: {request_source: getter, capability: voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  measure_illumination:
+    targets:
+      getter: {request_source: getter, capability: voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  measure_leakage:
+    targets:
+      getter: {request_source: getter, capability: measured_voltage, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  set_sample_rate:
+    targets:
+      getter: {request_source: getter, capability: sample_rate, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  get_sample_rate:
+    targets:
+      getter: {request_source: getter, capability: sample_rate, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  set_number_of_samples:
+    targets:
+      getter: {request_source: getter, capability: bins, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  get_number_of_samples:
+    targets:
+      getter: {request_source: getter, capability: bins, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  set_slope:
+    targets:
+      setter: {request_source: setter, capability: slope, role: setting}
+    responses:
+      - {metadata_from: setter, connection_from: setter}
+  get_slope:
+    targets:
+      getter: {request_source: getter, capability: slope, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  set_trigger_level:
+    targets:
+      getter: {request_source: getter, capability: trigger_level, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  get_trigger_level:
+    targets:
+      getter: {request_source: getter, capability: trigger_level, role: setting}
+    responses:
+      - {metadata_from: getter, connection_from: getter}
+  measure_get_set:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+      getter: {request_source: getter, capability: stream, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: setter}
+  measure_1D_buffered:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+      getter: {request_source: getter, capability: stream, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: setter}
+  measure_2D_buffered:
+    targets:
+      setter: {request_source: setter, capability: voltage, role: output}
+      getter: {request_source: getter, capability: stream, role: input}
+    responses:
+      - {metadata_from: getter, connection_from: setter}

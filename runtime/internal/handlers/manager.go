@@ -67,6 +67,14 @@ func NewManager(
 		}
 	}
 
+	measurementMetadata, err := loadMeasurementMetadataRegistry(cfg.MeasurementMetadataPath)
+	if err != nil {
+		logger.Error(
+			HandlerManagerName,
+			fmt.Sprintf("Failed to load measurement metadata: %v", err),
+		)
+	}
+
 	manager := &Manager{
 		config:              cfg,
 		logger:              logger,
@@ -95,6 +103,7 @@ func NewManager(
 		manager,
 		dispatcher,
 		cfg.WireMap,
+		measurementMetadata,
 	)
 
 	return manager
