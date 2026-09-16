@@ -61,4 +61,5 @@ type Config struct {
 	// InstrumentAPIPaths is the list of paths to instrument API YAML files.
 	InstrumentAPIPaths      []string
 	MeasurementMetadataPath string
+	MeasurementScriptsPath  string
 }

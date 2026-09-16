@@ -2,9 +2,6 @@ package ports
 
 import (
 	"fmt"
-	"strings"
-
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumenttypes"
 )
 
 // PortName is a dot-separated identifier: "{vendor}.{identifier}.{channel_name}.{io_type_name}"
@@ -53,7 +50,7 @@ func BuildPortLibrary(apis []InstrumentAPI) PortLibrary {
 					Identifier:     api.Instrument.Identifier,
 					ChannelName:    cg.Name,
 					IoTypeName:     io.Name,
-					InstrumentType: inferInstrumentType(api, io),
+					InstrumentType: api.Instrument.InstrumentType,
 					Role:           io.Role,
 					Unit:           io.Unit,
 					Description:    io.Description,
@@ -62,90 +59,6 @@ func BuildPortLibrary(apis []InstrumentAPI) PortLibrary {
 		}
 	}
 	return lib
-}
-
-func inferInstrumentType(api InstrumentAPI, io IoType) string {
-	role := strings.ToLower(strings.TrimSpace(io.Role))
-	unit := strings.ToLower(strings.TrimSpace(io.Unit))
-	protocolType := normalizeInstrumentTypeToken(api.Protocol.Type)
-	ioName := normalizeInstrumentTypeToken(io.Name)
-
-	switch role {
-	case "output":
-		switch {
-		case strings.Contains(protocolType, "magnet"):
-			return instrumenttypes.Magnet()
-		case strings.Contains(protocolType, "currentsource"):
-			return instrumenttypes.DCCurrentSource()
-		case strings.Contains(protocolType, "voltagesource"):
-			return instrumenttypes.DCVoltageSource()
-		case isCurrentUnit(unit):
-			return instrumenttypes.DCCurrentSource()
-		case isVoltageUnit(unit):
-			return instrumenttypes.DCVoltageSource()
-		default:
-			return instrumenttypes.Discrete()
-		}
-
-	case "input":
-		switch {
-		case strings.Contains(protocolType, "lockin"):
-			return instrumenttypes.Lockin()
-		case strings.Contains(protocolType, "thermometer"):
-			return instrumenttypes.Thermometer()
-		case strings.Contains(protocolType, "fpga"):
-			return instrumenttypes.FPGA()
-		case strings.Contains(protocolType, "magnet"):
-			return instrumenttypes.Magnet()
-		case strings.Contains(protocolType, "multimeter"):
-			if isCurrentUnit(unit) || strings.Contains(ioName, "current") {
-				return instrumenttypes.Amnmeter()
-			}
-			return instrumenttypes.Voltmeter()
-		case isCurrentUnit(unit) || strings.Contains(ioName, "current"):
-			return instrumenttypes.Amnmeter()
-		case isVoltageUnit(unit) || strings.Contains(ioName, "voltage") || strings.Contains(ioName, "stream"):
-			return instrumenttypes.Voltmeter()
-		default:
-			return instrumenttypes.Discrete()
-		}
-
-	default:
-		switch {
-		case strings.Contains(protocolType, "currentsource"):
-			return instrumenttypes.DCCurrentSource()
-		case strings.Contains(protocolType, "voltagesource"):
-			return instrumenttypes.DCVoltageSource()
-		case strings.Contains(protocolType, "multimeter"):
-			return instrumenttypes.Voltmeter()
-		default:
-			return instrumenttypes.Discrete()
-		}
-	}
-}
-
-func normalizeInstrumentTypeToken(value string) string {
-	value = strings.ToLower(strings.TrimSpace(value))
-	replacer := strings.NewReplacer("-", "", "_", "", " ", "")
-	return replacer.Replace(value)
-}
-
-func isVoltageUnit(unit string) bool {
-	switch unit {
-	case "v", "mv", "uv", "μv", "nv", "pv":
-		return true
-	default:
-		return false
-	}
-}
-
-func isCurrentUnit(unit string) bool {
-	switch unit {
-	case "a", "ma", "ua", "μa", "na", "pa":
-		return true
-	default:
-		return false
-	}
 }
 
 // RouteInfo describes how to route a command to a specific instrument channel.

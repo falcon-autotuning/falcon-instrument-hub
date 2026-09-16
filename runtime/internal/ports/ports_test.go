@@ -15,8 +15,9 @@ func TestBuildPortLibrary(t *testing.T) {
 	apis := []ports.InstrumentAPI{
 		{
 			Instrument: ports.APIInstrument{
-				Vendor:     "Mock",
-				Identifier: "Source1",
+				Vendor:         "Mock",
+				Identifier:     "Source1",
+				InstrumentType: "dc_voltage_source",
 			},
 			Protocol: ports.APIProtocol{
 				Type: "MockVoltageSource",
@@ -46,7 +47,7 @@ func TestBuildPortLibrary(t *testing.T) {
 
 	measured := lib["Mock.Source1.analog.measured_voltage"]
 	assert.Equal(t, "input", measured.Role)
-	assert.Equal(t, "voltmeter", measured.InstrumentType)
+	assert.Equal(t, "dc_voltage_source", measured.InstrumentType)
 	assert.False(t, measured.IsKnob())
 	assert.True(t, measured.IsMeter())
 }
@@ -55,8 +56,9 @@ func TestConnectWireMap(t *testing.T) {
 	apis := []ports.InstrumentAPI{
 		{
 			Instrument: ports.APIInstrument{
-				Vendor:     "Mock",
-				Identifier: "Source1",
+				Vendor:         "Mock",
+				Identifier:     "Source1",
+				InstrumentType: "dc_voltage_source",
 			},
 			Protocol: ports.APIProtocol{
 				Type: "MockVoltageSource",
@@ -96,7 +98,7 @@ func TestConnectWireMap(t *testing.T) {
 		}
 		if cp.IsMeter() {
 			assert.Equal(t, "measured_voltage", cp.IoTypeName)
-			assert.Equal(t, "voltmeter", cp.InstrumentType)
+			assert.Equal(t, "dc_voltage_source", cp.InstrumentType)
 			meters++
 		}
 	}
@@ -104,12 +106,13 @@ func TestConnectWireMap(t *testing.T) {
 	assert.Equal(t, 1, meters)
 }
 
-func TestBuildPortLibrary_MultimeterCurrentInference(t *testing.T) {
+func TestBuildPortLibrary_UsesExplicitInstrumentTypes(t *testing.T) {
 	apis := []ports.InstrumentAPI{
 		{
 			Instrument: ports.APIInstrument{
-				Vendor:     "Mock",
-				Identifier: "Meter1",
+				Vendor:         "Mock",
+				Identifier:     "Meter1",
+				InstrumentType: "voltmeter",
 			},
 			Protocol: ports.APIProtocol{
 				Type: "MockMultimeter",
@@ -128,7 +131,7 @@ func TestBuildPortLibrary_MultimeterCurrentInference(t *testing.T) {
 
 	lib := ports.BuildPortLibrary(apis)
 
-	assert.Equal(t, "amnmeter", lib["Mock.Meter1.analog.current"].InstrumentType)
+	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.current"].InstrumentType)
 	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.voltage"].InstrumentType)
 }
 
@@ -148,6 +151,7 @@ instrument:
   vendor: Mock
   model: 1
   identifier: Source1
+  instrument_type: dc_voltage_source
   description: Mock voltage source
 channel_groups:
   - name: analog
@@ -169,4 +173,40 @@ channel_groups:
 	require.Len(t, api.ChannelGroups, 1)
 	assert.Equal(t, "analog", api.ChannelGroups[0].Name)
 	require.Len(t, api.ChannelGroups[0].IoTypes, 2)
+	assert.Equal(t, "dc_voltage_source", api.Instrument.InstrumentType)
+}
+
+func TestParseInstrumentAPI_RequiresInstrumentType(t *testing.T) {
+	content := `instrument:
+  vendor: Mock
+  identifier: Source1
+channel_groups:
+  - name: analog
+    io_types:
+      - name: voltage
+        role: output
+`
+	tmpFile := filepath.Join(t.TempDir(), "source-api.yml")
+	require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+	_, err := ports.ParseInstrumentAPI(tmpFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing instrument.instrument_type")
+}
+
+func TestParseInstrumentAPI_RejectsUnsupportedInstrumentType(t *testing.T) {
+	content := `instrument:
+  vendor: Mock
+  identifier: Source1
+  instrument_type: arbitrary_type
+channel_groups:
+  - name: analog
+    io_types:
+      - name: voltage
+        role: output
+`
+	tmpFile := filepath.Join(t.TempDir(), "source-api.yml")
+	require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+	_, err := ports.ParseInstrumentAPI(tmpFile)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported instrument.instrument_type")
 }

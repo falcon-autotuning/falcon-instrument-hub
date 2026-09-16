@@ -85,8 +85,9 @@ func connectedPortsFromTestWireMap(t *testing.T) []ports.ConnectedPort {
 	apis := []ports.InstrumentAPI{
 		{
 			Instrument: ports.APIInstrument{
-				Vendor:     "Mock",
-				Identifier: "Meter1",
+				Vendor:         "Mock",
+				Identifier:     "Meter1",
+				InstrumentType: "voltmeter",
 			},
 			Protocol: ports.APIProtocol{
 				Type: "MockMultimeter",
@@ -105,8 +106,9 @@ func connectedPortsFromTestWireMap(t *testing.T) []ports.ConnectedPort {
 		},
 		{
 			Instrument: ports.APIInstrument{
-				Vendor:     "Mock",
-				Identifier: "Source1",
+				Vendor:         "Mock",
+				Identifier:     "Source1",
+				InstrumentType: "dc_voltage_source",
 			},
 			Protocol: ports.APIProtocol{
 				Type: "MockVoltageSource",

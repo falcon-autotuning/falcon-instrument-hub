@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/scriptmetadata"
 	"gopkg.in/yaml.v3"
 )
 
@@ -11,21 +13,9 @@ type measurementMetadataRegistry struct {
 	Measurements map[string]measurementMetadata `yaml:"measurements"`
 }
 
-type measurementMetadata struct {
-	Targets   map[string]measurementTargetMetadata `yaml:"targets"`
-	Responses []measurementResponseMetadata        `yaml:"responses"`
-}
-
-type measurementTargetMetadata struct {
-	RequestSource string `yaml:"request_source"`
-	Capability    string `yaml:"capability"`
-	Role          string `yaml:"role"`
-}
-
-type measurementResponseMetadata struct {
-	MetadataFrom   string `yaml:"metadata_from"`
-	ConnectionFrom string `yaml:"connection_from"`
-}
+type measurementMetadata = scriptmetadata.Metadata
+type measurementTargetMetadata = scriptmetadata.Target
+type measurementResponseMetadata = scriptmetadata.Response
 
 func defaultMeasurementMetadataRegistry() measurementMetadataRegistry {
 	return measurementMetadataRegistry{
@@ -123,4 +113,46 @@ func (r measurementMetadataRegistry) requirement(scriptName, targetKind string) 
 		return scriptPortRequirement{}, false
 	}
 	return scriptPortRequirement{capability: target.Capability, role: target.Role}, true
+}
+
+func loadAnnotatedMeasurementMetadata(metadataPath, scriptsPath string, apiPaths []string) (measurementMetadataRegistry, error) {
+	registry, err := loadMeasurementMetadataRegistry(metadataPath)
+	if err != nil {
+		return registry, err
+	}
+	annotations, err := scriptmetadata.LoadDirectory(scriptsPath)
+	if err != nil {
+		return registry, err
+	}
+	if len(annotations) == 0 {
+		return registry, nil
+	}
+	if len(apiPaths) == 0 {
+		return registry, fmt.Errorf("annotated measurement scripts require instrument API files")
+	}
+	apis, err := ports.ParseInstrumentAPIs(apiPaths)
+	if err != nil {
+		return registry, err
+	}
+	for name, annotation := range annotations {
+		for targetName, target := range annotation.Targets {
+			found := false
+			for _, api := range apis {
+				for _, group := range api.ChannelGroups {
+					for _, ioType := range group.IoTypes {
+						if ioType.Name == target.Capability && ioType.Role == target.Role {
+							found = true
+						}
+					}
+				}
+			}
+			if !found {
+				return registry, fmt.Errorf("measurement %q target %q: capability %q role %q not found in loaded instrument APIs", name, targetName, target.Capability, target.Role)
+			}
+		}
+		metadata := registry.Measurements[name]
+		metadata.Targets = annotation.Targets
+		registry.Measurements[name] = metadata
+	}
+	return registry, nil
 }

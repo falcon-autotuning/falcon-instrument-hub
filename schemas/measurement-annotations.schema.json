@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Falcon measurement script annotation, version 1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "measurement", "targets"],
+  "properties": {
+    "schema_version": { "const": 1 },
+    "measurement": { "$ref": "#/$defs/identifier" },
+    "targets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "getter": {
+          "allOf": [
+            { "$ref": "#/$defs/target" },
+            { "properties": { "request_source": { "const": "getter" } } }
+          ]
+        },
+        "setter": {
+          "allOf": [
+            { "$ref": "#/$defs/target" },
+            { "properties": { "request_source": { "const": "setter" } } }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identifier": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability", "role"],
+      "properties": {
+        "request_source": { "enum": ["getter", "setter"] },
+        "capability": { "$ref": "#/$defs/identifier" },
+        "role": { "enum": ["input", "output", "setting"] }
+      }
+    }
+  }
+}

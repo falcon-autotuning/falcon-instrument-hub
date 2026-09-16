@@ -262,6 +262,7 @@ func setupHandlers(services *coreServices) error {
 	}
 	cfg.InstrumentAPIPaths = instrumentAPIPaths
 	cfg.MeasurementMetadataPath = measurementMetadata
+	cfg.MeasurementScriptsPath = userMeasurementLuas
 
 	services.logger.LogStats()
 

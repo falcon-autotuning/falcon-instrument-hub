@@ -38,6 +38,7 @@ type Manager struct {
 	capabilityHandler     *CapabilityLookupHandler
 	natsURL               string
 	isBusy                bool
+	metadataError         error
 }
 
 // NewManager creates a new handler manager
@@ -67,7 +68,7 @@ func NewManager(
 		}
 	}
 
-	measurementMetadata, err := loadMeasurementMetadataRegistry(cfg.MeasurementMetadataPath)
+	measurementMetadata, err := loadAnnotatedMeasurementMetadata(cfg.MeasurementMetadataPath, cfg.MeasurementScriptsPath, cfg.InstrumentAPIPaths)
 	if err != nil {
 		logger.Error(
 			HandlerManagerName,
@@ -95,6 +96,7 @@ func NewManager(
 		),
 		statusHandler: NewStatusHandler(logger),
 		isBusy:        false,
+		metadataError: err,
 	}
 	manager.measureCommandHandler = NewMeasureCommandHandler(
 		logger,
@@ -111,6 +113,9 @@ func NewManager(
 
 // Start initializes all handlers and their subscriptions
 func (m *Manager) Start() error {
+	if m.metadataError != nil {
+		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
+	}
 	m.logger.Info(HandlerManagerName, "Starting handler manager")
 
 	// Execute each startup operation
@@ -132,6 +137,9 @@ func (m *Manager) Start() error {
 // this during startup so STATUS.instrument-server is only emitted after ISS
 // instruments are also ready.
 func (m *Manager) StartCoreHandlers() error {
+	if m.metadataError != nil {
+		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
+	}
 	m.logger.Info(HandlerManagerName, "Starting core handler manager")
 
 	for _, op := range m.getHandlerOperations(false) {

@@ -10,6 +10,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var validInstrumentTypes = map[string]struct{}{
+	"dc_voltage_source": {},
+	"amnmeter":          {},
+	"magnet":            {},
+	"lockin":            {},
+	"voltage_source":    {},
+	"current_source":    {},
+	"hf_voltage_source": {},
+	"dc_current_source": {},
+	"hf_current_source": {},
+	"thermometer":       {},
+	"voltmeter":         {},
+	"fpga":              {},
+	"clock":             {},
+	"discrete":          {},
+}
+
 // InstrumentAPI represents the top-level structure of an instrument API YAML file.
 type InstrumentAPI struct {
 	APIVersion    string         `yaml:"api_version"`
@@ -20,10 +37,11 @@ type InstrumentAPI struct {
 
 // APIInstrument describes the instrument identity within an API file.
 type APIInstrument struct {
-	Vendor      string `yaml:"vendor"`
-	Model       int    `yaml:"model"`
-	Identifier  string `yaml:"identifier"`
-	Description string `yaml:"description"`
+	Vendor         string `yaml:"vendor"`
+	Model          int    `yaml:"model"`
+	Identifier     string `yaml:"identifier"`
+	InstrumentType string `yaml:"instrument_type"`
+	Description    string `yaml:"description"`
 }
 
 // APIProtocol describes the communication protocol used by the instrument.
@@ -75,6 +93,12 @@ func ParseInstrumentAPI(path string) (*InstrumentAPI, error) {
 	}
 	if api.Instrument.Vendor == "" {
 		return nil, fmt.Errorf("instrument API file %s missing instrument vendor", path)
+	}
+	if api.Instrument.InstrumentType == "" {
+		return nil, fmt.Errorf("instrument API file %s missing instrument.instrument_type", path)
+	}
+	if _, ok := validInstrumentTypes[api.Instrument.InstrumentType]; !ok {
+		return nil, fmt.Errorf("instrument API file %s has unsupported instrument.instrument_type %q", path, api.Instrument.InstrumentType)
 	}
 
 	return &api, nil
