@@ -82,4 +82,3 @@ func (h *Handler) GetActiveInstruments() []Name {
 	}
 	return names
 }
-

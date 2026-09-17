@@ -5,7 +5,6 @@
   "description": "Schema for configuring wire maps, quantum dot configs, instrument APIs, Lua libraries, and backend services.",
   "type": "object",
   "additionalProperties": false,
-
   "required": [
     "wiremap",
     "quantum-dot-config",
@@ -14,70 +13,80 @@
     "local-database",
     "instrument-server-port"
   ],
-
   "properties": {
     "wiremap": {
       "type": "string",
       "description": "Path to the wiremap configuration file.",
       "minLength": 1,
-      "examples": ["C://path/to/wiremap"]
+      "examples": [
+        "C://path/to/wiremap"
+      ]
     },
-
     "quantum-dot-config": {
       "type": "string",
       "description": "Path to the quantum dot configuration file.",
       "minLength": 1,
-      "examples": ["C://path/to/it"]
+      "examples": [
+        "C://path/to/it"
+      ]
     },
-
     "inst-config": {
       "type": "string",
       "description": "Semicolon-separated paths to instrument configuration files (e.g. /path/a.yml;/path/b.yml), or a directory containing all instrument configuration files.",
       "minLength": 1,
-      "examples": ["/path/to/multimeter.yml;/path/to/source.yml", "/path/to/instruments/"]
+      "examples": [
+        "/path/to/multimeter.yml;/path/to/source.yml",
+        "/path/to/instruments/"
+      ]
     },
-
     "teal-apis": {
       "type": "string",
       "description": "Directory containing TEAL API definitions.",
       "minLength": 1,
-      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+      "examples": [
+        "C://path/to/source/dir/containing/all/of/them"
+      ]
     },
-
     "lua-library-types": {
       "type": "string",
       "description": "Path to Lua library type definitions.",
       "minLength": 1,
-      "examples": ["C://path/to/lib"]
+      "examples": [
+        "C://path/to/lib"
+      ]
     },
-
     "user-measurement-luas": {
       "type": "string",
       "description": "Directory containing user-defined measurement Lua scripts.",
       "minLength": 1,
-      "examples": ["C://path/to/source/dir/containing/all/of/them"]
+      "examples": [
+        "C://path/to/source/dir/containing/all/of/them"
+      ]
     },
-
     "local-database": {
       "type": "string",
       "description": "Root directory for the local database.",
       "minLength": 1,
-      "examples": ["C://path/to/root"]
+      "examples": [
+        "C://path/to/root"
+      ]
     },
-
     "nats-url": {
       "type": "string",
       "description": "NATS server URL.",
       "format": "uri",
-      "examples": ["nats://localhost:4222"]
+      "examples": [
+        "nats://localhost:4222"
+      ]
     },
-
     "instrument-server-port": {
       "type": "integer",
       "description": "Port used by the instrument server.",
       "minimum": 1,
       "maximum": 65535,
-      "examples": [5555]
+      "examples": [
+        5555
+      ]
     }
   }
 }

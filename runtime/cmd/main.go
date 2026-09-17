@@ -34,7 +34,6 @@ const (
 )
 
 var (
-	packages             []string
 	natsurl              string
 	deviceconfig         string
 	wiremap              string
@@ -60,8 +59,6 @@ var startCmd = &cobra.Command{
 }
 
 func init() {
-	startCmd.Flags().
-		StringSliceVar(&packages, "packages", []string{}, "python modules containing instrument templates")
 	startCmd.Flags().
 		StringVar(&natsurl, "nats-url", "", "nats server url (if not provided, starts embedded nats)")
 	startCmd.Flags().
@@ -287,7 +284,6 @@ func setupHandlers(services *coreServices) error {
 
 func runServer(services *coreServices) error {
 	log.Printf("starting falcon instrument server...")
-	log.Printf("packages: %v", packages)
 	log.Printf("device config: %s", deviceconfig)
 	log.Printf("wiremap: %s", wiremap)
 	log.Printf("working directory: %s", workingdir)
@@ -634,7 +630,6 @@ func stopISSDaemon() {
 }
 
 func main() {
-
 	// + "`" + // use for embedding backticks in the ASCII art below without breaking the string literal
 
 	fmt.Print(`
