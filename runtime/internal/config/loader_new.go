@@ -13,44 +13,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connections"
 )
 
-// // wiremapFile is the top-level YAML structure for the new wiremap format.
-// type wiremapFile struct {
-// 	Wiremap []wiremapEntry `yaml:"wiremap"`
-// }
-
-// // wiremapEntry is one entry in the wiremap sequence.
-// type wiremapEntry struct {
-// 	Name       string            `yaml:"name"`
-// 	Instrument wiremapInstrument `yaml:"instrument"`
-// }
-
-// // wiremapInstrument holds the instrument channel details for a wiremap entry.
-// type wiremapInstrument struct {
-// 	Name        string `yaml:"name"`
-// 	ChannelName string `yaml:"channel_name"`
-// 	Index       int    `yaml:"index"`
-// }
-
-// func loadWireMap(path string) (*WireMap, error) {
-// 	data, err := os.ReadFile(path)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var raw wiremapFile
-// 	if err := yaml.Unmarshal(data, &raw); err != nil {
-// 		return nil, err
-// 	}
-
-// 	wireMap := make(WireMap, len(raw.Wiremap))
-// 	for _, entry := range raw.Wiremap {
-// 		// Key format matches the "instrumentName.index" lookup in port_processor.
-// 		key := fmt.Sprintf("%s.%d", entry.Instrument.Name, entry.Instrument.Index)
-// 		wireMap[InstrumentConnection(key)] = InstrumentConnection(entry.Name)
-// 	}
-// 	return &wireMap, nil
-// }
-
 // LoadConfigCGO loads both the device config (via falcon-core bindings) and the
 // wiremap (via the existing YAML parser). It is the CGO equivalent of LoadConfig.
 func LoadConfigCGO(deviceConfigPath, wiremapPath string) (*Config, error) {

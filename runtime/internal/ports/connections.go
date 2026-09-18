@@ -37,16 +37,6 @@ func (c ConnectedPort) IsKnob() bool { return c.Role == "output" }
 // IsMeter reports whether this connected port is an input (meter).
 func (c ConnectedPort) IsMeter() bool { return c.Role == "input" }
 
-// RouteInfo returns the routing information for this connected port.
-func (c ConnectedPort) RouteInfo() RouteInfo {
-	return RouteInfo{
-		InstrumentName: c.InstrumentName,
-		ChannelName:    c.ChannelName,
-		ChannelIndex:   c.ChannelIndex,
-		DeviceName:     c.DeviceName,
-	}
-}
-
 // ConnectWireMap resolves wiremap entries against the port library, returning
 // a ConnectedPort for each (wiremap entry, io type) pair that matches.
 //

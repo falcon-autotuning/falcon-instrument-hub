@@ -2,12 +2,10 @@ package handlers
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/nats-io/nats.go"
 )
@@ -25,19 +23,16 @@ type handlerOperation struct {
 
 // Manager manages all message handlers
 type Manager struct {
-	config                *config.Config
 	logger                *logging.Logger
 	nc                    *nats.Conn
-	mu                    sync.RWMutex
 	logHandler            *LogHandler
 	deviceConfigHandler   *DeviceConfigHandler
 	instrumentHandler     *instrument.Handler
 	measureCommandHandler *MeasureCommandHandler
 	statusHandler         *StatusHandler
 	portRequestHandler    *PortRequestHandler
-	capabilityHandler     *CapabilityLookupHandler
-	natsURL               string
 	isBusy                bool
+	instrumentError       error
 	metadataError         error
 }
 
@@ -46,26 +41,15 @@ func NewManager(
 	cfg *config.Config,
 	logger *logging.Logger,
 	nc *nats.Conn,
-	natsURL string,
-	measurementManager *measurements.Manager,
 	dispatcher *serverinterpreter.ScriptDispatcher,
 ) *Manager {
-	instrumentHandler, err := instrument.NewHandler(
-		logger,
-		natsURL,
-		nc,
-		cfg,
-	)
-	if err != nil {
+	instrumentHandler, instrumentError := instrument.NewHandler(logger, cfg)
+	if instrumentError != nil {
 		logger.Error(
 			HandlerManagerName,
-			fmt.Sprintf("Failed to create instrument handler: %v", err),
+			fmt.Sprintf("Failed to create instrument handler: %v", instrumentError),
 		)
-		instrumentHandler = &instrument.Handler{
-			Instruments: make(
-				map[instrument.Name]*instrument.InstrumentProcess,
-			),
-		}
+		instrumentHandler = &instrument.Handler{}
 	}
 
 	measurementMetadata, err := loadAnnotatedMeasurementMetadata(cfg.MeasurementMetadataPath, cfg.MeasurementScriptsPath, cfg.InstrumentAPIPaths)
@@ -77,10 +61,8 @@ func NewManager(
 	}
 
 	manager := &Manager{
-		config:              cfg,
 		logger:              logger,
 		nc:                  nc,
-		natsURL:             natsURL,
 		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
@@ -89,18 +71,12 @@ func NewManager(
 			instrumentHandler,
 			cfg,
 		),
-		capabilityHandler: NewCapabilityLookupHandler(
-			logger,
-			instrumentHandler,
-			cfg,
-		),
-		statusHandler: NewStatusHandler(logger),
-		isBusy:        false,
-		metadataError: err,
+		statusHandler:   NewStatusHandler(logger),
+		instrumentError: instrumentError,
+		metadataError:   err,
 	}
 	manager.measureCommandHandler = NewMeasureCommandHandler(
 		logger,
-		measurementManager,
 		instrumentHandler,
 		manager,
 		dispatcher,
@@ -113,6 +89,9 @@ func NewManager(
 
 // Start initializes all handlers and their subscriptions
 func (m *Manager) Start() error {
+	if m.instrumentError != nil {
+		return fmt.Errorf("invalid instrument configuration: %w", m.instrumentError)
+	}
 	if m.metadataError != nil {
 		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
 	}
@@ -137,6 +116,9 @@ func (m *Manager) Start() error {
 // this during startup so STATUS.instrument-server is only emitted after ISS
 // instruments are also ready.
 func (m *Manager) StartCoreHandlers() error {
+	if m.instrumentError != nil {
+		return fmt.Errorf("invalid instrument configuration: %w", m.instrumentError)
+	}
 	if m.metadataError != nil {
 		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
 	}
@@ -214,11 +196,6 @@ func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 			stopOp:  func() error { return m.deviceConfigHandler.Unsubscribe() },
 		},
 		{
-			name:    "instrument handler",
-			startOp: func() error { return m.instrumentHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.instrumentHandler.Unsubscribe() },
-		},
-		{
 			name:    "measure command handler",
 			startOp: func() error { return m.measureCommandHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.measureCommandHandler.Unsubscribe() },
@@ -227,11 +204,6 @@ func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 			name:    "port request handler",
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
-		},
-		{
-			name:    "capability lookup handler",
-			startOp: func() error { return m.capabilityHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.capabilityHandler.Unsubscribe() },
 		},
 	}
 	if includeStatus {

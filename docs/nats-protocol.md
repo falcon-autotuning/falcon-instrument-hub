@@ -198,7 +198,10 @@ type StatusMessage struct {
 
 ### CAPABILITY_REQUEST
 
-Request one connected port by logical device connection and IO/capability name.
+**Retired:** the hub no longer subscribes to this endpoint. Discover physical
+ports through `PORT_REQUEST` / `PORT_PAYLOAD`, then send an explicitly named
+measurement. The declarations below remain in the externally generated API
+schema for compatibility; they do not imply runtime support.
 
 **Subject:** `INSTRUMENTHUB.CAPABILITY_REQUEST`
 
@@ -223,10 +226,9 @@ type CapabilityRequest struct {
 
 ### CAPABILITY_PAYLOAD
 
-Response containing the resolved connected port metadata and a cereal
-`InstrumentPort` JSON string. The hub publishes this to
-`FALCON.CAPABILITY_PAYLOAD`, or to the NATS reply subject when the request uses
-request/reply.
+**Retired:** this legacy response is no longer published by the hub.
+The retained generated schema describes connected port metadata and a cereal
+`InstrumentPort` JSON string; use `PORT_PAYLOAD` for current discovery.
 
 **Subject:** `FALCON.CAPABILITY_PAYLOAD`
 

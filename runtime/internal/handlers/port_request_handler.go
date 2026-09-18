@@ -222,40 +222,6 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg 
 	return jsonStr, nil
 }
 
-func serializeConnectedPortToCerealJSON(cp ports.ConnectedPort, deviceCfg *config.DeviceConfig) (string, error) {
-	conn, err := connectionFromDeviceName(cp.DeviceName, deviceCfg)
-	if err != nil {
-		return "", fmt.Errorf("failed to create connection for %s: %w", cp.DeviceName, err)
-	}
-	defer conn.Close()
-
-	unit, err := symbolUnitFromString(cp.Unit)
-	if err != nil {
-		return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
-	}
-	defer unit.Close()
-
-	var portHandle *instrumentport.Handle
-	switch cp.Role {
-	case "output":
-		portHandle, err = instrumentport.NewKnob(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
-	case "input":
-		portHandle, err = instrumentport.NewMeter(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
-	default:
-		portHandle, err = instrumentport.NewPort(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
-	}
-	if err != nil {
-		return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)
-	}
-	defer portHandle.Close()
-
-	jsonStr, err := portHandle.ToJSON()
-	if err != nil {
-		return "", fmt.Errorf("failed to serialize instrument port %s: %w", cp.PortName, err)
-	}
-	return jsonStr, nil
-}
-
 // connectionFromDeviceName creates a connection.Handle for the given device
 // gate name by looking it up in the DeviceConfig gate lists.  The lookup
 // order is: ScreeningGates → PlungerGates → BarrierGates → ReservoirGates →
@@ -356,19 +322,4 @@ func symbolUnitFromString(unit string) (*symbolunit.Handle, error) {
 	default:
 		return symbolunit.NewDimensionless()
 	}
-}
-
-// isOhmicConnection checks if a port JSON represents an Ohmic connection
-func (h *PortRequestHandler) isOhmicConnection(portJSON string) bool {
-	var portData map[string]any
-	if err := json.Unmarshal([]byte(portJSON), &portData); err != nil {
-		return false
-	}
-
-	// Check if connection_type is "Ohmic"
-	if connectionType, exists := portData["connection_type"]; exists {
-		return connectionType == "Ohmic"
-	}
-
-	return false
 }

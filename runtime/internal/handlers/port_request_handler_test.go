@@ -6,6 +6,7 @@ import (
 	"time"
 
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -30,8 +31,6 @@ func setupTestInstrumentHandlerForPortRequest(
 	require.NoError(t, err)
 	t.Cleanup(func() { logger.Close() })
 
-	nc := setupTestNATSServer(t)
-
 	cfg := &config.Config{
 		DeviceConfig: &config.DeviceConfig{},
 		WireMap:      &config.WireMap{},
@@ -39,8 +38,6 @@ func setupTestInstrumentHandlerForPortRequest(
 
 	handler, err := instrument.NewHandler(
 		logger,
-		nats.DefaultURL,
-		nc,
 		cfg,
 	)
 	require.NoError(t, err)
@@ -176,51 +173,32 @@ func TestPortRequestHandler_InvalidJSON(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 }
 
-func TestPortRequestHandler_isOhmicConnection(t *testing.T) {
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-	defer logger.Close()
-
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
+func TestConnectionFromDeviceNameUsesTypedConfiguration(t *testing.T) {
+	cfg := &config.DeviceConfig{
+		Ohmics: "O1;O2", PlungerGates: "P1", ScreeningGates: "S1",
+		BarrierGates: "B1", ReservoirGates: "R1",
 	}
-
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
-
 	tests := []struct {
-		name     string
-		portJSON string
-		expected bool
+		name  string
+		check func(*connection.Handle) (bool, error)
 	}{
-		{
-			name:     "Ohmic connection",
-			portJSON: `{"connection_type":"Ohmic","other_field":"value"}`,
-			expected: true,
-		},
-		{
-			name:     "Non-Ohmic connection",
-			portJSON: `{"connection_type":"Capacitive","other_field":"value"}`,
-			expected: false,
-		},
-		{
-			name:     "Missing connection_type",
-			portJSON: `{"other_field":"value"}`,
-			expected: false,
-		},
-		{
-			name:     "Invalid JSON",
-			portJSON: `invalid json`,
-			expected: false,
-		},
+		{"O2", (*connection.Handle).IsOhmic},
+		{"P1", (*connection.Handle).IsPlungerGate},
+		{"S1", (*connection.Handle).IsScreeningGate},
+		{"B1", (*connection.Handle).IsBarrierGate},
+		{"R1", (*connection.Handle).IsReservoirGate},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := handler.isOhmicConnection(tt.portJSON)
-			assert.Equal(t, tt.expected, result)
+			conn, err := connectionFromDeviceName(tt.name, cfg)
+			require.NoError(t, err)
+			defer conn.Close()
+			name, err := conn.Name()
+			require.NoError(t, err)
+			assert.Equal(t, tt.name, name)
+			matches, err := tt.check(conn)
+			require.NoError(t, err)
+			assert.True(t, matches)
 		})
 	}
 }

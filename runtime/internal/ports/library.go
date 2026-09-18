@@ -60,13 +60,3 @@ func BuildPortLibrary(apis []InstrumentAPI) PortLibrary {
 	}
 	return lib
 }
-
-// RouteInfo describes how to route a command to a specific instrument channel.
-// It is the output of resolving a PortName + DeviceName through the port
-// library and wiremap.
-type RouteInfo struct {
-	InstrumentName string `json:"instrument_name"`
-	ChannelName    string `json:"channel_name"`
-	ChannelIndex   int    `json:"channel_index"`
-	DeviceName     string `json:"device_name"`
-}

@@ -1,5 +1,12 @@
 # Server Interpreter
 
+> Historical architecture reference. The interpreter daemon, HTTP Bridge,
+> request wrappers, and channels described below are not the current runtime
+> interface. The hub now uses measurement handlers and gRPC script dispatch,
+> with CLI buffer resolution. See
+> [current package documentation](../runtime/internal/serverinterpreter/doc.go)
+> and the [cleanup tracker](DEPRECATED_CODE_CLEANUP.md) for the supported flow.
+
 The **Server Interpreter** is a Go package that bridges falcon-core measurement requests to instrument commands through NATS messaging. It is the core component responsible for processing measurement requests, coordinating with instruments, and returning results.
 
 ## Overview

@@ -14,7 +14,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 )
@@ -39,11 +38,15 @@ func (m *MockBusyManager) IsBusy() bool {
 
 // mockDispatcher implements MeasurementDispatcher for testing.
 type mockDispatcher struct {
-	results []serverinterpreter.ResolvedCallResult
-	err     error
+	results    []serverinterpreter.ResolvedCallResult
+	err        error
+	calls      int
+	scriptName string
 }
 
 func (m *mockDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]serverinterpreter.ResolvedCallResult, error) {
+	m.calls++
+	m.scriptName = scriptName
 	return m.results, m.err
 }
 
@@ -65,28 +68,18 @@ func setupMeasureHandler(t *testing.T, dispatcher MeasurementDispatcher) (*Measu
 	require.NoError(t, err)
 	t.Cleanup(func() { logger.Close() })
 
-	measurementManager, err := measurements.NewManager(
-		tempDir+"/data",
-		tempDir+"/test.db",
-	)
-	require.NoError(t, err)
-	t.Cleanup(func() { measurementManager.Close() })
-
 	cfg := &config.Config{
 		DeviceConfig: &config.DeviceConfig{},
 		WireMap:      &config.WireMap{},
 	}
 	instrumentHandler, err := instrument.NewHandler(
 		logger,
-		natsServer.ClientURL(),
-		nc,
 		cfg,
 	)
 	require.NoError(t, err)
 
 	handler := NewMeasureCommandHandler(
 		logger,
-		measurementManager,
 		instrumentHandler,
 		&MockBusyManager{},
 		dispatcher,

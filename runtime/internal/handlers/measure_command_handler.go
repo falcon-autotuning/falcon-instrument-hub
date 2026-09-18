@@ -14,7 +14,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 )
@@ -39,46 +38,6 @@ type BusyManager interface {
 // MeasurementDispatcher dispatches measurement scripts to the instrument-script-server.
 type MeasurementDispatcher interface {
 	RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]serverinterpreter.ResolvedCallResult, error)
-}
-
-func inferSetterOnlyScriptName(setters []serverinterpreter.ExtractedInstrumentInfo) string {
-	if len(setters) == 0 {
-		return ""
-	}
-
-	candidates := []string{
-		setters[0].DefaultName,
-		setters[0].InstrumentFacingName,
-		setters[0].Description,
-		setters[0].PortJSON,
-	}
-	for _, candidate := range candidates {
-		lowerCandidate := strings.ToLower(candidate)
-		switch {
-		case strings.Contains(lowerCandidate, "sample_rate"):
-			return "set_sample_rate"
-		case strings.Contains(lowerCandidate, "trigger_level"),
-			strings.Contains(lowerCandidate, "trigger level"):
-			return "set_trigger_level"
-		case strings.Contains(lowerCandidate, "trigger_leader"),
-			strings.Contains(lowerCandidate, "trigger leader"):
-			return "set_trigger_leader"
-		case strings.Contains(lowerCandidate, "number_of_samples"),
-			strings.Contains(lowerCandidate, "bin-count"),
-			strings.Contains(lowerCandidate, ".bins"),
-			strings.Contains(lowerCandidate, "\"bins\""):
-			return "set_number_of_samples"
-		case strings.Contains(lowerCandidate, "slope"):
-			return "set_slope"
-		case strings.Contains(lowerCandidate, "set_voltage"),
-			strings.Contains(lowerCandidate, ".dc_v"),
-			strings.Contains(lowerCandidate, "\"dc_v\""),
-			strings.Contains(lowerCandidate, "voltage"):
-			return "set_voltage"
-		}
-	}
-
-	return ""
 }
 
 func targetStateKey(id string, channel int) string {
@@ -249,7 +208,6 @@ type MeasureCommandHandler struct {
 	nc                  *nats.Conn
 	js                  nats.JetStreamContext
 	subscription        *nats.Subscription
-	measurementManager  *measurements.Manager
 	instrumentHandler   *instrument.Handler
 	busyManager         BusyManager
 	dispatcher          MeasurementDispatcher
@@ -266,7 +224,6 @@ type MeasureCommandHandler struct {
 // NewMeasureCommandHandler creates a new handler
 func NewMeasureCommandHandler(
 	logger *logging.Logger,
-	measurementManager *measurements.Manager,
 	instrumentHandler *instrument.Handler,
 	busyManager BusyManager,
 	dispatcher MeasurementDispatcher,
@@ -278,7 +235,6 @@ func NewMeasureCommandHandler(
 	}
 	return &MeasureCommandHandler{
 		logger:              logger,
-		measurementManager:  measurementManager,
 		instrumentHandler:   instrumentHandler,
 		busyManager:         busyManager,
 		dispatcher:          dispatcher,
@@ -416,10 +372,15 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 
 	scriptName, scriptNameErr := falconReq.MeasurementName()
 	if scriptNameErr != nil {
-		h.logger.Debug(MeasureCommandHandlerName,
-			fmt.Sprintf("MeasurementName() returned error: %v", scriptNameErr))
+		h.logger.Error(MeasureCommandHandlerName,
+			fmt.Sprintf("failed to read measurement_name: %v", scriptNameErr))
+		return
 	}
 	scriptName = strings.TrimSpace(scriptName)
+	if scriptName == "" {
+		h.logger.Error(MeasureCommandHandlerName, "measurement_name is required")
+		return
+	}
 
 	revWire := reverseWireMap(h.wireMap)
 
@@ -742,9 +703,6 @@ func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
 		h.logger.Error(MeasureCommandHandlerName,
 			fmt.Sprintf("failed to extract setters (got %d): %v", len(setters), err))
 		return
-	}
-	if scriptName == "" {
-		scriptName = inferSetterOnlyScriptName(setters)
 	}
 	h.logger.Debug(MeasureCommandHandlerName,
 		fmt.Sprintf(

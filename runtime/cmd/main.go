@@ -268,8 +268,6 @@ func setupHandlers(services *coreServices) error {
 		cfg,
 		services.logger,
 		services.natsManager.GetConnection(),
-		services.natsManager.GetNATSURL(),
-		services.measurementManager,
 		dispatcher,
 	)
 
