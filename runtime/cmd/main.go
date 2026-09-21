@@ -39,8 +39,6 @@ var (
 	wiremap              string
 	workingdir           string
 	hubconfig            string
-	issBinary            string
-	issLibPath           string
 	issNoAutoStart       bool
 	instConfig           string
 	instPlugins          string
@@ -50,6 +48,7 @@ var (
 	instrumentAPIPaths   []string
 	measurementMetadata  string
 	logDiagnostics       bool
+	issBinary            string
 )
 
 var startCmd = &cobra.Command{
@@ -70,10 +69,6 @@ func init() {
 		StringVar(&workingdir, "working-dir", ".", "working directory for logs and data (default: current directory)")
 	startCmd.Flags().
 		StringVar(&hubconfig, "hub-config", "", "path to instrument_hub_config.yaml (sets device-config, wiremap, nats-url if not provided)")
-	startCmd.Flags().
-		StringVar(&issBinary, "iss-binary", "/opt/instrument-controller/bin/instrument-script-server", "path to instrument-script-server binary")
-	startCmd.Flags().
-		StringVar(&issLibPath, "iss-lib-path", "", "additional library path prepended to LD_LIBRARY_PATH for instrument-script-server")
 	startCmd.Flags().
 		BoolVar(&issNoAutoStart, "no-iss", false, "skip auto-starting instrument-script-server daemon")
 	startCmd.Flags().
@@ -185,6 +180,12 @@ func initializeEnvironment() error {
 	if err := setupWorkingDirectory(); err != nil {
 		return err
 	}
+	// Look for the binary in the system PATH
+	var err error
+	issBinary, err = exec.LookPath("instrument-script-server")
+	if err != nil {
+		return fmt.Errorf("instrument-script-server binary not found in PATH: %w", err)
+	}
 
 	return nil
 }
@@ -238,8 +239,6 @@ func setupHandlers(services *coreServices) error {
 		ServerHost:  "127.0.0.1",
 		ServerPort:  rpcPort,
 		ScriptsPath: userMeasurementLuas,
-		ISSBinary:   issBinary,
-		ISSLibPath:  issLibPath,
 	})
 
 	// Load device config / wiremap if provided; otherwise use an empty config.
@@ -428,54 +427,9 @@ func applyHubConfig() error {
 	return nil
 }
 
-// buildEnvWithLibPath returns os.Environ() with extra prepended to LD_LIBRARY_PATH
-// and the directory containing issBinary prepended to PATH (so instrument-worker
-// is found by posix_spawnp without requiring it to be in the system PATH).
-func buildEnvWithLibPath(extra string) []string {
-	env := os.Environ()
-	if extra != "" {
-		foundLib := false
-		for i, e := range env {
-			if strings.HasPrefix(e, "LD_LIBRARY_PATH=") {
-				existing := strings.TrimPrefix(e, "LD_LIBRARY_PATH=")
-				if existing != "" {
-					env[i] = "LD_LIBRARY_PATH=" + extra + ":" + existing
-				} else {
-					env[i] = "LD_LIBRARY_PATH=" + extra
-				}
-				foundLib = true
-				break
-			}
-		}
-		if !foundLib {
-			env = append(env, "LD_LIBRARY_PATH="+extra)
-		}
-	}
-	if issBinary != "" {
-		binDir := filepath.Dir(issBinary)
-		foundPath := false
-		for i, e := range env {
-			if strings.HasPrefix(e, "PATH=") {
-				existing := strings.TrimPrefix(e, "PATH=")
-				env[i] = "PATH=" + binDir + ":" + existing
-				foundPath = true
-				break
-			}
-		}
-		if !foundPath {
-			env = append(env, "PATH="+binDir)
-		}
-	}
-	return env
-}
-
 // startISSDaemon launches instrument-script-server daemon start in the background.
 // Returns the OS process on success so the caller can track it.
 func startISSDaemon() (*os.Process, error) {
-	if _, err := os.Stat(issBinary); os.IsNotExist(err) {
-		return nil, fmt.Errorf("instrument-script-server binary not found at %s", issBinary)
-	}
-
 	// Stop any stale daemon from a previous run before starting fresh.
 	stopISSDaemon()
 	if !waitForISSDaemonStopped(5 * time.Second) {
@@ -483,7 +437,7 @@ func startISSDaemon() (*os.Process, error) {
 	}
 
 	cmd := exec.Command(issBinary, "daemon", "start")
-	env := buildEnvWithLibPath(issLibPath)
+	env := os.Environ()
 	if instrumentServerPort > 0 {
 		env = append(env, fmt.Sprintf("INSTRUMENT_SCRIPT_SERVER_RPC_PORT=%d", instrumentServerPort))
 	}
@@ -618,7 +572,7 @@ func stopISSDaemon() {
 	}
 
 	cmd := exec.Command(issBinary, "daemon", "stop")
-	cmd.Env = buildEnvWithLibPath(issLibPath)
+	cmd.Env = os.Environ()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

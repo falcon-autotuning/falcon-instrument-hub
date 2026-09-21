@@ -1,61 +1,66 @@
-# Build configuration
-GO_BINARY := runtime/bin/instrument-hub
-INSTALL_PREFIX ?= /opt/falcon
-SUDO ?= sudo
+.PHONY: help configure build test clean install vcpkg-bootstrap 
+
 PRESET ?= linux-clang-release
-VCPKG_TRIPLET ?= x64-linux-dynamic
-LOCAL_VCPKG_INSTALLED := $(abspath vcpkg_installed/$(VCPKG_TRIPLET))
-LOCAL_PKGCONFIG := $(LOCAL_VCPKG_INSTALLED)/lib/pkgconfig
-SCHEMA_BUILD_DIR ?= build/wiremap-validator
+CMAKE_BUILD_DIR := build/$(PRESET)
 
-# Default target
-.PHONY: all
-all: build test
-
-# Build targets
-.PHONY: build
-build: build-go
-
-.PHONY: vcpkg-bootstrap
 vcpkg-bootstrap:
 	@echo "Bootstrapping vcpkg..."
-	MAKELEVEL=0 cmake -P cmake/bootstrap/bootstrap-vcpkg.cmake
+	cmake -P cmake/bootstrap/bootstrap-vcpkg.cmake
 
-.PHONY: configure
 configure: vcpkg-bootstrap
 	@echo "Configuring $(PRESET)..."
-	MAKELEVEL=0 cmake --preset $(PRESET)
+	cmake --preset $(PRESET)
 
-.PHONY: install-falcon-deps
-install-falcon-deps: vcpkg-bootstrap
-	@echo "vcpkg dependencies installed at $(LOCAL_VCPKG_INSTALLED)"
-
-.PHONY: go-mod-prepare
-go-mod-prepare:
-	cd runtime && go mod tidy
-
-.PHONY: build-go
-build-go: install-falcon-deps go-mod-prepare
-ifeq ($(OS),Windows_NT)
-	cd runtime && go build -o bin/instrument-hub.exe cmd/main.go
-	cd runtime && go build -o bin/dataviewer.exe ./cmd/dataviewer/
+CACHE_FILE := build/$(PRESET)/CMakeCache.txt
+ifneq ($(wildcard $(CACHE_FILE)),)
+    # Extracts VCPKG_TARGET_TRIPLET from the cache line matching "VCPKG_TARGET_TRIPLET:STRING=..."
+    VCPKG_TRIPLET := $(shell grep "^VCPKG_TARGET_TRIPLET:" $(CACHE_FILE) | cut -d'=' -f2)
+    # Extracts VCPKG_INSTALLED_DIR from the cache line matching "VCPKG_INSTALLED_DIR:PATH=..."
+    VCPKG_INSTALLED_DIR := $(shell grep "^VCPKG_INSTALLED_DIR:" $(CACHE_FILE) | cut -d'=' -f2)
+    # Extracts CMAKE_BUILD_TYPE from the cache line matching "CMAKE_BUILD_TYPE:STRING=..."
+    CMAKE_BUILD_TYPE:= $(shell grep "^CMAKE_BUILD_TYPE:" $(CACHE_FILE) | cut -d'=' -f2)
 else
-	cd runtime && $(GO_CGO_ENV) LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -tags cgo,falcon_core -o bin/instrument-hub cmd/main.go
-	cd runtime && PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" go build -o bin/dataviewer ./cmd/dataviewer/
+    CMAKE_BUILD_TYPE := Debug
+    VCPKG_TRIPLET := x64-linux-dynamic
+    VCPKG_INSTALLED_DIR := $(abspath vcpkg_installed)
 endif
 
-# Release build (optimised, symbols stripped)
-.PHONY: build-release
-build-release: install-falcon-deps go-mod-prepare
-	cd runtime && $(GO_CGO_ENV) LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$$LD_LIBRARY_PATH" \
-		go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
+LOCAL_VCPKG_INSTALLED := $(VCPKG_INSTALLED_DIR)/$(VCPKG_TRIPLET)
+LOCAL_PKGCONFIG := $(LOCAL_VCPKG_INSTALLED)/lib/pkgconfig
 
-# Install the instrument-hub binary to INSTALL_PREFIX/bin
-.PHONY: install
-install: build-go
-	$(SUDO) install -d $(INSTALL_PREFIX)/bin
-	$(SUDO) install -m 0755 $(GO_BINARY) $(INSTALL_PREFIX)/bin/instrument-hub
+# All required environment variables are derived from LOCAL_VCPKG_INSTALLED.
+GO_ENV = CGO_ENABLED=1 \
+	PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" \
+	CGO_LDFLAGS="-L$(LOCAL_VCPKG_INSTALLED)/lib -Wl,-rpath,$(LOCAL_VCPKG_INSTALLED)/lib" \
+	PATH="$(LOCAL_VCPKG_INSTALLED)/bin:$(PATH)" \
+	LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$(LD_LIBRARY_PATH)"
 
+build: configure
+	cd runtime && go mod tidy
+ifeq ($(CMAKE_BUILD_TYPE),Debug)
+	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -o bin/instrument-hub cmd/main.go
+else
+	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
+endif
+	cmake --build --preset $(PRESET) --target validate-wiremap-config
+
+test: build
+	@echo "Running tests for $(PRESET)..."
+	cd runtime && $(GO_ENV) go test -tags cgo,falcon_core ./...
+	ctest --preset $(PRESET) -V
+
+install: build
+	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
+	cmake --install $(CMAKE_BUILD_DIR)
+
+.PHONY: clean
+clean:
+	rm -rf runtime/bin/
+	@echo "Cleaning all build artifacts..."
+	rm -rf build vcpkg_installed
+	@echo "✓ Clean complete"
+
+# DEPRECATED
 # Data viewer — plots raw & averaged measurement data in the browser.
 # Usage: make dataviewer DATA_DIR=path/to/measurement/data
 DATA_DIR ?= test_data/demo_measurements
@@ -63,17 +68,8 @@ DATA_DIR ?= test_data/demo_measurements
 dataviewer: build-go
 	runtime/bin/dataviewer --data-dir $(DATA_DIR)
 
-# Go unit/integration tests (CGO + falcon_core build tags).
-# All required environment variables are derived from LOCAL_VCPKG_INSTALLED.
-GO_CGO_ENV = CGO_ENABLED=1 \
-	PKG_CONFIG_PATH="$(LOCAL_PKGCONFIG)" \
-	CGO_LDFLAGS="-L$(LOCAL_VCPKG_INSTALLED)/lib -Wl,-rpath,$(LOCAL_VCPKG_INSTALLED)/lib"
-
-.PHONY: test-go
-test-go: go-mod-prepare build-go
-	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core ./...
-
 .PHONY: test-go-short
+<<<<<<< HEAD
 test-go-short: go-mod-prepare build-go
 	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core -short ./...
 
@@ -114,9 +110,5 @@ clean:
 	rm -rf build vcpkg_installed
 	@echo "✓ Clean complete"
 
-# Platform-specific targets
-.PHONY: test-linux
-test-linux: test
-
-.PHONY: test-windows
-test-windows: test-go
+test-go-short: go-mod-prepare build
+	cd runtime && $(GO_ENV) go test -tags cgo,falcon_core -short ./...
