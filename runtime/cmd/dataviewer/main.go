@@ -1,9 +1,9 @@
 // Command dataviewer starts a local HTTP server for plotting raw and averaged
-// measurement data from the FALCon two-database JSON storage.
+// measurement data from legacy/exported JSON datasets, not live JetStream data.
 //
 // Usage:
 //
-//	go run ./cmd/dataviewer --data-dir ../../test-outs/data/dummy_measurement
+//	go run ./cmd/dataviewer --data-dir ../test_data/demo_measurements
 //	# then open http://localhost:8089 in a browser
 package main
 
@@ -31,8 +31,7 @@ import (
 var frontendFS embed.FS
 
 // ---------------------------------------------------------------------------
-// On-disk JSON shapes (mirrors serverinterpreter types, kept minimal for the
-// viewer so we avoid importing the internal package from a separate main).
+// Legacy/exported on-disk JSON shapes, independent of current ISS result types.
 // ---------------------------------------------------------------------------
 
 type tracePoint struct {
@@ -218,6 +217,19 @@ func (s *server) loadIndex() error {
 	return json.Unmarshal(data, &s.index)
 }
 
+// Relative references are dataset-root-relative. Moved legacy absolute paths
+// fall back to the matching filename in the dataset's averaged/raw directory.
+func (s *server) readDatasetFile(path, directory string) ([]byte, error) {
+	if !filepath.IsAbs(path) {
+		return os.ReadFile(filepath.Join(s.dataDir, path))
+	}
+	data, err := os.ReadFile(path)
+	if !os.IsNotExist(err) {
+		return data, err
+	}
+	return os.ReadFile(filepath.Join(s.dataDir, directory, filepath.Base(path)))
+}
+
 // ---------------------------------------------------------------------------
 // Handlers
 // ---------------------------------------------------------------------------
@@ -268,7 +280,7 @@ func (s *server) handleGetPlotData(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Load averaged data
-	avgData, err := os.ReadFile(idx.FilePath)
+	avgData, err := s.readDatasetFile(idx.FilePath, "averaged")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to read averaged file: %v", err), http.StatusInternalServerError)
 		return
@@ -300,15 +312,7 @@ func (s *server) handleGetPlotData(w http.ResponseWriter, r *http.Request) {
 
 	// Load raw traces if available
 	if idx.RawDataRef != nil {
-		rawPath := idx.RawDataRef.RawFilePath
-
-		// Try both the absolute path and a relative path from our data dir
-		rawData, err := os.ReadFile(rawPath)
-		if err != nil {
-			// Try constructing from data dir
-			rawPath = filepath.Join(s.dataDir, "raw", fmt.Sprintf("raw_%s.json", id))
-			rawData, err = os.ReadFile(rawPath)
-		}
+		rawData, err := s.readDatasetFile(idx.RawDataRef.RawFilePath, "raw")
 		if err == nil {
 			var raw rawRecord
 			if err := json.Unmarshal(rawData, &raw); err == nil {
@@ -333,7 +337,7 @@ func (s *server) handleGetPlotData(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *server) handle2DPlotData(w http.ResponseWriter, idx measurementIndex) {
-	data, err := os.ReadFile(idx.FilePath)
+	data, err := s.readDatasetFile(idx.FilePath, "averaged")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to read 2D file: %v", err), http.StatusInternalServerError)
 		return
@@ -358,7 +362,7 @@ func (s *server) handle2DPlotData(w http.ResponseWriter, idx measurementIndex) {
 }
 
 func (s *server) handleDCPlotData(w http.ResponseWriter, idx measurementIndex) {
-	data, err := os.ReadFile(idx.FilePath)
+	data, err := s.readDatasetFile(idx.FilePath, "averaged")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to read DC collection file: %v", err), http.StatusInternalServerError)
 		return
@@ -379,7 +383,7 @@ func (s *server) handleDCPlotData(w http.ResponseWriter, idx measurementIndex) {
 }
 
 func (s *server) handleAxisSweepPlotData(w http.ResponseWriter, idx measurementIndex) {
-	data, err := os.ReadFile(idx.FilePath)
+	data, err := s.readDatasetFile(idx.FilePath, "averaged")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to read axis sweep file: %v", err), http.StatusInternalServerError)
 		return

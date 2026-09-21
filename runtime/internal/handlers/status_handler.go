@@ -52,7 +52,7 @@ func (h *StatusHandler) Start(nc *nats.Conn) error {
 		"Started publishing status messages every 4 seconds",
 	)
 	log.Printf(
-		"STATUS handler started - publishing to STATUS.instument-server every 4 seconds",
+		"STATUS handler started - publishing to STATUS.instrument-server every 4 seconds",
 	)
 
 	return nil

@@ -1,489 +1,118 @@
-# NATS Protocol Reference
-
-This document describes the NATS messaging protocol used by the Server Interpreter component of falcon-instrument-hub. Message schemas are aligned with `falcon-api/embedded/commands/v1/` specifications.
-
-## Overview
-
-The Server Interpreter uses NATS for:
-- Receiving measurement requests from falcon
-- Coordinating with instrument daemons
-- Uploading measurement results
-
-JetStream is used for large data transfers to ensure reliability and persistence.
-
-## Channel Naming Convention
-
-Channels follow the pattern: `{CHANNEL_NAME}.{suffix}`
-
-Examples:
-- `LOG.interpreter` - Log messages from interpreter
-- `PROCESS_REQUEST` - Measurement request channel
-- `measurement.data.{process_id}` - JetStream data channel
-
-## Message Schemas
-
-### LOG
-
-Logging messages from components.
-
-```yaml
-# falcon-api/embedded/commands/v1/log.yaml
-channel: LOG
-parameters:
-  hash: int (optional)     # Process identifier
-  message: string          # Log message text
-  timestamp: int           # Unix timestamp
-```
-
-**Go Type:**
-```go
-type LogMessage struct {
-    Hash      int64  `json:"hash,omitempty"`
-    Message   string `json:"message"`
-    Timestamp int64  `json:"timestamp"`
-}
-```
-
-### PROCESS_REQUEST
-
-Request to process a measurement.
-
-```yaml
-# falcon-api/embedded/commands/v1/process_request.yaml
-channel: PROCESS_REQUEST
-parameters:
-  process_id: int          # Unique process identifier
-  request: jsonable        # MeasurementRequest object
-  configurations: json     # Instrument configurations
-  data_path: string        # Path to store data
-```
-
-**Go Type:**
-```go
-type ProcessRequestMessage struct {
-    ProcessID      int64       `json:"process_id"`
-    Request        interface{} `json:"request"`
-    Configurations interface{} `json:"configurations"`
-    DataPath       string      `json:"data_path"`
-}
-```
-
-### MEASUREMENT_READY
-
-Signal that measurement is ready for instrument daemon.
-
-```yaml
-# falcon-api/embedded/commands/v1/measurement_ready.yaml
-channel: MEASUREMENT_READY
-parameters:
-  timestamp: int
-  getters: list[string]    # InstrumentPort JSONs
-  setters: list[string]    # InstrumentPort JSONs
-  requirements: list[string]
-  has_set: boolean
-  has_trigger: boolean
-  is_buffered: boolean
-  process_id: int
-  chunk_id: int
-```
-
-**Go Type:**
-```go
-type MeasurementReadyMessage struct {
-    Timestamp    int64    `json:"timestamp"`
-    Getters      []string `json:"getters"`
-    Setters      []string `json:"setters"`
-    Requirements []string `json:"requirements"`
-    HasSet       bool     `json:"has_set"`
-    HasTrigger   bool     `json:"has_trigger"`
-    IsBuffered   bool     `json:"is_buffered"`
-    ProcessID    int64    `json:"process_id"`
-    ChunkID      int64    `json:"chunk_id"`
-}
-```
-
-### PROCESS_DATA
-
-Data collected from instruments.
-
-```yaml
-# falcon-api/embedded/commands/v1/process_data.yaml
-channel: PROCESS_DATA
-parameters:
-  chunk_id: int
-  timestamp: int
-  data: string             # JSON-serialized measurement data
-  process_id: int
-```
-
-**Go Type:**
-```go
-type ProcessDataMessage struct {
-    ChunkID   int64  `json:"chunk_id"`
-    Timestamp int64  `json:"timestamp"`
-    Data      string `json:"data"`
-    ProcessID int64  `json:"process_id"`
-}
-```
-
-### UPLOAD_DATA
-
-Notification of uploaded measurement results.
-
-```yaml
-# falcon-api/embedded/commands/v1/upload_data.yaml
-channel: UPLOAD_DATA
-parameters:
-  timestamp: int
-  process_id: int
-  unit_hash: int           # Algorithmic unit hash
-  channel: string          # NATS channel for data retrieval
-  stream: string           # JetStream stream name
-```
-
-**Go Type:**
-```go
-type UploadDataMessage struct {
-    Timestamp int64  `json:"timestamp"`
-    ProcessID int64  `json:"process_id"`
-    UnitHash  int64  `json:"unit_hash"`
-    Channel   string `json:"channel"`
-    Stream    string `json:"stream"`
-}
-```
-
-### UPDATE_DAEMON_PROPERTY
-
-Update instrument daemon property.
-
-```yaml
-# falcon-api/embedded/commands/v1/update_daemon_property.yaml
-channel: UPDATE_DAEMON_PROPERTY
-parameters:
-  timestamp: int
-  property: string         # Property name
-  name: string             # InstrumentPort JSON
-  value: any               # Value to set
-```
-
-**Go Type:**
-```go
-type UpdateDaemonPropertyMessage struct {
-    Timestamp int64       `json:"timestamp"`
-    Property  string      `json:"property"`
-    Name      string      `json:"name"`
-    Value     interface{} `json:"value"`
-}
-```
-
-### STATUS
-
-Daemon status heartbeat.
-
-```yaml
-# falcon-api/embedded/commands/v1/status.yaml
-channel: STATUS
-parameters:
-  timestamp: int
-  status: boolean          # Active status
-```
-
-**Go Type:**
-```go
-type StatusMessage struct {
-    Timestamp int64 `json:"timestamp"`
-    Status    bool  `json:"status"`
-}
-```
-
-### CAPABILITY_REQUEST
-
-**Retired:** the hub no longer subscribes to this endpoint. Discover physical
-ports through `PORT_REQUEST` / `PORT_PAYLOAD`, then send an explicitly named
-measurement. The declarations below remain in the externally generated API
-schema for compatibility; they do not imply runtime support.
-
-**Subject:** `INSTRUMENTHUB.CAPABILITY_REQUEST`
-
-```yaml
-channel: CAPABILITY_REQUEST
-parameters:
-  timestamp: int
-  device_name: string      # Logical device connection, e.g. O1
-  capability: string       # IO/capability name, e.g. trigger_level
-  role: string             # input, output, or setting
-```
-
-**Go Type:**
-```go
-type CapabilityRequest struct {
-    Timestamp  int64  `json:"timestamp"`
-    DeviceName string `json:"device_name"`
-    Capability string `json:"capability"`
-    Role       string `json:"role"`
-}
-```
-
-### CAPABILITY_PAYLOAD
-
-**Retired:** this legacy response is no longer published by the hub.
-The retained generated schema describes connected port metadata and a cereal
-`InstrumentPort` JSON string; use `PORT_PAYLOAD` for current discovery.
-
-**Subject:** `FALCON.CAPABILITY_PAYLOAD`
-
-```yaml
-channel: CAPABILITY_PAYLOAD
-parameters:
-  timestamp: int
-  port: string             # Resolved InstrumentPort cereal JSON
-  port_name: string        # Fully qualified canonical port name
-  device_name: string      # Logical device connection
-  instrument_name: string  # ISS instrument identifier
-  channel_name: string     # Instrument channel group
-  channel_index: int       # 1-based instrument channel index
-  capability: string       # IO/capability name
-  role: string             # input, output, or setting
-  unit: string             # Unit symbol
-  error: string            # Present when lookup or serialization fails
-```
-
-**Go Type:**
-```go
-type CapabilityPayload struct {
-    Timestamp      int64  `json:"timestamp"`
-    Port           string `json:"port"`
-    PortName       string `json:"port_name"`
-    DeviceName     string `json:"device_name"`
-    InstrumentName string `json:"instrument_name"`
-    ChannelName    string `json:"channel_name"`
-    ChannelIndex   int    `json:"channel_index"`
-    Capability     string `json:"capability"`
-    Role           string `json:"role"`
-    Unit           string `json:"unit"`
-    Error          string `json:"error,omitempty"`
-}
-```
-
-## Instrument Coordination Channels
-
-### SET
-
-Execute a set instruction on an instrument.
-
-```yaml
-# falcon-api/embedded/commands/v1/set.yaml
-channel: SET
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-  property: string
-  index: int
-  value: any
-```
-
-### GET
-
-Execute a get instruction on an instrument.
-
-```yaml
-# falcon-api/embedded/commands/v1/get.yaml
-channel: GET
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-  property: string
-  index: int
-```
-
-### TRIGGER
-
-Trigger buffered instruments.
-
-```yaml
-# falcon-api/embedded/commands/v1/trigger.yaml
-channel: TRIGGER
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-  is_setter: boolean
-```
-
-### ARMED
-
-Instrument armed and ready notification.
-
-```yaml
-# falcon-api/embedded/commands/v1/armed.yaml
-channel: ARMED
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-```
-
-### EXECUTING
-
-Instrument currently executing notification.
-
-```yaml
-# falcon-api/embedded/commands/v1/executing.yaml
-channel: EXECUTING
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-```
-
-### RETURN_DATA
-
-Measurement data response from instrument.
-
-```yaml
-# falcon-api/embedded/commands/v1/return_data.yaml
-channel: RETURN_DATA
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-  data: any
-```
-
-### RETURN_GET
-
-Get operation response from instrument.
-
-```yaml
-# falcon-api/embedded/commands/v1/return_get.yaml
-channel: RETURN_GET
-parameters:
-  timestamp: int
-  process_id: int
-  chunk_id: int
-  value: any
-```
-
-## JetStream Configuration
-
-The Server Interpreter uses JetStream for reliable data transfer:
-
-```go
-streamConfig := &nats.StreamConfig{
-    Name:      "FALCON_MEASUREMENTS",
-    Subjects:  []string{"measurement.result.>", "measurement.data.>"},
-    Retention: nats.LimitsPolicy,
-    MaxAge:    24 * time.Hour,
-    MaxMsgs:   10000,
-    MaxBytes:  1024 * 1024 * 1024, // 1GB
-    Storage:   nats.FileStorage,
-}
-```
-
-### Measurement Completion Notification
-
-When the hub completes an averaged measurement, it publishes a notification to JetStream:
-
-**Subject:** `measurement.result.{measurement_id}`
+# NATS Protocol
+
+This describes subjects implemented by the current hub handlers. Payload
+envelopes are JSON; falcon-core objects inside string fields use C++ cereal JSON,
+not handwritten object dictionaries or falcon-measurement-lib script schemas.
+Generated declarations in `runtime/internal/api/api.go` include legacy messages
+that are not supported merely because a Go type exists.
+
+## Active Subjects
+
+| Subject | Hub direction | Payload |
+| --- | --- | --- |
+| `LOG.>` | Subscribe | Structured log envelope or plain text |
+| `INSTRUMENTHUB.DEVICE_CONFIG_REQUEST` | Subscribe | Device configuration request |
+| `FALCON.DEVICE_CONFIG_RESPONSE` | Publish | Device configuration envelope |
+| `INSTRUMENTHUB.PORT_REQUEST` | Subscribe | Port discovery request |
+| `FALCON.PORT_PAYLOAD` | Publish | Knob/meter discovery envelope |
+| `INSTRUMENTHUB.MEASURE_COMMAND` | Subscribe | Measurement request envelope |
+| `FALCON.MEASURE_DATA.<timestamp>` | JetStream publish | Cereal `MeasurementResponse` JSON |
+| `FALCON.MEASURE_RESPONSE.<timestamp>` | Publish | Correlated completion envelope |
+| `STATUS.instrument-server` | Publish | Hub readiness heartbeat |
+
+Subscribe to response subjects **before** sending requests. Device-config and
+port handlers publish to fixed subjects; they do not use the NATS request's
+reply inbox. Do not assume `nc.Request` works for these endpoints.
+
+## Port Discovery
+
+Publish to `INSTRUMENTHUB.PORT_REQUEST`:
 
 ```json
-{
-  "type": "measurement_complete",
-  "measurement_id": "jetstream-test-001",
-  "process_id": 42,
-  "status": "success",
-  "data_location": {
-    "stream": "FALCON_MEASUREMENTS",
-    "subject": "measurement.result.jetstream-test-001",
-    "file_path": "/data/measurements/sweep_jetstream-test-001.json",
-    "num_points": 101,
-    "num_sweeps": 10
-  },
-  "timestamp": "2026-02-09T10:30:00Z"
-}
+{"timestamp": 123456}
 ```
 
-**Go Type:**
-```go
-type FalconMeasurementNotification struct {
-    Type          string             `json:"type"`
-    MeasurementID string             `json:"measurement_id"`
-    ProcessID     int64              `json:"process_id"`
-    Status        string             `json:"status"`
-    DataLocation  FalconDataLocation `json:"data_location"`
-    Timestamp     time.Time          `json:"timestamp"`
-}
+The response on `FALCON.PORT_PAYLOAD` contains:
 
-type FalconDataLocation struct {
-    Stream    string `json:"stream"`
-    Subject   string `json:"subject"`
-    FilePath  string `json:"file_path"`
-    NumPoints int    `json:"num_points"`
-    NumSweeps int    `json:"num_sweeps"`
-}
-```
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `timestamp` | integer | Echo of the request timestamp |
+| `knobs` | string | Cereal `Ports` JSON for output capabilities |
+| `meters` | string | Cereal `Ports` JSON for input capabilities |
 
-### Falcon Subscription Example
+Deserialize both lists with falcon-core, select the desired physical connection,
+and use the returned port when building a measurement request. Settings such as
+`sample_rate` are not published as measurement ports. Their scripts resolve
+setting capabilities internally using target metadata and the wiremap.
 
-Falcon can subscribe to measurement completions:
+The current implementation publishes fully qualified capability-specific port
+names and does not deduplicate physical connections. A connection can match
+multiple returned ports; do not assume the first match is uniquely correct.
 
-```python
-import nats
+## Measurement Execution
 
-async def handle_measurement_complete(msg):
-    data = json.loads(msg.data)
-    if data["status"] == "success":
-        file_path = data["data_location"]["file_path"]
-        # Load and process measurement data
-        
-js = nc.jetstream()
-await js.subscribe("measurement.result.>", cb=handle_measurement_complete)
-```
+Publish to `INSTRUMENTHUB.MEASURE_COMMAND`:
 
-## Message Flow Example
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `timestamp` | integer | Caller-selected response correlation/suffix |
+| `hash` | integer | Caller correlation value, echoed in the envelope |
+| `request` | string | Cereal `MeasurementRequest` JSON, including `measurement_name` |
 
-```
-Falcon                 Server Interpreter           Instrument Daemon
-  │                           │                           │
-  │──PROCESS_REQUEST────────>│                           │
-  │                           │                           │
-  │                           │──UPDATE_DAEMON_PROPERTY─>│
-  │                           │──UPDATE_DAEMON_PROPERTY─>│
-  │                           │──MEASUREMENT_READY──────>│
-  │                           │                           │
-  │                           │<──────────ARMED──────────│
-  │                           │<────────EXECUTING────────│
-  │                           │<──────RETURN_DATA────────│
-  │                           │                           │
-  │                           │<──────PROCESS_DATA───────│
-  │                           │                           │
-  │<────────UPLOAD_DATA───────│                           │
-  │                           │                           │
-```
+The name selects a Lua script and its target metadata. The hub resolves its
+targets and dispatches to ISS over gRPC; capability lookup is internal, not a
+separate client request. Missing/blank names are logged and rejected.
 
-## Error Handling
+On success, the handler publishes cereal `MeasurementResponse` data to
+`FALCON.MEASURE_DATA.<timestamp>`, then sends an envelope to
+`FALCON.MEASURE_RESPONSE.<timestamp>`:
 
-Errors are communicated through:
-1. LOG channel messages
-2. Empty/error responses on request channels
-3. NATS subscription errors
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `timestamp` | integer | Echo of the command timestamp |
+| `hash` | integer | Echo of the command hash |
+| `stream` | string | Data subject `FALCON.MEASURE_DATA.<timestamp>` |
+| `response` | string | The same cereal measurement response JSON |
+| `channel` | string | Currently left empty by the measurement handler |
 
-## Channel Constants
+Despite its field name, `stream` identifies a **subject**, not the JetStream
+stream name. The handler creates stream `FALCON_MEASURE`, covering
+`FALCON.MEASURE_DATA.*`, with a 60-second maximum age. This is short-lived transport,
+not durable measurement archival.
 
-In Go code, use `RuntimeChannels`:
+Failures often log without publishing a completion/error envelope. Use a caller
+timeout; there is currently no defined NATS measurement error-response contract.
 
-```go
-serverinterpreter.RuntimeChannels.ProcessRequest  // "PROCESS_REQUEST"
-serverinterpreter.RuntimeChannels.ProcessData     // "PROCESS_DATA"
-serverinterpreter.RuntimeChannels.MeasurementReady // "MEASUREMENT_READY"
-serverinterpreter.RuntimeChannels.UploadData      // "UPLOAD_DATA"
-serverinterpreter.RuntimeChannels.Log             // "LOG"
-serverinterpreter.RuntimeChannels.Status          // "STATUS"
-```
+## Device Configuration
 
-## See Also
+Publish `{"timestamp": 123456}` to `INSTRUMENTHUB.DEVICE_CONFIG_REQUEST`.
+The response on `FALCON.DEVICE_CONFIG_RESPONSE` has `timestamp` (hub-generated
+Unix microseconds) and `response` (serialized configuration string).
+Its timestamp is **not** the request's correlation timestamp.
 
-- [falcon-api](https://github.com/falcon-autotuning/falcon-api) - Canonical API specifications
-- [Server Interpreter](server-interpreter.md) - Implementation details
+With the production CGO loader, `response` is cereal `Config` JSON captured
+at load time. The fallback Go-marshalled format is not equivalent and should
+not be treated as a cereal-compatible controller integration response.
+
+## Logs and Status
+
+Structured `LOG.>` messages have `timestamp` (Unix microseconds), `hash`, and
+`message`; plain-text messages are also accepted. Log levels are derived from
+subjects such as `LOG.INFO` and `LOG.ERROR`. Structured messages requesting a
+reply receive a plain-text acknowledgement; this is not a measurement protocol.
+
+`STATUS.instrument-server` carries `timestamp` (Unix microseconds) and
+`status: true`, initially and every four seconds after status publishing starts.
+It reports the hub publishing loop's state, not a fresh ISS health probe. No
+shutdown `status: false` publication is implemented.
+
+## Retired Subjects
+
+`CAPABILITY_REQUEST` / `CAPABILITY_PAYLOAD` no longer have a hub handler. Use port
+discovery plus an explicit measurement name instead. Old setup, process/chunk,
+instruction, data-collector, and upload lifecycle messages in generated bindings
+likewise do not represent current handler subscriptions.
+
+See [Hub Runtime](server-interpreter.md) for routing, script annotations, ISS
+transport, and current limitations. These documents describe existing behavior;
+they do not introduce a new wire protocol.

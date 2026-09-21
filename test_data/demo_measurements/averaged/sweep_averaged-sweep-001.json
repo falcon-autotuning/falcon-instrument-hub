@@ -936,7 +936,7 @@
   "total_duration": 15000000000,
   "raw_data_ref": {
     "measurement_id": "averaged-sweep-001",
-    "raw_file_path": "/home/zach/Documents/github/FALCon/falcon-instrument-hub/test_data/demo_measurements/raw/raw_averaged-sweep-001.json",
+    "raw_file_path": "raw/raw_averaged-sweep-001.json",
     "num_traces": 12,
     "num_points_per_trace": 151
   }

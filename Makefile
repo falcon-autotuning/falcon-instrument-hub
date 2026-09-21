@@ -98,8 +98,10 @@ test-schema: configure-schema
 test: test-go test-schema
 
 .PHONY: test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration
-test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration: test-go
-	@echo "Python test targets have been retired; ran Go tests via test-go."
+# Retired names are migration errors, not aliases claiming measurement coverage.
+test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration:
+	@echo "Retired target '$@': use test-go-short or test-go. No measurement-specific suite is selected." >&2
+	@exit 2
 
 .PHONY: clean
 clean:

@@ -19,7 +19,7 @@ const (
 	deviceConfigResponseSubject = "FALCON.DEVICE_CONFIG_RESPONSE"
 )
 
-// DeviceConfigHandler handles DEVICE_CONFIG_REQUEST.external.<name> messages
+// DeviceConfigHandler handles INSTRUMENTHUB.DEVICE_CONFIG_REQUEST messages.
 type DeviceConfigHandler struct {
 	config       *config.Config
 	logger       *logging.Logger
@@ -68,7 +68,7 @@ func (h *DeviceConfigHandler) Subscribe(nc *nats.Conn) error {
 	return nil
 }
 
-// Unsubscribe unsubscribes from DEVICE_CONFIG_REQUEST.external.* channels
+// Unsubscribe removes the device configuration request subscription.
 func (h *DeviceConfigHandler) Unsubscribe() error {
 	if h.subscription != nil {
 		err := h.subscription.Unsubscribe()

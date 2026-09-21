@@ -18,6 +18,20 @@
 /datacache
 /data
 
+# Nested runtime output and legacy Go build locations.
+/runtime/log/
+/runtime/data/
+/runtime/datacache/
+/runtime/main
+/runtime/cmd/main
+/runtime/dataviewer
+/runtime/main.exe
+/runtime/cmd/main.exe
+/runtime/dataviewer.exe
+/nohup.out
+*.db-shm
+*.db-wal
+
 .aider*
 */__pycache__/*
 */bin/*

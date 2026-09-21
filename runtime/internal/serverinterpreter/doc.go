@@ -8,4 +8,6 @@
 //
 // The handlers package owns script annotation loading and physical-port routing.
 // This package does not maintain an independent script or instrument registry.
+// FalconMeasurementRequest wraps the falcon-core bindings when built with cgo
+// and falcon_core tags. Results are not automatically archived to viewer datasets.
 package serverinterpreter

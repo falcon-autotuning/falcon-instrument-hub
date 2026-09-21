@@ -1,5 +1,13 @@
 # Lua Measurement Script Authoring Guide
 
+> Legacy script examples: the orchestration, HTTP execution commands, and some
+> runtime APIs below are not implemented by the current hub. Use
+> [Hub Runtime](server-interpreter.md) for annotation rules and the current
+> dispatch contract, and the controller's
+> [measurement scripts](../../instrument-controller/tests/instrument-control/measurement-scripts/)
+> for compiled Teal examples. An annotation does not define arbitrary script
+> argument binding. This legacy guide is not a current API specification.
+
 This guide explains how experimenters create Lua measurement scripts for the FALCon instrument system.
 
 ## Architecture Overview

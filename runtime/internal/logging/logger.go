@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime/debug"
@@ -12,12 +13,13 @@ import (
 
 // Logger handles global logging for the runtime
 type Logger struct {
-	mu       sync.RWMutex
-	file     *os.File
-	filePath string
-	logQueue chan LogEntry
-	done     chan struct{}
-	wg       sync.WaitGroup
+	mu               sync.RWMutex
+	file             *os.File
+	filePath         string
+	logQueue         chan LogEntry
+	done             chan struct{}
+	wg               sync.WaitGroup
+	diagnosticWriter io.Writer
 
 	// Performance monitoring
 	stats   LoggerStats
@@ -45,15 +47,24 @@ type LogEntry struct {
 	Channel   string
 }
 
-// TODO: generalize this pageSize ot get it from the OS directly instead of
-// asserting
 const (
 	TimeFormat = "2006-01-02 15:04:05.0000000"
-	pageSize   = 4096 // OS page size
+	batchBytes = 4096 // Target log batch size; unrelated to OS page size.
 )
+
+// LoggerOptions controls internal writer diagnostics, not file log levels.
+type LoggerOptions struct {
+	Diagnostics      bool
+	DiagnosticWriter io.Writer // Defaults to stderr; custom writers must support concurrent writes.
+}
 
 // NewLogger creates a new logger instance
 func NewLogger(outputPath string) (*Logger, error) {
+	return NewLoggerWithOptions(outputPath, LoggerOptions{})
+}
+
+// NewLoggerWithOptions creates a logger with optional writer diagnostics.
+func NewLoggerWithOptions(outputPath string, options LoggerOptions) (*Logger, error) {
 	// Create log file with timestamp
 	timestamp := time.Now().Format("2006-01-02_15-04-05")
 	filename := fmt.Sprintf("falcon-runtime_%s.log", timestamp)
@@ -69,6 +80,12 @@ func NewLogger(outputPath string) (*Logger, error) {
 		filePath: filePath,
 		logQueue: make(chan LogEntry, 10000), // Large buffer for async logging
 		done:     make(chan struct{}),
+	}
+	if options.Diagnostics {
+		logger.diagnosticWriter = options.DiagnosticWriter
+		if logger.diagnosticWriter == nil {
+			logger.diagnosticWriter = os.Stderr
+		}
 	}
 
 	// Start async writer goroutine
@@ -87,6 +104,12 @@ func NewLogger(outputPath string) (*Logger, error) {
 	logger.Info("SYSTEM", fmt.Sprintf("Log file: %s", filePath))
 
 	return logger, nil
+}
+
+func (l *Logger) diagnosticf(format string, args ...interface{}) {
+	if l.diagnosticWriter != nil {
+		fmt.Fprintf(l.diagnosticWriter, format, args...)
+	}
 }
 
 // asyncWriter processes log entries from the queue
@@ -108,11 +131,10 @@ func (l *Logger) asyncWriter() {
 	defer ticker.Stop()
 
 	var stringBuilder strings.Builder
-	stringBuilder.Grow(pageSize * 4)
+	stringBuilder.Grow(batchBytes * 4)
 
-	// Write startup message directly to stderr
-	fmt.Fprintf(
-		os.Stderr,
+	// Internal diagnostics use the opt-in output, independently of file logs.
+	l.diagnosticf(
 		"[LOGGER_DEBUG] AsyncWriter started at %s\n",
 		time.Now().Format(TimeFormat),
 	)
@@ -129,8 +151,7 @@ func (l *Logger) asyncWriter() {
 			// Log detailed stats every 10 ticks (500ms)
 			if tickerCount%10 == 0 || now.Sub(lastStatsTime) > 5*time.Second {
 				queueLen := len(l.logQueue)
-				fmt.Fprintf(
-					os.Stderr,
+				l.diagnosticf(
 					"[LOGGER_DEBUG] Tick #%d, queue len: %d, time: %s\n",
 					tickerCount,
 					queueLen,
@@ -149,19 +170,18 @@ func (l *Logger) asyncWriter() {
 			}
 
 			// Every 50ms, drain the entire queue and write to file
-			l.drainQueueAndWrite(&stringBuilder, pageSize, tickerCount)
+			l.drainQueueAndWrite(&stringBuilder, batchBytes, tickerCount)
 
 		case <-l.done:
-			fmt.Fprintf(os.Stderr, "[LOGGER_DEBUG] Shutdown signal received\n")
+			l.diagnosticf("[LOGGER_DEBUG] Shutdown signal received\n")
 			// Shutdown signal - drain everything and exit
-			l.drainQueueAndWrite(&stringBuilder, pageSize, -1)
+			l.drainQueueAndWrite(&stringBuilder, batchBytes, -1)
 
 			// Write any remaining content in buffer
 			if stringBuilder.Len() > 0 {
 				l.writeStringToFile(stringBuilder.String(), -1)
 			}
-			fmt.Fprintf(
-				os.Stderr,
+			l.diagnosticf(
 				"[LOGGER_DEBUG] AsyncWriter exiting normally\n",
 			)
 			return
@@ -170,10 +190,10 @@ func (l *Logger) asyncWriter() {
 }
 
 // drainQueueAndWrite empties the entire logQueue and writes to file in
-// page-sized chunks
+// batches with a target byte size (individual entries are not split).
 func (l *Logger) drainQueueAndWrite(
 	builder *strings.Builder,
-	pageSize, tickNumber int,
+	batchBytes, tickNumber int,
 ) {
 	entriesProcessed := 0
 	writeCount := 0
@@ -198,8 +218,7 @@ func (l *Logger) drainQueueAndWrite(
 			builder.WriteString(logLine)
 			entriesProcessed++
 
-			// If we've accumulated enough for a page, write it
-			if builder.Len() >= pageSize {
+			if builder.Len() >= batchBytes {
 				l.writeStringToFile(builder.String(), tickNumber)
 				writeCount++
 				builder.Reset()
@@ -212,7 +231,7 @@ func (l *Logger) drainQueueAndWrite(
 	}
 
 drainComplete:
-	// Write any remaining content that's less than a page
+	// Flush the remaining partial batch.
 	if builder.Len() > 0 {
 		l.writeStringToFile(builder.String(), tickNumber)
 		writeCount++
@@ -225,8 +244,7 @@ drainComplete:
 	// Log processing time if it takes too long
 	duration := time.Since(startTime)
 	if duration > 10*time.Millisecond || entriesProcessed > 100 {
-		fmt.Fprintf(
-			os.Stderr,
+		l.diagnosticf(
 			"[LOGGER_DEBUG] Tick %d: processed %d entries, %d writes, took %v\n",
 			tickNumber,
 			entriesProcessed,
@@ -308,9 +326,9 @@ func (l *Logger) writeStringToFile(content string, tickNumber int) {
 		return
 	}
 
-	// Also print to stdout for debugging (first few entries only)
+	// Echo early and periodic batches only when diagnostics are enabled.
 	if tickNumber <= 5 || tickNumber%100 == 0 {
-		fmt.Print(content)
+		l.diagnosticf("%s", content)
 	}
 
 	// Sync to disk
@@ -327,9 +345,8 @@ func (l *Logger) writeStringToFile(content string, tickNumber int) {
 	// Log slow writes
 	duration := time.Since(startTime)
 	if duration > 50*time.Millisecond {
-		fmt.Fprintf(
-			os.Stderr,
-			"[LOGGER_WARNING] Slow write (tick %d): %d bytes in %v\n",
+		l.diagnosticf(
+			"[LOGGER_DEBUG] Slow write (tick %d): %d bytes in %v\n",
 			tickNumber,
 			bytesWritten,
 			duration,
@@ -377,7 +394,7 @@ func (l *Logger) queueLogEntry(level, source, message, channel string) {
 		l.statsMu.Unlock()
 
 		// Enhanced logging with queue diagnostics
-		fmt.Printf(
+		fmt.Fprintf(os.Stderr,
 			"LOG QUEUE FULL (len=%d): [%s] [%s] [%s] %s\n",
 			queueLen,
 			entry.Timestamp.Format(TimeFormat),
@@ -386,14 +403,15 @@ func (l *Logger) queueLogEntry(level, source, message, channel string) {
 			message,
 		)
 		// Also check if asyncWriter is still alive
-		fmt.Printf(
+		stats := l.GetStats()
+		l.diagnosticf(
 			"QUEUE STATS: Cap=%d, Len=%d, Enqueued=%d, Batches=%d\n",
 			cap(
 				l.logQueue,
 			),
 			len(l.logQueue),
-			l.stats.TotalEnqueued,
-			l.stats.TotalBatches,
+			stats.TotalEnqueued,
+			stats.TotalBatches,
 		)
 	}
 }

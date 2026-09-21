@@ -49,12 +49,13 @@ var (
 	userMeasurementLuas  string
 	instrumentAPIPaths   []string
 	measurementMetadata  string
+	logDiagnostics       bool
 )
 
 var startCmd = &cobra.Command{
 	Use:   "start",
-	Short: "start the falcon instrument server",
-	Long:  "start the falcon instrument server with the specified configuration",
+	Short: "start the Falcon Instrument Hub",
+	Long:  "start the Falcon Instrument Hub with the specified configuration",
 	RunE:  runStart,
 }
 
@@ -89,6 +90,8 @@ func init() {
 		StringSliceVar(&instrumentAPIPaths, "instrument-apis", []string{}, "comma-separated paths to instrument API YAML files")
 	startCmd.Flags().
 		StringVar(&measurementMetadata, "measurement-metadata", "", "path to measurement metadata YAML file")
+	startCmd.Flags().
+		BoolVar(&logDiagnostics, "log-diagnostics", false, "print internal log-writer diagnostics to stderr")
 }
 
 func runStart(cmd *cobra.Command, args []string) error {
@@ -102,9 +105,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// start instrument-script-server daemon unless disabled (instruments are
-	// started later, after NATS handlers are subscribed, so CONFIRM_INITIALIZATION
-	// messages are not lost)
+	// Start the ISS daemon now; instrument startup and hub readiness follow below.
 	var issProcess *os.Process
 	if !issNoAutoStart {
 		proc, err := startISSDaemon()
@@ -129,8 +130,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// start instruments only after handlers are subscribed so CONFIRM_INITIALIZATION
-	// messages are not dropped
+	// Start ISS instruments before publishing hub readiness.
 	if !issNoAutoStart && issProcess != nil {
 		if err := startInstruments(); err != nil {
 			return fmt.Errorf("failed to start instruments: %w", err)
@@ -217,7 +217,9 @@ func setupCoreServices() (*coreServices, error) {
 	services.measurementManager = measurementManager
 
 	// create logger for handlers
-	logger, err := logging.NewLogger(filepath.Join(workingdir, LogsDir))
+	logger, err := logging.NewLoggerWithOptions(filepath.Join(workingdir, LogsDir), logging.LoggerOptions{
+		Diagnostics: logDiagnostics,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -227,7 +229,7 @@ func setupCoreServices() (*coreServices, error) {
 }
 
 func setupHandlers(services *coreServices) error {
-	// Create script dispatcher — always needed for measurement handling.
+	// Create the script dispatcher for measurement handling.
 	rpcPort := instrumentServerPort
 	if rpcPort <= 0 {
 		rpcPort = 8555
@@ -281,7 +283,7 @@ func setupHandlers(services *coreServices) error {
 }
 
 func runServer(services *coreServices) error {
-	log.Printf("starting falcon instrument server...")
+	log.Printf("starting Falcon Instrument Hub...")
 	log.Printf("device config: %s", deviceconfig)
 	log.Printf("wiremap: %s", wiremap)
 	log.Printf("working directory: %s", workingdir)
@@ -290,10 +292,7 @@ func runServer(services *coreServices) error {
 		services.natsManager.GetConnection().ConnectedUrl(),
 	)
 
-	// todo: initialize python instrument templates with config paths
-	// you can pass cfg.DeviceConfigPath and cfg.WiremapPath to python scripts
-
-	log.Println("falcon runtime is ready and listening for commands...")
+	log.Println("Falcon Instrument Hub is ready and listening for commands...")
 
 	// wait for interrupt signal
 	sigChan := make(chan os.Signal, 1)
@@ -628,8 +627,6 @@ func stopISSDaemon() {
 }
 
 func main() {
-	// + "`" + // use for embedding backticks in the ASCII art below without breaking the string literal
-
 	fmt.Print(`
  ______                        __                                                             __     
 |      \                      |  \                                                           |  \    
@@ -655,7 +652,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "instrument-hub",
 		Short: "falcon instrument hub",
-		Long:  "falcon instrument hub — orchestrates NATS, instrument-script-server, and measurement handlers",
+		Long:  "Falcon Instrument Hub orchestrates NATS, instrument-script-server, and measurement handlers",
 	}
 	rootCmd.AddCommand(startCmd)
 	if err := rootCmd.Execute(); err != nil {

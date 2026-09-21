@@ -1,6 +1,9 @@
 # Data Viewer
 
-The **FALCon Data Viewer** is a browser-based tool for visualising raw and averaged measurement data stored by the instrument hub. It reads from the [two-database architecture](server-interpreter.md) and renders interactive plots using Plotly.js.
+The **FALCon Data Viewer** plots legacy/exported JSON measurement datasets using
+Plotly.js. It does not subscribe to JetStream, parse cereal responses, read HDF5,
+or turn the retained SQLite metadata database into a plot dataset. Current hub
+dispatch publishes cereal data, not these files; see [Hub Runtime](server-interpreter.md).
 
 ## Quick Start
 
@@ -120,7 +123,7 @@ You can also force a specific unit via the **Y unit** dropdown, or apply an addi
 
 ## Data Directory Layout
 
-The viewer expects the same on-disk layout produced by `MeasurementDatabase`:
+The viewer expects an existing legacy/exported dataset in this layout:
 
 ```
 <data-dir>/
@@ -132,8 +135,22 @@ The viewer expects the same on-disk layout produced by `MeasurementDatabase`:
     raw_<measurement-id>.json       # individual sweep traces
 ```
 
-See [Server Interpreter — Two-Database Architecture](server-interpreter.md) for
-details on how this layout is created during measurements.
+The checked-in demo is one such dataset, not evidence of live measurement
+archival. A separate exporter/producer must supply this format for new results.
+The index can also select `2d`, `dc_collection`, and `axis_sweep` JSON records;
+those plots have type-specific payloads rather than the raw/averaged 1D shape.
+
+### Portable File References
+
+Use dataset-root-relative paths such as `averaged/sweep_example.json` and
+`raw/raw_example.json` in `file_path` / `raw_file_path`. They are resolved against
+`--data-dir`, never the process's current directory.
+
+Existing absolute paths remain supported. If an old absolute file is missing,
+the viewer tries its basename in the dataset's `averaged/` or `raw/` directory.
+This relocation fallback applies to every averaged plot type and raw traces;
+other read errors are not replaced by a fallback file. Missing/invalid raw files
+still leave the averaged plot available.
 
 ## Architecture
 

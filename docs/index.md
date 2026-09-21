@@ -1,138 +1,77 @@
 # Falcon Instrument Hub
 
-Welcome to the Falcon Instrument Hub documentation! This hub bridges falcon-core measurement requests to hardware instruments through user-provided Lua measurement scripts.
+The hub bridges Falcon's falcon-core measurement requests to user-provided Lua
+scripts executed by instrument-script-server (ISS). NATS carries discovery and
+measurement envelopes; gRPC carries ISS jobs, and an ISS CLI adapter reads buffers.
 
-## What is the Falcon Instrument Hub?
+## Runtime Responsibilities
 
-The falcon-instrument-hub is a critical orchestration layer in the FALCon measurement framework. It:
+- Load instrument APIs, device configuration, and the physical wiremap.
+- Publish connected knobs/meters for Falcon port discovery.
+- Read Teal/Lua headers for script target capability/role requirements.
+- Resolve request connections to instrument IDs/channels and dispatch the named
+  script with its current handler-defined arguments.
+- Build cereal measurement responses and publish them through NATS/JetStream.
 
-- **Parses** incoming falcon measurement requests (JSON schemas from falcon-measurement-lib)
-- **Orchestrates** complex measurements by calling simpler Lua scripts multiple times
-- **Buffers** trace data from the instrument-script-server
-- **Averages** results when N-averaged measurements are requested
-- **Stores** raw and averaged data to HDF5/JSON database
-- **Notifies** falcon via NATS/JetStream when data is available
+The hub does not generate Lua, infer scripts from port names, or automatically
+archive live results to the viewer's JSON dataset format. Annotations describe
+targets, not a generic extensible argument binding system. See
+[Hub Runtime](server-interpreter.md) for the implementation and limits.
 
-## Key Concepts
+## Build and Test
 
-### Measurement Orchestration
-
-The hub does NOT auto-generate Lua measurement scripts. Instead, experimenters create custom Lua scripts that run on the instrument-script-server. The hub's role is to coordinate these scripts for complex measurement patterns.
-
-**Example: 2D Voltage Sweep**
-
-A 2D voltage sweep from falcon is orchestrated as:
-
-```
-For each Y voltage:
-  1. hub calls set_voltage.lua(Y_gate, Y_value)
-  2. hub calls sweep_1d.lua(X sweep parameters)  
-  3. hub calls ramp_voltage.lua(X_gate, X_start)  # Return to start
-  4. hub buffers the 1D trace
-Aggregate all traces into 2D result
-```
-
-### Required Lua Scripts
-
-The following scripts must be provided in `runtime/scripts/`:
-
-| Script | Purpose |
-|--------|---------|
-| `set_voltage.lua` | Set a single gate voltage |
-| `get_voltage.lua` | Read a single voltage |
-| `sweep_1d.lua` | 1D voltage sweep with current measurement |
-| `ramp_voltage.lua` | Smooth voltage ramping |
-| `dc_get_set.lua` | Parallel set/get operations |
-| `measure_current.lua` | Current measurement with averaging |
-
-See the [Lua Script Authoring Guide](LUA_SCRIPT_AUTHORING.md) for detailed script requirements.
-
-## Getting Started
-
-### Installation
+From the repository root:
 
 ```bash
-# Build and install to /opt/falcon/bin (requires sudo)
-make install
-
-# Or build only (output: runtime/bin/instrument-hub)
 make build-go
-```
-
-### Testing
-
-```bash
-# Run Go tests and schema validator tests
-make test
-
-# Run only wiremap schema validator tests
+make test-go-short
 make test-schema
 ```
 
-### Quick Start
+The binaries are `runtime/bin/instrument-hub` and `runtime/bin/dataviewer`.
+`make install` uses `INSTALL_PREFIX` (default `/opt/falcon`); instrument-controller
+is the `/opt/instrument-controller` bundle. See the controller's packaging for
+its bundled hub/ISS paths rather than treating those prefixes as interchangeable.
+
+`make test-go` / `make test` include live ISS tests. Some current integration
+helpers stop the system ISS daemon: run them only in a dedicated environment.
+Retired Python measurement-specific target names fail with a migration notice;
+they do not represent separate buffered/2D/3D test coverage.
+
+## Start
+
+Create the work directory and provide existing resources using absolute paths:
 
 ```bash
-# Start the hub with a hub config file
-# This auto-starts NATS (embedded) and instrument-script-server
-instrument-hub start \
-  --hub-config instrument_hub_config.yaml \
-  --iss-lib-path /path/to/vcpkg/lib \
-  --working-dir /my/data
+runtime/bin/instrument-hub start \
+  --hub-config /absolute/path/instrument_hub_config.yaml \
+  --working-dir /absolute/path/work \
+  --iss-lib-path /opt/falcon/lib
 ```
 
-`--hub-config` reads `instrument_hub_config.yaml` and fills in `--device-config`, `--wiremap`, and `--nats-url` automatically.
+The CLI reads `quantum-dot-config`, `wiremap`, `nats-url`, `inst-config`,
+`inst-plugins`, `instrument-server-port`, `local-database`, `user-measurement-luas`,
+`instrument-apis` (a YAML list), and optional `measurement-metadata` from the hub
+config. Defaults and overrides are shown by `instrument-hub start --help`.
+`--packages` was removed; instruments use ISS configuration files and plugins,
+not Python instrument templates.
 
-### Key flags for `instrument-hub start`
+By default, the hub starts embedded NATS when no URL is provided and manages the
+ISS daemon/instruments. `--no-iss` uses an externally managed ISS; it does not
+disable measurement dispatch. ISS's default gRPC port is `8555`, and its default
+binary is `/opt/instrument-controller/bin/instrument-script-server`.
+`--log-diagnostics` opts into internal writer diagnostics; logs remain in `log/`.
 
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--hub-config` | — | Load device-config, wiremap, nats-url from YAML |
-| `--device-config` | — | Quantum dot device configuration YAML |
-| `--wiremap` | — | Wiremap YAML |
-| `--nats-url` | — | External NATS URL; omit to use embedded NATS |
-| `--working-dir` | `.` | Directory for logs, data, and datacache |
-| `--iss-binary` | `/opt/instrument-controller/bin/instrument-script-server` | ISS binary path |
-| `--iss-lib-path` | — | Prepended to `LD_LIBRARY_PATH` for ISS |
-| `--no-iss` | false | Skip auto-starting ISS daemon |
+## Documentation
 
-On shutdown (SIGINT / SIGTERM) the hub automatically stops the ISS daemon.
+- [Hub Runtime](server-interpreter.md): routing, annotations, jobs, and storage limits.
+- [NATS Protocol](nats-protocol.md): implemented subjects and cereal envelopes.
+- [Configuration Validation](CONFIG_VALIDATION.md): wiremap format and validator.
+- [Data Viewer](data-viewer.md): legacy/exported datasets, not live hub archival.
+- [Codebase Review](CODEBASE_REVIEW.md): original review snapshot, intentionally unchanged.
+- [Deprecated Code Cleanup](DEPRECATED_CODE_CLEANUP.md): first cleanup's changes and follow-ups.
+- [Developer Comprehension and Hygiene Cleanup](DEVELOPER_HYGIENE_CLEANUP.md): this cleanup's tracker.
 
-### Documentation Guide
-
-- **[Configuration Validation](CONFIG_VALIDATION.md)** - Validate wiremap files and review the wiremap schema
-- **[Lua Script Authoring](LUA_SCRIPT_AUTHORING.md)** - Write custom measurement scripts
-- **[Server & Interpreter](server-interpreter.md)** - Understand the hub's server architecture
-- **[NATS Protocol](nats-protocol.md)** - Communication protocol with falcon-core
-- **[Data Viewer](data-viewer.md)** - Visualise raw and averaged measurement data in the browser
-
-## Architecture Overview
-
-The hub operates as a daemon process that:
-
-1. **Receives** measurement requests from falcon-core via NATS/JetStream
-2. **Translates** high-level measurement specifications into instrument commands
-3. **Executes** Lua scripts on the instrument-script-server
-4. **Collects** and processes measurement data
-5. **Stores** results in structured formats (HDF5/JSON)
-6. **Reports** completion back to falcon-core
-
-### Device Configuration
-
-The hub supports 1D array-style quantum dot devices with parallel charge sensors. Configuration includes:
-
-- **Gate Types**: Screening, Plunger, Barrier, Reservoir, and Ohmic gates
-- **Channel Groups**: Organize gates into readout channels
-- **DC Wiring**: Specify parasitic resistance and capacitance
-- **Wire Maps**: Logical device connections mapped to physical instrument endpoints
-
-Wiremap files are validated by the shipped `validate-wiremap-config` tool. See
-[Configuration Validation](CONFIG_VALIDATION.md) for the schema, validator
-commands, and installed paths.
-
-## Contributing
-
-Contributions are welcome! Please follow the project's coding standards and testing requirements.
-
-## License
-
-See [LICENSE](../LICENSE) for details.
+Historical refactor plans are available in Git history; they are not current
+runtime documentation. Remaining behavioral/integration findings in the review
+should not be mistaken for already implemented features.

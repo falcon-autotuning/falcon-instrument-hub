@@ -30,6 +30,12 @@ Run the Go tests and schema validator tests:
 make test
 ```
 
+For routine development without live ISS lifecycle tests, use
+`make test-go-short`. Full tests can stop an existing system ISS daemon and
+should run only in a dedicated integration environment. Retired Python
+measurement-specific targets fail with a migration notice instead of running
+the same Go suite under misleading names.
+
 Run only the wiremap schema validator tests:
 
 ```bash
@@ -66,6 +72,7 @@ validation rules, and installed paths.
 - [Server & Interpreter](docs/server-interpreter.md)
 - [NATS Protocol](docs/nats-protocol.md)
 - [Data Viewer](docs/data-viewer.md)
+- [Developer Cleanup Tracker](docs/DEVELOPER_HYGIENE_CLEANUP.md)
 
 ## License
 
