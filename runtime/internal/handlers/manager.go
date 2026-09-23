@@ -6,7 +6,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/nats-io/nats.go"
 )
 
@@ -25,7 +24,6 @@ type handlerOperation struct {
 type Manager struct {
 	logger                *logging.Logger
 	nc                    *nats.Conn
-	logHandler            *LogHandler
 	deviceConfigHandler   *DeviceConfigHandler
 	instrumentHandler     *instrument.Handler
 	measureCommandHandler *MeasureCommandHandler
@@ -36,12 +34,20 @@ type Manager struct {
 	metadataError         error
 }
 
+type Dispatcher interface {
+	RunMeasurement(
+		string,
+		map[string]interface{},
+		map[string]interface{},
+	) ([]ResolvedCallResult, error)
+}
+
 // NewManager creates a new handler manager
 func NewManager(
 	cfg *config.Config,
 	logger *logging.Logger,
 	nc *nats.Conn,
-	dispatcher *serverinterpreter.ScriptDispatcher,
+	dispatcher Dispatcher,
 ) *Manager {
 	instrumentHandler, instrumentError := instrument.NewHandler(logger, cfg)
 	if instrumentError != nil {
@@ -63,7 +69,6 @@ func NewManager(
 	manager := &Manager{
 		logger:              logger,
 		nc:                  nc,
-		logHandler:          NewLogHandler(logger),
 		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
 		instrumentHandler:   instrumentHandler,
 		portRequestHandler: NewPortRequestHandler(
@@ -167,11 +172,6 @@ func (m *Manager) Stop() error {
 	return nil
 }
 
-// GetLogHandler returns the log handler for testing purposes
-func (m *Manager) GetLogHandler() *LogHandler {
-	return m.logHandler
-}
-
 // GetDeviceConfigHandler returns the device config handler for testing purposes
 func (m *Manager) GetDeviceConfigHandler() *DeviceConfigHandler {
 	return m.deviceConfigHandler
@@ -185,11 +185,6 @@ func (m *Manager) GetInstrumentHandler() *instrument.Handler {
 // getHandlerOperations returns the ordered list of handler operations
 func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 	ops := []handlerOperation{
-		{
-			name:    "log handler",
-			startOp: func() error { return m.logHandler.Subscribe(m.nc) },
-			stopOp:  func() error { return m.logHandler.Unsubscribe() },
-		},
 		{
 			name:    "device config handler",
 			startOp: func() error { return m.deviceConfigHandler.Subscribe(m.nc) },

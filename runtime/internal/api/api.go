@@ -88,65 +88,6 @@ type ReturnData struct {
 	Property  string `yaml:"property" json:"property"`     // The name of the property that is to be set
 }
 
-// ReturnGet: Response from a get instruction on a sandboxed instrument
-type ReturnGet struct {
-	Value     interface{} `yaml:"value" json:"value"`         // The argument to be set inside the instrument
-	Timestamp int64       `yaml:"timestamp" json:"timestamp"` // When the response was completed
-	Property  string      `yaml:"property" json:"property"`   // The name of the property that is to be set
-	Index     int64       `yaml:"index" json:"index"`         // The particular index of a instrument that is to be set
-}
-
-// Set: Execute a set instruction on a sandboxed instrument
-type Set struct {
-	Index     int64       `yaml:"index" json:"index"`           // The particular index of a instrument that is to be set
-	Value     interface{} `yaml:"value" json:"value"`           // The argument to be set inside the instrument
-	ProcessId int64       `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
-	ChunkId   int64       `yaml:"chunk_id" json:"chunk_id"`     // A unique identifier for a particular chunk of a measurement.
-	Property  string      `yaml:"property" json:"property"`     // The name of the property that is to be set
-}
-
-// Trigger: Execute a trigger/arm on a buffered instrument
-type Trigger struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"`   // When the response was completed
-	ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
-	ChunkId   int64 `yaml:"chunk_id" json:"chunk_id"`     // A unique identifier for a particular chunk of a measurement.
-	IsSetter  bool  `yaml:"is_setter" json:"is_setter"`   // if this trigger is set it will set a hardware setter trigger. If false this trigger is intended to set hardware getter trigger.
-}
-
-// Armed: Statement from an instrument indicating sets are complete and it is locked from further modifications.
-type Armed struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"`   // When the response was completed
-	ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
-	ChunkId   int64 `yaml:"chunk_id" json:"chunk_id"`     // A unique identifier for a particular chunk of a measurement.
-}
-
-// Executing: Statement from an instrument indicating it is successfully triggered and executing a measurement.
-type Executing struct {
-	Timestamp int64 `yaml:"timestamp" json:"timestamp"`   // When the response was completed
-	ProcessId int64 `yaml:"process_id" json:"process_id"` // A unique identifier for the process/ measurement and can index it.
-	ChunkId   int64 `yaml:"chunk_id" json:"chunk_id"`     // A unique identifier for a particular chunk of a measurement.
-}
-
-// SetupInstrument: Sets up an instrument on a instrument server
-type SetupInstrument struct {
-	Name      string `yaml:"name" json:"name"`           // the name of the instrument to startup
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
-}
-
-// DestroyInstrument: Shuts down an instrument on a instrument server
-type DestroyInstrument struct {
-	Name      string `yaml:"name" json:"name"`           // the name of the instrument to stop
-	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
-}
-
-// PerformInstrumentMethod: Enact an arbitrary submethod for a given instrument daemon from the CLI
-type PerformInstrumentMethod struct {
-	Instrument  string `yaml:"instrument" json:"instrument"`     // Which instrument are we communicating with?
-	Method      string `yaml:"method" json:"method"`             // The name of the method that is to be performed
-	KeywordArgs string `yaml:"keyword_args" json:"keyword_args"` // Arbitrary keyword arguments to be passes to the method
-	Timestamp   int64  `yaml:"timestamp" json:"timestamp"`       // When the response was completed
-}
-
 // Busy: If a process is currently running an action right now
 type Busy struct {
 	Timestamp int64 `yaml:"timestamp" json:"timestamp"` // When the response was completed
@@ -216,32 +157,24 @@ type MeasureResponse struct {
 
 // CommandRegistry maps command names to empty struct instances
 var CommandRegistry = map[string]interface{}{
-	"LOG":                       Log{},
-	"MEASUREMENT_READY":         MeasurementReady{},
-	"PROCESS_DATA":              ProcessData{},
-	"PROCESS_REQUEST":           ProcessRequest{},
-	"STATUS":                    Status{},
-	"UPDATE_DAEMON_PROPERTY":    UpdateDaemonProperty{},
-	"UPLOAD_DATA":               UploadData{},
-	"CONFIRM_INITIALIZATION":    ConfirmInitialization{},
-	"GET":                       Get{},
-	"PERFORM_ARBITRARY_METHOD":  PerformArbitraryMethod{},
-	"RETURN_DATA":               ReturnData{},
-	"RETURN_GET":                ReturnGet{},
-	"SET":                       Set{},
-	"TRIGGER":                   Trigger{},
-	"ARMED":                     Armed{},
-	"EXECUTING":                 Executing{},
-	"SETUP_INSTRUMENT":          SetupInstrument{},
-	"DESTROY_INSTRUMENT":        DestroyInstrument{},
-	"PERFORM_INSTRUMENT_METHOD": PerformInstrumentMethod{},
-	"BUSY":                      Busy{},
-	"PORT_REQUEST":              PortRequest{},
-	"PORT_PAYLOAD":              PortPayload{},
-	"CAPABILITY_REQUEST":        CapabilityRequest{},
-	"CAPABILITY_PAYLOAD":        CapabilityPayload{},
-	"DEVICE_CONFIG_REQUEST":     DeviceConfigRequest{},
-	"DEVICE_CONFIG_RESPONSE":    DeviceConfigResponse{},
-	"MEASURE_COMMAND":           MeasureCommand{},
-	"MEASURE_RESPONSE":          MeasureResponse{},
+	"LOG":                      Log{},
+	"MEASUREMENT_READY":        MeasurementReady{},
+	"PROCESS_DATA":             ProcessData{},
+	"PROCESS_REQUEST":          ProcessRequest{},
+	"STATUS":                   Status{},
+	"UPDATE_DAEMON_PROPERTY":   UpdateDaemonProperty{},
+	"UPLOAD_DATA":              UploadData{},
+	"CONFIRM_INITIALIZATION":   ConfirmInitialization{},
+	"GET":                      Get{},
+	"PERFORM_ARBITRARY_METHOD": PerformArbitraryMethod{},
+	"RETURN_DATA":              ReturnData{},
+	"BUSY":                     Busy{},
+	"PORT_REQUEST":             PortRequest{},
+	"PORT_PAYLOAD":             PortPayload{},
+	"CAPABILITY_REQUEST":       CapabilityRequest{},
+	"CAPABILITY_PAYLOAD":       CapabilityPayload{},
+	"DEVICE_CONFIG_REQUEST":    DeviceConfigRequest{},
+	"DEVICE_CONFIG_RESPONSE":   DeviceConfigResponse{},
+	"MEASURE_COMMAND":          MeasureCommand{},
+	"MEASURE_RESPONSE":         MeasureResponse{},
 }

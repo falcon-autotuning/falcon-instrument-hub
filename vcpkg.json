@@ -14,8 +14,12 @@
     "yaml-cpp",
     "instrument-script-server"
   ],
-  "builtin-baseline": "e5a1490e1409d175932ef6014519e9ae149ddb7c",
+  "builtin-baseline": "9942fb5f996ea431c5ed8fb8d2a53f31d08df62e",
   "overrides": [
+    {
+      "name": "libpqxx",
+      "version": "7.10.5"
+    },
     {
       "name": "xtensor",
       "version": "0.25.0"
@@ -23,10 +27,6 @@
     {
       "name": "xtl",
       "version": "0.7.5"
-    },
-    {
-      "name": "cereal-xtensor",
-      "version": "1.3.2"
     }
   ]
 }

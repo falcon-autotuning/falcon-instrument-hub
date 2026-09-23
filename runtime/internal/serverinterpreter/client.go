@@ -19,9 +19,9 @@ import (
 )
 
 const (
-	defaultISSHost      = "127.0.0.1"
-	defaultISSPort      = 8555
-	defaultISSLogLevel  = "info"
+	DefaultISSHost      = "127.0.0.1"
+	DefaultISSPort      = 8555
+	DefaultISSLogLevel  = "info"
 	defaultCallTimeout  = 30 * time.Second
 	defaultPollInterval = 25 * time.Millisecond
 )
@@ -51,10 +51,10 @@ func NewScriptServerClient(host string, port int) *ScriptServerClient {
 // NewScriptServerClientWithOptions creates a client with optional CLI fallback paths.
 func NewScriptServerClientWithOptions(host string, port int, opts ScriptServerClientOptions) *ScriptServerClient {
 	if host == "" {
-		host = defaultISSHost
+		host = DefaultISSHost
 	}
 	if port == 0 {
-		port = defaultISSPort
+		port = DefaultISSPort
 	}
 	if opts.ISSBinary == "" {
 		opts.ISSBinary = "instrument-script-server"
@@ -159,7 +159,7 @@ func (c *ScriptServerClient) StartInstrument(configPath string, pluginPath strin
 	resp, err := c.client.StartInstrument(ctx, &daemonv1.StartInstrumentRequest{
 		ConfigPath: configPath,
 		PluginPath: pluginPath,
-		LogLevel:   defaultISSLogLevel,
+		LogLevel:   DefaultISSLogLevel,
 	})
 	if err != nil {
 		return "", err
@@ -625,6 +625,7 @@ func variableValueToReturn(value *daemonv1.VariableValue) ISSReturnValue {
 // ReadBuffer retrieves float64 data for a buffer id. ISS 2.0.0 does not expose
 // buffer reads over gRPC, so this shells out to the installed CLI as a temporary
 // compatibility adapter.
+// FIX: Use the instrument-data package directly instead
 func (c *ScriptServerClient) ReadBuffer(bufferID string) ([]float64, error) {
 	cmd := exec.Command(c.issBinary, "buffer", "read", bufferID, "--json")
 	cmd.Env = c.envWithRuntimePaths()

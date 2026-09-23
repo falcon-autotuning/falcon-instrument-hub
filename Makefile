@@ -38,9 +38,9 @@ GO_ENV = CGO_ENABLED=1 \
 build: configure
 	cd runtime && go mod tidy
 ifeq ($(CMAKE_BUILD_TYPE),Debug)
-	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -o bin/instrument-hub cmd/main.go
+	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -o bin/instrument-hub ./cmd
 else
-	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub cmd/main.go
+	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub ./cmd
 endif
 	cmake --build --preset $(PRESET) --target validate-wiremap-config
 
@@ -48,6 +48,13 @@ test: build
 	@echo "Running tests for $(PRESET)..."
 	cd runtime && $(GO_ENV) go test -tags cgo,falcon_core ./...
 	ctest --preset $(PRESET) -V
+
+test-cmd: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./cmd
 
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
@@ -68,10 +75,6 @@ DATA_DIR ?= test_data/demo_measurements
 dataviewer: build-go
 	runtime/bin/dataviewer --data-dir $(DATA_DIR)
 
-.PHONY: test-go-short
-<<<<<<< HEAD
-test-go-short: go-mod-prepare build-go
-	cd runtime && $(GO_CGO_ENV) go test -tags cgo,falcon_core -short ./...
 
 .PHONY: configure-schema
 configure-schema: vcpkg-bootstrap
@@ -90,16 +93,6 @@ test-schema: configure-schema
 	cmake --build $(SCHEMA_BUILD_DIR) --target validate-wiremap-config
 	ctest --test-dir $(SCHEMA_BUILD_DIR) --output-on-failure
 
-.PHONY: test
-test: test-go test-schema
-
-.PHONY: test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration
-# Retired names are migration errors, not aliases claiming measurement coverage.
-test-unit test-launch test-integration test-buffered test-linear-integration test-linear-buffered test-2D-buffered test-3D-buffered test-2D-integration test-3D-integration:
-	@echo "Retired target '$@': use test-go-short or test-go. No measurement-specific suite is selected." >&2
-	@exit 2
-
-.PHONY: clean
 clean:
 	rm -rf .venv
 	rm -rf runtime/bin/

@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -30,6 +31,64 @@ const (
 	MeasureResponseName    = "MEASURE_RESPONSE"
 )
 
+type MeasurementClient interface {
+	Measure(
+		scriptPath string,
+		globals map[string]interface{},
+		typeManifest map[string]interface{},
+	) ([]serverinterpreter.ISSCallResult, error)
+
+	ReadBuffer(bufferID string) ([]float64, error)
+}
+
+// ScriptDispatcher executes user-provided Lua measurement scripts in ISS.
+type ScriptDispatcher struct {
+	client      MeasurementClient
+	scriptsPath string
+}
+
+func NewScriptDispatcher(
+	client MeasurementClient,
+	scriptsPath string,
+) *ScriptDispatcher {
+	return &ScriptDispatcher{
+		client:      client,
+		scriptsPath: scriptsPath,
+	}
+}
+
+// FIX: This shouldn't deviate from the real implementation since this should be it
+// ResolvedCallResult extends ISSCallResult with buffer data resolved inline.
+type ResolvedCallResult struct {
+	serverinterpreter.ISSCallResult
+	BufferData []float64 // populated when Return.Type == "buffer"
+}
+
+// RunMeasurement calls ISS measure (sync), resolves all buffer results, returns
+// the full call list with buffer data populated.
+// typeManifest, if non-nil, tells ISS to call main with positional arguments
+// (required for Teal-compiled scripts with named parameters).
+func (d *ScriptDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ResolvedCallResult, error) {
+	scriptPath := filepath.Join(d.scriptsPath, scriptName+".lua")
+	results, err := d.client.Measure(scriptPath, globals, typeManifest)
+	if err != nil {
+		return nil, fmt.Errorf("measure script %s: %w", scriptName, err)
+	}
+
+	resolved := make([]ResolvedCallResult, len(results))
+	for i, r := range results {
+		resolved[i] = ResolvedCallResult{ISSCallResult: r}
+		if r.Return.Type == "buffer" && r.Return.BufferID != "" {
+			data, err := d.client.ReadBuffer(r.Return.BufferID)
+			if err != nil {
+				return nil, fmt.Errorf("read_buffer %s: %w", r.Return.BufferID, err)
+			}
+			resolved[i].BufferData = data
+		}
+	}
+	return resolved, nil
+}
+
 // BusyManager interface allows the handler to manage busy state
 type BusyManager interface {
 	SetIsBusy(busy bool)
@@ -37,7 +96,7 @@ type BusyManager interface {
 
 // MeasurementDispatcher dispatches measurement scripts to the instrument-script-server.
 type MeasurementDispatcher interface {
-	RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]serverinterpreter.ResolvedCallResult, error)
+	RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ResolvedCallResult, error)
 }
 
 func targetStateKey(id string, channel int) string {
@@ -126,7 +185,7 @@ func measurementResponseSubject(timestamp int64) string {
 	return MeasureResponseSubject + "." + strconv.FormatInt(timestamp, 10)
 }
 
-func resolvedCallResultToFloatSlice(result serverinterpreter.ResolvedCallResult) []float64 {
+func resolvedCallResultToFloatSlice(result ResolvedCallResult) []float64 {
 	switch result.Return.Type {
 	case "buffer":
 		return append([]float64{}, result.BufferData...)

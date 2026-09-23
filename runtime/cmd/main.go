@@ -7,440 +7,252 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/spf13/cobra"
 )
 
+var execCommand = exec.Command
+
 const (
-	// Directory names
+	DaemonStartStopPollTime = 10 * time.Millisecond
+)
+
+type InstrumentConfig struct {
+	ConfigPath string `yaml:"config"`
+	PluginPath string `yaml:"plugin"`
+}
+
+type InstrumentServerConfig struct {
+	RPCPort     int                `yaml:"rpc-port"`
+	AutoStart   bool               `yaml:"autostart"`
+	Instruments []InstrumentConfig `yaml:"instruments"`
+	ISSBinary   string             `yaml:"-"`
+}
+
+func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig, timeout time.Duration) (ISSRuntimeClient, error) {
+	deadline := time.Now().Add(timeout)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		client := deps.newISSClient(
+			defaultHost,
+			cfg.RPCPort,
+			cfg.ISSBinary,
+		)
+		status, err := client.DaemonStatus()
+		if (err == nil) && status {
+			return client, nil
+		}
+		client.Close()
+		lastErr = err
+		time.Sleep(DaemonStartStopPollTime)
+	}
+	if lastErr == nil {
+		return nil, fmt.Errorf("instrument-script-server daemon on %s:%d did not become ready within %s", defaultHost, cfg.RPCPort, timeout)
+	}
+	return nil, fmt.Errorf("instrument-script-server daemon on %s:%d did not become ready within %s: %w", defaultHost, cfg.RPCPort, timeout, lastErr)
+}
+
+func stopISSDaemonViaCLI(cfg InstrumentServerConfig) {
+	cmd := execCommand(cfg.ISSBinary, "daemon", "stop")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		log.Printf("warning: instrument-script-server daemon stop returned: %v", err)
+	}
+}
+
+func (cfg InstrumentServerConfig) waitForISSDaemonStopped(timeout time.Duration) bool {
+	deadline := time.Now().Add(timeout)
+	address := fmt.Sprintf("%s:%d", defaultHost, cfg.RPCPort)
+	for time.Now().Before(deadline) {
+		conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
+		if err != nil {
+			return true
+		}
+		_ = conn.Close()
+		time.Sleep(DaemonStartStopPollTime)
+	}
+	return false
+}
+
+const (
 	LogsDir      = "log"
 	DataDir      = "data"
 	DataCacheDir = "datacache"
-
-	// Database file name
-	MeasurementsDB = "measurements.db"
 )
 
-var (
-	natsurl              string
-	deviceconfig         string
-	wiremap              string
-	workingdir           string
-	hubconfig            string
-	issNoAutoStart       bool
-	instConfig           string
-	instPlugins          string
-	instrumentServerPort int
-	localDatabase        string
-	userMeasurementLuas  string
-	instrumentAPIPaths   []string
-	measurementMetadata  string
-	logDiagnostics       bool
-	issBinary            string
-)
-
-var startCmd = &cobra.Command{
-	Use:   "start",
-	Short: "start the Falcon Instrument Hub",
-	Long:  "start the Falcon Instrument Hub with the specified configuration",
-	RunE:  runStart,
+type RuntimePaths struct {
+	Logs      string
+	Data      string
+	DataCache string
 }
 
-func init() {
-	startCmd.Flags().
-		StringVar(&natsurl, "nats-url", "", "nats server url (if not provided, starts embedded nats)")
-	startCmd.Flags().
-		StringVar(&deviceconfig, "device-config", "", "path to device configuration yaml file")
-	startCmd.Flags().
-		StringVar(&wiremap, "wiremap", "", "path to wiremap yaml file")
-	startCmd.Flags().
-		StringVar(&workingdir, "working-dir", ".", "working directory for logs and data (default: current directory)")
-	startCmd.Flags().
-		StringVar(&hubconfig, "hub-config", "", "path to instrument_hub_config.yaml (sets device-config, wiremap, nats-url if not provided)")
-	startCmd.Flags().
-		BoolVar(&issNoAutoStart, "no-iss", false, "skip auto-starting instrument-script-server daemon")
-	startCmd.Flags().
-		StringVar(&instConfig, "inst-config", "", "semicolon-separated paths to instrument configuration files")
-	startCmd.Flags().
-		StringVar(&instPlugins, "inst-plugins", "", "semicolon-separated plugin paths corresponding to each inst-config entry (positional)")
-	startCmd.Flags().
-		IntVar(&instrumentServerPort, "instrument-server-port", 0, "RPC port for instrument-script-server (overrides hub config)")
-	startCmd.Flags().
-		StringVar(&localDatabase, "local-database", "", "path to local database directory")
-	startCmd.Flags().
-		StringVar(&userMeasurementLuas, "user-measurement-luas", "", "path to user-defined Lua measurement scripts")
-	startCmd.Flags().
-		StringSliceVar(&instrumentAPIPaths, "instrument-apis", []string{}, "comma-separated paths to instrument API YAML files")
-	startCmd.Flags().
-		StringVar(&measurementMetadata, "measurement-metadata", "", "path to measurement metadata YAML file")
-	startCmd.Flags().
-		BoolVar(&logDiagnostics, "log-diagnostics", false, "print internal log-writer diagnostics to stderr")
+type HubConfig struct {
+	Wiremap                string                 `yaml:"wiremap"`
+	QuantumDotConfig       string                 `yaml:"quantum-dot-config"`
+	NATSURL                string                 `yaml:"nats-url"`
+	LocalDatabase          string                 `yaml:"local-database"`
+	WorkingDirectory       string                 `yaml:"working-directory"`
+	UserMeasurementLuasDir string                 `yaml:"user-measurement-luas"`
+	InstrumentServer       InstrumentServerConfig `yaml:"instrument-server"`
+	RuntimePaths           RuntimePaths           `yaml:"-"`
 }
 
-func runStart(cmd *cobra.Command, args []string) error {
-	// apply hub config overrides before validation
-	if err := applyHubConfig(); err != nil {
-		return err
+func DefaultConfig() HubConfig {
+	return HubConfig{
+		InstrumentServer: InstrumentServerConfig{
+			RPCPort:   8555,
+			AutoStart: true,
+		},
 	}
+}
 
-	// validate and setup environment
-	if err := initializeEnvironment(); err != nil {
-		return err
-	}
+func LoadConfig(path string) (*HubConfig, error) {
+	cfg := DefaultConfig()
 
-	// Start the ISS daemon now; instrument startup and hub readiness follow below.
-	var issProcess *os.Process
-	if !issNoAutoStart {
-		proc, err := startISSDaemon()
-		if err != nil {
-			return fmt.Errorf("could not start instrument-script-server: %w", err)
-		} else {
-			issProcess = proc
-			log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
-		}
-	}
-
-	// setup core services
-	services, err := setupCoreServices()
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return err
-	}
-	services.issProcess = issProcess
-	defer services.cleanup()
-
-	// load configuration and create handlers (NATS subscriptions happen here)
-	if err := setupHandlers(services); err != nil {
-		return err
+		return nil, err
 	}
 
-	// Start ISS instruments before publishing hub readiness.
-	if !issNoAutoStart && issProcess != nil {
-		if err := startInstruments(); err != nil {
-			return fmt.Errorf("failed to start instruments: %w", err)
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+func Validate(c *HubConfig) error {
+	if c.QuantumDotConfig != "" {
+		if _, err := os.Stat(c.QuantumDotConfig); os.IsNotExist(err) {
+			return fmt.Errorf("device config file does not exist: %s", c.QuantumDotConfig)
 		}
 	}
 
-	if services.handlerManager != nil {
-		if err := services.handlerManager.StartStatus(); err != nil {
-			return fmt.Errorf("failed to start status handler: %w", err)
+	if c.UserMeasurementLuasDir != "" {
+		if _, err := os.Stat(c.UserMeasurementLuasDir); os.IsNotExist(err) {
+			return fmt.Errorf("the measurement luas dir does not exist: %s", c.UserMeasurementLuasDir)
 		}
 	}
 
-	// start the server
-	return runServer(services)
+	if c.Wiremap != "" {
+		if _, err := os.Stat(c.Wiremap); os.IsNotExist(err) {
+			return fmt.Errorf("wiremap file does not exist: %s", c.Wiremap)
+		}
+	}
+
+	if c.WorkingDirectory == "" {
+		var err error
+		c.WorkingDirectory, err = os.Getwd()
+		if err != nil {
+			return fmt.Errorf("Could not get the current working directory: %s", err)
+		}
+	}
+	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
+		return fmt.Errorf("working directory does not exist: %s", c.WorkingDirectory)
+	}
+
+	if c.LocalDatabase == "" {
+		c.LocalDatabase = filepath.Join(c.WorkingDirectory, DataDir)
+	}
+
+	if len(c.InstrumentServer.Instruments) == 0 {
+		return fmt.Errorf("at least one instrument is required")
+	}
+
+	for i, inst := range c.InstrumentServer.Instruments {
+		if inst.ConfigPath == "" {
+			return fmt.Errorf("instrument[%d].config is required", i)
+		}
+
+		if inst.PluginPath == "" {
+			return fmt.Errorf("instrument[%d].plugin is required", i)
+		}
+	}
+
+	return nil
 }
 
-type coreServices struct {
-	natsManager        *networking.NATSManager
-	measurementManager *measurements.Manager
-	logger             *logging.Logger
-	handlerManager     *handlers.Manager
-	issProcess         *os.Process
-}
-
-func (s *coreServices) cleanup() {
-	if s.handlerManager != nil {
-		s.handlerManager.Stop()
-	}
-	if s.measurementManager != nil {
-		s.measurementManager.Close()
-	}
-	if s.logger != nil {
-		s.logger.Close()
-	}
-	if s.natsManager != nil {
-		s.natsManager.Close()
-	}
-	if s.issProcess != nil {
-		log.Println("stopping instrument-script-server daemon...")
-		stopInstruments()
-		stopISSDaemon()
-	}
-}
-
-func initializeEnvironment() error {
-	// validate required files exist
-	if err := validateFiles(); err != nil {
-		return err
-	}
-
-	// change to working directory and create required folders
-	if err := setupWorkingDirectory(); err != nil {
-		return err
-	}
-	// Look for the binary in the system PATH
+func CheckEnvironment(cfg *HubConfig) error {
 	var err error
-	issBinary, err = exec.LookPath("instrument-script-server")
+	cfg.InstrumentServer.ISSBinary, err = exec.LookPath("instrument-script-server")
 	if err != nil {
 		return fmt.Errorf("instrument-script-server binary not found in PATH: %w", err)
 	}
-
-	return nil
-}
-
-func setupCoreServices() (*coreServices, error) {
-	services := &coreServices{}
-
-	// set up nats connection using the networking package
-	natsManager, err := networking.NewNATSManager(natsurl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup nats: %w", err)
-	}
-	services.natsManager = natsManager
-
-	// create measurement manager
-	dataPath := filepath.Join(workingdir, DataDir)
-	if localDatabase != "" {
-		dataPath = localDatabase
-	}
-	measurementManager, err := measurements.NewManager(
-		dataPath,
-		filepath.Join(workingdir, DataCacheDir, MeasurementsDB),
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to initialize measurement manager: %w",
-			err,
-		)
-	}
-	services.measurementManager = measurementManager
-
-	// create logger for handlers
-	logger, err := logging.NewLoggerWithOptions(filepath.Join(workingdir, LogsDir), logging.LoggerOptions{
-		Diagnostics: logDiagnostics,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to create logger: %w", err)
-	}
-	services.logger = logger
-
-	return services, nil
-}
-
-func setupHandlers(services *coreServices) error {
-	// Create the script dispatcher for measurement handling.
-	rpcPort := instrumentServerPort
-	if rpcPort <= 0 {
-		rpcPort = 8555
-	}
-	dispatcher := serverinterpreter.NewScriptDispatcher(serverinterpreter.ScriptDispatcherConfig{
-		ServerHost:  "127.0.0.1",
-		ServerPort:  rpcPort,
-		ScriptsPath: userMeasurementLuas,
-	})
-
-	// Load device config / wiremap if provided; otherwise use an empty config.
-	var cfg *config.Config
-	if deviceconfig != "" && wiremap != "" {
-		var err error
-		cfg, err = config.Load(deviceconfig, wiremap)
+	if portStr := os.Getenv("INSTRUMENT_SCRIPT_SERVER_RPC_PORT"); portStr != "" {
+		p, err := strconv.Atoi(portStr)
 		if err != nil {
-			return fmt.Errorf("failed to load configuration: %w", err)
+			return fmt.Errorf(
+				"invalid INSTRUMENT_SCRIPT_SERVER_RPC_PORT %q: %w",
+				portStr,
+				err,
+			)
 		}
-		log.Printf(
-			"loaded device config with %d groups and %d wiring specs",
-			len(cfg.DeviceConfig.Groups),
-			len(cfg.DeviceConfig.WiringDC),
-		)
+		cfg.InstrumentServer.RPCPort = p
 	} else {
-		log.Println("warning: device-config or wiremap not specified, using empty configuration")
-		cfg = &config.Config{}
+		os.Setenv("INSTRUMENT_SCRIPT_SERVER_RPC_PORT", strconv.Itoa(cfg.InstrumentServer.RPCPort))
 	}
-	cfg.InstrumentAPIPaths = instrumentAPIPaths
-	cfg.MeasurementMetadataPath = measurementMetadata
-	cfg.MeasurementScriptsPath = userMeasurementLuas
-
-	services.logger.LogStats()
-
-	// create handler manager from handlers package
-	services.handlerManager = handlers.NewManager(
-		cfg,
-		services.logger,
-		services.natsManager.GetConnection(),
-		dispatcher,
-	)
-
-	// Subscribe operational handlers first. Status publishing starts only after
-	// ISS instruments are started so STATUS.instrument-server means fully ready.
-	if err := services.handlerManager.StartCoreHandlers(); err != nil {
-		return fmt.Errorf("failed to start handlers: %w", err)
-	}
-
 	return nil
 }
 
-func runServer(services *coreServices) error {
-	log.Printf("starting Falcon Instrument Hub...")
-	log.Printf("device config: %s", deviceconfig)
-	log.Printf("wiremap: %s", wiremap)
-	log.Printf("working directory: %s", workingdir)
-	log.Printf(
-		"nats url: %s",
-		services.natsManager.GetConnection().ConnectedUrl(),
-	)
-
-	log.Println("Falcon Instrument Hub is ready and listening for commands...")
-
-	// wait for interrupt signal
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	<-sigChan
-
-	log.Println("received shutdown signal")
-	return nil
-}
-
-func setupWorkingDirectory() error {
-	// change to working directory
-	if err := os.Chdir(workingdir); err != nil {
-		return fmt.Errorf(
-			"failed to change to working directory %s: %w",
-			workingdir,
-			err,
-		)
+func InitializeRuntimeEnvironment(cfg *HubConfig) error {
+	if err := os.Chdir(cfg.WorkingDirectory); err != nil {
+		return fmt.Errorf("failed to change to the working directory: %w", err)
 	}
+	log.Printf("working directory set to: %s", cfg.WorkingDirectory)
 
-	// create log directory
-	if err := os.MkdirAll(LogsDir, 0755); err != nil {
+	cfg.RuntimePaths.Logs = path.Join(cfg.WorkingDirectory, LogsDir)
+	if err := os.MkdirAll(cfg.RuntimePaths.Logs, 0755); err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
-
-	// create data directory
-	if err := os.MkdirAll(DataDir, 0755); err != nil {
+	cfg.RuntimePaths.Data = path.Join(cfg.WorkingDirectory, DataDir)
+	if err := os.MkdirAll(cfg.RuntimePaths.Data, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
-
-	// create datacache directory for database indexes
-	if err := os.MkdirAll(DataCacheDir, 0755); err != nil {
+	cfg.RuntimePaths.DataCache = path.Join(cfg.WorkingDirectory, DataCacheDir)
+	if err := os.MkdirAll(cfg.RuntimePaths.DataCache, 0755); err != nil {
 		return fmt.Errorf("failed to create datacache directory: %w", err)
 	}
-
-	log.Printf("working directory set to: %s", workingdir)
 	log.Printf(
 		"created %s, %s, and %s directories",
 		LogsDir,
 		DataDir,
 		DataCacheDir,
 	)
-	return nil
-}
-
-func validateFiles() error {
-	// check device config file only if specified
-	if deviceconfig != "" {
-		if _, err := os.Stat(deviceconfig); os.IsNotExist(err) {
-			return fmt.Errorf("device config file does not exist: %s", deviceconfig)
-		}
-	}
-
-	// check wiremap file only if specified
-	if wiremap != "" {
-		if _, err := os.Stat(wiremap); os.IsNotExist(err) {
-			return fmt.Errorf("wiremap file does not exist: %s", wiremap)
-		}
-	}
 
 	return nil
 }
 
-// applyHubConfig reads instrument_hub_config.yaml and populates CLI flags from
-// it for any values not already provided on the command line.
-func applyHubConfig() error {
-	if hubconfig == "" {
-		return nil
-	}
+type Runtime struct {
+	cfg *HubConfig
 
-	data, err := os.ReadFile(hubconfig)
-	if err != nil {
-		return fmt.Errorf("failed to read hub config %s: %w", hubconfig, err)
-	}
-
-	var cfg struct {
-		Wiremap              string   `yaml:"wiremap"`
-		QuantumDotConfig     string   `yaml:"quantum-dot-config"`
-		NATSUrl              string   `yaml:"nats-url"`
-		InstConfig           string   `yaml:"inst-config"`
-		InstPlugins          string   `yaml:"inst-plugins"`
-		InstrumentServerPort int      `yaml:"instrument-server-port"`
-		LocalDatabase        string   `yaml:"local-database"`
-		UserMeasurementLuas  string   `yaml:"user-measurement-luas"`
-		InstrumentAPIs       []string `yaml:"instrument-apis"`
-		MeasurementMetadata  string   `yaml:"measurement-metadata"`
-	}
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return fmt.Errorf("failed to parse hub config: %w", err)
-	}
-
-	if wiremap == "" && cfg.Wiremap != "" {
-		wiremap = cfg.Wiremap
-		log.Printf("hub config: wiremap = %s", wiremap)
-	}
-	if deviceconfig == "" && cfg.QuantumDotConfig != "" {
-		deviceconfig = cfg.QuantumDotConfig
-		log.Printf("hub config: device-config = %s", deviceconfig)
-	}
-	if natsurl == "" && cfg.NATSUrl != "" {
-		natsurl = cfg.NATSUrl
-		log.Printf("hub config: nats-url = %s", natsurl)
-	}
-	if instConfig == "" && cfg.InstConfig != "" {
-		instConfig = cfg.InstConfig
-		log.Printf("hub config: inst-config = %s", instConfig)
-	}
-	if instPlugins == "" && cfg.InstPlugins != "" {
-		instPlugins = cfg.InstPlugins
-		log.Printf("hub config: inst-plugins = %s", instPlugins)
-	}
-	if instrumentServerPort == 0 && cfg.InstrumentServerPort != 0 {
-		instrumentServerPort = cfg.InstrumentServerPort
-		log.Printf("hub config: instrument-server-port = %d", instrumentServerPort)
-	}
-	if localDatabase == "" && cfg.LocalDatabase != "" {
-		localDatabase = cfg.LocalDatabase
-		log.Printf("hub config: local-database = %s", localDatabase)
-	}
-	if userMeasurementLuas == "" && cfg.UserMeasurementLuas != "" {
-		userMeasurementLuas = cfg.UserMeasurementLuas
-		log.Printf("hub config: user-measurement-luas = %s", userMeasurementLuas)
-	}
-	if len(instrumentAPIPaths) == 0 && len(cfg.InstrumentAPIs) > 0 {
-		instrumentAPIPaths = cfg.InstrumentAPIs
-		log.Printf("hub config: instrument-apis = %v", instrumentAPIPaths)
-	}
-	if measurementMetadata == "" && cfg.MeasurementMetadata != "" {
-		measurementMetadata = cfg.MeasurementMetadata
-		log.Printf("hub config: measurement-metadata = %s", measurementMetadata)
-	}
-
-	return nil
+	natsManager        NATSManager
+	measurementManager MeasurementManager
+	logger             *logging.Logger
+	handlerManager     HandlerManager
+	issProcess         *os.Process
+	issClient          ISSRuntimeClient
 }
 
-// startISSDaemon launches instrument-script-server daemon start in the background.
-// Returns the OS process on success so the caller can track it.
-func startISSDaemon() (*os.Process, error) {
+func (r *Runtime) startISSDaemon() (*os.Process, error) {
 	// Stop any stale daemon from a previous run before starting fresh.
-	stopISSDaemon()
-	if !waitForISSDaemonStopped(5 * time.Second) {
-		return nil, fmt.Errorf("instrument-script-server did not release port %d after stop", issRPCPort())
+	instrumentServerConfig := r.cfg.InstrumentServer
+	stopISSDaemonViaCLI(instrumentServerConfig)
+	if !instrumentServerConfig.waitForISSDaemonStopped(5 * time.Second) {
+		return nil, fmt.Errorf("instrument-script-server did not release port %d after stop", r.cfg.InstrumentServer.RPCPort)
 	}
 
-	cmd := exec.Command(issBinary, "daemon", "start")
+	cmd := execCommand(instrumentServerConfig.ISSBinary, "daemon", "start")
 	env := os.Environ()
-	if instrumentServerPort > 0 {
-		env = append(env, fmt.Sprintf("INSTRUMENT_SCRIPT_SERVER_RPC_PORT=%d", instrumentServerPort))
-	}
 	cmd.Env = env
 
 	output, err := cmd.CombinedOutput()
@@ -462,98 +274,119 @@ func startISSDaemon() (*os.Process, error) {
 		return nil, fmt.Errorf("instrument-script-server start did not report success: %s", strings.TrimSpace(outputText))
 	}
 
-	if err := waitForISSDaemonReady(10 * time.Second); err != nil {
-		stopISSDaemon()
-		return nil, err
-	}
-
 	return cmd.Process, nil
 }
 
-func issRPCPort() int {
-	if instrumentServerPort > 0 {
-		return instrumentServerPort
-	}
-	return 8555
-}
-
-func waitForISSDaemonStopped(timeout time.Duration) bool {
-	deadline := time.Now().Add(timeout)
-	address := fmt.Sprintf("127.0.0.1:%d", issRPCPort())
-	for time.Now().Before(deadline) {
-		conn, err := net.DialTimeout("tcp", address, 100*time.Millisecond)
-		if err != nil {
-			return true
+func (r Runtime) startInstruments() error {
+	for _, instrument := range r.cfg.InstrumentServer.Instruments {
+		if err := r.issClient.StartInstrument(instrument.ConfigPath, instrument.PluginPath); err != nil {
+			return fmt.Errorf("failed to start instrument at from %s via ISS RPC: %w", instrument.ConfigPath, err)
 		}
-		_ = conn.Close()
-		time.Sleep(100 * time.Millisecond)
-	}
-	return false
-}
-
-func waitForISSDaemonReady(timeout time.Duration) error {
-	deadline := time.Now().Add(timeout)
-	var lastErr error
-	for time.Now().Before(deadline) {
-		client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
-		_, err := client.ListInstrumentsWithTimeout(500 * time.Millisecond)
-		_ = client.Close()
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		time.Sleep(100 * time.Millisecond)
-	}
-	if lastErr == nil {
-		return fmt.Errorf("instrument-script-server gRPC daemon on 127.0.0.1:%d did not become ready within %s", issRPCPort(), timeout)
-	}
-	return fmt.Errorf("instrument-script-server gRPC daemon on 127.0.0.1:%d did not become ready within %s: %w", issRPCPort(), timeout, lastErr)
-}
-
-// startInstruments starts each instrument config listed in instConfig
-// (semicolon-separated paths) by calling the ISS daemon RPC "start" command.
-// If instPlugins is set, each positional entry (also semicolon-separated)
-// is passed as the plugin override for the corresponding config start call.
-func startInstruments() error {
-	if instConfig == "" {
-		return nil
-	}
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
-	defer client.Close()
-
-	configs := strings.Split(instConfig, ";")
-	plugins := strings.Split(instPlugins, ";")
-	for i, cfg := range configs {
-		cfg = strings.TrimSpace(cfg)
-		if cfg == "" {
-			continue
-		}
-		plugin := ""
-		if i < len(plugins) {
-			if p := strings.TrimSpace(plugins[i]); p != "" {
-				plugin = p
-			}
-		}
-		if _, err := client.StartInstrument(cfg, plugin); err != nil {
-			return fmt.Errorf("failed to start instrument from %s via ISS RPC: %w", cfg, err)
-		}
-		log.Printf("started instrument: %s", cfg)
+		log.Printf("started instrument at: %s", instrument.ConfigPath)
 	}
 	return nil
 }
 
-// stopInstruments stops all running instrument workers via the ISS RPC before
-// the daemon itself is shut down.
-func stopInstruments() {
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
-	defer client.Close()
-	instruments, err := client.ListInstruments()
+const (
+	MeasurementsDB = "measurements.db"
+)
+
+func (deps RuntimeDependencies) NewRuntime(
+	cfg *HubConfig,
+) (*Runtime, error) {
+	services := &Runtime{
+		cfg: cfg,
+	}
+
+	if !cfg.InstrumentServer.AutoStart {
+		proc, err := services.startISSDaemon()
+		if err != nil {
+			stopISSDaemonViaCLI(cfg.InstrumentServer)
+			return nil, fmt.Errorf("could not stop instrument-script-server via cli: %w", err)
+		}
+		client, err := deps.waitForISSDaemonReady(cfg.InstrumentServer, 10*time.Second)
+		if err != nil {
+			return services, fmt.Errorf("could not start instrument-script-server: %w", err)
+		}
+		services.issProcess = proc
+		services.issClient = client
+		log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
+	}
+	// TODO: figure out how to reattach to existing ISS daemon if it is running
+
+	natsManager, err := deps.newNATSManager(cfg.NATSURL)
+	if err != nil {
+		return nil, fmt.Errorf("failed to setup nats: %w", err)
+	}
+	services.natsManager = natsManager
+
+	measurementManager, err := deps.newMeasurementManager(
+		cfg.LocalDatabase,
+		filepath.Join(cfg.RuntimePaths.DataCache, MeasurementsDB),
+	)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"failed to initialize measurement manager: %w",
+			err,
+		)
+	}
+	services.measurementManager = measurementManager
+
+	logger, err := deps.newLogger(cfg.RuntimePaths.Logs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create logger: %w", err)
+	}
+	services.logger = logger
+
+	dispatcher := deps.newDispatcher(
+		services.issClient,
+		cfg.UserMeasurementLuasDir,
+	)
+	// FIX: What is this config stuff doing here?
+	config, err := deps.newConfig(cfg.QuantumDotConfig, cfg.Wiremap)
+	if err != nil {
+		return services, fmt.Errorf("failed to load configuration: %w", err)
+	}
+
+	config.MeasurementScriptsPath = cfg.UserMeasurementLuasDir
+
+	logger.LogStats()
+
+	handlerManager := deps.newHandlerManager(
+		config,
+		logger,
+		natsManager.GetConnection(),
+		dispatcher,
+	)
+	services.handlerManager = handlerManager
+
+	// Subscribe operational handlers first. Status publishing starts only after
+	// ISS instruments are started so STATUS.instrument-server means fully ready.
+	if err := handlerManager.StartCoreHandlers(); err != nil {
+		return services, fmt.Errorf("failed to start handlers: %w", err)
+	}
+	if !cfg.InstrumentServer.AutoStart && services.issProcess != nil {
+		if err := services.startInstruments(); err != nil {
+			return services, fmt.Errorf("failed to start instruments: %w", err)
+		}
+	}
+	if handlerManager != nil {
+		if err := handlerManager.StartStatus(); err != nil {
+			return services, fmt.Errorf("failed to start status handler: %w", err)
+		}
+	}
+
+	return services, nil
+}
+
+func (r Runtime) stopInstruments() {
+	instruments, err := r.issClient.ListInstruments()
 	if err != nil {
 		log.Printf("warning: could not list instruments for shutdown: %v", err)
 		return
 	}
 	for _, name := range instruments {
-		if err := client.StopInstrument(name); err != nil {
+		if err := r.issClient.StopInstrument(name); err != nil {
 			log.Printf("warning: failed to stop instrument %s: %v", name, err)
 		} else {
 			log.Printf("stopped instrument: %s", name)
@@ -561,23 +394,246 @@ func stopInstruments() {
 	}
 }
 
-// stopISSDaemon sends a stop command to the instrument-script-server daemon.
-func stopISSDaemon() {
-	client := serverinterpreter.NewScriptServerClient("127.0.0.1", issRPCPort())
-	defer client.Close()
-	if err := client.StopDaemon(); err == nil {
-		return
-	} else {
-		log.Printf("warning: gRPC daemon stop failed, falling back to CLI: %v", err)
+func (r *Runtime) Close() {
+	if r.handlerManager != nil {
+		r.handlerManager.Stop()
+	}
+	if r.measurementManager != nil {
+		r.measurementManager.Close()
+	}
+	if r.logger != nil {
+		r.logger.Close()
+	}
+	if r.natsManager != nil {
+		r.natsManager.Close()
+	}
+	if r.issProcess != nil {
+		log.Println("stopping instrument-script-server daemon...")
+		r.stopInstruments()
+		if err := r.issClient.StopDaemon(); err != nil {
+			log.Printf("warning: instrument-script-server daemon stop returned: %v", err)
+		}
+	}
+	if r.issClient != nil {
+		r.issClient.Close()
+	}
+}
+
+func (r Runtime) runServer() error {
+	log.Printf("starting Falcon Instrument Hub...")
+	log.Printf("device config: %s", r.cfg.QuantumDotConfig)
+	log.Printf("wiremap: %s", r.cfg.Wiremap)
+	log.Printf("working directory: %s", r.cfg.WorkingDirectory)
+	log.Printf(
+		"nats url: %s",
+		r.natsManager.GetConnection().ConnectedUrl(),
+	)
+
+	log.Println("Falcon Instrument Hub is ready and listening for commands...")
+
+	// wait for interrupt signal
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	log.Println("received shutdown signal")
+	return nil
+}
+
+type CLIOptions struct {
+	Config              string
+	NATSURL             string
+	Wiremap             string
+	DeviceConfig        string
+	WorkingDirectory    string
+	LocalDatabase       string
+	UserMeasurementLua  string
+	MeasurementMetadata string
+	LogDiagnostics      bool
+	NoISS               bool
+
+	// repeatable:
+	// --instrument config.yaml:plugin
+	Instruments []string
+}
+
+func (cli CLIOptions) Update(cfg *HubConfig) error {
+	if cli.NATSURL != "" {
+		cfg.NATSURL = cli.NATSURL
 	}
 
-	cmd := exec.Command(issBinary, "daemon", "stop")
-	cmd.Env = os.Environ()
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		log.Printf("warning: instrument-script-server daemon stop returned: %v", err)
+	if cli.Wiremap != "" {
+		cfg.Wiremap = cli.Wiremap
 	}
+
+	if cli.DeviceConfig != "" {
+		cfg.QuantumDotConfig = cli.DeviceConfig
+	}
+
+	if cli.WorkingDirectory != "" {
+		cfg.WorkingDirectory = cli.WorkingDirectory
+	}
+
+	if cli.LocalDatabase != "" {
+		cfg.LocalDatabase = cli.LocalDatabase
+	}
+
+	if cli.UserMeasurementLua != "" {
+		cfg.UserMeasurementLuasDir = cli.UserMeasurementLua
+	}
+
+	if cli.NoISS {
+		cfg.InstrumentServer.AutoStart = false
+	}
+
+	if len(cli.Instruments) > 0 {
+		cfg.InstrumentServer.Instruments = nil
+
+		for _, instrument := range cli.Instruments {
+			parts := strings.SplitN(instrument, ":", 2)
+
+			if len(parts) != 2 {
+				return fmt.Errorf(
+					"invalid instrument %q, expected config.yaml:plugin",
+					instrument,
+				)
+			}
+
+			cfg.InstrumentServer.Instruments = append(
+				cfg.InstrumentServer.Instruments,
+				InstrumentConfig{
+					ConfigPath: parts[0],
+					PluginPath: parts[1],
+				},
+			)
+		}
+	}
+
+	return nil
+}
+
+func NewRunHub(
+	deps RuntimeDependencies,
+	cli *CLIOptions,
+) func(*cobra.Command, []string) error {
+	return func(cmd *cobra.Command, args []string) error {
+		cfg := DefaultConfig()
+
+		if cli.Config != "" {
+			loadedCfg, err := LoadConfig(cli.Config)
+			if err != nil {
+				return err
+			}
+
+			cfg = *loadedCfg
+		}
+
+		if err := cli.Update(&cfg); err != nil {
+			return err
+		}
+
+		if err := Validate(&cfg); err != nil {
+			return err
+		}
+
+		if err := CheckEnvironment(&cfg); err != nil {
+			return err
+		}
+
+		if err := InitializeRuntimeEnvironment(&cfg); err != nil {
+			return err
+		}
+
+		runtime, err := deps.NewRuntime(&cfg)
+		if err != nil {
+			return err
+		}
+		defer runtime.Close()
+		return runtime.runServer()
+	}
+}
+
+func buildRootCmd(deps RuntimeDependencies) (*cobra.Command, *CLIOptions) {
+	cli := &CLIOptions{}
+	rootCmd := &cobra.Command{
+		Use:   "instrument-hub",
+		Short: "Falcon Instrument Hub",
+		Long:  "Falcon Instrument Hub orchestrates NATS, instrument-script-server, and measurement handlers",
+		RunE:  NewRunHub(deps, cli),
+	}
+
+	flags := rootCmd.Flags()
+
+	flags.StringVar(
+		&cli.Config,
+		"config",
+		"",
+		"path to hub configuration yaml",
+	)
+
+	flags.StringVar(
+		&cli.NATSURL,
+		"nats-url",
+		"",
+		"nats server url",
+	)
+
+	flags.StringVar(
+		&cli.DeviceConfig,
+		"device-config",
+		"",
+		"path to device configuration yaml",
+	)
+
+	flags.StringVar(
+		&cli.Wiremap,
+		"wiremap",
+		"",
+		"path to wiremap yaml",
+	)
+
+	flags.StringVar(
+		&cli.WorkingDirectory,
+		"working-dir",
+		"",
+		"working directory",
+	)
+
+	flags.StringVar(
+		&cli.LocalDatabase,
+		"local-database",
+		"",
+		"path to local database",
+	)
+
+	flags.StringVar(
+		&cli.UserMeasurementLua,
+		"user-measurement-luas",
+		"",
+		"path to user lua measurement scripts",
+	)
+
+	flags.StringVar(
+		&cli.MeasurementMetadata,
+		"measurement-metadata",
+		"",
+		"path to measurement metadata yaml",
+	)
+
+	flags.BoolVar(
+		&cli.NoISS,
+		"no-iss",
+		false,
+		"disable ISS autostart",
+	)
+
+	flags.StringSliceVar(
+		&cli.Instruments,
+		"instrument",
+		nil,
+		"instrument definition: config.yaml:plugin",
+	)
+	return rootCmd, cli
 }
 
 func main() {
@@ -602,13 +658,7 @@ func main() {
 | $$  | $$ \$$    $$| $$    $$                                                                       
  \$$   \$$  \$$$$$$  \$$$$$$$                                                                        
 `)
-
-	rootCmd := &cobra.Command{
-		Use:   "instrument-hub",
-		Short: "falcon instrument hub",
-		Long:  "Falcon Instrument Hub orchestrates NATS, instrument-script-server, and measurement handlers",
-	}
-	rootCmd.AddCommand(startCmd)
+	rootCmd, _ := buildRootCmd(ProductionDependancies)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

@@ -15,7 +15,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 )
 
 // MockBusyManager implements BusyManager interface for testing
@@ -38,13 +37,13 @@ func (m *MockBusyManager) IsBusy() bool {
 
 // mockDispatcher implements MeasurementDispatcher for testing.
 type mockDispatcher struct {
-	results    []serverinterpreter.ResolvedCallResult
+	results    []ResolvedCallResult
 	err        error
 	calls      int
 	scriptName string
 }
 
-func (m *mockDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]serverinterpreter.ResolvedCallResult, error) {
+func (m *mockDispatcher) RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ResolvedCallResult, error) {
 	m.calls++
 	m.scriptName = scriptName
 	return m.results, m.err

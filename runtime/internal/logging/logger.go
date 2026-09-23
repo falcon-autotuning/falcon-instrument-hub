@@ -268,7 +268,8 @@ func (l *Logger) formatLogEntry(entry LogEntry) string {
 
 	// Format structured log entries
 	if entry.Channel != "" {
-		return fmt.Sprintf("[%s] [%s] [%s] [%s] %s\n",
+		return fmt.Sprintf(
+			"[%s] [%s] [%s] [%s] %s\n",
 			entry.Timestamp.Format(TimeFormat),
 			entry.Level,
 			entry.Source,
@@ -276,7 +277,8 @@ func (l *Logger) formatLogEntry(entry LogEntry) string {
 			entry.Message,
 		)
 	} else {
-		return fmt.Sprintf("[%s] [%s] [%s] %s\n",
+		return fmt.Sprintf(
+			"[%s] [%s] [%s] %s\n",
 			entry.Timestamp.Format(TimeFormat),
 			entry.Level,
 			entry.Source,
@@ -394,7 +396,8 @@ func (l *Logger) queueLogEntry(level, source, message, channel string) {
 		l.statsMu.Unlock()
 
 		// Enhanced logging with queue diagnostics
-		fmt.Fprintf(os.Stderr,
+		fmt.Fprintf(
+			os.Stderr,
 			"LOG QUEUE FULL (len=%d): [%s] [%s] [%s] %s\n",
 			queueLen,
 			entry.Timestamp.Format(TimeFormat),
