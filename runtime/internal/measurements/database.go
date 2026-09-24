@@ -1,5 +1,7 @@
 package measurements
 
+// FIX: DEPRECATED: Needs to be removed
+
 import (
 	"database/sql"
 	"fmt"

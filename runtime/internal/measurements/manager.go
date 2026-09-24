@@ -1,5 +1,7 @@
 package measurements
 
+// FIX: DEPRECATED: Needs to be removed
+
 import (
 	"fmt"
 	"log"
@@ -51,7 +53,7 @@ func (m *Manager) Close() error {
 // loadExistingIndexes scans the database to rebuild in-memory state on startup
 func (m *Manager) loadExistingIndexes() error {
 	log.Println("Loading existing measurement indexes from database...")
-	
+
 	// Query all measurements to understand current state
 	filters := MeasurementFilters{Limit: 0} // No limit, get all
 	measurements, err := m.db.QueryMeasurements(filters)
@@ -69,9 +71,9 @@ func (m *Manager) loadExistingIndexes() error {
 		}
 	}
 
-	log.Printf("Loaded %d measurements (%d complete, %d incomplete)", 
+	log.Printf("Loaded %d measurements (%d complete, %d incomplete)",
 		len(measurements), completeCount, incompleteCount)
-	
+
 	// Clean up any incomplete measurements older than 1 hour (optional)
 	// This handles cases where the process crashed before completing a measurement
 	cutoffTime := time.Now().Add(-1 * time.Hour)
@@ -89,12 +91,12 @@ func (m *Manager) cleanupOldIncomplete(cutoffTime time.Time) error {
 	if err != nil {
 		return err
 	}
-	
+
 	rowsAffected, _ := result.RowsAffected()
 	if rowsAffected > 0 {
 		log.Printf("Cleaned up %d old incomplete measurements", rowsAffected)
 	}
-	
+
 	return nil
 }
 
@@ -109,13 +111,13 @@ func (m *Manager) AllocateMeasurementID(timestamp time.Time) (uniqueID int, expe
 
 	// Extract date components for directory structure
 	year, month, day := timestamp.Date()
-	
+
 	// Create directory structure: baseDataDir/YYYY/MM/DD/
-	dateDir := filepath.Join(m.baseDataDir, 
+	dateDir := filepath.Join(m.baseDataDir,
 		fmt.Sprintf("%04d", year),
 		fmt.Sprintf("%02d", int(month)),
 		fmt.Sprintf("%02d", day))
-	
+
 	if err := os.MkdirAll(dateDir, 0755); err != nil {
 		return 0, "", fmt.Errorf("failed to create date directory: %w", err)
 	}
