@@ -3,14 +3,14 @@ package main
 import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/nats-io/nats.go"
 )
 
-var defaultHost = serverinterpreter.DefaultISSHost
+var defaultHost = instrumentserver.DefaultISSHost
 
 type InstrumentManager interface {
 	StartInstrument(string, string) error

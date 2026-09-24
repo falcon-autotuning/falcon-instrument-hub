@@ -1,0 +1,277 @@
+syntax = "proto3";
+package instserver.daemon.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Unified error handling
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  ERROR_CODE_RUNTIME = 1;
+  ERROR_CODE_INVALID_ARGUMENT = 2;
+  ERROR_CODE_FILE_DOES_NOT_EXIST = 3;
+  ERROR_CODE_PLUGIN_CRASH = 4;
+  ERROR_CODE_INSTRUMENT_CRASH = 5;
+  ERROR_CODE_BUFFER_NOT_FOUND = 6;
+}
+message ErrorDetails {
+  ErrorCode code = 1;
+  string message = 2;
+}
+
+message StandardResponse {
+  bool ok = 1;
+  string message = 2;
+  ErrorDetails error = 3;
+}
+// Daemon start needs to happen outside of RPC entirely
+message DaemonStop {} // One directional shutdown command
+// DaemonStopResponses are in cout and cerr
+
+message DaemonStatusRequest {}
+message DaemonStatusResponse {
+  StandardResponse standard_response = 1;
+  bool running = 2;
+  uint32 pid = 3; // 0 == unset
+}
+
+message StartInstrumentRequest {
+  string config_path = 1;
+  string plugin_path = 2;
+  string log_level = 3;
+}
+message StartInstrumentResponse {
+  StandardResponse standard_response = 1;
+}
+
+message StopInstrumentRequest {
+  string instrument_name = 1;
+}
+message StopInstrumentResponse {
+  StandardResponse standard_response = 1;
+}
+
+message InstrumentStatusRequest {
+  string instrument_name = 1;
+}
+message InstrumentStats {
+  int32 commands_sent = 1;
+  int32 commands_completed = 2;
+  int32 commands_failed = 3;
+  int32 commands_timeout = 4;
+}
+message InstrumentStatusResponse {
+  StandardResponse standard_response = 1;
+  InstrumentStats stats = 3;
+}
+
+message ListInstrumentsRequest {}
+message ListInstrumentsResponse {
+  StandardResponse standard_response = 1;
+  repeated string instrument_name = 2;
+}
+
+enum LuaTypes {
+  LUA_TYPES_UNSPECIFIED = 0;
+  LUA_TYPES_INT64 = 1;
+  LUA_TYPES_DOUBLE = 2;
+  LUA_TYPES_BOOL = 3;
+  // All of these are stored in the string VariableValue
+  LUA_TYPES_STRING = 4;
+  LUA_TYPES_DATA_BUFFER = 5;
+  LUA_TYPES_CALL_STACK = 6;
+  // All of these are for arrays
+  LUA_TYPES_INT64_ARRAY = 7;
+  LUA_TYPES_DOUBLE_ARRAY = 8;
+  LUA_TYPES_BOOL_ARRAY = 9;
+  LUA_TYPES_STRING_ARRAY = 10;
+  LUA_TYPES_DATA_BUFFER_ARRAY = 11;
+  LUA_TYPES_CALL_STACK_ARRAY = 12;
+  LUA_TYPES_MIXED_ARRAY = 13;
+}
+message Parameter {
+  string name = 1;
+  LuaTypes type = 2;
+}
+message TypeManifest {
+  repeated Parameter parameters = 1;
+}
+message Int64Array {
+  repeated int64 values = 1;
+}
+message DoubleArray {
+  repeated double values = 1;
+}
+message BoolArray {
+  repeated bool values = 1;
+}
+message StringArray {
+  repeated string values = 1;
+}
+message DataBufferArray {
+  repeated string values = 1;
+}
+message CallStackArray {
+  repeated string values = 1;
+}
+message MixedArray {
+  repeated VariableValue values = 1;
+}
+message MixedMap {
+  map<string, VariableValue> values = 1;
+}
+message VariableValue {
+  oneof value {
+    // Monostate representing nullptr
+    bool is_nil = 1;
+    // Primitive types
+    int64 i = 2;
+    double d = 3;
+    bool b = 4;
+    string s = 5;
+    // Array variable support
+    Int64Array i_array = 6;
+    DoubleArray d_array = 7;
+    BoolArray b_array = 8;
+    StringArray s_array = 9;
+    DataBufferArray db_array = 10;
+    CallStackArray cs_array = 11;
+    MixedArray m_array = 12;
+    // Mixed map support
+    MixedMap m_map = 13;
+  }
+}
+message Globals {
+  map<string, VariableValue> map = 1;
+}
+message MeasureJobRequest {
+  string script_path = 1;
+  Globals globals = 2;
+  TypeManifest type_manifest = 3;
+}
+message MeasureJobResponse {
+  StandardResponse standard_response = 1;
+  uint32 job_id = 2;
+}
+
+message JobStatusRequest {
+  uint32 job_id = 1;
+}
+enum JobStatus {
+  JOB_STATUS_UNSPECIFIED = 0;
+  JOB_STATUS_QUEUED = 1;
+  JOB_STATUS_RUNNING = 2;
+  JOB_STATUS_COMPLETED = 3;
+  JOB_STATUS_FAILED = 4;
+  JOB_STATUS_CANCELING = 5;
+  JOB_STATUS_CANCELLED = 6;
+}
+enum JobType {
+  JOB_TYPE_UNSPECIFIED = 0;
+  JOB_TYPE_MEASURE = 1;
+  JOB_TYPE_SLEEP = 2;
+}
+message Job {
+  JobType type = 1;
+  JobStatus status = 2;
+  google.protobuf.Timestamp created_at = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp finished_at = 5;
+}
+message JobStatusResponse {
+  StandardResponse standard_response = 1;
+  Job job = 2;
+}
+
+message MeasureJobResultRequest {
+  uint32 job_id = 1;
+}
+message DataBufferMetadata {
+  uint32 element_count = 1;
+  uint32 data_type = 2; // INST_DATA_<...>
+  uint64 byte_size = 3;
+  google.protobuf.Timestamp captured_at = 4;
+  string command_id = 5;
+  string instrument_name = 6;
+}
+message TypedParameter {
+  string name = 1;
+  LuaTypes type = 2;
+  VariableValue value = 3;
+  string unit = 4;
+  DataBufferMetadata dbmeta = 5; // Additional metadata for DataBuffer
+}
+message CommandResult {
+  string instrument_name = 1;
+  optional int64 channel = 2;
+  optional string group = 3;
+  string verb = 4;
+  google.protobuf.Timestamp executed_at = 5;
+  repeated TypedParameter param = 6;
+}
+message MeasureJobResultResponse {
+  StandardResponse standard_response = 1;
+  JobStatus status = 3;
+  repeated CommandResult results = 4;
+}
+
+message JobListRequest {}
+message JobListResponse {
+  StandardResponse standard_response = 1;
+  map<uint32, Job> jobs = 2;
+}
+
+message CancelJobRequest {
+  uint32 job_id = 1;
+}
+message CancelJobResponse {
+  StandardResponse standard_response = 1;
+}
+
+message DiscoverRequest {
+  repeated string plugin_paths = 1;
+}
+message DiscoverResponse {
+  StandardResponse standard_response = 1;
+  repeated string paths = 2;
+  repeated string plugin_names = 3;
+}
+
+message ListDataBuffersRequest {}
+message ListDataBuffersResponse {
+  StandardResponse standard_response = 1;
+  map<string, DataBufferMetadata> buffers = 2; // the key is the buffer_id
+}
+
+message ReleaseBufferRequest {
+  string buffer_id = 1;
+}
+message ReleaseBufferResponse {
+  StandardResponse standard_response = 1;
+}
+
+message GetBufferMetadataRequest {
+  string buffer_id = 1;
+}
+message GetBufferMetadataResponse {
+  StandardResponse standard_response = 1;
+  DataBufferMetadata meta = 2;
+}
+// ReadBuffer needs to be handled in the CLI process since it streams all the data to cout
+
+service DaemonService {
+  rpc DaemonStatus(DaemonStatusRequest) returns (DaemonStatusResponse);
+  rpc StartInstrument(StartInstrumentRequest) returns (StartInstrumentResponse);
+  rpc StopInstrument(StopInstrumentRequest) returns (StopInstrumentResponse);
+  rpc InstrumentStatus(InstrumentStatusRequest) returns (InstrumentStatusResponse);
+  rpc ListInstruments(ListInstrumentsRequest) returns (ListInstrumentsResponse);
+  rpc MeasureJob(MeasureJobRequest) returns (MeasureJobResponse);
+  rpc JobStatus(JobStatusRequest) returns (JobStatusResponse);
+  rpc MeasureJobResult(MeasureJobResultRequest) returns (MeasureJobResultResponse);
+  rpc JobList(JobListRequest) returns (JobListResponse);
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse);
+  rpc Discover(DiscoverRequest) returns (DiscoverResponse);
+  rpc ListDataBuffers(ListDataBuffersRequest) returns (ListDataBuffersResponse);
+  rpc ReleaseBuffer(ReleaseBufferRequest) returns (ReleaseBufferResponse);
+  rpc GetBufferMetadata(GetBufferMetadataRequest) returns (GetBufferMetadataResponse);
+  rpc StopDaemon(DaemonStop) returns (StandardResponse); // expects no response ever
+}

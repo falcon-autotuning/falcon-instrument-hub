@@ -7,9 +7,6 @@ vcpkg-bootstrap:
 	@echo "Bootstrapping vcpkg..."
 	cmake -P cmake/bootstrap/bootstrap-vcpkg.cmake
 
-configure: vcpkg-bootstrap
-	@echo "Configuring $(PRESET)..."
-	cmake --preset $(PRESET)
 
 CACHE_FILE := build/$(PRESET)/CMakeCache.txt
 ifneq ($(wildcard $(CACHE_FILE)),)
@@ -35,6 +32,20 @@ GO_ENV = CGO_ENABLED=1 \
 	PATH="$(LOCAL_VCPKG_INSTALLED)/bin:$(PATH)" \
 	LD_LIBRARY_PATH="$(LOCAL_VCPKG_INSTALLED)/lib:$(LD_LIBRARY_PATH)"
 
+ISS_PROTO_DIR := \
+$(LOCAL_VCPKG_INSTALLED)/share/instrument-script-server/proto
+
+.PHONY: proto
+proto:
+	rm -rf runtime/proto
+	mkdir -p runtime/proto
+	cp -R $(ISS_PROTO_DIR)/* runtime/proto/
+	cd runtime && buf generate
+
+configure: vcpkg-bootstrap proto
+	@echo "Configuring $(PRESET)..."
+	cmake --preset $(PRESET)
+
 build: configure
 	cd runtime && go mod tidy
 ifeq ($(CMAKE_BUILD_TYPE),Debug)
@@ -55,6 +66,13 @@ test-cmd: build
 		-coverprofile=coverage.out \
 		-tags cgo,falcon_core \
 		./cmd
+
+test-instrumentserver: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/instrumentserver
 
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub

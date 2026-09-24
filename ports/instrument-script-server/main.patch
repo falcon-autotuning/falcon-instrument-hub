@@ -1,0 +1,26 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b4b319c5..83b4ec1f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -451,7 +451,6 @@ install(
+     PATTERN "*.h"
+ )
+ 
+-
+ install(
+   DIRECTORY schemas/
+   DESTINATION share/instrument-script-server/schemas
+@@ -464,6 +463,13 @@ install(
+   FILES_MATCHING
+   PATTERN "*.md")
+ 
++install(
++  DIRECTORY proto/
++  DESTINATION share/instrument-script-server/proto
++  FILES_MATCHING
++    PATTERN "*.proto"
++)
++
+ write_basic_package_version_file(
+   "${CMAKE_CURRENT_BINARY_DIR}/instrument-script-server-config-version.cmake"
+   VERSION ${PROJECT_VERSION}
