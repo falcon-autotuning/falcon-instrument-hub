@@ -212,6 +212,20 @@ func (c *ScriptServerClient) StopDaemon() error {
 	})
 }
 
+func (c *ScriptServerClient) DaemonStatus() (bool, error) {
+	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) (bool, error) {
+		resp, err := c.client.DaemonStatus(
+			ctx,
+			&daemonv1.DaemonStatusRequest{},
+		)
+		if err != nil {
+			return false, err
+		}
+
+		return resp.Running, standardError(resp.GetStandardResponse())
+	})
+}
+
 type jobID uint32
 
 func (c *ScriptServerClient) requestMeasurement(req *daemonv1.MeasureJobRequest) (jobID, error) {

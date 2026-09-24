@@ -2,6 +2,7 @@ package instrumentserver
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sort"
 	"testing"
@@ -51,6 +52,10 @@ type mockInstrument struct {
 type mockDaemonClient struct {
 	instruments map[string]mockInstrument
 
+	daemonRunning   bool
+	daemonStatusErr error
+	stopDaemonCalls int
+
 	measureJobReqs       []*daemonv1.MeasureJobRequest
 	jobStatusRequests    []*daemonv1.JobStatusRequest
 	measureResultRequest []*daemonv1.MeasureJobResultRequest
@@ -59,8 +64,6 @@ type mockDaemonClient struct {
 
 	measureJobResponse *daemonv1.MeasureJobResponse
 	measureJobResult   *daemonv1.MeasureJobResultResponse
-
-	stopDaemonCalls int
 }
 
 func (m *mockDaemonClient) ListInstruments(
@@ -211,11 +214,20 @@ func (m *mockDaemonClient) JobList(
 }
 
 func (m *mockDaemonClient) DaemonStatus(
-	context.Context,
-	*daemonv1.DaemonStatusRequest,
-	...grpc.CallOption,
+	ctx context.Context,
+	req *daemonv1.DaemonStatusRequest,
+	opts ...grpc.CallOption,
 ) (*daemonv1.DaemonStatusResponse, error) {
-	panic("unexpected call")
+	if m.daemonStatusErr != nil {
+		return nil, m.daemonStatusErr
+	}
+
+	return &daemonv1.DaemonStatusResponse{
+		StandardResponse: &daemonv1.StandardResponse{
+			Ok: true,
+		},
+		Running: m.daemonRunning,
+	}, nil
 }
 
 func (m *mockDaemonClient) InstrumentStatus(
@@ -548,6 +560,55 @@ func TestStopDaemon(t *testing.T) {
 			"stop daemon calls=%d want=1",
 			mock.stopDaemonCalls,
 		)
+	}
+}
+
+func TestDaemonStatus(t *testing.T) {
+	mock := &mockDaemonClient{
+		instruments:   make(map[string]mockInstrument),
+		daemonRunning: true,
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	running, err := client.DaemonStatus()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !running {
+		t.Fatal("expected daemon to be running")
+	}
+}
+
+func TestDaemonStatus_NotRunning(t *testing.T) {
+	mock := &mockDaemonClient{
+		instruments:   make(map[string]mockInstrument),
+		daemonRunning: false,
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	running, err := client.DaemonStatus()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if running {
+		t.Fatal("expected daemon to be stopped")
+	}
+}
+
+func TestDaemonStatus_RPCError(t *testing.T) {
+	mock := &mockDaemonClient{
+		daemonStatusErr: errors.New("rpc failure"),
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	_, err := client.DaemonStatus()
+	if err == nil {
+		t.Fatal("expected error")
 	}
 }
 
