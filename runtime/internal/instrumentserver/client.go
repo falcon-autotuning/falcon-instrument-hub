@@ -226,6 +226,20 @@ func (c *ScriptServerClient) DaemonStatus() (bool, error) {
 	})
 }
 
+func (c *ScriptServerClient) ReleaseBuffer(bufferID string) error {
+	return withCallContext(c, defaultCallTimeout, func(ctx context.Context) error {
+		resp, err := c.client.ReleaseBuffer(
+			ctx,
+			&daemonv1.ReleaseBufferRequest{BufferId: bufferID},
+		)
+		if err != nil {
+			return err
+		}
+
+		return standardError(resp.GetStandardResponse())
+	})
+}
+
 type jobID uint32
 
 func (c *ScriptServerClient) requestMeasurement(req *daemonv1.MeasureJobRequest) (jobID, error) {

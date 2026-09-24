@@ -56,6 +56,8 @@ type mockDaemonClient struct {
 	daemonStatusErr error
 	stopDaemonCalls int
 
+	releaseBufferRequests []*daemonv1.ReleaseBufferRequest
+
 	measureJobReqs       []*daemonv1.MeasureJobRequest
 	jobStatusRequests    []*daemonv1.JobStatusRequest
 	measureResultRequest []*daemonv1.MeasureJobResultRequest
@@ -159,6 +161,23 @@ func (m *mockDaemonClient) StopDaemon(
 	}, nil
 }
 
+func (m *mockDaemonClient) ReleaseBuffer(
+	ctx context.Context,
+	req *daemonv1.ReleaseBufferRequest,
+	opts ...grpc.CallOption,
+) (*daemonv1.ReleaseBufferResponse, error) {
+	m.releaseBufferRequests = append(
+		m.releaseBufferRequests,
+		req,
+	)
+
+	return &daemonv1.ReleaseBufferResponse{
+		StandardResponse: &daemonv1.StandardResponse{
+			Ok: true,
+		},
+	}, nil
+}
+
 func (m *mockDaemonClient) StartInstrument(
 	ctx context.Context,
 	req *daemonv1.StartInstrumentRequest,
@@ -197,22 +216,6 @@ func (m *mockDaemonClient) StopInstrument(
 	}, nil
 }
 
-func (m *mockDaemonClient) CancelJob(
-	context.Context,
-	*daemonv1.CancelJobRequest,
-	...grpc.CallOption,
-) (*daemonv1.CancelJobResponse, error) {
-	panic("unexpected call")
-}
-
-func (m *mockDaemonClient) JobList(
-	context.Context,
-	*daemonv1.JobListRequest,
-	...grpc.CallOption,
-) (*daemonv1.JobListResponse, error) {
-	panic("unexpected call")
-}
-
 func (m *mockDaemonClient) DaemonStatus(
 	ctx context.Context,
 	req *daemonv1.DaemonStatusRequest,
@@ -228,6 +231,22 @@ func (m *mockDaemonClient) DaemonStatus(
 		},
 		Running: m.daemonRunning,
 	}, nil
+}
+
+func (m *mockDaemonClient) CancelJob(
+	context.Context,
+	*daemonv1.CancelJobRequest,
+	...grpc.CallOption,
+) (*daemonv1.CancelJobResponse, error) {
+	panic("unexpected call")
+}
+
+func (m *mockDaemonClient) JobList(
+	context.Context,
+	*daemonv1.JobListRequest,
+	...grpc.CallOption,
+) (*daemonv1.JobListResponse, error) {
+	panic("unexpected call")
 }
 
 func (m *mockDaemonClient) InstrumentStatus(
@@ -251,14 +270,6 @@ func (m *mockDaemonClient) ListDataBuffers(
 	*daemonv1.ListDataBuffersRequest,
 	...grpc.CallOption,
 ) (*daemonv1.ListDataBuffersResponse, error) {
-	panic("unexpected call")
-}
-
-func (m *mockDaemonClient) ReleaseBuffer(
-	context.Context,
-	*daemonv1.ReleaseBufferRequest,
-	...grpc.CallOption,
-) (*daemonv1.ReleaseBufferResponse, error) {
 	panic("unexpected call")
 }
 
@@ -559,6 +570,35 @@ func TestStopDaemon(t *testing.T) {
 		t.Fatalf(
 			"stop daemon calls=%d want=1",
 			mock.stopDaemonCalls,
+		)
+	}
+}
+
+func TestReleaseBuffer(t *testing.T) {
+	mock := &mockDaemonClient{
+		instruments: make(map[string]mockInstrument),
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	const bufferID = "buffer-123"
+
+	if err := client.ReleaseBuffer(bufferID); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(mock.releaseBufferRequests) != 1 {
+		t.Fatalf(
+			"request count = %d, want 1",
+			len(mock.releaseBufferRequests),
+		)
+	}
+
+	if got := mock.releaseBufferRequests[0].GetBufferId(); got != bufferID {
+		t.Fatalf(
+			"buffer id = %q, want %q",
+			got,
+			bufferID,
 		)
 	}
 }
