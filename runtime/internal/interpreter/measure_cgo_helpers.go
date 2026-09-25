@@ -1,6 +1,6 @@
-//go:build cgo && falcon_core
+//go:build cgo
 
-package handlers
+package interpreter
 
 import (
 	"fmt"

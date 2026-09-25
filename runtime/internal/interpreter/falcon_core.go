@@ -16,6 +16,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/waveform"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axescoupledlabelleddomain"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/unitspace"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 )
 
 // WaveformData represents the extracted data from a falcon-core waveform.
@@ -854,4 +855,70 @@ func SettersToJSONList(req *FalconMeasurementRequest) ([]string, error) {
 	}
 
 	return result, nil
+}
+
+// symbolUnitFromString maps a unit symbol string (as written in instrument API
+// YAML files) to the corresponding symbolunit.Handle.  The symbols follow the
+// standard SI convention used by falcon-core's Constants.cpp.
+func SymbolUnitFromString(unit string) (*symbolunit.Handle, error) {
+	switch unit {
+	case "m":
+		return symbolunit.NewMeter()
+	case "kg":
+		return symbolunit.NewKilogram()
+	case "s":
+		return symbolunit.NewSecond()
+	case "A":
+		return symbolunit.NewAmpere()
+	case "K":
+		return symbolunit.NewKelvin()
+	case "mol":
+		return symbolunit.NewMole()
+	case "cd":
+		return symbolunit.NewCandela()
+	case "Hz":
+		return symbolunit.NewHertz()
+	case "N":
+		return symbolunit.NewNewton()
+	case "Pa":
+		return symbolunit.NewPascal()
+	case "J":
+		return symbolunit.NewJoule()
+	case "W":
+		return symbolunit.NewWatt()
+	case "C":
+		return symbolunit.NewCoulomb()
+	case "V":
+		return symbolunit.NewVolt()
+	case "F":
+		return symbolunit.NewFarad()
+	case "Ω", "ohm":
+		return symbolunit.NewOhm()
+	case "S":
+		return symbolunit.NewSiemens()
+	case "Wb":
+		return symbolunit.NewWeber()
+	case "T":
+		return symbolunit.NewTesla()
+	case "H":
+		return symbolunit.NewHenry()
+	case "min":
+		return symbolunit.NewMinute()
+	case "mV":
+		return symbolunit.NewMillivolt()
+	case "mA":
+		return symbolunit.NewMilliampere()
+	case "μA", "uA":
+		return symbolunit.NewMicroampere()
+	case "nA":
+		return symbolunit.NewNanoampere()
+	case "pA":
+		return symbolunit.NewPicoampere()
+	case "ns":
+		return symbolunit.NewNanosecond()
+	case "":
+		return symbolunit.NewDimensionless()
+	default:
+		return symbolunit.NewDimensionless()
+	}
 }

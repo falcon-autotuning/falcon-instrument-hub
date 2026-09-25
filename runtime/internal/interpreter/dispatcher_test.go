@@ -67,7 +67,7 @@ func (m *mockMeasurementClient) RegisterBuffer(
 	return nil
 }
 
-var _ measurementClient = (*mockMeasurementClient)(nil)
+var _ MeasurementClient = (*mockMeasurementClient)(nil)
 
 type registerCall struct {
 	requestorID string

@@ -1,4 +1,3 @@
-// Package serverinterpreter provides the gRPC client for instrument-script-server.
 // This package assumes that the instrument-script-server was already started via a
 // exec for "instrument-script-server daemon start"
 package instrumentserver

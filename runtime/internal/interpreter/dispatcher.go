@@ -10,7 +10,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 )
 
-// measurementClient represents a single measurement execution context.
+// MeasurementClient represents a single measurement execution context.
 //
 // A MeasurementClient combines the ability to execute Lua scripts through
 // the instrument-script-server and register any DataBuffers returned by
@@ -19,7 +19,7 @@ import (
 //
 // The requestor ID is used by the DataBufferManager to track ownership
 // of buffers produced during the measurement.
-type measurementClient interface {
+type MeasurementClient interface {
 	Measure(
 		scriptPath string,
 		variables []instrumentserver.MeasureVariable,
@@ -42,13 +42,13 @@ type measurementClient interface {
 // ScriptDispatcher does not read buffer contents. It only ensures that
 // the returned buffers are claimed and tracked.
 type scriptDispatcher struct {
-	client      measurementClient
+	client      MeasurementClient
 	requestorID string
 	scriptsPath string
 }
 
 func newScriptDispatcher(
-	client measurementClient,
+	client MeasurementClient,
 	scriptsPath string,
 ) *scriptDispatcher {
 	return &scriptDispatcher{
@@ -273,7 +273,7 @@ func (c *measurementAdapter) RegisterBuffer(
 	)
 }
 
-var _ measurementClient = (*measurementAdapter)(nil)
+var _ MeasurementClient = (*measurementAdapter)(nil)
 
 // newClient creates a measurement-scoped client.
 //
@@ -282,7 +282,7 @@ var _ measurementClient = (*measurementAdapter)(nil)
 // requestor ID.
 func (d *MeasurementDispatcher) newClient(
 	requestorID string,
-) measurementClient {
+) MeasurementClient {
 	return &measurementAdapter{
 		executor:    d.executor,
 		buffers:     d.buffers,

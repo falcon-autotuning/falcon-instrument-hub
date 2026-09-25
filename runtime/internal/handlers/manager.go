@@ -5,6 +5,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
+	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
@@ -26,7 +27,7 @@ type Manager struct {
 	logger                *logging.Logger
 	nc                    *nats.Conn
 	deviceConfigHandler   *deviceconfighandlers.Handler
-	measureCommandHandler *MeasureCommandHandler
+	measureCommandHandler *measure.Handler
 	statusHandler         *StatusHandler
 	portRequestHandler    *PortRequestHandler
 	isBusy                bool
@@ -34,32 +35,16 @@ type Manager struct {
 	metadataError         error
 }
 
-type Dispatcher interface {
-	RunMeasurement(
-		string,
-		map[string]interface{},
-		map[string]interface{},
-	) ([]ResolvedCallResult, error)
-}
-
 // NewManager creates a new handler manager
 func NewManager(
 	deviceConfigJSON string,
 	wiremap *config.WireMap,
 	instrumentAPIPaths []string,
-	measurementMetadataPath string,
 	measurementScriptsPath string,
 	logger *logging.Logger,
 	nc *nats.Conn,
-	dispatcher Dispatcher,
+	dispatcher measure.MeasurementClient,
 ) *Manager {
-	measurementMetadata, err := loadAnnotatedMeasurementMetadata(measurementMetadataPath, measurementScriptsPath, instrumentAPIPaths)
-	if err != nil {
-		logger.Error(
-			HandlerManagerName,
-			fmt.Sprintf("Failed to load measurement metadata: %v", err),
-		)
-	}
 	ports, err := ports.NewConnectedPorts(instrumentAPIPaths, wiremap)
 	if err != nil {
 		logger.Error(
@@ -79,12 +64,12 @@ func NewManager(
 		statusHandler: NewStatusHandler(logger),
 		metadataError: err,
 	}
-	manager.measureCommandHandler = NewMeasureCommandHandler(
+	manager.measureCommandHandler = measure.NewMeasureCommandHandler(
 		logger,
 		manager,
+		measurementScriptsPath,
 		dispatcher,
 		wiremap,
-		measurementMetadata,
 		ports,
 	)
 

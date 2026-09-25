@@ -1,6 +1,6 @@
 //go:build cgo && falcon_core
 
-package handlers
+package interpreter
 
 import (
 	"fmt"
@@ -14,7 +14,17 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
+
+type measurementResponseTarget struct {
+	BufferData     []float64
+	PortJSON       string
+	ConnectionJSON string
+	InstrumentType string
+	UnitsJSON      string
+	ConnectedPort  *ports.ConnectedPort
+}
 
 // buildMeasurementResponseJSON constructs a falcon-core MeasurementResponse
 // from the raw buffer data and port metadata and returns the cereal JSON string.
@@ -82,7 +92,7 @@ func buildMeasurementResponseJSONForTargets(
 
 			var units *symbolunit.Handle
 			if unitSymbol != "" || unitsJSON == "" {
-				units, err = symbolUnitFromString(unitSymbol)
+				units, err = SymbolUnitFromString(unitSymbol)
 				if err != nil {
 					conn.Close()
 					return "", fmt.Errorf("buildMeasurementResponseJSON symbolUnitFromString: %w", err)

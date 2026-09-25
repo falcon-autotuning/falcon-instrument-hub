@@ -38,7 +38,7 @@ type InstrumentServerConfig struct {
 	ISSBinary   string             `yaml:"-"`
 }
 
-func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig, timeout time.Duration) (ISSRuntimeClient, error) {
+func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig, timeout time.Duration) (ISSClient, error) {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
@@ -235,12 +235,11 @@ func InitializeRuntimeEnvironment(cfg *HubConfig) error {
 type Runtime struct {
 	cfg *HubConfig
 
-	natsManager        NATSManager
-	measurementManager MeasurementManager
-	logger             *logging.Logger
-	handlerManager     HandlerManager
-	issProcess         *os.Process
-	issClient          ISSRuntimeClient
+	natsManager    NATSManager
+	logger         *logging.Logger
+	handlerManager HandlerManager
+	issProcess     *os.Process
+	issClient      ISSClient
 }
 
 func (r *Runtime) startISSDaemon() (*os.Process, error) {
@@ -320,28 +319,11 @@ func (deps RuntimeDependencies) NewRuntime(
 	}
 	services.natsManager = natsManager
 
-	measurementManager, err := deps.newMeasurementManager(
-		cfg.LocalDatabase,
-		filepath.Join(cfg.RuntimePaths.DataCache, MeasurementsDB),
-	)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to initialize measurement manager: %w",
-			err,
-		)
-	}
-	services.measurementManager = measurementManager
-
 	logger, err := deps.newLogger(cfg.RuntimePaths.Logs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create logger: %w", err)
 	}
 	services.logger = logger
-
-	dispatcher := deps.newDispatcher(
-		services.issClient,
-		cfg.UserMeasurementLuasDir,
-	)
 
 	configJSON, err := deps.newConfig(cfg.QuantumDotConfig)
 	if err != nil {
@@ -359,12 +341,10 @@ func (deps RuntimeDependencies) NewRuntime(
 		wiremap,
 		[]string{},
 		// instrumentAPIPaths,      // FIX: Can get generated from the instrument configs
-		"",
-		// measurementMetadataPath, // FIX:what are these?
 		cfg.UserMeasurementLuasDir,
 		logger,
 		natsManager.GetConnection(),
-		dispatcher,
+		services.issClient,
 	)
 	services.handlerManager = handlerManager
 
@@ -405,9 +385,6 @@ func (r Runtime) stopInstruments() {
 func (r *Runtime) Close() {
 	if r.handlerManager != nil {
 		r.handlerManager.Stop()
-	}
-	if r.measurementManager != nil {
-		r.measurementManager.Close()
 	}
 	if r.logger != nil {
 		r.logger.Close()

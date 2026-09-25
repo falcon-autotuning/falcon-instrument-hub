@@ -13,9 +13,22 @@ type measurementMetadataRegistry struct {
 	Measurements map[string]measurementMetadata `yaml:"measurements"`
 }
 
-type measurementMetadata = scriptmetadata.Metadata
-type measurementTargetMetadata = scriptmetadata.Target
-type measurementResponseMetadata = scriptmetadata.Response
+type (
+	measurementMetadata         = scriptmetadata.Metadata
+	measurementTargetMetadata   = scriptmetadata.Target
+	measurementResponseMetadata = scriptmetadata.Response
+)
+
+type scriptPortRequirement struct {
+	capability string
+	role       string
+}
+
+type scriptTarget struct {
+	id            string
+	channel       int
+	connectedPort *ports.ConnectedPort
+}
 
 func defaultMeasurementMetadataRegistry() measurementMetadataRegistry {
 	return measurementMetadataRegistry{

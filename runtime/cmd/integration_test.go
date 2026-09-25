@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
+	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -46,16 +46,6 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 	deps := RuntimeDependencies{
 		newNATSManager: func(url string) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
-		},
-
-		newMeasurementManager: func(
-			baseDir string,
-			dbPath string,
-		) (MeasurementManager, error) {
-			spy.measurementBaseDir = baseDir
-			spy.measurementDBPath = dbPath
-
-			return &FakeMeasurementManager{}, nil
 		},
 
 		newLogger: func(
@@ -131,13 +121,6 @@ func TestRuntime_PassesCorrectLoggerPath(t *testing.T) {
 			string,
 		) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
-		},
-
-		newMeasurementManager: func(
-			string,
-			string,
-		) (MeasurementManager, error) {
-			return &FakeMeasurementManager{}, nil
 		},
 
 		newLogger: func(
@@ -368,16 +351,6 @@ type RuntimeCallTracker struct {
 	handler *FakeHandlerManager
 }
 
-type FakeDispatcher struct{}
-
-func (f *FakeDispatcher) RunMeasurement(
-	string,
-	map[string]interface{},
-	map[string]interface{},
-) ([]handlers.ResolvedCallResult, error) {
-	return nil, nil
-}
-
 func TestNewRuntime_HappyPath(t *testing.T) {
 	tracker := []string{}
 
@@ -406,14 +379,6 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 			return &FakeNATSManager{}, nil
 		},
 
-		newMeasurementManager: func(
-			string,
-			string,
-		) (MeasurementManager, error) {
-			tracker = append(tracker, "measurements")
-			return &FakeMeasurementManager{}, nil
-		},
-
 		newLogger: func(
 			path string,
 		) (*logging.Logger, error) {
@@ -440,24 +405,14 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 			return &config.WireMap{}, nil
 		},
 
-		newDispatcher: func(
-			client handlers.MeasurementClient,
-			scriptsPath string,
-		) handlers.Dispatcher {
-			tracker = append(tracker, "dispatcher")
-
-			return &FakeDispatcher{}
-		},
-
 		newHandlerManager: func(
 			deviceConfigJSON string,
 			wiremap *config.WireMap,
 			instrumentAPIPaths []string,
-			measurementMetadataPath string,
 			measurementScriptsPath string,
 			logger *logging.Logger,
 			nc *nats.Conn,
-			dispatcher handlers.Dispatcher,
+			dispatcher measure.MeasurementClient,
 		) HandlerManager {
 			tracker = append(tracker, "handlers")
 
@@ -477,9 +432,7 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 		t,
 		[]string{
 			"nats",
-			"measurements",
 			"logger",
-			"dispatcher",
 			"config",
 			"wiremap",
 			"handlers",

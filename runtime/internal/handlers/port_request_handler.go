@@ -7,10 +7,10 @@ import (
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
@@ -181,7 +181,7 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, e
 	portHandles := make([]*instrumentport.Handle, 0, len(connectedPorts))
 	for _, cp := range connectedPorts {
 		conn := cp.Handle
-		unit, err := symbolUnitFromString(cp.Unit)
+		unit, err := interpreter.SymbolUnitFromString(cp.Unit)
 		if err != nil {
 			return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
 		}
@@ -219,70 +219,4 @@ func containsGateName(list, name string) bool {
 		}
 	}
 	return false
-}
-
-// symbolUnitFromString maps a unit symbol string (as written in instrument API
-// YAML files) to the corresponding symbolunit.Handle.  The symbols follow the
-// standard SI convention used by falcon-core's Constants.cpp.
-func symbolUnitFromString(unit string) (*symbolunit.Handle, error) {
-	switch unit {
-	case "m":
-		return symbolunit.NewMeter()
-	case "kg":
-		return symbolunit.NewKilogram()
-	case "s":
-		return symbolunit.NewSecond()
-	case "A":
-		return symbolunit.NewAmpere()
-	case "K":
-		return symbolunit.NewKelvin()
-	case "mol":
-		return symbolunit.NewMole()
-	case "cd":
-		return symbolunit.NewCandela()
-	case "Hz":
-		return symbolunit.NewHertz()
-	case "N":
-		return symbolunit.NewNewton()
-	case "Pa":
-		return symbolunit.NewPascal()
-	case "J":
-		return symbolunit.NewJoule()
-	case "W":
-		return symbolunit.NewWatt()
-	case "C":
-		return symbolunit.NewCoulomb()
-	case "V":
-		return symbolunit.NewVolt()
-	case "F":
-		return symbolunit.NewFarad()
-	case "Ω", "ohm":
-		return symbolunit.NewOhm()
-	case "S":
-		return symbolunit.NewSiemens()
-	case "Wb":
-		return symbolunit.NewWeber()
-	case "T":
-		return symbolunit.NewTesla()
-	case "H":
-		return symbolunit.NewHenry()
-	case "min":
-		return symbolunit.NewMinute()
-	case "mV":
-		return symbolunit.NewMillivolt()
-	case "mA":
-		return symbolunit.NewMilliampere()
-	case "μA", "uA":
-		return symbolunit.NewMicroampere()
-	case "nA":
-		return symbolunit.NewNanoampere()
-	case "pA":
-		return symbolunit.NewPicoampere()
-	case "ns":
-		return symbolunit.NewNanosecond()
-	case "":
-		return symbolunit.NewDimensionless()
-	default:
-		return symbolunit.NewDimensionless()
-	}
 }

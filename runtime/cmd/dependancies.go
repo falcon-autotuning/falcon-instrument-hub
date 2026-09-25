@@ -3,33 +3,40 @@ package main
 import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers"
+	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurements"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
 	"github.com/nats-io/nats.go"
 )
 
 var defaultHost = instrumentserver.DefaultISSHost
 
-type InstrumentManager interface {
+type ISSClient interface {
 	StartInstrument(string, string) error
 	StopInstrument(string) error
 	ListInstruments() ([]string, error)
 	DaemonStatus() (bool, error)
 	StopDaemon() error
 	Close() error
+	Measure(
+		scriptPath string,
+		variables []instrumentserver.MeasureVariable,
+	) ([]instrumentserver.CallResult, error)
+	ReleaseBuffer(
+		bufferID string,
+	) error
 }
 
-// FIX: this implementation missing DaemonStatus
-// var _ InstrumentManager = (*serverinterpreter.ScriptServerClient)(nil)
+var _ ISSClient = (*instrumentserver.ScriptServerClient)(nil)
+
 type HandlerManager interface {
 	StartCoreHandlers() error
 	StartStatus() error
 	Stop() error
 }
 
-// TODO: insert var
+var _ HandlerManager = (*handlers.Manager)(nil)
 
 type NATSManager interface {
 	GetConnection() *nats.Conn
@@ -38,48 +45,26 @@ type NATSManager interface {
 
 var _ NATSManager = (*networking.NATSManager)(nil)
 
-type MeasurementManager interface {
-	Close() error
-}
-
-var _ MeasurementManager = (*measurements.Manager)(nil)
-
-type ISSRuntimeClient interface {
-	InstrumentManager
-	handlers.MeasurementClient
-}
-
 type RuntimeDependencies struct {
 	newISSClient func(
 		host string,
 		port int,
 		binary string,
-	) ISSRuntimeClient
-
-	newDispatcher func(
-		client handlers.MeasurementClient,
-		scriptsPath string,
-	) handlers.Dispatcher
+	) ISSClient
 
 	newHandlerManager func(
 		deviceConfigJSON string,
 		wiremap *config.WireMap,
 		instrumentAPIPaths []string,
-		measurementMetadataPath string,
 		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
-		dispatcher handlers.Dispatcher,
+		dispatcher measure.MeasurementClient,
 	) HandlerManager
 
 	newNATSManager func(
 		url string,
 	) (NATSManager, error)
-
-	newMeasurementManager func(
-		baseDataDir string,
-		databasePath string,
-	) (MeasurementManager, error)
 
 	newLogger func(
 		outputPath string,
@@ -95,46 +80,33 @@ type RuntimeDependencies struct {
 	) (string, error)
 }
 
-// FIX: this implementation missing DaemonStatus
-// var _ ISSRuntimeClient = (*serverinterpreter.ScriptServerClient)(nil)
 var ProductionDependancies = RuntimeDependencies{
-	// newISSClient: func(
-	// 	host string,
-	// 	port int,
-	// 	issBinary string,
-	// ) ISSRuntimeClient {
-	// 	return serverinterpreter.NewScriptServerClientWithOptions(
-	// 		host,
-	// 		port,
-	// 		serverinterpreter.ScriptServerClientOptions{
-	// 			ISSBinary: issBinary,
-	// 		},
-	// 	)
-	// },
-	newDispatcher: func(
-		client handlers.MeasurementClient,
-		scriptsPath string,
-	) handlers.Dispatcher {
-		return handlers.NewScriptDispatcher(
-			client,
-			scriptsPath,
+	newISSClient: func(
+		host string,
+		port int,
+		issBinary string,
+	) ISSClient {
+		return instrumentserver.NewScriptServerClientWithOptions(
+			host,
+			port,
+			instrumentserver.ScriptServerClientOptions{
+				ISSBinary: issBinary,
+			},
 		)
 	},
 	newHandlerManager: func(
 		deviceConfigJSON string,
 		wiremap *config.WireMap,
 		instrumentAPIPaths []string,
-		measurementMetadataPath string,
 		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
-		dispatcher handlers.Dispatcher,
+		dispatcher measure.MeasurementClient,
 	) HandlerManager {
 		return handlers.NewManager(
 			deviceConfigJSON,
 			wiremap,
 			instrumentAPIPaths,
-			measurementMetadataPath,
 			measurementScriptsPath,
 			logger,
 			nc,
@@ -145,12 +117,6 @@ var ProductionDependancies = RuntimeDependencies{
 		url string,
 	) (NATSManager, error) {
 		return networking.NewNATSManager(url)
-	},
-	newMeasurementManager: func(
-		baseDataDir string,
-		databasePath string,
-	) (MeasurementManager, error) {
-		return measurements.NewManager(baseDataDir, databasePath)
 	},
 	newLogger: func(
 		outputPath string,

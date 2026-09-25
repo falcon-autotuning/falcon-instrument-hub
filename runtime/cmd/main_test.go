@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -461,6 +461,7 @@ type FakeISSClient struct {
 	readError            error
 	closeError           error
 	listError            error
+	releaseBufferError   error
 }
 
 // For the purpose of this mock, the config is the name of the instrument that is started
@@ -504,6 +505,10 @@ func (f *FakeISSClient) StopDaemon() error {
 	return f.stopDaemonError
 }
 
+func (f *FakeISSClient) ReleaseBuffer(bufferID string) error {
+	return f.releaseBufferError
+}
+
 func (f *FakeISSClient) Close() error {
 	f.closed = true
 	f.closeCalled = true
@@ -512,9 +517,8 @@ func (f *FakeISSClient) Close() error {
 
 func (f *FakeISSClient) Measure(
 	scriptPath string,
-	globals map[string]interface{},
-	typeManifest map[string]interface{},
-) ([]serverinterpreter.ISSCallResult, error) {
+	variables []instrumentserver.MeasureVariable,
+) ([]instrumentserver.CallResult, error) {
 	return nil, f.measureError
 }
 
@@ -684,9 +688,8 @@ func TestClose_ShutsDownServices(t *testing.T) {
 	nats := &FakeNATSManager{}
 
 	runtime := Runtime{
-		handlerManager:     handler,
-		measurementManager: measurements,
-		natsManager:        nats,
+		handlerManager: handler,
+		natsManager:    nats,
 	}
 
 	runtime.Close()
@@ -753,12 +756,6 @@ func TestNewRuntime_MeasurementManagerFailure(t *testing.T) {
 		newNATSManager: func(string) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},
-		newMeasurementManager: func(
-			string,
-			string,
-		) (MeasurementManager, error) {
-			return nil, fmt.Errorf("broken measurements")
-		},
 	}
 
 	_, err := deps.NewRuntime(cfg)
@@ -785,12 +782,6 @@ func TestNewRuntime_LoggerFailure(t *testing.T) {
 	deps := RuntimeDependencies{
 		newNATSManager: func(string) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
-		},
-		newMeasurementManager: func(
-			string,
-			string,
-		) (MeasurementManager, error) {
-			return &FakeMeasurementManager{}, nil
 		},
 		newLogger: func(
 			string,
@@ -819,7 +810,7 @@ func TestWaitForISSDaemonReady_Success(t *testing.T) {
 			host string,
 			port int,
 			binary string,
-		) ISSRuntimeClient {
+		) ISSClient {
 			return client
 		},
 	}
@@ -847,7 +838,7 @@ func TestWaitForISSDaemonReady_Timeout(t *testing.T) {
 			host string,
 			port int,
 			binary string,
-		) ISSRuntimeClient {
+		) ISSClient {
 			return client
 		},
 	}
