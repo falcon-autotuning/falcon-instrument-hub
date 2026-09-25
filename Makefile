@@ -95,6 +95,13 @@ test-config-handler: build
 		-tags cgo,falcon_core \
 		./internal/handlers/device_config
 
+test-interpreter: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/interpreter
+
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
 	cmake --install $(CMAKE_BUILD_DIR)
