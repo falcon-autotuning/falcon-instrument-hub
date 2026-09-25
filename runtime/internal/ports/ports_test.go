@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -75,10 +76,18 @@ func TestConnectWireMap(t *testing.T) {
 	}
 	lib := BuildPortLibrary(apis)
 
-	wireMap := map[string]string{
-		"Source1.analog.4": "P1",
+	wireMap := &config.WireMap{
+		Contents: []config.WiremapEntry{
+			{
+				PhysicalDeviceName: "P1",
+				Instrument: config.WiremapInstrument{
+					Name:         "Source1",
+					ChannelGroup: "analog",
+					Channel:      4,
+				},
+			},
+		},
 	}
-
 	connected, err := ConnectWireMap(wireMap, lib)
 	require.NoError(t, err)
 	require.Len(t, connected, 2)
@@ -132,15 +141,6 @@ func TestBuildPortLibrary_UsesExplicitInstrumentTypes(t *testing.T) {
 
 	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.current"].InstrumentType)
 	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.voltage"].InstrumentType)
-}
-
-func TestConnectWireMap_InvalidKey(t *testing.T) {
-	lib := PortLibrary{}
-	wireMap := map[string]string{
-		"Source1.4": "P1", // missing channel name
-	}
-	_, err := ConnectWireMap(wireMap, lib)
-	assert.Error(t, err)
 }
 
 func TestParseInstrumentAPI(t *testing.T) {
@@ -324,10 +324,25 @@ func connectedromTestWireMap(t *testing.T) []ConnectedPort {
 			},
 		},
 	}
-
-	wireMap := map[string]string{
-		"Meter1.analog.1":  "O1",
-		"Source1.analog.4": "P1",
+	wireMap := &config.WireMap{
+		Contents: []config.WiremapEntry{
+			{
+				PhysicalDeviceName: "O1",
+				Instrument: config.WiremapInstrument{
+					Name:         "Meter1",
+					ChannelGroup: "analog",
+					Channel:      1,
+				},
+			},
+			{
+				PhysicalDeviceName: "P1",
+				Instrument: config.WiremapInstrument{
+					Name:         "Source1",
+					ChannelGroup: "analog",
+					Channel:      4,
+				},
+			},
+		},
 	}
 
 	connected, err := ConnectWireMap(wireMap, BuildPortLibrary(apis))

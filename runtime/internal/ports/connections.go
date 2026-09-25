@@ -64,7 +64,7 @@ func ConnectWireMap(wiremap *config.WireMap, lib PortLibrary) ([]ConnectedPort, 
 			if entry.Identifier == instrumentName && entry.ChannelName == channelName {
 				connected = append(connected, ConnectedPort{
 					PortName:       portName,
-					DeviceName:     instrumentName,
+					DeviceName:     wEntry.PhysicalDeviceName,
 					InstrumentName: instrumentName,
 					ChannelName:    channelName,
 					ChannelIndex:   channel,
