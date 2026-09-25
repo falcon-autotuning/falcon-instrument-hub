@@ -1,3 +1,5 @@
+//go:build cgo
+
 package config
 
 import (
@@ -9,15 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestLoadConfigCGO(t *testing.T) {
-	// Create temporary directory for test files
-	tempDir, err := os.MkdirTemp("", "config_test")
-	require.NoError(t, err)
-	defer os.RemoveAll(tempDir)
-
-	// Create valid device config
-	deviceConfigPath := filepath.Join(tempDir, "device.yaml")
-	deviceConfigContent := `
+func writeTestDeviceConfig(t *testing.T, dir string) string {
+	t.Helper()
+	testDeviceConfigYAML := `
 ScreeningGates: "S1;S2;S3"
 PlungerGates: "P1;P2;P3"
 Ohmics: "O1;O2;O3;O4"
@@ -77,12 +73,17 @@ wiringDC:
   B4: { resistance: 1000.0, capacitance: 1e-12 }
   B5: { resistance: 1000.0, capacitance: 1e-12 }
 `
-	err = os.WriteFile(deviceConfigPath, []byte(deviceConfigContent), 0644)
+
+	path := filepath.Join(dir, "device.yaml")
+	err := os.WriteFile(path, []byte(testDeviceConfigYAML), 0644)
 	require.NoError(t, err)
 
-	// Create valid wiremap
-	wiremapPath := filepath.Join(tempDir, "wiremap.yaml")
-	wiremapContent := `
+	return path
+}
+
+func writeTestWiremap(t *testing.T, dir string) string {
+	t.Helper()
+	testWiremapYAML := `
 wiremap:
 - name: S1
   instrument:
@@ -180,35 +181,82 @@ wiremap:
     channel_name: analog
     index: 2
 `
-	err = os.WriteFile(wiremapPath, []byte(wiremapContent), 0644)
+
+	path := filepath.Join(dir, "wiremap.yaml")
+	err := os.WriteFile(path, []byte(testWiremapYAML), 0644)
 	require.NoError(t, err)
 
-	// Test successful loading
-	cfg, err := LoadConfigCGO(deviceConfigPath, wiremapPath)
+	return path
+}
+
+func TestLoadConfig(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	deviceConfig := writeTestDeviceConfig(t, tmpDir)
+
+	cfg, err := LoadConfig(deviceConfig)
 	require.NoError(t, err)
-	assert.NotNil(t, cfg)
-	assert.Equal(t, deviceConfigPath, cfg.DeviceConfigPath)
-	assert.Equal(t, wiremapPath, cfg.WiremapPath)
-	assert.NotNil(t, cfg.DeviceConfig)
-	assert.NotNil(t, cfg.WireMap)
+	assert.NotEmpty(t, cfg)
+}
 
-	// Verify device config content
-	assert.Equal(t, "S1;S2;S3", cfg.DeviceConfig.ScreeningGates)
-	assert.Equal(t, "P1;P2;P3", cfg.DeviceConfig.PlungerGates)
-	assert.Equal(t, 2, cfg.DeviceConfig.NumUniqueChannels)
-	assert.Len(t, cfg.DeviceConfig.Groups, 2)
-	// falcon-core returns the gname key as the group Name field
-	assert.Equal(t, "group1", cfg.DeviceConfig.Groups["group1"].Name)
-	assert.Equal(t, 2, cfg.DeviceConfig.Groups["group1"].NumDots)
-	assert.Len(t, cfg.DeviceConfig.WiringDC, 19)
-	assert.Equal(t, 1000.0, cfg.DeviceConfig.WiringDC["S1"].Resistance)
-	assert.Equal(t, 1e-12, cfg.DeviceConfig.WiringDC["S1"].Capacitance)
+func TestLoadWiremap(t *testing.T) {
+	tmpDir := t.TempDir()
 
-	// Verify wiremap content
-	// Keys are "instrumentName.channelName.index" matching the new wiremap format.
-	assert.Len(t, *cfg.WireMap, 19)
-	assert.Equal(t, InstrumentConnection("S1"), (*cfg.WireMap)["Source1.analog.1"])
-	assert.Equal(t, InstrumentConnection("P1"), (*cfg.WireMap)["Source1.analog.4"])
-	assert.Equal(t, InstrumentConnection("O2"), (*cfg.WireMap)["Meter1.analog.1"])
-	assert.Equal(t, InstrumentConnection("O4"), (*cfg.WireMap)["Meter1.analog.2"])
+	deviceConfig := writeTestDeviceConfig(t, tmpDir)
+	wiremapPath := writeTestWiremap(t, tmpDir)
+
+	wiremap, err := LoadWiremap(wiremapPath, deviceConfig)
+	require.NoError(t, err)
+
+	assert.NotNil(t, wiremap)
+	assert.Len(t, wiremap.Contents, 19)
+
+	for _, entry := range wiremap.Contents {
+		assert.NotNil(t, entry.Gate)
+	}
+}
+
+func TestLoadWiremap_ValidatesAndResolvesGates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	deviceConfig := writeTestDeviceConfig(t, tmpDir)
+	wiremapPath := writeTestWiremap(t, tmpDir)
+
+	wiremap, err := LoadWiremap(wiremapPath, deviceConfig)
+
+	require.NoError(t, err)
+	require.NotNil(t, wiremap)
+
+	for _, entry := range wiremap.Contents {
+		assert.NotNil(t, entry.Gate)
+
+		name, err := entry.Gate.Name()
+		require.NoError(t, err)
+
+		assert.Equal(t, entry.PhysicalDeviceName, name)
+	}
+}
+
+func TestLoadWiremap_UnknownGate(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	deviceConfig := writeTestDeviceConfig(t, tmpDir)
+
+	wiremapPath := filepath.Join(tmpDir, "bad-wiremap.yaml")
+
+	err := os.WriteFile(wiremapPath, []byte(`
+wiremap:
+- name: DOES_NOT_EXIST
+  instrument:
+    name: Source1
+    channel_group: analog
+    index: 1
+`), 0644)
+	require.NoError(t, err)
+
+	wiremap, err := LoadWiremap(wiremapPath, deviceConfig)
+
+	require.Error(t, err)
+	assert.Nil(t, wiremap)
+	assert.Contains(t, err.Error(), "DOES_NOT_EXIST")
 }

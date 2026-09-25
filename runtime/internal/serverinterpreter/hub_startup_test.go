@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	nats "github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -388,7 +389,7 @@ func TestHubBinary_StartWithConfigFile_WithISS(t *testing.T) {
 	waitForHubStatus(t, natsURL, 20*time.Second)
 
 	// Verify the ISS daemon is reachable on the port specified in the config.
-	issClient := NewScriptServerClient("127.0.0.1", issRPCPort)
+	issClient := instrumentserver.NewScriptServerClient("127.0.0.1", issRPCPort)
 	deadline := time.Now().Add(15 * time.Second)
 	var issReady bool
 	for time.Now().Before(deadline) {

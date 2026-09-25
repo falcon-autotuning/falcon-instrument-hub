@@ -1,4 +1,4 @@
-package handlers
+package deviceconfighandlers
 
 import (
 	"encoding/json"
@@ -9,7 +9,6 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -20,8 +19,8 @@ const (
 )
 
 // DeviceConfigHandler handles INSTRUMENTHUB.DEVICE_CONFIG_REQUEST messages.
-type DeviceConfigHandler struct {
-	config       *config.Config
+type Handler struct {
+	configJSON   string
 	logger       *logging.Logger
 	nc           *nats.Conn
 	subscription *nats.Subscription
@@ -29,17 +28,17 @@ type DeviceConfigHandler struct {
 
 // NewDeviceConfigHandler creates a new device config handler
 func NewDeviceConfigHandler(
-	cfg *config.Config,
+	configJSON string,
 	logger *logging.Logger,
-) *DeviceConfigHandler {
-	return &DeviceConfigHandler{
-		config: cfg,
-		logger: logger,
+) *Handler {
+	return &Handler{
+		configJSON: configJSON,
+		logger:     logger,
 	}
 }
 
 // Subscribe subscribes to INSTRUMENTHUB.DEVICE_CONFIG_REQUEST
-func (h *DeviceConfigHandler) Subscribe(nc *nats.Conn) error {
+func (h *Handler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 
 	sub, err := nc.Subscribe(
@@ -69,7 +68,7 @@ func (h *DeviceConfigHandler) Subscribe(nc *nats.Conn) error {
 }
 
 // Unsubscribe removes the device configuration request subscription.
-func (h *DeviceConfigHandler) Unsubscribe() error {
+func (h *Handler) Unsubscribe() error {
 	if h.subscription != nil {
 		err := h.subscription.Unsubscribe()
 		if err != nil {
@@ -92,7 +91,7 @@ func (h *DeviceConfigHandler) Unsubscribe() error {
 }
 
 // handleDeviceConfigRequest processes incoming INSTRUMENTHUB.DEVICE_CONFIG_REQUEST messages
-func (h *DeviceConfigHandler) handleDeviceConfigRequest(msg *nats.Msg) {
+func (h *Handler) handleDeviceConfigRequest(msg *nats.Msg) {
 	rawData := msg.Data
 
 	h.logger.Debug(
@@ -112,7 +111,7 @@ func (h *DeviceConfigHandler) handleDeviceConfigRequest(msg *nats.Msg) {
 }
 
 // parseRequest unmarshals the request data
-func (h *DeviceConfigHandler) parseRequest(
+func (h *Handler) parseRequest(
 	rawData []byte,
 	deviceConfigReq *api.DeviceConfigRequest,
 ) error {
@@ -126,24 +125,11 @@ func (h *DeviceConfigHandler) parseRequest(
 }
 
 // sendDeviceConfigResponse sends the device config in cereal JSON format so that
-// C++ Config::from_json_string can parse it directly.  When the CGO path is used
-// the cereal JSON was captured at load time via Config_to_json_string; otherwise
-// we fall back to the Go-marshalled representation.
-func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
-	var configJSON string
-	if h.config.DeviceConfigCerealJSON != "" {
-		configJSON = h.config.DeviceConfigCerealJSON
-	} else {
-		deviceConfigBytes, err := json.Marshal(h.config.DeviceConfig)
-		if err != nil {
-			return fmt.Errorf("failed to serialize device config to JSON: %v", err)
-		}
-		configJSON = string(deviceConfigBytes)
-	}
-
+// C++ Config::from_json_string can parse it directly.
+func (h *Handler) sendDeviceConfigResponse() error {
 	// Create the response
 	response := api.DeviceConfigResponse{
-		Response:  configJSON,
+		Response:  h.configJSON,
 		Timestamp: time.Now().UnixMicro(),
 	}
 
@@ -174,6 +160,6 @@ func (h *DeviceConfigHandler) sendDeviceConfigResponse() error {
 }
 
 // GetSubscription returns the current subscription (for testing)
-func (h *DeviceConfigHandler) GetSubscription() *nats.Subscription {
+func (h *Handler) GetSubscription() *nats.Subscription {
 	return h.subscription
 }

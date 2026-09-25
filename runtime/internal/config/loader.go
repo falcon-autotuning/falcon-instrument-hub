@@ -1,151 +1,124 @@
+//go:build cgo
+
 package config
 
 import (
 	"fmt"
 	"os"
-	"strings"
 
+	falconconfig "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/config/core/config"
+	falconloader "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/config/loader"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"gopkg.in/yaml.v3"
 )
 
-// LoadConfig loads both device config and wiremap files
-func LoadConfig(deviceConfigPath, wiremapPath string) (*Config, error) {
-	cfg := &Config{
-		DeviceConfigPath: deviceConfigPath,
-		WiremapPath:      wiremapPath,
-	}
-
-	// Load device config
-	deviceConfig, err := loadDeviceConfig(deviceConfigPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load device config: %w", err)
-	}
-	cfg.DeviceConfig = deviceConfig
-
-	// Load wiremap
-	wireMap, err := loadWireMap(wiremapPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load wiremap: %w", err)
-	}
-	cfg.WireMap = wireMap
-
-	return cfg, nil
+// WireMap is the top-level YAML structure for the wiremap format.
+type WireMap struct {
+	Contents []WiremapEntry `yaml:"wiremap"`
 }
 
-func loadDeviceConfig(path string) (*DeviceConfig, error) {
-	data, err := os.ReadFile(path)
+type WiremapEntry struct {
+	PhysicalDeviceName string            `yaml:"name"`
+	Instrument         WiremapInstrument `yaml:"instrument"`
+
+	// Not serialized. Populated during validation.
+	Gate *connection.Handle `yaml:"-"`
+}
+
+type WiremapInstrument struct {
+	Name         string `yaml:"name"`
+	ChannelGroup string `yaml:"channel_group"`
+	Channel      int    `yaml:"index"`
+}
+
+func loadConfig(deviceConfigPath string) (*falconconfig.Handle, error) {
+	lh, err := falconloader.New(deviceConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("falconloader.New: %w", err)
+	}
+
+	ch, err := lh.Config()
+	if err != nil {
+		return nil, fmt.Errorf("Loader.Config: %w", err)
+	}
+
+	return ch, nil
+}
+
+// LoadWiremap loads the YAML and validates every wiremap entry
+// against the Falcon device configuration. Each entry is linked
+// to its resolved Falcon gate object.
+func LoadWiremap(
+	wiremapPath string,
+	deviceConfigPath string,
+) (*WireMap, error) {
+	data, err := os.ReadFile(wiremapPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var config DeviceConfig
-	if err := yaml.Unmarshal(data, &config); err != nil {
+	var wiremap WireMap
+	if err := yaml.Unmarshal(data, &wiremap); err != nil {
 		return nil, err
 	}
 
-	// Validate that all device connections have wiring specifications
-	if err := validateWiringDC(&config); err != nil {
-		return nil, fmt.Errorf("wiring validation failed: %w", err)
+	conf, err := loadConfig(deviceConfigPath)
+	if err != nil {
+		return nil, err
 	}
 
-	return &config, nil
-}
+	connections, err := conf.GetAllConnections()
+	if err != nil {
+		return nil, err
+	}
 
-func validateWiringDC(config *DeviceConfig) error {
-	// Collect all device connections that should have wiring specifications
-	deviceConnections := make(map[InstrumentConnection]bool)
+	rawConnections, err := connections.Items()
+	if err != nil {
+		return nil, err
+	}
 
-	// Add all gate types from Region 1
-	addConnections(deviceConnections, config.ScreeningGates)
-	addConnections(deviceConnections, config.PlungerGates)
-	addConnections(deviceConnections, config.Ohmics)
-	addConnections(deviceConnections, config.BarrierGates)
-	addConnections(deviceConnections, config.ReservoirGates)
+	listConnections, err := rawConnections.Items()
+	if err != nil {
+		return nil, err
+	}
 
-	// Check that all device connections have wiring specifications
-	for connection := range deviceConnections {
-		if _, exists := config.WiringDC[connection]; !exists {
-			return fmt.Errorf(
-				"device connection '%s' missing wiring specification in wiringDC section",
-				connection,
+	// Build lookup table once.
+	gates := make(map[string]*connection.Handle, len(listConnections))
+
+	for _, gate := range listConnections {
+		name, err := gate.Name()
+		if err != nil {
+			return nil, err
+		}
+
+		gates[name] = gate
+	}
+
+	// Resolve every wiremap entry.
+	for i := range wiremap.Contents {
+		entry := &wiremap.Contents[i]
+
+		gate, ok := gates[entry.PhysicalDeviceName]
+		if !ok {
+			return nil, fmt.Errorf(
+				"wiremap references unknown gate %q",
+				entry.PhysicalDeviceName,
 			)
 		}
+
+		entry.Gate = gate
 	}
 
-	return nil
+	return &wiremap, nil
 }
 
-// addConnections parses semicolon-delimited strings and adds each connection to
-// the map
-func addConnections(
-	connections map[InstrumentConnection]bool,
-	gateString string,
-) {
-	if gateString == "" {
-		return
-	}
-
-	gates := strings.Split(gateString, ";")
-	for _, gate := range gates {
-		gate = strings.TrimSpace(gate)
-		if gate != "" {
-			connections[InstrumentConnection(gate)] = true
-		}
-	}
-}
-
-// wiremapFile is the top-level YAML structure for the new wiremap format.
-type wiremapFile struct {
-	Wiremap []wiremapEntry `yaml:"wiremap"`
-}
-
-// wiremapEntry is one entry in the wiremap sequence.
-type wiremapEntry struct {
-	Name       string            `yaml:"name"`
-	Instrument wiremapInstrument `yaml:"instrument"`
-}
-
-// wiremapInstrument holds the instrument channel details for a wiremap entry.
-type wiremapInstrument struct {
-	Name        string `yaml:"name"`
-	ChannelName string `yaml:"channel_name"`
-	Index       int    `yaml:"index"`
-}
-
-func loadWireMap(path string) (*WireMap, error) {
-	data, err := os.ReadFile(path)
+func LoadConfig(deviceConfigPath string) (string, error) {
+	conf, err := loadConfig(deviceConfigPath)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
-	var raw wiremapFile
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, err
-	}
-
-	wireMap := make(WireMap, len(raw.Wiremap))
-	for _, entry := range raw.Wiremap {
-		// Key format: "InstrumentIdentifier.ChannelName.Index" e.g. "Source1.analog.4"
-		key := fmt.Sprintf("%s.%s.%d", entry.Instrument.Name, entry.Instrument.ChannelName, entry.Instrument.Index)
-		wireMap[InstrumentConnection(key)] = InstrumentConnection(entry.Name)
-	}
-	return &wireMap, nil
+	return conf.ToJSON()
 }
 
-// parseConnections parses semicolon-delimited strings into a slice of
-// connections
-func ParseConnections(connectionString string) []InstrumentConnection {
-	if connectionString == "" {
-		return nil
-	}
-
-	connections := strings.Split(connectionString, ";")
-	var result []InstrumentConnection
-	for _, conn := range connections {
-		conn = strings.TrimSpace(conn)
-		if conn != "" {
-			result = append(result, InstrumentConnection(conn))
-		}
-	}
-	return result
-}
+type InstrumentConnection string

@@ -2,8 +2,10 @@ package ports
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
+
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 )
 
 // ConnectedPort represents a port type instance wired to a physical device gate.
@@ -29,6 +31,8 @@ type ConnectedPort struct {
 	Unit string
 	// Description is a human-readable description of the io type.
 	Description string
+	// The falcon handle for the DeviceName
+	Handle *connection.Handle
 }
 
 // IsKnob reports whether this connected port is an output (knob).
@@ -45,44 +49,31 @@ func (c ConnectedPort) IsMeter() bool { return c.Role == "input" }
 //
 // For each wiremap entry, every port library entry whose Identifier and
 // ChannelName match produces a ConnectedPort with that device gate.
-func ConnectWireMap(wireMap map[string]string, lib PortLibrary) ([]ConnectedPort, error) {
+func ConnectWireMap(wiremap *config.WireMap, lib PortLibrary) ([]ConnectedPort, error) {
 	var connected []ConnectedPort
 	var errs []string
 
-	for key, deviceName := range wireMap {
-		// Parse "InstrumentIdentifier.ChannelName.Index"
-		parts := strings.SplitN(key, ".", 3)
-		if len(parts) != 3 {
-			errs = append(errs, fmt.Sprintf(
-				"invalid wiremap key %q: expected InstrumentIdentifier.ChannelName.Index", key,
-			))
-			continue
-		}
-
-		instrumentName := parts[0]
-		channelName := parts[1]
-		idx, err := strconv.Atoi(parts[2])
-		if err != nil {
-			errs = append(errs, fmt.Sprintf(
-				"invalid index in wiremap key %q: %v", key, err,
-			))
-			continue
-		}
+	for _, wEntry := range wiremap.Contents {
+		instrumentName := wEntry.Instrument.Name
+		channelName := wEntry.Instrument.ChannelGroup
+		channel := wEntry.Instrument.Channel
+		handle := wEntry.Gate
 
 		// Find all port library entries matching this instrument + channel.
 		for portName, entry := range lib {
 			if entry.Identifier == instrumentName && entry.ChannelName == channelName {
 				connected = append(connected, ConnectedPort{
 					PortName:       portName,
-					DeviceName:     deviceName,
+					DeviceName:     instrumentName,
 					InstrumentName: instrumentName,
 					ChannelName:    channelName,
-					ChannelIndex:   idx,
+					ChannelIndex:   channel,
 					IoTypeName:     entry.IoTypeName,
 					InstrumentType: entry.InstrumentType,
 					Role:           entry.Role,
 					Unit:           entry.Unit,
 					Description:    entry.Description,
+					Handle:         handle,
 				})
 			}
 		}
@@ -92,4 +83,75 @@ func ConnectWireMap(wireMap map[string]string, lib PortLibrary) ([]ConnectedPort
 		return connected, fmt.Errorf("wiremap connection errors: %s", strings.Join(errs, "; "))
 	}
 	return connected, nil
+}
+
+type ConnectedPorts struct {
+	AllConnections []ConnectedPort
+	Knobs          []ConnectedPort
+	Meters         []ConnectedPort
+}
+
+func newConnectedPorts(ports []ConnectedPort) *ConnectedPorts {
+	out := &ConnectedPorts{
+		AllConnections: ports,
+	}
+
+	for _, cp := range ports {
+		switch {
+		case cp.IsKnob():
+			out.Knobs = append(out.Knobs, cp)
+
+		case cp.IsMeter():
+			out.Meters = append(out.Meters, cp)
+		}
+	}
+
+	return out
+}
+
+func NewConnectedPorts(instrumentAPIPaths []string, wiremap *config.WireMap) (*ConnectedPorts, error) {
+	if wiremap == nil {
+		return nil, fmt.Errorf("no wiremap provided; port connections will be empty")
+	}
+	apis, err := ParseInstrumentAPIs(instrumentAPIPaths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load instrument APIs: %w", err)
+	}
+	lib := BuildPortLibrary(apis)
+	connected, err := ConnectWireMap(wiremap, lib)
+	if err != nil {
+		return nil, fmt.Errorf("wiremap connection warnings: %v", err)
+	}
+	return newConnectedPorts(connected), nil
+}
+
+// ResolveConnectedPort resolves a logical device name plus IO/capability name
+// to exactly one connected instrument port.
+func (h ConnectedPorts) ResolveConnectedPort(deviceName, ioTypeName, role string) (ConnectedPort, error) {
+	var matches []ConnectedPort
+	for _, cp := range h.AllConnections {
+		if cp.DeviceName == deviceName && cp.IoTypeName == ioTypeName && cp.Role == role {
+			matches = append(matches, cp)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return ConnectedPort{}, fmt.Errorf(
+			"no connected port for device_name=%q io_type_name=%q role=%q",
+			deviceName,
+			ioTypeName,
+			role,
+		)
+	case 1:
+		return matches[0], nil
+	default:
+		return ConnectedPort{}, fmt.Errorf(
+			"ambiguous connected port for device_name=%q io_type_name=%q role=%q: %d matches",
+			deviceName,
+			ioTypeName,
+			role,
+			len(matches),
+		)
+	}
 }

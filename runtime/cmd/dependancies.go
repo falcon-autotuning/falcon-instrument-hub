@@ -62,7 +62,11 @@ type RuntimeDependencies struct {
 	) handlers.Dispatcher
 
 	newHandlerManager func(
-		cfg *config.Config,
+		deviceConfigJSON string,
+		wiremap *config.WireMap,
+		instrumentAPIPaths []string,
+		measurementMetadataPath string,
+		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
 		dispatcher handlers.Dispatcher,
@@ -81,10 +85,14 @@ type RuntimeDependencies struct {
 		outputPath string,
 	) (*logging.Logger, error)
 
+	newWiremap func(
+		wiremapPath string,
+		deviceConfigPath string,
+	) (*config.WireMap, error)
+
 	newConfig func(
-		deviceConfig string,
-		wiremap string,
-	) (*config.Config, error)
+		deviceConfigPath string,
+	) (string, error)
 }
 
 // FIX: this implementation missing DaemonStatus
@@ -113,13 +121,21 @@ var ProductionDependancies = RuntimeDependencies{
 		)
 	},
 	newHandlerManager: func(
-		cfg *config.Config,
+		deviceConfigJSON string,
+		wiremap *config.WireMap,
+		instrumentAPIPaths []string,
+		measurementMetadataPath string,
+		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
 		dispatcher handlers.Dispatcher,
 	) HandlerManager {
 		return handlers.NewManager(
-			cfg,
+			deviceConfigJSON,
+			wiremap,
+			instrumentAPIPaths,
+			measurementMetadataPath,
+			measurementScriptsPath,
 			logger,
 			nc,
 			dispatcher,
@@ -144,12 +160,19 @@ var ProductionDependancies = RuntimeDependencies{
 		})
 	},
 	newConfig: func(
-		deviceConfig string,
-		wiremap string,
-	) (*config.Config, error) {
-		return config.Load(
-			deviceConfig,
-			wiremap,
+		deviceConfigPath string,
+	) (string, error) {
+		return config.LoadConfig(
+			deviceConfigPath,
+		)
+	},
+	newWiremap: func(
+		wiremapPath string,
+		deviceConfigPath string,
+	) (*config.WireMap, error) {
+		return config.LoadWiremap(
+			wiremapPath,
+			deviceConfigPath,
 		)
 	},
 }

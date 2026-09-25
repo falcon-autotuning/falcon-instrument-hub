@@ -342,18 +342,26 @@ func (deps RuntimeDependencies) NewRuntime(
 		services.issClient,
 		cfg.UserMeasurementLuasDir,
 	)
-	// FIX: What is this config stuff doing here?
-	config, err := deps.newConfig(cfg.QuantumDotConfig, cfg.Wiremap)
+
+	configJSON, err := deps.newConfig(cfg.QuantumDotConfig)
 	if err != nil {
 		return services, fmt.Errorf("failed to load configuration: %w", err)
 	}
-
-	config.MeasurementScriptsPath = cfg.UserMeasurementLuasDir
+	wiremap, err := deps.newWiremap(cfg.Wiremap, cfg.QuantumDotConfig)
+	if err != nil {
+		return services, fmt.Errorf("failed to load wiremap: %w", err)
+	}
 
 	logger.LogStats()
 
 	handlerManager := deps.newHandlerManager(
-		config,
+		configJSON,
+		wiremap,
+		[]string{},
+		// instrumentAPIPaths,      // FIX: Can get generated from the instrument configs
+		"",
+		// measurementMetadataPath, // FIX:what are these?
+		cfg.UserMeasurementLuasDir,
 		logger,
 		natsManager.GetConnection(),
 		dispatcher,

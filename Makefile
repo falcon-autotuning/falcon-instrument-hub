@@ -81,6 +81,20 @@ test-databuffer: build
 		-tags cgo,falcon_core \
 		./internal/databuffer
 
+test-config: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/config
+
+test-config-handler: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/handlers/device_config
+
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
 	cmake --install $(CMAKE_BUILD_DIR)

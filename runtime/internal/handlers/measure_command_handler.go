@@ -13,7 +13,6 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/serverinterpreter"
@@ -99,10 +98,6 @@ type MeasurementDispatcher interface {
 	RunMeasurement(scriptName string, globals map[string]interface{}, typeManifest map[string]interface{}) ([]ResolvedCallResult, error)
 }
 
-func targetStateKey(id string, channel int) string {
-	return fmt.Sprintf("%s:%d", id, channel)
-}
-
 type scriptPortRequirement struct {
 	capability string
 	role       string
@@ -114,43 +109,30 @@ type scriptTarget struct {
 	connectedPort *ports.ConnectedPort
 }
 
-func (t scriptTarget) asMap() map[string]interface{} {
-	return map[string]interface{}{
-		"id":      t.id,
-		"channel": t.channel,
-	}
-}
-
-func (t scriptTarget) stateKey() string {
-	return targetStateKey(t.id, t.channel)
-}
-
 func (h *MeasureCommandHandler) resolveScriptTarget(
 	scriptName string,
 	targetKind string,
 	info serverinterpreter.ExtractedInstrumentInfo,
-	revWire map[string]config.InstrumentConnection,
 ) (scriptTarget, error) {
 	gateName, err := gateNameFromConnectionJSON(info.ConnectionJSON)
 	if err != nil {
 		return scriptTarget{}, fmt.Errorf("failed to get %s gate name: %w", targetKind, err)
 	}
 
-	return h.resolveScriptTargetForGate(scriptName, targetKind, gateName, revWire)
+	return h.resolveScriptTargetForGate(scriptName, targetKind, gateName)
 }
 
 func (h *MeasureCommandHandler) resolveScriptTargetForGate(
 	scriptName string,
 	targetKind string,
 	gateName string,
-	revWire map[string]config.InstrumentConnection,
 ) (scriptTarget, error) {
 	metadata := h.measurementMetadata
 	if metadata.Measurements == nil {
 		metadata = defaultMeasurementMetadataRegistry()
 	}
-	if req, ok := metadata.requirement(scriptName, targetKind); ok && h.instrumentHandler != nil {
-		connectedPort, err := h.instrumentHandler.ResolveConnectedPort(gateName, req.capability, req.role)
+	if req, ok := metadata.requirement(scriptName, targetKind); ok {
+		connectedPort, err := h.ports.ResolveConnectedPort(gateName, req.capability, req.role)
 		if err != nil {
 			return scriptTarget{}, fmt.Errorf(
 				"failed to resolve %s %q capability %q role %q for gate %q: %w",
@@ -169,16 +151,7 @@ func (h *MeasureCommandHandler) resolveScriptTargetForGate(
 			connectedPort: &cp,
 		}, nil
 	}
-
-	wireEntry, ok := revWire[gateName]
-	if !ok {
-		return scriptTarget{}, fmt.Errorf("%s gate %q not found in wiremap", targetKind, gateName)
-	}
-	instrumentID, channelIndex, ok := parseWireMapEntry(wireEntry)
-	if !ok {
-		return scriptTarget{}, fmt.Errorf("failed to parse %s wiremap entry %q", targetKind, wireEntry)
-	}
-	return scriptTarget{id: instrumentID, channel: channelIndex}, nil
+	return scriptTarget{}, fmt.Errorf("%s gate %q not found in wiremap", targetKind, gateName)
 }
 
 func measurementResponseSubject(timestamp int64) string {
@@ -209,19 +182,6 @@ func resolvedCallResultToFloatSlice(result ResolvedCallResult) []float64 {
 		}
 	}
 	return nil
-}
-
-// reverseWireMap builds a gate-name → InstrumentConnection lookup from the
-// standard wiremap (which stores InstrumentConnection → gate-name).
-func reverseWireMap(wm *config.WireMap) map[string]config.InstrumentConnection {
-	if wm == nil {
-		return nil
-	}
-	rev := make(map[string]config.InstrumentConnection, len(*wm))
-	for instrConn, gateName := range *wm {
-		rev[string(gateName)] = instrConn
-	}
-	return rev
 }
 
 // parseWireMapEntry splits a wiremap key of the form
@@ -267,10 +227,9 @@ type MeasureCommandHandler struct {
 	nc                  *nats.Conn
 	js                  nats.JetStreamContext
 	subscription        *nats.Subscription
-	instrumentHandler   *instrument.Handler
 	busyManager         BusyManager
 	dispatcher          MeasurementDispatcher
-	wireMap             *config.WireMap
+	wiremap             *config.WireMap
 	stateMu             sync.Mutex
 	voltages            map[string]float64
 	sampleRates         map[string]float64
@@ -278,26 +237,26 @@ type MeasureCommandHandler struct {
 	slopes              map[string]float64
 	triggerLevels       map[string]float64
 	measurementMetadata measurementMetadataRegistry
+	ports               *ports.ConnectedPorts
 }
 
 // NewMeasureCommandHandler creates a new handler
 func NewMeasureCommandHandler(
 	logger *logging.Logger,
-	instrumentHandler *instrument.Handler,
 	busyManager BusyManager,
 	dispatcher MeasurementDispatcher,
 	wireMap *config.WireMap,
 	measurementMetadata measurementMetadataRegistry,
+	ports *ports.ConnectedPorts,
 ) *MeasureCommandHandler {
 	if measurementMetadata.Measurements == nil {
 		measurementMetadata = defaultMeasurementMetadataRegistry()
 	}
 	return &MeasureCommandHandler{
 		logger:              logger,
-		instrumentHandler:   instrumentHandler,
 		busyManager:         busyManager,
 		dispatcher:          dispatcher,
-		wireMap:             wireMap,
+		wiremap:             wireMap,
 		voltages:            map[string]float64{},
 		sampleRates:         map[string]float64{},
 		numberOfSamples:     map[string]int{},
@@ -396,882 +355,881 @@ func (h *MeasureCommandHandler) publishMeasurementResponse(cmd api.MeasureComman
 	return true
 }
 
+// FIX: Uncomment and implement
 // handleMessage processes an INSTRUMENTHUB.MEASURE_COMMAND message, dispatches
 // the measurement script to ISS, and publishes a timestamp-scoped response.
 func (h *MeasureCommandHandler) handleMessage(msg *nats.Msg) {
-	h.logger.Debug(
-		MeasureCommandHandlerName,
-		fmt.Sprintf("Received command: %s", string(msg.Data)),
-	)
-
-	var cmd api.MeasureCommand
-	if err := json.Unmarshal(msg.Data, &cmd); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to unmarshal MEASURE_COMMAND: %v", err))
-		return
-	}
-
-	if cmd.Request == "" {
-		h.logger.Debug(MeasureCommandHandlerName, "empty request, ignoring")
-		return
-	}
-
-	responseSubject := measurementResponseSubject(cmd.Timestamp)
-
-	h.busyManager.SetIsBusy(true)
-	defer h.busyManager.SetIsBusy(false)
-
-	falconReq, err := serverinterpreter.NewFalconMeasurementRequestFromJSON(cmd.Request)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to parse MeasurementRequest: %v", err))
-		return
-	}
-	defer falconReq.Close()
-
-	scriptName, scriptNameErr := falconReq.MeasurementName()
-	if scriptNameErr != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to read measurement_name: %v", scriptNameErr))
-		return
-	}
-	scriptName = strings.TrimSpace(scriptName)
-	if scriptName == "" {
-		h.logger.Error(MeasureCommandHandlerName, "measurement_name is required")
-		return
-	}
-
-	revWire := reverseWireMap(h.wireMap)
-
-	if scriptName == "get_many_voltages" || scriptName == "get_all_voltages" {
-		getters, err := falconReq.ExtractGetters()
-		if err != nil || len(getters) == 0 {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
-			return
-		}
-
-		getterTargets := make([]map[string]interface{}, 0, len(getters))
-		responseTargets := make([]measurementResponseTarget, 0, len(getters))
-		cachedVoltages := make([][]float64, len(getters))
-
-		for i, getter := range getters {
-			getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter, revWire)
-			if err != nil {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
-				return
-			}
-
-			getterTargets = append(getterTargets, getterTarget.asMap())
-			responseTargets = append(responseTargets,
-				responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
-
-			h.stateMu.Lock()
-			if voltage, ok := h.voltages[getterTarget.stateKey()]; ok {
-				cachedVoltages[i] = []float64{voltage}
-			}
-			h.stateMu.Unlock()
-		}
-
-		globals := map[string]interface{}{
-			"getters": getterTargets,
-		}
-		typeManifest := map[string]interface{}{
-			"parameters": []map[string]interface{}{
-				{"name": "ctx", "type": "RuntimeContext"},
-				{"name": "getters", "type": "{InstrumentTarget}"},
-			},
-		}
-
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		for i := range responseTargets {
-			if i < len(results) {
-				responseTargets[i].BufferData = resolvedCallResultToFloatSlice(results[i])
-			}
-			if len(responseTargets[i].BufferData) == 0 && len(cachedVoltages[i]) > 0 {
-				responseTargets[i].BufferData = cachedVoltages[i]
-			}
-			if len(responseTargets[i].BufferData) == 0 {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("no response value available for getter index %d in %s", i, scriptName))
-				return
-			}
-		}
-
-		respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	if scriptName == "measure_current" || scriptName == "measure_illumination" {
-		getters, err := falconReq.ExtractGetters()
-		if err != nil || len(getters) == 0 {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
-			return
-		}
-
-		getterTargets := make([]map[string]interface{}, 0, len(getters))
-		responseTargets := make([]measurementResponseTarget, 0, len(getters))
-		for i, getter := range getters {
-			getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter, revWire)
-			if err != nil {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
-				return
-			}
-
-			getterTargets = append(getterTargets, getterTarget.asMap())
-			responseTargets = append(responseTargets,
-				responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
-		}
-
-		globals := map[string]interface{}{
-			"sampleRate": 1000,
-			"getters":    getterTargets,
-		}
-		parameters := []map[string]interface{}{
-			{"name": "ctx", "type": "RuntimeContext"},
-			{"name": "sampleRate", "type": "number"},
-			{"name": "getters", "type": "{InstrumentTarget}"},
-		}
-		if scriptName == "measure_illumination" {
-			globals["illuminationTime"] = 0.1
-			parameters = append(parameters, map[string]interface{}{
-				"name": "illuminationTime",
-				"type": "number",
-			})
-		}
-
-		typeManifest := map[string]interface{}{"parameters": parameters}
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		datapointResults := make([][]float64, 0, len(responseTargets))
-		for _, result := range results {
-			if strings.EqualFold(result.Verb, "GET_DATAPOINT") {
-				if data := resolvedCallResultToFloatSlice(result); len(data) > 0 {
-					datapointResults = append(datapointResults, data)
-				}
-			}
-		}
-		if len(datapointResults) == 0 {
-			for _, result := range results {
-				if data := resolvedCallResultToFloatSlice(result); len(data) > 0 {
-					datapointResults = append(datapointResults, data)
-				}
-			}
-		}
-
-		for i := range responseTargets {
-			if i < len(datapointResults) {
-				responseTargets[i].BufferData = datapointResults[i]
-			}
-			if len(responseTargets[i].BufferData) == 0 {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("no scalar response returned for getter index %d in %s", i, scriptName))
-				return
-			}
-		}
-
-		respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	if scriptName == "get_voltage" || scriptName == "get_sample_rate" ||
-		scriptName == "get_number_of_samples" || scriptName == "get_slope" ||
-		scriptName == "get_trigger_level" || scriptName == "get_trigger_leader" {
-		getters, err := falconReq.ExtractGetters()
-		if err != nil || len(getters) == 0 {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
-			return
-		}
-		h.logger.Debug(MeasureCommandHandlerName,
-			fmt.Sprintf(
-				"Resolved measurement name: %q (getter default=%q instrument-facing=%q)",
-				scriptName,
-				getters[0].DefaultName,
-				getters[0].InstrumentFacingName,
-			))
-
-		getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0], revWire)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to resolve getter target: %v", err))
-			return
-		}
-
-		globals := map[string]interface{}{
-			"getter": getterTarget.asMap(),
-		}
-		parameters := []map[string]interface{}{
-			{"name": "ctx", "type": "RuntimeContext"},
-			{"name": "getter", "type": "InstrumentTarget"},
-		}
-
-		stateKey := getterTarget.stateKey()
-		h.stateMu.Lock()
-		voltage, hasVoltage := h.voltages[stateKey]
-		sampleRate, hasSampleRate := h.sampleRates[stateKey]
-		numberOfSamples, hasNumberOfSamples := h.numberOfSamples[stateKey]
-		slope, _ := h.slopes[stateKey]
-		triggerLevel, hasTriggerLevel := h.triggerLevels[stateKey]
-		h.stateMu.Unlock()
-
-		switch scriptName {
-		case "get_sample_rate":
-			globals["sampleRate"] = sampleRate
-			parameters = append(parameters, map[string]interface{}{
-				"name": "sampleRate",
-				"type": "number",
-			})
-		case "get_number_of_samples":
-			globals["numberOfSamples"] = numberOfSamples
-			parameters = append(parameters, map[string]interface{}{
-				"name": "numberOfSamples",
-				"type": "number",
-			})
-		case "get_slope":
-			globals["slope"] = slope
-			parameters = append(parameters, map[string]interface{}{
-				"name": "slope",
-				"type": "number",
-			})
-		case "get_trigger_level":
-			globals["triggerLevel"] = triggerLevel
-			parameters = append(parameters, map[string]interface{}{
-				"name": "triggerLevel",
-				"type": "number",
-			})
-		case "get_trigger_leader":
-			globals["triggerLeader"] = triggerLevel != 0
-			parameters = append(parameters, map[string]interface{}{
-				"name": "triggerLeader",
-				"type": "boolean",
-			})
-		}
-
-		typeManifest := map[string]interface{}{"parameters": parameters}
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		var bufferData []float64
-		for _, r := range results {
-			switch r.Return.Type {
-			case "buffer":
-				bufferData = append(bufferData, r.BufferData...)
-			case "float", "double", "number":
-				if v, ok := r.Return.Value.(float64); ok {
-					bufferData = append(bufferData, v)
-				}
-			case "integer", "int":
-				switch v := r.Return.Value.(type) {
-				case float64:
-					bufferData = append(bufferData, v)
-				case int:
-					bufferData = append(bufferData, float64(v))
-				}
-			case "boolean":
-				if v, ok := r.Return.Value.(bool); ok {
-					if v {
-						bufferData = append(bufferData, 1.0)
-					} else {
-						bufferData = append(bufferData, 0.0)
-					}
-				}
-			}
-		}
-		if len(bufferData) == 0 {
-			switch scriptName {
-			case "get_voltage":
-				if hasVoltage {
-					bufferData = []float64{voltage}
-				}
-			case "get_sample_rate":
-				if hasSampleRate {
-					bufferData = []float64{sampleRate}
-				}
-			case "get_number_of_samples":
-				if hasNumberOfSamples {
-					bufferData = []float64{float64(numberOfSamples)}
-				}
-			case "get_trigger_leader":
-				if hasTriggerLevel {
-					bufferData = []float64{triggerLevel}
-				}
-			}
-			if len(bufferData) > 0 {
-				h.logger.Info(MeasureCommandHandlerName,
-					fmt.Sprintf("No explicit getter result returned for %s; using cached state fallback", scriptName))
-			}
-		}
-
-		respJSON, err := buildMeasurementResponseJSONForTargets(
-			[]measurementResponseTarget{
-				responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
-			},
-			cmd.Hash,
-		)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	setters, err := falconReq.ExtractSetters()
-	if err != nil || len(setters) == 0 {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to extract setters (got %d): %v", len(setters), err))
-		return
-	}
-	h.logger.Debug(MeasureCommandHandlerName,
-		fmt.Sprintf(
-			"Resolved measurement name: %q (setter default=%q instrument-facing=%q)",
-			scriptName,
-			setters[0].DefaultName,
-			setters[0].InstrumentFacingName,
-		))
-
-	if scriptName == "set_voltage" || scriptName == "set_sample_rate" ||
-		scriptName == "set_number_of_samples" || scriptName == "set_slope" ||
-		scriptName == "set_trigger_level" || scriptName == "set_trigger_leader" {
-		waveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 0)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract %s waveform data: %v", scriptName, err))
-			return
-		}
-
-		scalarValue := waveformData.TimeDomain.Min
-		if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
-			scalarValue = waveformData.RawTimeTrace[0][0]
-		}
-
-		targetName := "setter"
-		valueName := "setVoltage"
-		responseValue := scalarValue
-		globals := map[string]interface{}{}
-		includeValue := true
-		valueType := "number"
-
-		switch scriptName {
-		case "set_voltage":
-			targetName = "setter"
-			valueName = "setVoltage"
-			responseValue = scalarValue
-		case "set_sample_rate":
-			targetName = "getter"
-			valueName = "sampleRate"
-			responseValue = scalarValue
-		case "set_number_of_samples":
-			targetName = "getter"
-			valueName = "numberOfSamples"
-			responseValue = float64(int(scalarValue))
-		case "set_slope":
-			targetName = "setter"
-			valueName = "slope"
-			responseValue = scalarValue
-		case "set_trigger_level":
-			targetName = "getter"
-			valueName = "triggerLevel"
-			responseValue = scalarValue
-		case "set_trigger_leader":
-			targetName = "getter"
-			valueName = ""
-			responseValue = 1.0
-			includeValue = false
-			valueType = ""
-		}
-
-		target, err := h.resolveScriptTarget(scriptName, targetName, setters[0], revWire)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to resolve %s target: %v", targetName, err))
-			return
-		}
-		targetValue := target.asMap()
-
-		globals[targetName] = targetValue
-		if includeValue {
-			if scriptName == "set_number_of_samples" {
-				globals[valueName] = int(responseValue)
-			} else {
-				globals[valueName] = responseValue
-			}
-		}
-
-		parameters := []map[string]interface{}{
-			{"name": "ctx", "type": "RuntimeContext"},
-			{"name": targetName, "type": "InstrumentTarget"},
-		}
-		if includeValue {
-			parameters = append(parameters, map[string]interface{}{
-				"name": valueName,
-				"type": valueType,
-			})
-		}
-		typeManifest := map[string]interface{}{"parameters": parameters}
-
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		stateKey := target.stateKey()
-		h.stateMu.Lock()
-		switch scriptName {
-		case "set_voltage":
-			h.voltages[stateKey] = responseValue
-		case "set_sample_rate":
-			h.sampleRates[stateKey] = responseValue
-		case "set_number_of_samples":
-			h.numberOfSamples[stateKey] = int(responseValue)
-		case "set_slope":
-			h.slopes[stateKey] = responseValue
-		case "set_trigger_level":
-			h.triggerLevels[stateKey] = responseValue
-		case "set_trigger_leader":
-			h.triggerLevels[stateKey] = 1.0
-		}
-		h.stateMu.Unlock()
-
-		bufferData := []float64{responseValue}
-		respJSON, err := buildMeasurementResponseJSONForTargets(
-			[]measurementResponseTarget{
-				responseTargetFromResolvedPort(bufferData, target, setters[0].ConnectionJSON, setters[0]),
-			},
-			cmd.Hash,
-		)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	if scriptName == "set_many_voltages" || scriptName == "ramp" {
-		setterTargets := make([]map[string]interface{}, 0, len(setters))
-		setVoltages := make(map[string]float64, len(setters))
-		responseTargets := make([]measurementResponseTarget, 0, len(setters))
-
-		for i, setter := range setters {
-			setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setter, revWire)
-			if err != nil {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to resolve setter target at index %d: %v", i, err))
-				return
-			}
-
-			waveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, i)
-			if err != nil {
-				h.logger.Error(MeasureCommandHandlerName,
-					fmt.Sprintf("failed to extract %s waveform data at index %d: %v", scriptName, i, err))
-				return
-			}
-
-			scalarValue := waveformData.TimeDomain.Min
-			if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
-				scalarValue = waveformData.RawTimeTrace[0][0]
-			}
-
-			setterTargets = append(setterTargets, setterTarget.asMap())
-			setVoltages[setterTarget.stateKey()] = scalarValue
-			h.stateMu.Lock()
-			h.voltages[setterTarget.stateKey()] = scalarValue
-			h.stateMu.Unlock()
-			responseTargets = append(responseTargets,
-				responseTargetFromResolvedPort([]float64{scalarValue}, setterTarget, setter.ConnectionJSON, setter))
-		}
-
-		globals := map[string]interface{}{
-			"setters":     setterTargets,
-			"setVoltages": setVoltages,
-		}
-		typeManifest := map[string]interface{}{
-			"parameters": []map[string]interface{}{
-				{"name": "ctx", "type": "RuntimeContext"},
-				{"name": "setters", "type": "{InstrumentTarget}"},
-				{"name": "setVoltages", "type": "{string: number}"},
-			},
-		}
-
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	getters, err := falconReq.ExtractGetters()
-	if err != nil || len(getters) == 0 {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
-		return
-	}
-
-	getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0], revWire)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to resolve getter target: %v", err))
-		return
-	}
-
-	if scriptName == "measure_leakage" {
-		waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract waveform data for measure_leakage: %v", err))
-			return
-		}
-
-		leakageVoltage := waveformData.TimeDomain.Min
-		if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
-			leakageVoltage = waveformData.RawTimeTrace[0][0]
-		}
-
-		globals := map[string]interface{}{
-			"getter":  getterTarget.asMap(),
-			"voltage": leakageVoltage,
-		}
-		typeManifest := map[string]interface{}{
-			"parameters": []map[string]interface{}{
-				{"name": "ctx", "type": "RuntimeContext"},
-				{"name": "getter", "type": "InstrumentTarget"},
-				{"name": "voltage", "type": "number"},
-			},
-		}
-
-		results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-		h.logger.Info(MeasureCommandHandlerName,
-			fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("measurement dispatch failed: %v", err))
-			return
-		}
-
-		var bufferData []float64
-		for _, r := range results {
-			bufferData = append(bufferData, resolvedCallResultToFloatSlice(r)...)
-		}
-		if len(bufferData) == 0 {
-			bufferData = []float64{leakageVoltage}
-		}
-
-		respJSON, err := buildMeasurementResponseJSONForTargets(
-			[]measurementResponseTarget{
-				responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
-			},
-			cmd.Hash,
-		)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-			return
-		}
-
-		h.publishMeasurementResponse(cmd, responseSubject, respJSON)
-		return
-	}
-
-	setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[0], revWire)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to resolve setter target: %v", err))
-		return
-	}
-
-	waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to extract waveform data: %v", err))
-		return
-	}
-
-	sweepVoltages := make([]interface{}, len(waveformData.RawTimeTrace))
-	for i, row := range waveformData.RawTimeTrace {
-		if len(row) > 0 {
-			sweepVoltages[i] = row[0]
-		} else {
-			sweepVoltages[i] = 0.0
-		}
-	}
-
-	var globals map[string]interface{}
-	var typeManifest map[string]interface{}
-	if len(setters) >= 2 {
-		// 2D sweep: fast axis = setters[0], slow axis = setters[1]
-		slowSetterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[1], revWire)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to resolve slow setter target: %v", err))
-			return
-		}
-		slowWaveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 1)
-		if err != nil {
-			h.logger.Error(MeasureCommandHandlerName,
-				fmt.Sprintf("failed to extract slow axis waveform data: %v", err))
-			return
-		}
-		slowSweepVoltages := make([]interface{}, len(slowWaveformData.RawTimeTrace))
-		for i, row := range slowWaveformData.RawTimeTrace {
-			if len(row) > 0 {
-				slowSweepVoltages[i] = row[0]
-			} else {
-				slowSweepVoltages[i] = 0.0
-			}
-		}
-		if scriptName == "measure_2D_buffered" {
-			numXSteps := len(sweepVoltages)
-			if numXSteps == 0 {
-				numXSteps = 1
-			}
-			numYSteps := len(slowSweepVoltages)
-			if numYSteps == 0 {
-				numYSteps = 1
-			}
-			globals = map[string]interface{}{
-				"bufferedXSetters": []map[string]interface{}{
-					setterTarget.asMap(),
-				},
-				"sampleRate": 1000,
-				"bufferedGetters": []map[string]interface{}{
-					getterTarget.asMap(),
-				},
-				"bufferedYSetters": []map[string]interface{}{
-					slowSetterTarget.asMap(),
-				},
-				"numXSteps": numXSteps,
-				"setYVoltageDomains": map[string]interface{}{
-					slowSetterTarget.id: map[string]interface{}{
-						"min": slowWaveformData.TimeDomain.Min,
-						"max": slowWaveformData.TimeDomain.Max,
-					},
-				},
-				"setXVoltageDomains": map[string]interface{}{
-					setterTarget.id: map[string]interface{}{
-						"min": waveformData.TimeDomain.Min,
-						"max": waveformData.TimeDomain.Max,
-					},
-				},
-				"numPoints": 1,
-				"numYSteps": numYSteps,
-				"setters":   []map[string]interface{}{},
-			}
-			typeManifest = map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "ctx", "type": "RuntimeContext"},
-					{"name": "bufferedXSetters", "type": "{InstrumentTarget}"},
-					{"name": "sampleRate", "type": "number"},
-					{"name": "bufferedGetters", "type": "{InstrumentTarget}"},
-					{"name": "bufferedYSetters", "type": "{InstrumentTarget}"},
-					{"name": "numXSteps", "type": "number"},
-					{"name": "setYVoltageDomains", "type": "table"},
-					{"name": "setXVoltageDomains", "type": "table"},
-					{"name": "numPoints", "type": "number"},
-					{"name": "numYSteps", "type": "number"},
-					{"name": "setters", "type": "{InstrumentTarget}"},
-				},
-			}
-		} else {
-			globals = map[string]interface{}{
-				"getters":           []map[string]interface{}{getterTarget.asMap()},
-				"fastSweepVoltages": sweepVoltages,
-				"slowSweepVoltages": slowSweepVoltages,
-				"fastSetter":        setterTarget.asMap(),
-				"slowSetter":        slowSetterTarget.asMap(),
-			}
-			typeManifest = map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "ctx", "type": "RuntimeContext"},
-					{"name": "getters", "type": "{InstrumentTarget}"},
-					{"name": "fastSweepVoltages", "type": "{number}"},
-					{"name": "slowSweepVoltages", "type": "{number}"},
-					{"name": "fastSetter", "type": "InstrumentTarget"},
-					{"name": "slowSetter", "type": "InstrumentTarget"},
-				},
-			}
-		}
-	} else {
-		if scriptName == "measure_get_set" {
-			numPoints := len(sweepVoltages)
-			if numPoints == 0 {
-				numPoints = 1
-			}
-			sampleRate := 1000
-			setVoltage := 0.0
-			if len(sweepVoltages) > 0 {
-				if v, ok := sweepVoltages[0].(float64); ok {
-					setVoltage = v
-				}
-			}
-			globals = map[string]interface{}{
-				"getters":    []map[string]interface{}{getterTarget.asMap()},
-				"numPoints":  numPoints,
-				"sampleRate": sampleRate,
-				"setVoltages": map[string]interface{}{
-					setterTarget.id: setVoltage,
-				},
-				"setters": []map[string]interface{}{setterTarget.asMap()},
-			}
-			typeManifest = map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "ctx", "type": "RuntimeContext"},
-					{"name": "getters", "type": "{InstrumentTarget}"},
-					{"name": "numPoints", "type": "number"},
-					{"name": "sampleRate", "type": "number"},
-					{"name": "setVoltages", "type": "{string: number}"},
-					{"name": "setters", "type": "{InstrumentTarget}"},
-				},
-			}
-		} else if scriptName == "measure_1D_buffered" {
-			numSteps := len(sweepVoltages)
-			if numSteps == 0 {
-				numSteps = 1
-			}
-			globals = map[string]interface{}{
-				"sampleRate": 1000,
-				"setters":    []map[string]interface{}{},
-				"setVoltageDomains": map[string]interface{}{
-					setterTarget.id: map[string]interface{}{
-						"min": waveformData.TimeDomain.Min,
-						"max": waveformData.TimeDomain.Max,
-					},
-				},
-				"bufferedGetters": []map[string]interface{}{
-					getterTarget.asMap(),
-				},
-				"numPoints": 1,
-				"numSteps":  numSteps,
-				"bufferedSetters": []map[string]interface{}{
-					setterTarget.asMap(),
-				},
-			}
-			typeManifest = map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "ctx", "type": "RuntimeContext"},
-					{"name": "sampleRate", "type": "number"},
-					{"name": "setters", "type": "{InstrumentTarget}"},
-					{"name": "setVoltageDomains", "type": "table"},
-					{"name": "bufferedGetters", "type": "{InstrumentTarget}"},
-					{"name": "numPoints", "type": "number"},
-					{"name": "numSteps", "type": "number"},
-					{"name": "bufferedSetters", "type": "{InstrumentTarget}"},
-				},
-			}
-		} else {
-			// 1D sweep
-			globals = map[string]interface{}{
-				"getters":       []map[string]interface{}{getterTarget.asMap()},
-				"setters":       []map[string]interface{}{setterTarget.asMap()},
-				"sweepVoltages": sweepVoltages,
-			}
-			typeManifest = map[string]interface{}{
-				"parameters": []map[string]interface{}{
-					{"name": "ctx", "type": "RuntimeContext"},
-					{"name": "getters", "type": "{InstrumentTarget}"},
-					{"name": "sweepVoltages", "type": "{number}"},
-					{"name": "setters", "type": "{InstrumentTarget}"},
-				},
-			}
-		}
-	}
-
-	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("measurement dispatch failed: %v", err))
-		return
-	}
-
-	var bufferData []float64
-	for _, r := range results {
-		switch r.Return.Type {
-		case "buffer":
-			bufferData = append(bufferData, r.BufferData...)
-		case "float", "double", "number":
-			if v, ok := r.Return.Value.(float64); ok {
-				bufferData = append(bufferData, v)
-			}
-		}
-	}
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("bufferData collected: len=%d", len(bufferData)))
-
-	h.logger.Info(MeasureCommandHandlerName, "Calling buildMeasurementResponseJSON")
-	respJSON, err := buildMeasurementResponseJSONForTargets(
-		[]measurementResponseTarget{
-			responseTargetFromResolvedPort(bufferData, getterTarget, setters[0].ConnectionJSON, getters[0]),
-		},
-		cmd.Hash,
-	)
-	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
-		return
-	}
-	h.logger.Info(MeasureCommandHandlerName, "buildMeasurementResponseJSON complete")
-
-	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// h.logger.Debug(
+	// 	MeasureCommandHandlerName,
+	// 	fmt.Sprintf("Received command: %s", string(msg.Data)),
+	// )
+	//
+	// var cmd api.MeasureCommand
+	// if err := json.Unmarshal(msg.Data, &cmd); err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to unmarshal MEASURE_COMMAND: %v", err))
+	// 	return
+	// }
+	//
+	// if cmd.Request == "" {
+	// 	h.logger.Debug(MeasureCommandHandlerName, "empty request, ignoring")
+	// 	return
+	// }
+	//
+	// responseSubject := measurementResponseSubject(cmd.Timestamp)
+	//
+	// h.busyManager.SetIsBusy(true)
+	// defer h.busyManager.SetIsBusy(false)
+	//
+	// falconReq, err := serverinterpreter.NewFalconMeasurementRequestFromJSON(cmd.Request)
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to parse MeasurementRequest: %v", err))
+	// 	return
+	// }
+	// defer falconReq.Close()
+	//
+	// scriptName, scriptNameErr := falconReq.MeasurementName()
+	// if scriptNameErr != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to read measurement_name: %v", scriptNameErr))
+	// 	return
+	// }
+	// scriptName = strings.TrimSpace(scriptName)
+	// if scriptName == "" {
+	// 	h.logger.Error(MeasureCommandHandlerName, "measurement_name is required")
+	// 	return
+	// }
+	//
+	// if scriptName == "get_many_voltages" || scriptName == "get_all_voltages" {
+	// 	getters, err := falconReq.ExtractGetters()
+	// 	if err != nil || len(getters) == 0 {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
+	// 		return
+	// 	}
+	//
+	// 	getterTargets := make([]map[string]interface{}, 0, len(getters))
+	// 	responseTargets := make([]measurementResponseTarget, 0, len(getters))
+	// 	cachedVoltages := make([][]float64, len(getters))
+	//
+	// 	for i, getter := range getters {
+	// 		getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter)
+	// 		if err != nil {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
+	// 			return
+	// 		}
+	//
+	// 		getterTargets = append(getterTargets, getterTarget.asMap())
+	// 		responseTargets = append(responseTargets,
+	// 			responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
+	//
+	// 		h.stateMu.Lock()
+	// 		if voltage, ok := h.voltages[getterTarget.stateKey()]; ok {
+	// 			cachedVoltages[i] = []float64{voltage}
+	// 		}
+	// 		h.stateMu.Unlock()
+	// 	}
+	//
+	// 	globals := map[string]interface{}{
+	// 		"getters": getterTargets,
+	// 	}
+	// 	typeManifest := map[string]interface{}{
+	// 		"parameters": []map[string]interface{}{
+	// 			{"name": "ctx", "type": "RuntimeContext"},
+	// 			{"name": "getters", "type": "{InstrumentTarget}"},
+	// 		},
+	// 	}
+	//
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	for i := range responseTargets {
+	// 		if i < len(results) {
+	// 			responseTargets[i].BufferData = resolvedCallResultToFloatSlice(results[i])
+	// 		}
+	// 		if len(responseTargets[i].BufferData) == 0 && len(cachedVoltages[i]) > 0 {
+	// 			responseTargets[i].BufferData = cachedVoltages[i]
+	// 		}
+	// 		if len(responseTargets[i].BufferData) == 0 {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("no response value available for getter index %d in %s", i, scriptName))
+	// 			return
+	// 		}
+	// 	}
+	//
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// if scriptName == "measure_current" || scriptName == "measure_illumination" {
+	// 	getters, err := falconReq.ExtractGetters()
+	// 	if err != nil || len(getters) == 0 {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
+	// 		return
+	// 	}
+	//
+	// 	getterTargets := make([]map[string]interface{}, 0, len(getters))
+	// 	responseTargets := make([]measurementResponseTarget, 0, len(getters))
+	// 	for i, getter := range getters {
+	// 		getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getter)
+	// 		if err != nil {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("failed to resolve getter target at index %d: %v", i, err))
+	// 			return
+	// 		}
+	//
+	// 		getterTargets = append(getterTargets, getterTarget.asMap())
+	// 		responseTargets = append(responseTargets,
+	// 			responseTargetFromResolvedPort(nil, getterTarget, getter.ConnectionJSON, getter))
+	// 	}
+	//
+	// 	globals := map[string]interface{}{
+	// 		"sampleRate": 1000,
+	// 		"getters":    getterTargets,
+	// 	}
+	// 	parameters := []map[string]interface{}{
+	// 		{"name": "ctx", "type": "RuntimeContext"},
+	// 		{"name": "sampleRate", "type": "number"},
+	// 		{"name": "getters", "type": "{InstrumentTarget}"},
+	// 	}
+	// 	if scriptName == "measure_illumination" {
+	// 		globals["illuminationTime"] = 0.1
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "illuminationTime",
+	// 			"type": "number",
+	// 		})
+	// 	}
+	//
+	// 	typeManifest := map[string]interface{}{"parameters": parameters}
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	datapointResults := make([][]float64, 0, len(responseTargets))
+	// 	for _, result := range results {
+	// 		if strings.EqualFold(result.Verb, "GET_DATAPOINT") {
+	// 			if data := resolvedCallResultToFloatSlice(result); len(data) > 0 {
+	// 				datapointResults = append(datapointResults, data)
+	// 			}
+	// 		}
+	// 	}
+	// 	if len(datapointResults) == 0 {
+	// 		for _, result := range results {
+	// 			if data := resolvedCallResultToFloatSlice(result); len(data) > 0 {
+	// 				datapointResults = append(datapointResults, data)
+	// 			}
+	// 		}
+	// 	}
+	//
+	// 	for i := range responseTargets {
+	// 		if i < len(datapointResults) {
+	// 			responseTargets[i].BufferData = datapointResults[i]
+	// 		}
+	// 		if len(responseTargets[i].BufferData) == 0 {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("no scalar response returned for getter index %d in %s", i, scriptName))
+	// 			return
+	// 		}
+	// 	}
+	//
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// if scriptName == "get_voltage" || scriptName == "get_sample_rate" ||
+	// 	scriptName == "get_number_of_samples" || scriptName == "get_slope" ||
+	// 	scriptName == "get_trigger_level" || scriptName == "get_trigger_leader" {
+	// 	getters, err := falconReq.ExtractGetters()
+	// 	if err != nil || len(getters) == 0 {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
+	// 		return
+	// 	}
+	// 	h.logger.Debug(MeasureCommandHandlerName,
+	// 		fmt.Sprintf(
+	// 			"Resolved measurement name: %q (getter default=%q instrument-facing=%q)",
+	// 			scriptName,
+	// 			getters[0].DefaultName,
+	// 			getters[0].InstrumentFacingName,
+	// 		))
+	//
+	// 	getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0])
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to resolve getter target: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	globals := map[string]interface{}{
+	// 		"getter": getterTarget.asMap(),
+	// 	}
+	// 	parameters := []map[string]interface{}{
+	// 		{"name": "ctx", "type": "RuntimeContext"},
+	// 		{"name": "getter", "type": "InstrumentTarget"},
+	// 	}
+	//
+	// 	stateKey := getterTarget.stateKey()
+	// 	h.stateMu.Lock()
+	// 	voltage, hasVoltage := h.voltages[stateKey]
+	// 	sampleRate, hasSampleRate := h.sampleRates[stateKey]
+	// 	numberOfSamples, hasNumberOfSamples := h.numberOfSamples[stateKey]
+	// 	slope, _ := h.slopes[stateKey]
+	// 	triggerLevel, hasTriggerLevel := h.triggerLevels[stateKey]
+	// 	h.stateMu.Unlock()
+	//
+	// 	switch scriptName {
+	// 	case "get_sample_rate":
+	// 		globals["sampleRate"] = sampleRate
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "sampleRate",
+	// 			"type": "number",
+	// 		})
+	// 	case "get_number_of_samples":
+	// 		globals["numberOfSamples"] = numberOfSamples
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "numberOfSamples",
+	// 			"type": "number",
+	// 		})
+	// 	case "get_slope":
+	// 		globals["slope"] = slope
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "slope",
+	// 			"type": "number",
+	// 		})
+	// 	case "get_trigger_level":
+	// 		globals["triggerLevel"] = triggerLevel
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "triggerLevel",
+	// 			"type": "number",
+	// 		})
+	// 	case "get_trigger_leader":
+	// 		globals["triggerLeader"] = triggerLevel != 0
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": "triggerLeader",
+	// 			"type": "boolean",
+	// 		})
+	// 	}
+	//
+	// 	typeManifest := map[string]interface{}{"parameters": parameters}
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	var bufferData []float64
+	// 	for _, r := range results {
+	// 		switch r.Return.Type {
+	// 		case "buffer":
+	// 			bufferData = append(bufferData, r.BufferData...)
+	// 		case "float", "double", "number":
+	// 			if v, ok := r.Return.Value.(float64); ok {
+	// 				bufferData = append(bufferData, v)
+	// 			}
+	// 		case "integer", "int":
+	// 			switch v := r.Return.Value.(type) {
+	// 			case float64:
+	// 				bufferData = append(bufferData, v)
+	// 			case int:
+	// 				bufferData = append(bufferData, float64(v))
+	// 			}
+	// 		case "boolean":
+	// 			if v, ok := r.Return.Value.(bool); ok {
+	// 				if v {
+	// 					bufferData = append(bufferData, 1.0)
+	// 				} else {
+	// 					bufferData = append(bufferData, 0.0)
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// 	if len(bufferData) == 0 {
+	// 		switch scriptName {
+	// 		case "get_voltage":
+	// 			if hasVoltage {
+	// 				bufferData = []float64{voltage}
+	// 			}
+	// 		case "get_sample_rate":
+	// 			if hasSampleRate {
+	// 				bufferData = []float64{sampleRate}
+	// 			}
+	// 		case "get_number_of_samples":
+	// 			if hasNumberOfSamples {
+	// 				bufferData = []float64{float64(numberOfSamples)}
+	// 			}
+	// 		case "get_trigger_leader":
+	// 			if hasTriggerLevel {
+	// 				bufferData = []float64{triggerLevel}
+	// 			}
+	// 		}
+	// 		if len(bufferData) > 0 {
+	// 			h.logger.Info(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("No explicit getter result returned for %s; using cached state fallback", scriptName))
+	// 		}
+	// 	}
+	//
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(
+	// 		[]measurementResponseTarget{
+	// 			responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
+	// 		},
+	// 		cmd.Hash,
+	// 	)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// setters, err := falconReq.ExtractSetters()
+	// if err != nil || len(setters) == 0 {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to extract setters (got %d): %v", len(setters), err))
+	// 	return
+	// }
+	// h.logger.Debug(MeasureCommandHandlerName,
+	// 	fmt.Sprintf(
+	// 		"Resolved measurement name: %q (setter default=%q instrument-facing=%q)",
+	// 		scriptName,
+	// 		setters[0].DefaultName,
+	// 		setters[0].InstrumentFacingName,
+	// 	))
+	//
+	// if scriptName == "set_voltage" || scriptName == "set_sample_rate" ||
+	// 	scriptName == "set_number_of_samples" || scriptName == "set_slope" ||
+	// 	scriptName == "set_trigger_level" || scriptName == "set_trigger_leader" {
+	// 	waveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 0)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract %s waveform data: %v", scriptName, err))
+	// 		return
+	// 	}
+	//
+	// 	scalarValue := waveformData.TimeDomain.Min
+	// 	if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
+	// 		scalarValue = waveformData.RawTimeTrace[0][0]
+	// 	}
+	//
+	// 	targetName := "setter"
+	// 	valueName := "setVoltage"
+	// 	responseValue := scalarValue
+	// 	globals := map[string]interface{}{}
+	// 	includeValue := true
+	// 	valueType := "number"
+	//
+	// 	switch scriptName {
+	// 	case "set_voltage":
+	// 		targetName = "setter"
+	// 		valueName = "setVoltage"
+	// 		responseValue = scalarValue
+	// 	case "set_sample_rate":
+	// 		targetName = "getter"
+	// 		valueName = "sampleRate"
+	// 		responseValue = scalarValue
+	// 	case "set_number_of_samples":
+	// 		targetName = "getter"
+	// 		valueName = "numberOfSamples"
+	// 		responseValue = float64(int(scalarValue))
+	// 	case "set_slope":
+	// 		targetName = "setter"
+	// 		valueName = "slope"
+	// 		responseValue = scalarValue
+	// 	case "set_trigger_level":
+	// 		targetName = "getter"
+	// 		valueName = "triggerLevel"
+	// 		responseValue = scalarValue
+	// 	case "set_trigger_leader":
+	// 		targetName = "getter"
+	// 		valueName = ""
+	// 		responseValue = 1.0
+	// 		includeValue = false
+	// 		valueType = ""
+	// 	}
+	//
+	// 	target, err := h.resolveScriptTarget(scriptName, targetName, setters[0])
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to resolve %s target: %v", targetName, err))
+	// 		return
+	// 	}
+	// 	targetValue := target.asMap()
+	//
+	// 	globals[targetName] = targetValue
+	// 	if includeValue {
+	// 		if scriptName == "set_number_of_samples" {
+	// 			globals[valueName] = int(responseValue)
+	// 		} else {
+	// 			globals[valueName] = responseValue
+	// 		}
+	// 	}
+	//
+	// 	parameters := []map[string]interface{}{
+	// 		{"name": "ctx", "type": "RuntimeContext"},
+	// 		{"name": targetName, "type": "InstrumentTarget"},
+	// 	}
+	// 	if includeValue {
+	// 		parameters = append(parameters, map[string]interface{}{
+	// 			"name": valueName,
+	// 			"type": valueType,
+	// 		})
+	// 	}
+	// 	typeManifest := map[string]interface{}{"parameters": parameters}
+	//
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	stateKey := target.stateKey()
+	// 	h.stateMu.Lock()
+	// 	switch scriptName {
+	// 	case "set_voltage":
+	// 		h.voltages[stateKey] = responseValue
+	// 	case "set_sample_rate":
+	// 		h.sampleRates[stateKey] = responseValue
+	// 	case "set_number_of_samples":
+	// 		h.numberOfSamples[stateKey] = int(responseValue)
+	// 	case "set_slope":
+	// 		h.slopes[stateKey] = responseValue
+	// 	case "set_trigger_level":
+	// 		h.triggerLevels[stateKey] = responseValue
+	// 	case "set_trigger_leader":
+	// 		h.triggerLevels[stateKey] = 1.0
+	// 	}
+	// 	h.stateMu.Unlock()
+	//
+	// 	bufferData := []float64{responseValue}
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(
+	// 		[]measurementResponseTarget{
+	// 			responseTargetFromResolvedPort(bufferData, target, setters[0].ConnectionJSON, setters[0]),
+	// 		},
+	// 		cmd.Hash,
+	// 	)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// if scriptName == "set_many_voltages" || scriptName == "ramp" {
+	// 	setterTargets := make([]map[string]interface{}, 0, len(setters))
+	// 	setVoltages := make(map[string]float64, len(setters))
+	// 	responseTargets := make([]measurementResponseTarget, 0, len(setters))
+	//
+	// 	for i, setter := range setters {
+	// 		setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setter)
+	// 		if err != nil {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("failed to resolve setter target at index %d: %v", i, err))
+	// 			return
+	// 		}
+	//
+	// 		waveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, i)
+	// 		if err != nil {
+	// 			h.logger.Error(MeasureCommandHandlerName,
+	// 				fmt.Sprintf("failed to extract %s waveform data at index %d: %v", scriptName, i, err))
+	// 			return
+	// 		}
+	//
+	// 		scalarValue := waveformData.TimeDomain.Min
+	// 		if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
+	// 			scalarValue = waveformData.RawTimeTrace[0][0]
+	// 		}
+	//
+	// 		setterTargets = append(setterTargets, setterTarget.asMap())
+	// 		setVoltages[setterTarget.stateKey()] = scalarValue
+	// 		h.stateMu.Lock()
+	// 		h.voltages[setterTarget.stateKey()] = scalarValue
+	// 		h.stateMu.Unlock()
+	// 		responseTargets = append(responseTargets,
+	// 			responseTargetFromResolvedPort([]float64{scalarValue}, setterTarget, setter.ConnectionJSON, setter))
+	// 	}
+	//
+	// 	globals := map[string]interface{}{
+	// 		"setters":     setterTargets,
+	// 		"setVoltages": setVoltages,
+	// 	}
+	// 	typeManifest := map[string]interface{}{
+	// 		"parameters": []map[string]interface{}{
+	// 			{"name": "ctx", "type": "RuntimeContext"},
+	// 			{"name": "setters", "type": "{InstrumentTarget}"},
+	// 			{"name": "setVoltages", "type": "{string: number}"},
+	// 		},
+	// 	}
+	//
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(responseTargets, cmd.Hash)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// getters, err := falconReq.ExtractGetters()
+	// if err != nil || len(getters) == 0 {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to extract getters (got %d): %v", len(getters), err))
+	// 	return
+	// }
+	//
+	// getterTarget, err := h.resolveScriptTarget(scriptName, "getter", getters[0], revWire)
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to resolve getter target: %v", err))
+	// 	return
+	// }
+	//
+	// if scriptName == "measure_leakage" {
+	// 	waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract waveform data for measure_leakage: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	leakageVoltage := waveformData.TimeDomain.Min
+	// 	if len(waveformData.RawTimeTrace) > 0 && len(waveformData.RawTimeTrace[0]) > 0 {
+	// 		leakageVoltage = waveformData.RawTimeTrace[0][0]
+	// 	}
+	//
+	// 	globals := map[string]interface{}{
+	// 		"getter":  getterTarget.asMap(),
+	// 		"voltage": leakageVoltage,
+	// 	}
+	// 	typeManifest := map[string]interface{}{
+	// 		"parameters": []map[string]interface{}{
+	// 			{"name": "ctx", "type": "RuntimeContext"},
+	// 			{"name": "getter", "type": "InstrumentTarget"},
+	// 			{"name": "voltage", "type": "number"},
+	// 		},
+	// 	}
+	//
+	// 	results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// 	h.logger.Info(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	var bufferData []float64
+	// 	for _, r := range results {
+	// 		bufferData = append(bufferData, resolvedCallResultToFloatSlice(r)...)
+	// 	}
+	// 	if len(bufferData) == 0 {
+	// 		bufferData = []float64{leakageVoltage}
+	// 	}
+	//
+	// 	respJSON, err := buildMeasurementResponseJSONForTargets(
+	// 		[]measurementResponseTarget{
+	// 			responseTargetFromResolvedPort(bufferData, getterTarget, getters[0].ConnectionJSON, getters[0]),
+	// 		},
+	// 		cmd.Hash,
+	// 	)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 		return
+	// 	}
+	//
+	// 	h.publishMeasurementResponse(cmd, responseSubject, respJSON)
+	// 	return
+	// }
+	//
+	// setterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[0], revWire)
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to resolve setter target: %v", err))
+	// 	return
+	// }
+	//
+	// waveformData, _, err := serverinterpreter.ExtractWaveformDataFromRequest(falconReq)
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to extract waveform data: %v", err))
+	// 	return
+	// }
+	//
+	// sweepVoltages := make([]interface{}, len(waveformData.RawTimeTrace))
+	// for i, row := range waveformData.RawTimeTrace {
+	// 	if len(row) > 0 {
+	// 		sweepVoltages[i] = row[0]
+	// 	} else {
+	// 		sweepVoltages[i] = 0.0
+	// 	}
+	// }
+	//
+	// var globals map[string]interface{}
+	// var typeManifest map[string]interface{}
+	// if len(setters) >= 2 {
+	// 	// 2D sweep: fast axis = setters[0], slow axis = setters[1]
+	// 	slowSetterTarget, err := h.resolveScriptTarget(scriptName, "setter", setters[1], revWire)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to resolve slow setter target: %v", err))
+	// 		return
+	// 	}
+	// 	slowWaveformData, err := serverinterpreter.ExtractWaveformDataFromRequestByIndex(falconReq, 1)
+	// 	if err != nil {
+	// 		h.logger.Error(MeasureCommandHandlerName,
+	// 			fmt.Sprintf("failed to extract slow axis waveform data: %v", err))
+	// 		return
+	// 	}
+	// 	slowSweepVoltages := make([]interface{}, len(slowWaveformData.RawTimeTrace))
+	// 	for i, row := range slowWaveformData.RawTimeTrace {
+	// 		if len(row) > 0 {
+	// 			slowSweepVoltages[i] = row[0]
+	// 		} else {
+	// 			slowSweepVoltages[i] = 0.0
+	// 		}
+	// 	}
+	// 	if scriptName == "measure_2D_buffered" {
+	// 		numXSteps := len(sweepVoltages)
+	// 		if numXSteps == 0 {
+	// 			numXSteps = 1
+	// 		}
+	// 		numYSteps := len(slowSweepVoltages)
+	// 		if numYSteps == 0 {
+	// 			numYSteps = 1
+	// 		}
+	// 		globals = map[string]interface{}{
+	// 			"bufferedXSetters": []map[string]interface{}{
+	// 				setterTarget.asMap(),
+	// 			},
+	// 			"sampleRate": 1000,
+	// 			"bufferedGetters": []map[string]interface{}{
+	// 				getterTarget.asMap(),
+	// 			},
+	// 			"bufferedYSetters": []map[string]interface{}{
+	// 				slowSetterTarget.asMap(),
+	// 			},
+	// 			"numXSteps": numXSteps,
+	// 			"setYVoltageDomains": map[string]interface{}{
+	// 				slowSetterTarget.id: map[string]interface{}{
+	// 					"min": slowWaveformData.TimeDomain.Min,
+	// 					"max": slowWaveformData.TimeDomain.Max,
+	// 				},
+	// 			},
+	// 			"setXVoltageDomains": map[string]interface{}{
+	// 				setterTarget.id: map[string]interface{}{
+	// 					"min": waveformData.TimeDomain.Min,
+	// 					"max": waveformData.TimeDomain.Max,
+	// 				},
+	// 			},
+	// 			"numPoints": 1,
+	// 			"numYSteps": numYSteps,
+	// 			"setters":   []map[string]interface{}{},
+	// 		}
+	// 		typeManifest = map[string]interface{}{
+	// 			"parameters": []map[string]interface{}{
+	// 				{"name": "ctx", "type": "RuntimeContext"},
+	// 				{"name": "bufferedXSetters", "type": "{InstrumentTarget}"},
+	// 				{"name": "sampleRate", "type": "number"},
+	// 				{"name": "bufferedGetters", "type": "{InstrumentTarget}"},
+	// 				{"name": "bufferedYSetters", "type": "{InstrumentTarget}"},
+	// 				{"name": "numXSteps", "type": "number"},
+	// 				{"name": "setYVoltageDomains", "type": "table"},
+	// 				{"name": "setXVoltageDomains", "type": "table"},
+	// 				{"name": "numPoints", "type": "number"},
+	// 				{"name": "numYSteps", "type": "number"},
+	// 				{"name": "setters", "type": "{InstrumentTarget}"},
+	// 			},
+	// 		}
+	// 	} else {
+	// 		globals = map[string]interface{}{
+	// 			"getters":           []map[string]interface{}{getterTarget.asMap()},
+	// 			"fastSweepVoltages": sweepVoltages,
+	// 			"slowSweepVoltages": slowSweepVoltages,
+	// 			"fastSetter":        setterTarget.asMap(),
+	// 			"slowSetter":        slowSetterTarget.asMap(),
+	// 		}
+	// 		typeManifest = map[string]interface{}{
+	// 			"parameters": []map[string]interface{}{
+	// 				{"name": "ctx", "type": "RuntimeContext"},
+	// 				{"name": "getters", "type": "{InstrumentTarget}"},
+	// 				{"name": "fastSweepVoltages", "type": "{number}"},
+	// 				{"name": "slowSweepVoltages", "type": "{number}"},
+	// 				{"name": "fastSetter", "type": "InstrumentTarget"},
+	// 				{"name": "slowSetter", "type": "InstrumentTarget"},
+	// 			},
+	// 		}
+	// 	}
+	// } else {
+	// 	if scriptName == "measure_get_set" {
+	// 		numPoints := len(sweepVoltages)
+	// 		if numPoints == 0 {
+	// 			numPoints = 1
+	// 		}
+	// 		sampleRate := 1000
+	// 		setVoltage := 0.0
+	// 		if len(sweepVoltages) > 0 {
+	// 			if v, ok := sweepVoltages[0].(float64); ok {
+	// 				setVoltage = v
+	// 			}
+	// 		}
+	// 		globals = map[string]interface{}{
+	// 			"getters":    []map[string]interface{}{getterTarget.asMap()},
+	// 			"numPoints":  numPoints,
+	// 			"sampleRate": sampleRate,
+	// 			"setVoltages": map[string]interface{}{
+	// 				setterTarget.id: setVoltage,
+	// 			},
+	// 			"setters": []map[string]interface{}{setterTarget.asMap()},
+	// 		}
+	// 		typeManifest = map[string]interface{}{
+	// 			"parameters": []map[string]interface{}{
+	// 				{"name": "ctx", "type": "RuntimeContext"},
+	// 				{"name": "getters", "type": "{InstrumentTarget}"},
+	// 				{"name": "numPoints", "type": "number"},
+	// 				{"name": "sampleRate", "type": "number"},
+	// 				{"name": "setVoltages", "type": "{string: number}"},
+	// 				{"name": "setters", "type": "{InstrumentTarget}"},
+	// 			},
+	// 		}
+	// 	} else if scriptName == "measure_1D_buffered" {
+	// 		numSteps := len(sweepVoltages)
+	// 		if numSteps == 0 {
+	// 			numSteps = 1
+	// 		}
+	// 		globals = map[string]interface{}{
+	// 			"sampleRate": 1000,
+	// 			"setters":    []map[string]interface{}{},
+	// 			"setVoltageDomains": map[string]interface{}{
+	// 				setterTarget.id: map[string]interface{}{
+	// 					"min": waveformData.TimeDomain.Min,
+	// 					"max": waveformData.TimeDomain.Max,
+	// 				},
+	// 			},
+	// 			"bufferedGetters": []map[string]interface{}{
+	// 				getterTarget.asMap(),
+	// 			},
+	// 			"numPoints": 1,
+	// 			"numSteps":  numSteps,
+	// 			"bufferedSetters": []map[string]interface{}{
+	// 				setterTarget.asMap(),
+	// 			},
+	// 		}
+	// 		typeManifest = map[string]interface{}{
+	// 			"parameters": []map[string]interface{}{
+	// 				{"name": "ctx", "type": "RuntimeContext"},
+	// 				{"name": "sampleRate", "type": "number"},
+	// 				{"name": "setters", "type": "{InstrumentTarget}"},
+	// 				{"name": "setVoltageDomains", "type": "table"},
+	// 				{"name": "bufferedGetters", "type": "{InstrumentTarget}"},
+	// 				{"name": "numPoints", "type": "number"},
+	// 				{"name": "numSteps", "type": "number"},
+	// 				{"name": "bufferedSetters", "type": "{InstrumentTarget}"},
+	// 			},
+	// 		}
+	// 	} else {
+	// 		// 1D sweep
+	// 		globals = map[string]interface{}{
+	// 			"getters":       []map[string]interface{}{getterTarget.asMap()},
+	// 			"setters":       []map[string]interface{}{setterTarget.asMap()},
+	// 			"sweepVoltages": sweepVoltages,
+	// 		}
+	// 		typeManifest = map[string]interface{}{
+	// 			"parameters": []map[string]interface{}{
+	// 				{"name": "ctx", "type": "RuntimeContext"},
+	// 				{"name": "getters", "type": "{InstrumentTarget}"},
+	// 				{"name": "sweepVoltages", "type": "{number}"},
+	// 				{"name": "setters", "type": "{InstrumentTarget}"},
+	// 			},
+	// 		}
+	// 	}
+	// }
+	//
+	// results, err := h.dispatcher.RunMeasurement(scriptName, globals, typeManifest)
+	// h.logger.Info(MeasureCommandHandlerName,
+	// 	fmt.Sprintf("RunMeasurement returned: resultCount=%d err=%v", len(results), err))
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("measurement dispatch failed: %v", err))
+	// 	return
+	// }
+	//
+	// var bufferData []float64
+	// for _, r := range results {
+	// 	switch r.Return.Type {
+	// 	case "buffer":
+	// 		bufferData = append(bufferData, r.BufferData...)
+	// 	case "float", "double", "number":
+	// 		if v, ok := r.Return.Value.(float64); ok {
+	// 			bufferData = append(bufferData, v)
+	// 		}
+	// 	}
+	// }
+	// h.logger.Info(MeasureCommandHandlerName,
+	// 	fmt.Sprintf("bufferData collected: len=%d", len(bufferData)))
+	//
+	// h.logger.Info(MeasureCommandHandlerName, "Calling buildMeasurementResponseJSON")
+	// respJSON, err := buildMeasurementResponseJSONForTargets(
+	// 	[]measurementResponseTarget{
+	// 		responseTargetFromResolvedPort(bufferData, getterTarget, setters[0].ConnectionJSON, getters[0]),
+	// 	},
+	// 	cmd.Hash,
+	// )
+	// if err != nil {
+	// 	h.logger.Error(MeasureCommandHandlerName,
+	// 		fmt.Sprintf("failed to build MeasurementResponse: %v", err))
+	// 	return
+	// }
+	// h.logger.Info(MeasureCommandHandlerName, "buildMeasurementResponseJSON complete")
+	//
+	// h.publishMeasurementResponse(cmd, responseSubject, respJSON)
 }

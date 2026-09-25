@@ -4,8 +4,9 @@ import (
 	"fmt"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
+	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
 )
 
@@ -24,8 +25,7 @@ type handlerOperation struct {
 type Manager struct {
 	logger                *logging.Logger
 	nc                    *nats.Conn
-	deviceConfigHandler   *DeviceConfigHandler
-	instrumentHandler     *instrument.Handler
+	deviceConfigHandler   *deviceconfighandlers.Handler
 	measureCommandHandler *MeasureCommandHandler
 	statusHandler         *StatusHandler
 	portRequestHandler    *PortRequestHandler
@@ -44,49 +44,48 @@ type Dispatcher interface {
 
 // NewManager creates a new handler manager
 func NewManager(
-	cfg *config.Config,
+	deviceConfigJSON string,
+	wiremap *config.WireMap,
+	instrumentAPIPaths []string,
+	measurementMetadataPath string,
+	measurementScriptsPath string,
 	logger *logging.Logger,
 	nc *nats.Conn,
 	dispatcher Dispatcher,
 ) *Manager {
-	instrumentHandler, instrumentError := instrument.NewHandler(logger, cfg)
-	if instrumentError != nil {
-		logger.Error(
-			HandlerManagerName,
-			fmt.Sprintf("Failed to create instrument handler: %v", instrumentError),
-		)
-		instrumentHandler = &instrument.Handler{}
-	}
-
-	measurementMetadata, err := loadAnnotatedMeasurementMetadata(cfg.MeasurementMetadataPath, cfg.MeasurementScriptsPath, cfg.InstrumentAPIPaths)
+	measurementMetadata, err := loadAnnotatedMeasurementMetadata(measurementMetadataPath, measurementScriptsPath, instrumentAPIPaths)
 	if err != nil {
 		logger.Error(
 			HandlerManagerName,
 			fmt.Sprintf("Failed to load measurement metadata: %v", err),
 		)
 	}
+	ports, err := ports.NewConnectedPorts(instrumentAPIPaths, wiremap)
+	if err != nil {
+		logger.Error(
+			HandlerManagerName,
+			fmt.Sprintf("Failed to load connected ports: %v", err),
+		)
+	}
 
 	manager := &Manager{
 		logger:              logger,
 		nc:                  nc,
-		deviceConfigHandler: NewDeviceConfigHandler(cfg, logger),
-		instrumentHandler:   instrumentHandler,
+		deviceConfigHandler: deviceconfighandlers.NewDeviceConfigHandler(deviceConfigJSON, logger),
 		portRequestHandler: NewPortRequestHandler(
 			logger,
-			instrumentHandler,
-			cfg,
+			ports,
 		),
-		statusHandler:   NewStatusHandler(logger),
-		instrumentError: instrumentError,
-		metadataError:   err,
+		statusHandler: NewStatusHandler(logger),
+		metadataError: err,
 	}
 	manager.measureCommandHandler = NewMeasureCommandHandler(
 		logger,
-		instrumentHandler,
 		manager,
 		dispatcher,
-		cfg.WireMap,
+		wiremap,
 		measurementMetadata,
+		ports,
 	)
 
 	return manager
@@ -173,13 +172,8 @@ func (m *Manager) Stop() error {
 }
 
 // GetDeviceConfigHandler returns the device config handler for testing purposes
-func (m *Manager) GetDeviceConfigHandler() *DeviceConfigHandler {
+func (m *Manager) GetDeviceConfigHandler() *deviceconfighandlers.Handler {
 	return m.deviceConfigHandler
-}
-
-// GetInstrumentHandler returns the instrument handler for testing purposes
-func (m *Manager) GetInstrumentHandler() *instrument.Handler {
-	return m.instrumentHandler
 }
 
 // getHandlerOperations returns the ordered list of handler operations

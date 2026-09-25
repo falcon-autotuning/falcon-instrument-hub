@@ -426,11 +426,18 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 
 		newConfig: func(
 			string,
-			string,
-		) (*config.Config, error) {
+		) (string, error) {
 			tracker = append(tracker, "config")
+			return "", nil
+		},
 
-			return &config.Config{}, nil
+		newWiremap: func(
+			string,
+			string,
+		) (*config.WireMap, error) {
+			tracker = append(tracker, "wiremap")
+
+			return &config.WireMap{}, nil
 		},
 
 		newDispatcher: func(
@@ -443,7 +450,11 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 		},
 
 		newHandlerManager: func(
-			cfg *config.Config,
+			deviceConfigJSON string,
+			wiremap *config.WireMap,
+			instrumentAPIPaths []string,
+			measurementMetadataPath string,
+			measurementScriptsPath string,
 			logger *logging.Logger,
 			nc *nats.Conn,
 			dispatcher handlers.Dispatcher,
@@ -470,6 +481,7 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 			"logger",
 			"dispatcher",
 			"config",
+			"wiremap",
 			"handlers",
 		},
 		tracker,

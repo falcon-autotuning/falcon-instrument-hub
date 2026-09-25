@@ -7,13 +7,10 @@ import (
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/instrument"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
@@ -31,23 +28,20 @@ const (
 
 // PortRequestHandler handles PORT_REQUEST messages
 type PortRequestHandler struct {
-	logger            *logging.Logger
-	nc                *nats.Conn
-	subscription      *nats.Subscription
-	instrumentHandler *instrument.Handler
-	config            *config.Config
+	logger       *logging.Logger
+	nc           *nats.Conn
+	subscription *nats.Subscription
+	ports        *ports.ConnectedPorts
 }
 
 // NewPortRequestHandler creates a new handler
 func NewPortRequestHandler(
 	logger *logging.Logger,
-	instrumentHandler *instrument.Handler,
-	cfg *config.Config,
+	ports *ports.ConnectedPorts,
 ) *PortRequestHandler {
 	return &PortRequestHandler{
-		logger:            logger,
-		instrumentHandler: instrumentHandler,
-		config:            cfg,
+		logger: logger,
+		ports:  ports,
 	}
 }
 
@@ -104,8 +98,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 
 	// Collect port properties using the instrument handler's existing
 	// functionality
-	knobs, meters := h.instrumentHandler.CollectPortProperties()
-	encodedKnobs, err := serializePortsToCerealJSON(knobs, h.config.DeviceConfig)
+	encodedKnobs, err := serializePortsToCerealJSON(h.ports.Knobs)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
@@ -114,7 +107,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		return
 	}
 
-	encodedMeters, err := serializePortsToCerealJSON(meters, h.config.DeviceConfig)
+	encodedMeters, err := serializePortsToCerealJSON(h.ports.Meters)
 	if err != nil {
 		h.logger.Error(
 			PortRequestHandlerName,
@@ -170,7 +163,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 // lists (ScreeningGates, PlungerGates, BarrierGates, ReservoirGates,
 // Ohmics).  Any device name not found in those lists falls back to a
 // generic PlungerGate connection.
-func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg *config.DeviceConfig) (string, error) {
+func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, error) {
 	if len(connectedPorts) == 0 {
 		portsHandle, err := falconports.NewEmpty()
 		if err != nil {
@@ -187,11 +180,7 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg 
 
 	portHandles := make([]*instrumentport.Handle, 0, len(connectedPorts))
 	for _, cp := range connectedPorts {
-		conn, err := connectionFromDeviceName(cp.DeviceName, deviceCfg)
-		if err != nil {
-			return "", fmt.Errorf("failed to create connection for %s: %w", cp.DeviceName, err)
-		}
-
+		conn := cp.Handle
 		unit, err := symbolUnitFromString(cp.Unit)
 		if err != nil {
 			return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
@@ -220,32 +209,6 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort, deviceCfg 
 	}
 
 	return jsonStr, nil
-}
-
-// connectionFromDeviceName creates a connection.Handle for the given device
-// gate name by looking it up in the DeviceConfig gate lists.  The lookup
-// order is: ScreeningGates → PlungerGates → BarrierGates → ReservoirGates →
-// Ohmics.  If the name is not found, a PlungerGate is used as a default.
-func connectionFromDeviceName(name string, cfg *config.DeviceConfig) (*connection.Handle, error) {
-	if cfg != nil {
-		if containsGateName(cfg.ScreeningGates, name) {
-			return connection.NewScreeningGate(name)
-		}
-		if containsGateName(cfg.PlungerGates, name) {
-			return connection.NewPlungerGate(name)
-		}
-		if containsGateName(cfg.BarrierGates, name) {
-			return connection.NewBarrierGate(name)
-		}
-		if containsGateName(cfg.ReservoirGates, name) {
-			return connection.NewReservoirGate(name)
-		}
-		if containsGateName(cfg.Ohmics, name) {
-			return connection.NewOhmic(name)
-		}
-	}
-	// Default: use PlungerGate for any device not explicitly categorised.
-	return connection.NewPlungerGate(name)
 }
 
 // containsGateName reports whether semicolon-separated list contains name.

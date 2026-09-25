@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/nats-io/nats-server/v2/server"
 	nats "github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -43,6 +44,7 @@ func issRoot() string { return filepath.Join(repoRoot(), "instrument-script-serv
 func issBinary() string {
 	return filepath.Join(issRoot(), "build", "instrument-script-server")
 }
+
 func mockPluginPath() string {
 	return filepath.Join(issRoot(), "build", "tests", "mock_visa_plugin.so")
 }
@@ -122,7 +124,8 @@ func startISS(t *testing.T) *issProcess {
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := exec.CommandContext(ctx, binary, "daemon", "start")
 	cmd.Dir = workDir
-	cmd.Env = append(os.Environ(),
+	cmd.Env = append(
+		os.Environ(),
 		// Configure the RPC port via env var.
 		fmt.Sprintf("INSTRUMENT_SCRIPT_SERVER_RPC_PORT=%d", rpcPort),
 	)
@@ -175,13 +178,12 @@ func (p *issProcess) stop(t *testing.T) {
 // startMockInstruments registers mock instruments in the running daemon via
 // HTTP RPC "start" commands. This is the correct way to populate the daemon's
 // InstrumentRegistry (CLI start creates instruments in a separate process).
-func startMockInstruments(t *testing.T, client *ScriptServerClient, n int) {
+func startMockInstruments(t *testing.T, client *instrumentserver.ScriptServerClient, n int) {
 	t.Helper()
 	for i := 1; i <= n; i++ {
 		configRel := fmt.Sprintf("tests/data/mock_instrument%d.yaml", i)
-		name, err := client.StartInstrument(configRel, mockPluginPath())
+		err := client.StartInstrument(configRel, mockPluginPath())
 		require.NoError(t, err, "failed to start mock instrument %d", i)
-		t.Logf("started instrument: %s", name)
 	}
 }
 
@@ -211,7 +213,8 @@ func copyFixtures(t *testing.T, dst string) {
 		if e.IsDir() {
 			continue
 		}
-		copyFile(t,
+		copyFile(
+			t,
 			filepath.Join(src, "test_scripts", e.Name()),
 			filepath.Join(dataDir, "test_scripts", e.Name()),
 		)
@@ -237,7 +240,7 @@ func TestLiveISS_ListInstruments(t *testing.T) {
 	iss := startISS(t)
 	defer iss.stop(t)
 
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
+	client := instrumentserver.NewScriptServerClient("127.0.0.1", iss.rpcPort)
 
 	instruments, err := client.ListInstruments()
 	require.NoError(t, err)
@@ -257,7 +260,7 @@ func TestLiveISS_StartMockInstruments(t *testing.T) {
 	iss := startISS(t)
 	defer iss.stop(t)
 
-	client := NewScriptServerClient("127.0.0.1", iss.rpcPort)
+	client := instrumentserver.NewScriptServerClient("127.0.0.1", iss.rpcPort)
 	startMockInstruments(t, client, 3)
 
 	instruments, err := client.ListInstruments()
