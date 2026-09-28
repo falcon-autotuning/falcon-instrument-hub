@@ -1,6 +1,6 @@
 //go:build cgo && falcon_core
 
-package handlers
+package interpreter
 
 import (
 	"encoding/json"
