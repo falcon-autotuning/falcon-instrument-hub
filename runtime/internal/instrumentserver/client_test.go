@@ -1117,6 +1117,33 @@ func TestBuildMeasureJobRequest(t *testing.T) {
 	}
 }
 
+func TestBuildMeasureJobRequest_CallStack(t *testing.T) {
+	const serialized = "Meter1|analog|2|GET_VOLTAGE"
+
+	req, err := buildMeasureJobRequest(
+		"/tmp/get_voltage.lua",
+		[]MeasureVariable{{
+			Name: "getter",
+			Value: VariableValue{
+				Value: CallStack(serialized),
+			},
+		}},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if got := req.GetGlobals().GetMap()["getter"].GetS(); got != serialized {
+		t.Fatalf("serialized CallStack = %q", got)
+	}
+	if len(req.GetTypeManifest().GetParameters()) != 1 {
+		t.Fatalf("parameter count = %d", len(req.GetTypeManifest().GetParameters()))
+	}
+	if got := req.GetTypeManifest().GetParameters()[0].GetType(); got != daemonv1.LuaTypes_LUA_TYPES_CALL_STACK {
+		t.Fatalf("manifest type = %s", got)
+	}
+}
+
 func TestListInstruments_Empty(t *testing.T) {
 	mock := &mockDaemonClient{
 		instruments: map[string]mockInstrument{},

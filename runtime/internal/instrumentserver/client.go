@@ -436,6 +436,8 @@ func toGrpcVariableValue(v VariableValue) (*daemonv1.VariableValue, error) {
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_D{D: value}}, nil
 	case string:
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: value}}, nil
+	case CallStack:
+		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
 	case Int64Array:
 		values := make([]int64, len(value))
 		for i, item := range value {

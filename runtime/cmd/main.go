@@ -103,6 +103,7 @@ type HubConfig struct {
 	LocalDatabase          string                 `yaml:"local-database"`
 	WorkingDirectory       string                 `yaml:"working-directory"`
 	UserMeasurementLuasDir string                 `yaml:"user-measurement-luas"`
+	InstrumentAPIPaths     []string               `yaml:"instrument-apis"`
 	InstrumentServer       InstrumentServerConfig `yaml:"instrument-server"`
 	RuntimePaths           RuntimePaths           `yaml:"-"`
 }
@@ -297,21 +298,30 @@ func (deps RuntimeDependencies) NewRuntime(
 		cfg: cfg,
 	}
 
-	if !cfg.InstrumentServer.AutoStart {
-		proc, err := services.startISSDaemon()
-		if err != nil {
-			stopISSDaemonViaCLI(cfg.InstrumentServer)
-			return nil, fmt.Errorf("could not stop instrument-script-server via cli: %w", err)
+	// Production supplies newISSClient. Tests may omit it when exercising an
+	// unrelated startup failure before handler construction.
+	if deps.newISSClient != nil {
+		if cfg.InstrumentServer.AutoStart {
+			proc, err := services.startISSDaemon()
+			if err != nil {
+				stopISSDaemonViaCLI(cfg.InstrumentServer)
+				return nil, fmt.Errorf("could not start instrument-script-server: %w", err)
+			}
+			services.issProcess = proc
+			if proc != nil {
+				log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
+			}
 		}
+
 		client, err := deps.waitForISSDaemonReady(cfg.InstrumentServer, 10*time.Second)
 		if err != nil {
-			return services, fmt.Errorf("could not start instrument-script-server: %w", err)
+			if services.issProcess != nil {
+				stopISSDaemonViaCLI(cfg.InstrumentServer)
+			}
+			return services, fmt.Errorf("could not connect to instrument-script-server: %w", err)
 		}
-		services.issProcess = proc
 		services.issClient = client
-		log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
 	}
-	// TODO: figure out how to reattach to existing ISS daemon if it is running
 
 	natsManager, err := deps.newNATSManager(cfg.NATSURL)
 	if err != nil {
@@ -339,8 +349,7 @@ func (deps RuntimeDependencies) NewRuntime(
 	handlerManager := deps.newHandlerManager(
 		configJSON,
 		wiremap,
-		[]string{},
-		// instrumentAPIPaths,      // FIX: Can get generated from the instrument configs
+		cfg.InstrumentAPIPaths,
 		cfg.UserMeasurementLuasDir,
 		logger,
 		natsManager.GetConnection(),
@@ -353,7 +362,7 @@ func (deps RuntimeDependencies) NewRuntime(
 	if err := handlerManager.StartCoreHandlers(); err != nil {
 		return services, fmt.Errorf("failed to start handlers: %w", err)
 	}
-	if !cfg.InstrumentServer.AutoStart && services.issProcess != nil {
+	if cfg.InstrumentServer.AutoStart && services.issProcess != nil {
 		if err := services.startInstruments(); err != nil {
 			return services, fmt.Errorf("failed to start instruments: %w", err)
 		}
