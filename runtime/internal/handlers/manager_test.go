@@ -1,42 +1,135 @@
 package handlers
 
 import (
-	"path/filepath"
+	"errors"
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestManagerOperationsExcludeRetiredHandlers(t *testing.T) {
+func TestManagerOperations(t *testing.T) {
 	manager := &Manager{}
+
 	for _, includeStatus := range []bool{false, true} {
 		var names []string
+
 		for _, op := range manager.getHandlerOperations(includeStatus) {
 			names = append(names, op.name)
 		}
-		expected := []string{"log handler", "device config handler", "measure command handler", "port request handler"}
+
+		expected := []string{
+			"device config handler",
+			"measure command handler",
+			"port request handler",
+		}
+
 		if includeStatus {
 			expected = append(expected, "status handler")
 		}
+
 		assert.Equal(t, expected, names)
 	}
 }
 
-func TestInvalidInstrumentAPIPreventsHandlerStartup(t *testing.T) {
+func TestManagerBusyState(t *testing.T) {
+	m := &Manager{}
+
+	assert.False(t, m.IsBusy())
+
+	m.SetIsBusy(true)
+	assert.True(t, m.IsBusy())
+
+	m.SetIsBusy(false)
+	assert.False(t, m.IsBusy())
+}
+
+func TestManagerStartFailsForMetadataError(t *testing.T) {
+	m := &Manager{
+		metadataError: errors.New("metadata exploded"),
+	}
+
+	for _, fn := range []func() error{
+		m.Start,
+		m.StartCoreHandlers,
+	} {
+		err := fn()
+
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "invalid measurement metadata")
+	}
+}
+
+func TestManagerStartStatus(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
 	logger, err := logging.NewLogger(t.TempDir())
 	require.NoError(t, err)
-	t.Cleanup(func() { logger.Close() })
-	cfg := &config.Config{InstrumentAPIPaths: []string{filepath.Join(t.TempDir(), "missing-api.yml")}}
-	manager := NewManager(cfg, logger, nil, nil)
-	require.Error(t, manager.instrumentError)
-	assert.NoError(t, manager.metadataError, "metadata loading must not overwrite the instrument failure")
-	for _, start := range []func() error{manager.Start, manager.StartCoreHandlers} {
-		err := start()
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "invalid instrument configuration")
-		assert.ErrorIs(t, err, manager.instrumentError)
+	defer logger.Close()
+
+	m := &Manager{
+		logger: logger,
+		nc:     nc,
+		statusHandler: NewStatusHandler(
+			logger,
+		),
 	}
+
+	require.NoError(t, m.StartStatus())
+
+	require.NoError(t, m.statusHandler.Stop())
+}
+
+type mockMeasurementClient struct{}
+
+func (m *mockMeasurementClient) Measure(
+	string,
+	[]instrumentserver.MeasureVariable,
+) ([]instrumentserver.CallResult, error) {
+	return nil, nil
+}
+
+func (m *mockMeasurementClient) ReleaseBuffer(
+	string,
+) error {
+	return nil
+}
+
+func TestManagerStartCoreHandlers(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	logger, err := logging.NewLogger(t.TempDir())
+	require.NoError(t, err)
+	defer logger.Close()
+
+	manager := NewManager(
+		"{}",
+		&config.WireMap{},
+		nil,
+		t.TempDir(),
+		logger,
+		nc,
+		&mockMeasurementClient{},
+	)
+
+	require.NoError(t, manager.StartCoreHandlers())
+
+	require.NotNil(t, manager.deviceConfigHandler)
+	require.NotNil(t, manager.portRequestHandler)
+
+	require.NoError(t, manager.Stop())
 }

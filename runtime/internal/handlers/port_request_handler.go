@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
@@ -150,19 +149,6 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	)
 }
 
-// serializePortsToCerealJSON converts a slice of ConnectedPort values into a
-// serialized Ports object using the falcon-core C API.
-//
-// Each ConnectedPort is converted to an InstrumentPort using the typed
-// constructors (NewKnob / NewMeter) rather than FromJSON, because
-// InstrumentPort_from_json_string expects the C++ cereal wire format —
-// not the Python-style __class__/__module__ shape that was previously
-// assembled here by hand.
-//
-// The connection type for pseudo_name is resolved from DeviceConfig gate
-// lists (ScreeningGates, PlungerGates, BarrierGates, ReservoirGates,
-// Ohmics).  Any device name not found in those lists falls back to a
-// generic PlungerGate connection.
 func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, error) {
 	if len(connectedPorts) == 0 {
 		portsHandle, err := falconports.NewEmpty()
@@ -209,14 +195,4 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, e
 	}
 
 	return jsonStr, nil
-}
-
-// containsGateName reports whether semicolon-separated list contains name.
-func containsGateName(list, name string) bool {
-	for _, g := range strings.Split(list, ";") {
-		if strings.TrimSpace(g) == name {
-			return true
-		}
-	}
-	return false
 }

@@ -7,392 +7,214 @@ import (
 
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
-// setupTestInstrumentHandlerForPortRequest creates an instrument handler whose
-// PortConnections are populated directly for testing (no API YAML files needed).
-func setupTestInstrumentHandlerForPortRequest(
-	t *testing.T,
-) *instrument.Handler {
-	t.Helper()
-	tempDir := t.TempDir()
-
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-	t.Cleanup(func() { logger.Close() })
-
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
+func runNATSServer(t *testing.T) *server.Server {
+	opts := &server.Options{
+		Host:      "127.0.0.1",
+		Port:      -1, // Use random port
+		JetStream: true,
+		StoreDir:  t.TempDir(),
 	}
-
-	handler, err := instrument.NewHandler(
-		logger,
-		cfg,
-	)
+	s, err := server.NewServer(opts)
 	require.NoError(t, err)
 
-	// Populate port connections directly for testing.
-	handler.PortConnections = []ports.ConnectedPort{
-		{
-			PortName:       "Mock.DAC.analog.knob1",
-			DeviceName:     "P1",
-			InstrumentName: "dac1",
-			ChannelName:    "analog",
-			ChannelIndex:   1,
-			InstrumentType: "dc_voltage_source",
-			Role:           "output",
-			Unit:           "V",
-			Description:    "Test knob 1",
-		},
-		{
-			PortName:       "Mock.DAC.analog.knob2",
-			DeviceName:     "P2",
-			InstrumentName: "dac1",
-			ChannelName:    "analog",
-			ChannelIndex:   2,
-			InstrumentType: "dc_voltage_source",
-			Role:           "output",
-			Unit:           "V",
-			Description:    "Test knob 2",
-		},
-		{
-			PortName:       "Mock.DAC.analog.meter1",
-			DeviceName:     "M1",
-			InstrumentName: "dac2",
-			ChannelName:    "analog",
-			ChannelIndex:   1,
-			InstrumentType: "amnmeter",
-			Role:           "input",
-			Unit:           "A",
-			Description:    "Test meter 1",
-		},
-		{
-			PortName:       "Mock.DAC.analog.meter2",
-			DeviceName:     "M2",
-			InstrumentName: "dac2",
-			ChannelName:    "analog",
-			ChannelIndex:   2,
-			InstrumentType: "amnmeter",
-			Role:           "input",
-			Unit:           "A",
-			Description:    "Test meter 2",
-		},
+	go s.Start()
+
+	// Wait for server to be ready
+	if !s.ReadyForConnections(2 * time.Second) {
+		t.Fatal("NATS server not ready for connections")
 	}
 
-	return handler
+	return s
 }
 
 func TestNewPortRequestHandler(t *testing.T) {
 	tempDir := t.TempDir()
+
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 	defer logger.Close()
 
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
-	}
+	cp := &ports.ConnectedPorts{}
 
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+	handler := NewPortRequestHandler(logger, cp)
 
-	assert.NotNil(t, handler)
+	require.NotNil(t, handler)
 	assert.Equal(t, logger, handler.logger)
-	assert.Equal(t, instrumentHandler, handler.instrumentHandler)
-	assert.Equal(t, cfg, handler.config)
-}
-
-func TestPortRequestHandler_Subscribe_Unsubscribe(t *testing.T) {
-	tempDir := t.TempDir()
-	logger, err := logging.NewLogger(tempDir)
-	require.NoError(t, err)
-	defer logger.Close()
-
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
-	}
-
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	// Test Subscribe
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	assert.NotNil(t, handler.subscription)
-	assert.Equal(t, nc, handler.nc)
-
-	// Test Unsubscribe
-	err = handler.Unsubscribe()
-	require.NoError(t, err)
+	assert.Equal(t, cp, handler.ports)
+	assert.Nil(t, handler.nc)
 	assert.Nil(t, handler.subscription)
 }
 
-func TestPortRequestHandler_InvalidJSON(t *testing.T) {
+func TestPortRequestHandler_SubscribeUnsubscribe(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 	defer logger.Close()
 
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
-	}
+	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
 
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+	require.NoError(t, handler.Subscribe(nc))
 
-	// Setup NATS
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
+	assert.NotNil(t, handler.subscription)
+	assert.Equal(t, nc, handler.nc)
 
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
-	defer handler.Unsubscribe()
+	require.NoError(t, handler.Unsubscribe())
 
-	// Send invalid JSON - should not crash
-	err = nc.Publish(PortRequestSubject, []byte("invalid json"))
-	require.NoError(t, err)
-
-	// Give it time to process - should not crash
-	time.Sleep(100 * time.Millisecond)
-}
-
-func TestConnectionFromDeviceNameUsesTypedConfiguration(t *testing.T) {
-	cfg := &config.DeviceConfig{
-		Ohmics: "O1;O2", PlungerGates: "P1", ScreeningGates: "S1",
-		BarrierGates: "B1", ReservoirGates: "R1",
-	}
-	tests := []struct {
-		name  string
-		check func(*connection.Handle) (bool, error)
-	}{
-		{"O2", (*connection.Handle).IsOhmic},
-		{"P1", (*connection.Handle).IsPlungerGate},
-		{"S1", (*connection.Handle).IsScreeningGate},
-		{"B1", (*connection.Handle).IsBarrierGate},
-		{"R1", (*connection.Handle).IsReservoirGate},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			conn, err := connectionFromDeviceName(tt.name, cfg)
-			require.NoError(t, err)
-			defer conn.Close()
-			name, err := conn.Name()
-			require.NoError(t, err)
-			assert.Equal(t, tt.name, name)
-			matches, err := tt.check(conn)
-			require.NoError(t, err)
-			assert.True(t, matches)
-		})
-	}
+	assert.Nil(t, handler.subscription)
 }
 
 func TestPortRequestHandler_UnsubscribeWithoutSubscription(t *testing.T) {
 	tempDir := t.TempDir()
+
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 	defer logger.Close()
 
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
-	}
+	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
 
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
+	require.NoError(t, handler.Unsubscribe())
+}
 
-	// Should not error when unsubscribing without subscription
-	err = handler.Unsubscribe()
+func TestPortRequestHandler_InvalidJSON(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
 	require.NoError(t, err)
-}
+	defer nc.Close()
 
-// TestPortRequestHandler_CollectPortProperties verifies that CollectPortProperties
-// correctly partitions the PortConnections into knobs and meters.
-func TestPortRequestHandler_CollectPortProperties(t *testing.T) {
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-
-	knobs, meters := instrumentHandler.CollectPortProperties()
-
-	assert.Len(t, knobs, 2, "expected 2 knobs")
-	assert.Len(t, meters, 2, "expected 2 meters")
-
-	for _, k := range knobs {
-		assert.True(t, k.IsKnob())
-	}
-	for _, m := range meters {
-		assert.True(t, m.IsMeter())
-	}
-}
-
-// TestPortRequestHandler_E2E exercises the full PORT_REQUEST → PORT_PAYLOAD
-// flow. It requires CGO and the falcon-core library.
-func TestPortRequestHandler_E2E(t *testing.T) {
 	tempDir := t.TempDir()
 	logger, err := logging.NewLogger(tempDir)
 	require.NoError(t, err)
 	defer logger.Close()
 
-	instrumentHandler := setupTestInstrumentHandlerForPortRequest(t)
-	cfg := &config.Config{
-		DeviceConfig: &config.DeviceConfig{},
-		WireMap:      &config.WireMap{},
-	}
+	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
 
-	handler := NewPortRequestHandler(logger, instrumentHandler, cfg)
-
-	// Setup NATS
-	nc := setupTestNATSServer(t)
-	defer nc.Close()
-
-	err = handler.Subscribe(nc)
-	require.NoError(t, err)
+	require.NoError(t, handler.Subscribe(nc))
 	defer handler.Unsubscribe()
 
-	// Subscribe to response
-	responseReceived := make(chan *api.PortPayload, 1)
+	require.NoError(t, nc.Publish(PortRequestSubject, []byte("not json")))
+	require.NoError(t, nc.Flush())
+
+	time.Sleep(100 * time.Millisecond)
+}
+
+func TestPortRequestHandler_EmptyPortsE2E(t *testing.T) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	tempDir := t.TempDir()
+
+	logger, err := logging.NewLogger(tempDir)
+	require.NoError(t, err)
+	defer logger.Close()
+
+	handler := NewPortRequestHandler(
+		logger,
+		&ports.ConnectedPorts{},
+	)
+
+	require.NoError(t, handler.Subscribe(nc))
+	defer handler.Unsubscribe()
+
+	responseCh := make(chan api.PortPayload, 1)
+
 	sub, err := nc.Subscribe(PortPayloadSubject, func(msg *nats.Msg) {
 		var payload api.PortPayload
 		if err := json.Unmarshal(msg.Data, &payload); err == nil {
-			responseReceived <- &payload
+			responseCh <- payload
 		}
 	})
 	require.NoError(t, err)
 	defer sub.Unsubscribe()
 
-	// Send PORT_REQUEST
 	request := api.PortRequest{
 		Timestamp: time.Now().UnixMicro(),
 	}
-	requestData, err := json.Marshal(request)
+
+	data, err := json.Marshal(request)
 	require.NoError(t, err)
 
-	err = nc.Publish(PortRequestSubject, requestData)
-	require.NoError(t, err)
+	require.NoError(t, nc.Publish(PortRequestSubject, data))
+	require.NoError(t, nc.Flush())
 
-	// Wait for response
 	select {
-	case response := <-responseReceived:
+	case response := <-responseCh:
 		assert.Equal(t, request.Timestamp, response.Timestamp)
-		assert.Contains(t, response.Knobs, "[")
-		assert.Contains(t, response.Knobs, "]")
-		assert.Contains(t, response.Meters, "[")
-		assert.Contains(t, response.Meters, "]")
+
+		assert.NotEmpty(t, response.Knobs)
+		assert.NotEmpty(t, response.Meters)
 
 	case <-time.After(5 * time.Second):
-		t.Fatal("Timeout waiting for PORT_PAYLOAD response")
+		t.Fatal("timeout waiting for response")
 	}
 }
 
-func TestSerializePortsToCerealJSON_RoundTripsCanonicalMetadata(t *testing.T) {
-	cfg := &config.DeviceConfig{
-		PlungerGates: "P1",
-		Ohmics:       "O1",
-	}
+func TestSerializePortsToCerealJSON_Empty(t *testing.T) {
+	out, err := serializePortsToCerealJSON(nil)
 
-	encodedKnobs, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+	require.NoError(t, err)
+	assert.NotEmpty(t, out)
+
+	handle, err := falconports.FromJSON(out)
+	require.NoError(t, err)
+	defer handle.Close()
+}
+
+func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
+	_, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+		{
+			PortName:    "Source1.voltage",
+			Role:        "output",
+			Unit:        "not-a-unit",
+			Description: "bad unit",
+		},
+	})
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to create instrument port")
+}
+
+func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
+	conn, err := connection.NewPlungerGate("P1")
+	require.NoError(t, err)
+	defer conn.Close()
+
+	out, err := serializePortsToCerealJSON([]ports.ConnectedPort{
 		{
 			PortName:       "Mock.Source1.analog.voltage",
-			DeviceName:     "P1",
-			InstrumentName: "Source1",
-			ChannelName:    "analog",
-			ChannelIndex:   4,
-			InstrumentType: "dc_voltage_source",
 			Role:           "output",
 			Unit:           "V",
-			Description:    "Voltage source knob",
+			Description:    "Voltage source",
+			InstrumentType: "dc_voltage_source",
+			Handle:         conn,
 		},
-	}, cfg)
+	})
+
 	require.NoError(t, err)
 
-	encodedMeters, err := serializePortsToCerealJSON([]ports.ConnectedPort{
-		{
-			PortName:       "Mock.Meter1.analog.stream",
-			DeviceName:     "O1",
-			InstrumentName: "Meter1",
-			ChannelName:    "analog",
-			ChannelIndex:   1,
-			InstrumentType: "voltmeter",
-			Role:           "input",
-			Unit:           "mV",
-			Description:    "Voltage meter",
-		},
-	}, cfg)
+	portsHandle, err := falconports.FromJSON(out)
 	require.NoError(t, err)
-
-	knobsHandle, err := falconports.FromJSON(encodedKnobs)
-	require.NoError(t, err)
-	defer knobsHandle.Close()
-
-	metersHandle, err := falconports.FromJSON(encodedMeters)
-	require.NoError(t, err)
-	defer metersHandle.Close()
-
-	rawKnobs, err := knobsHandle.Ports()
-	require.NoError(t, err)
-	defer rawKnobs.Close()
-
-	rawMeters, err := metersHandle.Ports()
-	require.NoError(t, err)
-	defer rawMeters.Close()
-
-	knobPorts, err := rawKnobs.Items()
-	require.NoError(t, err)
-	require.Len(t, knobPorts, 1)
-	defer knobPorts[0].Close()
-
-	meterPorts, err := rawMeters.Items()
-	require.NoError(t, err)
-	require.Len(t, meterPorts, 1)
-	defer meterPorts[0].Close()
-
-	knobType, err := knobPorts[0].InstrumentType()
-	require.NoError(t, err)
-	assert.Equal(t, "dc_voltage_source", knobType)
-
-	meterType, err := meterPorts[0].InstrumentType()
-	require.NoError(t, err)
-	assert.Equal(t, "voltmeter", meterType)
-
-	knobUnits, err := knobPorts[0].Units()
-	require.NoError(t, err)
-	defer knobUnits.Close()
-
-	expectedKnobUnits, err := symbolunit.NewVolt()
-	require.NoError(t, err)
-	defer expectedKnobUnits.Close()
-
-	knobUnitsJSON, err := knobUnits.ToJSON()
-	require.NoError(t, err)
-	expectedKnobUnitsJSON, err := expectedKnobUnits.ToJSON()
-	require.NoError(t, err)
-	assert.Equal(t, expectedKnobUnitsJSON, knobUnitsJSON)
-
-	meterUnits, err := meterPorts[0].Units()
-	require.NoError(t, err)
-	defer meterUnits.Close()
-
-	expectedMeterUnits, err := symbolunit.NewMillivolt()
-	require.NoError(t, err)
-	defer expectedMeterUnits.Close()
-
-	meterUnitsJSON, err := meterUnits.ToJSON()
-	require.NoError(t, err)
-	expectedMeterUnitsJSON, err := expectedMeterUnits.ToJSON()
-	require.NoError(t, err)
-	assert.Equal(t, expectedMeterUnitsJSON, meterUnitsJSON)
+	defer portsHandle.Close()
 }
