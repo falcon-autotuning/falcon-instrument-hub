@@ -1,5 +1,7 @@
 //go:build cgo && falcon_core
 
+// DEPRECATED: THe hub should not need this anymore
+
 // Package callstack owns the native CallStack serialization boundary used by
 // measurement handlers.
 package callstack
