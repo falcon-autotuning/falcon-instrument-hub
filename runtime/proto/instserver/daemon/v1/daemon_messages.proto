@@ -87,6 +87,11 @@ enum LuaTypes {
   LUA_TYPES_DATA_BUFFER_ARRAY = 11;
   LUA_TYPES_CALL_STACK_ARRAY = 12;
   LUA_TYPES_MIXED_ARRAY = 13;
+  // New types
+  LUA_TYPES_TARGET = 14;
+  LUA_TYPES_TARGET_ARRAY = 15;
+  LUA_TYPES_DOMAIN = 16;
+  LUA_TYPES_DOMAIN_ARRAY = 17;
 }
 message Parameter {
   string name = 1;
@@ -111,6 +116,12 @@ message DataBufferArray {
   repeated string values = 1;
 }
 message CallStackArray {
+  repeated string values = 1;
+}
+message TargetArray {
+  repeated string values = 1;
+}
+message DomainArray {
   repeated string values = 1;
 }
 message MixedArray {
@@ -138,6 +149,8 @@ message VariableValue {
     MixedArray m_array = 12;
     // Mixed map support
     MixedMap m_map = 13;
+    TargetArray t_array = 14;
+    DomainArray dn_array = 15;
   }
 }
 message Globals {

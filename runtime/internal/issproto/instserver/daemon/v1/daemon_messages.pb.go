@@ -103,6 +103,11 @@ const (
 	LuaTypes_LUA_TYPES_DATA_BUFFER_ARRAY LuaTypes = 11
 	LuaTypes_LUA_TYPES_CALL_STACK_ARRAY  LuaTypes = 12
 	LuaTypes_LUA_TYPES_MIXED_ARRAY       LuaTypes = 13
+	// New types
+	LuaTypes_LUA_TYPES_TARGET       LuaTypes = 14
+	LuaTypes_LUA_TYPES_TARGET_ARRAY LuaTypes = 15
+	LuaTypes_LUA_TYPES_DOMAIN       LuaTypes = 16
+	LuaTypes_LUA_TYPES_DOMAIN_ARRAY LuaTypes = 17
 )
 
 // Enum value maps for LuaTypes.
@@ -122,6 +127,10 @@ var (
 		11: "LUA_TYPES_DATA_BUFFER_ARRAY",
 		12: "LUA_TYPES_CALL_STACK_ARRAY",
 		13: "LUA_TYPES_MIXED_ARRAY",
+		14: "LUA_TYPES_TARGET",
+		15: "LUA_TYPES_TARGET_ARRAY",
+		16: "LUA_TYPES_DOMAIN",
+		17: "LUA_TYPES_DOMAIN_ARRAY",
 	}
 	LuaTypes_value = map[string]int32{
 		"LUA_TYPES_UNSPECIFIED":       0,
@@ -138,6 +147,10 @@ var (
 		"LUA_TYPES_DATA_BUFFER_ARRAY": 11,
 		"LUA_TYPES_CALL_STACK_ARRAY":  12,
 		"LUA_TYPES_MIXED_ARRAY":       13,
+		"LUA_TYPES_TARGET":            14,
+		"LUA_TYPES_TARGET_ARRAY":      15,
+		"LUA_TYPES_DOMAIN":            16,
+		"LUA_TYPES_DOMAIN_ARRAY":      17,
 	}
 )
 
@@ -1327,6 +1340,94 @@ func (x *CallStackArray) GetValues() []string {
 	return nil
 }
 
+type TargetArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TargetArray) Reset() {
+	*x = TargetArray{}
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TargetArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TargetArray) ProtoMessage() {}
+
+func (x *TargetArray) ProtoReflect() protoreflect.Message {
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TargetArray.ProtoReflect.Descriptor instead.
+func (*TargetArray) Descriptor() ([]byte, []int) {
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *TargetArray) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type DomainArray struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DomainArray) Reset() {
+	*x = DomainArray{}
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DomainArray) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DomainArray) ProtoMessage() {}
+
+func (x *DomainArray) ProtoReflect() protoreflect.Message {
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DomainArray.ProtoReflect.Descriptor instead.
+func (*DomainArray) Descriptor() ([]byte, []int) {
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *DomainArray) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
 type MixedArray struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []*VariableValue       `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
@@ -1336,7 +1437,7 @@ type MixedArray struct {
 
 func (x *MixedArray) Reset() {
 	*x = MixedArray{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[22]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1348,7 +1449,7 @@ func (x *MixedArray) String() string {
 func (*MixedArray) ProtoMessage() {}
 
 func (x *MixedArray) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[22]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1361,7 +1462,7 @@ func (x *MixedArray) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MixedArray.ProtoReflect.Descriptor instead.
 func (*MixedArray) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{22}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MixedArray) GetValues() []*VariableValue {
@@ -1380,7 +1481,7 @@ type MixedMap struct {
 
 func (x *MixedMap) Reset() {
 	*x = MixedMap{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[23]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1392,7 +1493,7 @@ func (x *MixedMap) String() string {
 func (*MixedMap) ProtoMessage() {}
 
 func (x *MixedMap) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[23]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1405,7 +1506,7 @@ func (x *MixedMap) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MixedMap.ProtoReflect.Descriptor instead.
 func (*MixedMap) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{23}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *MixedMap) GetValues() map[string]*VariableValue {
@@ -1432,6 +1533,8 @@ type VariableValue struct {
 	//	*VariableValue_CsArray
 	//	*VariableValue_MArray
 	//	*VariableValue_MMap
+	//	*VariableValue_TArray
+	//	*VariableValue_DnArray
 	Value         isVariableValue_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1439,7 +1542,7 @@ type VariableValue struct {
 
 func (x *VariableValue) Reset() {
 	*x = VariableValue{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[24]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1451,7 +1554,7 @@ func (x *VariableValue) String() string {
 func (*VariableValue) ProtoMessage() {}
 
 func (x *VariableValue) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[24]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1464,7 +1567,7 @@ func (x *VariableValue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use VariableValue.ProtoReflect.Descriptor instead.
 func (*VariableValue) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{24}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *VariableValue) GetValue() isVariableValue_Value {
@@ -1591,6 +1694,24 @@ func (x *VariableValue) GetMMap() *MixedMap {
 	return nil
 }
 
+func (x *VariableValue) GetTArray() *TargetArray {
+	if x != nil {
+		if x, ok := x.Value.(*VariableValue_TArray); ok {
+			return x.TArray
+		}
+	}
+	return nil
+}
+
+func (x *VariableValue) GetDnArray() *DomainArray {
+	if x != nil {
+		if x, ok := x.Value.(*VariableValue_DnArray); ok {
+			return x.DnArray
+		}
+	}
+	return nil
+}
+
 type isVariableValue_Value interface {
 	isVariableValue_Value()
 }
@@ -1651,6 +1772,14 @@ type VariableValue_MMap struct {
 	MMap *MixedMap `protobuf:"bytes,13,opt,name=m_map,json=mMap,proto3,oneof"`
 }
 
+type VariableValue_TArray struct {
+	TArray *TargetArray `protobuf:"bytes,14,opt,name=t_array,json=tArray,proto3,oneof"`
+}
+
+type VariableValue_DnArray struct {
+	DnArray *DomainArray `protobuf:"bytes,15,opt,name=dn_array,json=dnArray,proto3,oneof"`
+}
+
 func (*VariableValue_IsNil) isVariableValue_Value() {}
 
 func (*VariableValue_I) isVariableValue_Value() {}
@@ -1677,6 +1806,10 @@ func (*VariableValue_MArray) isVariableValue_Value() {}
 
 func (*VariableValue_MMap) isVariableValue_Value() {}
 
+func (*VariableValue_TArray) isVariableValue_Value() {}
+
+func (*VariableValue_DnArray) isVariableValue_Value() {}
+
 type Globals struct {
 	state         protoimpl.MessageState    `protogen:"open.v1"`
 	Map           map[string]*VariableValue `protobuf:"bytes,1,rep,name=map,proto3" json:"map,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
@@ -1686,7 +1819,7 @@ type Globals struct {
 
 func (x *Globals) Reset() {
 	*x = Globals{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[25]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1698,7 +1831,7 @@ func (x *Globals) String() string {
 func (*Globals) ProtoMessage() {}
 
 func (x *Globals) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[25]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1711,7 +1844,7 @@ func (x *Globals) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Globals.ProtoReflect.Descriptor instead.
 func (*Globals) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{25}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *Globals) GetMap() map[string]*VariableValue {
@@ -1732,7 +1865,7 @@ type MeasureJobRequest struct {
 
 func (x *MeasureJobRequest) Reset() {
 	*x = MeasureJobRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[26]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1744,7 +1877,7 @@ func (x *MeasureJobRequest) String() string {
 func (*MeasureJobRequest) ProtoMessage() {}
 
 func (x *MeasureJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[26]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1757,7 +1890,7 @@ func (x *MeasureJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureJobRequest.ProtoReflect.Descriptor instead.
 func (*MeasureJobRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{26}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MeasureJobRequest) GetScriptPath() string {
@@ -1791,7 +1924,7 @@ type MeasureJobResponse struct {
 
 func (x *MeasureJobResponse) Reset() {
 	*x = MeasureJobResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[27]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1803,7 +1936,7 @@ func (x *MeasureJobResponse) String() string {
 func (*MeasureJobResponse) ProtoMessage() {}
 
 func (x *MeasureJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[27]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1816,7 +1949,7 @@ func (x *MeasureJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureJobResponse.ProtoReflect.Descriptor instead.
 func (*MeasureJobResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{27}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MeasureJobResponse) GetStandardResponse() *StandardResponse {
@@ -1842,7 +1975,7 @@ type JobStatusRequest struct {
 
 func (x *JobStatusRequest) Reset() {
 	*x = JobStatusRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[28]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1854,7 +1987,7 @@ func (x *JobStatusRequest) String() string {
 func (*JobStatusRequest) ProtoMessage() {}
 
 func (x *JobStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[28]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1867,7 +2000,7 @@ func (x *JobStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobStatusRequest.ProtoReflect.Descriptor instead.
 func (*JobStatusRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{28}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *JobStatusRequest) GetJobId() uint32 {
@@ -1890,7 +2023,7 @@ type Job struct {
 
 func (x *Job) Reset() {
 	*x = Job{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[29]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1902,7 +2035,7 @@ func (x *Job) String() string {
 func (*Job) ProtoMessage() {}
 
 func (x *Job) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[29]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1915,7 +2048,7 @@ func (x *Job) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Job.ProtoReflect.Descriptor instead.
 func (*Job) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{29}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Job) GetType() JobType {
@@ -1963,7 +2096,7 @@ type JobStatusResponse struct {
 
 func (x *JobStatusResponse) Reset() {
 	*x = JobStatusResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[30]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1975,7 +2108,7 @@ func (x *JobStatusResponse) String() string {
 func (*JobStatusResponse) ProtoMessage() {}
 
 func (x *JobStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[30]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1988,7 +2121,7 @@ func (x *JobStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobStatusResponse.ProtoReflect.Descriptor instead.
 func (*JobStatusResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{30}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *JobStatusResponse) GetStandardResponse() *StandardResponse {
@@ -2014,7 +2147,7 @@ type MeasureJobResultRequest struct {
 
 func (x *MeasureJobResultRequest) Reset() {
 	*x = MeasureJobResultRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[31]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2026,7 +2159,7 @@ func (x *MeasureJobResultRequest) String() string {
 func (*MeasureJobResultRequest) ProtoMessage() {}
 
 func (x *MeasureJobResultRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[31]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2039,7 +2172,7 @@ func (x *MeasureJobResultRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureJobResultRequest.ProtoReflect.Descriptor instead.
 func (*MeasureJobResultRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{31}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *MeasureJobResultRequest) GetJobId() uint32 {
@@ -2063,7 +2196,7 @@ type DataBufferMetadata struct {
 
 func (x *DataBufferMetadata) Reset() {
 	*x = DataBufferMetadata{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[32]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2075,7 +2208,7 @@ func (x *DataBufferMetadata) String() string {
 func (*DataBufferMetadata) ProtoMessage() {}
 
 func (x *DataBufferMetadata) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[32]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2088,7 +2221,7 @@ func (x *DataBufferMetadata) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DataBufferMetadata.ProtoReflect.Descriptor instead.
 func (*DataBufferMetadata) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{32}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *DataBufferMetadata) GetElementCount() uint32 {
@@ -2146,7 +2279,7 @@ type TypedParameter struct {
 
 func (x *TypedParameter) Reset() {
 	*x = TypedParameter{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[33]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2158,7 +2291,7 @@ func (x *TypedParameter) String() string {
 func (*TypedParameter) ProtoMessage() {}
 
 func (x *TypedParameter) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[33]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2171,7 +2304,7 @@ func (x *TypedParameter) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypedParameter.ProtoReflect.Descriptor instead.
 func (*TypedParameter) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{33}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *TypedParameter) GetName() string {
@@ -2223,7 +2356,7 @@ type CommandResult struct {
 
 func (x *CommandResult) Reset() {
 	*x = CommandResult{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[34]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2235,7 +2368,7 @@ func (x *CommandResult) String() string {
 func (*CommandResult) ProtoMessage() {}
 
 func (x *CommandResult) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[34]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2248,7 +2381,7 @@ func (x *CommandResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CommandResult.ProtoReflect.Descriptor instead.
 func (*CommandResult) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{34}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *CommandResult) GetInstrumentName() string {
@@ -2304,7 +2437,7 @@ type MeasureJobResultResponse struct {
 
 func (x *MeasureJobResultResponse) Reset() {
 	*x = MeasureJobResultResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[35]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2316,7 +2449,7 @@ func (x *MeasureJobResultResponse) String() string {
 func (*MeasureJobResultResponse) ProtoMessage() {}
 
 func (x *MeasureJobResultResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[35]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2329,7 +2462,7 @@ func (x *MeasureJobResultResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MeasureJobResultResponse.ProtoReflect.Descriptor instead.
 func (*MeasureJobResultResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{35}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *MeasureJobResultResponse) GetStandardResponse() *StandardResponse {
@@ -2361,7 +2494,7 @@ type JobListRequest struct {
 
 func (x *JobListRequest) Reset() {
 	*x = JobListRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[36]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2373,7 +2506,7 @@ func (x *JobListRequest) String() string {
 func (*JobListRequest) ProtoMessage() {}
 
 func (x *JobListRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[36]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2386,7 +2519,7 @@ func (x *JobListRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobListRequest.ProtoReflect.Descriptor instead.
 func (*JobListRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{36}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{38}
 }
 
 type JobListResponse struct {
@@ -2399,7 +2532,7 @@ type JobListResponse struct {
 
 func (x *JobListResponse) Reset() {
 	*x = JobListResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[37]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2411,7 +2544,7 @@ func (x *JobListResponse) String() string {
 func (*JobListResponse) ProtoMessage() {}
 
 func (x *JobListResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[37]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2424,7 +2557,7 @@ func (x *JobListResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use JobListResponse.ProtoReflect.Descriptor instead.
 func (*JobListResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{37}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *JobListResponse) GetStandardResponse() *StandardResponse {
@@ -2450,7 +2583,7 @@ type CancelJobRequest struct {
 
 func (x *CancelJobRequest) Reset() {
 	*x = CancelJobRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[38]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2462,7 +2595,7 @@ func (x *CancelJobRequest) String() string {
 func (*CancelJobRequest) ProtoMessage() {}
 
 func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[38]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2475,7 +2608,7 @@ func (x *CancelJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobRequest.ProtoReflect.Descriptor instead.
 func (*CancelJobRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{38}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *CancelJobRequest) GetJobId() uint32 {
@@ -2494,7 +2627,7 @@ type CancelJobResponse struct {
 
 func (x *CancelJobResponse) Reset() {
 	*x = CancelJobResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[39]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2506,7 +2639,7 @@ func (x *CancelJobResponse) String() string {
 func (*CancelJobResponse) ProtoMessage() {}
 
 func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[39]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2519,7 +2652,7 @@ func (x *CancelJobResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelJobResponse.ProtoReflect.Descriptor instead.
 func (*CancelJobResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{39}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *CancelJobResponse) GetStandardResponse() *StandardResponse {
@@ -2538,7 +2671,7 @@ type DiscoverRequest struct {
 
 func (x *DiscoverRequest) Reset() {
 	*x = DiscoverRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[40]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2550,7 +2683,7 @@ func (x *DiscoverRequest) String() string {
 func (*DiscoverRequest) ProtoMessage() {}
 
 func (x *DiscoverRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[40]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2563,7 +2696,7 @@ func (x *DiscoverRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverRequest.ProtoReflect.Descriptor instead.
 func (*DiscoverRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{40}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *DiscoverRequest) GetPluginPaths() []string {
@@ -2584,7 +2717,7 @@ type DiscoverResponse struct {
 
 func (x *DiscoverResponse) Reset() {
 	*x = DiscoverResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[41]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2596,7 +2729,7 @@ func (x *DiscoverResponse) String() string {
 func (*DiscoverResponse) ProtoMessage() {}
 
 func (x *DiscoverResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[41]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2609,7 +2742,7 @@ func (x *DiscoverResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DiscoverResponse.ProtoReflect.Descriptor instead.
 func (*DiscoverResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{41}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DiscoverResponse) GetStandardResponse() *StandardResponse {
@@ -2641,7 +2774,7 @@ type ListDataBuffersRequest struct {
 
 func (x *ListDataBuffersRequest) Reset() {
 	*x = ListDataBuffersRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[42]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2653,7 +2786,7 @@ func (x *ListDataBuffersRequest) String() string {
 func (*ListDataBuffersRequest) ProtoMessage() {}
 
 func (x *ListDataBuffersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[42]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2666,7 +2799,7 @@ func (x *ListDataBuffersRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDataBuffersRequest.ProtoReflect.Descriptor instead.
 func (*ListDataBuffersRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{42}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{44}
 }
 
 type ListDataBuffersResponse struct {
@@ -2679,7 +2812,7 @@ type ListDataBuffersResponse struct {
 
 func (x *ListDataBuffersResponse) Reset() {
 	*x = ListDataBuffersResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[43]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2691,7 +2824,7 @@ func (x *ListDataBuffersResponse) String() string {
 func (*ListDataBuffersResponse) ProtoMessage() {}
 
 func (x *ListDataBuffersResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[43]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2704,7 +2837,7 @@ func (x *ListDataBuffersResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListDataBuffersResponse.ProtoReflect.Descriptor instead.
 func (*ListDataBuffersResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{43}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *ListDataBuffersResponse) GetStandardResponse() *StandardResponse {
@@ -2730,7 +2863,7 @@ type ReleaseBufferRequest struct {
 
 func (x *ReleaseBufferRequest) Reset() {
 	*x = ReleaseBufferRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[44]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2742,7 +2875,7 @@ func (x *ReleaseBufferRequest) String() string {
 func (*ReleaseBufferRequest) ProtoMessage() {}
 
 func (x *ReleaseBufferRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[44]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2755,7 +2888,7 @@ func (x *ReleaseBufferRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseBufferRequest.ProtoReflect.Descriptor instead.
 func (*ReleaseBufferRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{44}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *ReleaseBufferRequest) GetBufferId() string {
@@ -2774,7 +2907,7 @@ type ReleaseBufferResponse struct {
 
 func (x *ReleaseBufferResponse) Reset() {
 	*x = ReleaseBufferResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[45]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2786,7 +2919,7 @@ func (x *ReleaseBufferResponse) String() string {
 func (*ReleaseBufferResponse) ProtoMessage() {}
 
 func (x *ReleaseBufferResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[45]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2799,7 +2932,7 @@ func (x *ReleaseBufferResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReleaseBufferResponse.ProtoReflect.Descriptor instead.
 func (*ReleaseBufferResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{45}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *ReleaseBufferResponse) GetStandardResponse() *StandardResponse {
@@ -2818,7 +2951,7 @@ type GetBufferMetadataRequest struct {
 
 func (x *GetBufferMetadataRequest) Reset() {
 	*x = GetBufferMetadataRequest{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[46]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2830,7 +2963,7 @@ func (x *GetBufferMetadataRequest) String() string {
 func (*GetBufferMetadataRequest) ProtoMessage() {}
 
 func (x *GetBufferMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[46]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2843,7 +2976,7 @@ func (x *GetBufferMetadataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBufferMetadataRequest.ProtoReflect.Descriptor instead.
 func (*GetBufferMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{46}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *GetBufferMetadataRequest) GetBufferId() string {
@@ -2863,7 +2996,7 @@ type GetBufferMetadataResponse struct {
 
 func (x *GetBufferMetadataResponse) Reset() {
 	*x = GetBufferMetadataResponse{}
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[47]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2875,7 +3008,7 @@ func (x *GetBufferMetadataResponse) String() string {
 func (*GetBufferMetadataResponse) ProtoMessage() {}
 
 func (x *GetBufferMetadataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[47]
+	mi := &file_instserver_daemon_v1_daemon_messages_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2888,7 +3021,7 @@ func (x *GetBufferMetadataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBufferMetadataResponse.ProtoReflect.Descriptor instead.
 func (*GetBufferMetadataResponse) Descriptor() ([]byte, []int) {
-	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{47}
+	return file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetBufferMetadataResponse) GetStandardResponse() *StandardResponse {
@@ -2969,6 +3102,10 @@ const file_instserver_daemon_v1_daemon_messages_proto_rawDesc = "" +
 	"\x0fDataBufferArray\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"(\n" +
 	"\x0eCallStackArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"%\n" +
+	"\vTargetArray\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"%\n" +
+	"\vDomainArray\x12\x16\n" +
 	"\x06values\x18\x01 \x03(\tR\x06values\"I\n" +
 	"\n" +
 	"MixedArray\x12;\n" +
@@ -2977,7 +3114,7 @@ const file_instserver_daemon_v1_daemon_messages_proto_rawDesc = "" +
 	"\x06values\x18\x01 \x03(\v2*.instserver.daemon.v1.MixedMap.ValuesEntryR\x06values\x1a^\n" +
 	"\vValuesEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x129\n" +
-	"\x05value\x18\x02 \x01(\v2#.instserver.daemon.v1.VariableValueR\x05value:\x028\x01\"\xe1\x04\n" +
+	"\x05value\x18\x02 \x01(\v2#.instserver.daemon.v1.VariableValueR\x05value:\x028\x01\"\xdf\x05\n" +
 	"\rVariableValue\x12\x17\n" +
 	"\x06is_nil\x18\x01 \x01(\bH\x00R\x05isNil\x12\x0e\n" +
 	"\x01i\x18\x02 \x01(\x03H\x00R\x01i\x12\x0e\n" +
@@ -2992,7 +3129,9 @@ const file_instserver_daemon_v1_daemon_messages_proto_rawDesc = "" +
 	" \x01(\v2%.instserver.daemon.v1.DataBufferArrayH\x00R\adbArray\x12A\n" +
 	"\bcs_array\x18\v \x01(\v2$.instserver.daemon.v1.CallStackArrayH\x00R\acsArray\x12;\n" +
 	"\am_array\x18\f \x01(\v2 .instserver.daemon.v1.MixedArrayH\x00R\x06mArray\x125\n" +
-	"\x05m_map\x18\r \x01(\v2\x1e.instserver.daemon.v1.MixedMapH\x00R\x04mMapB\a\n" +
+	"\x05m_map\x18\r \x01(\v2\x1e.instserver.daemon.v1.MixedMapH\x00R\x04mMap\x12<\n" +
+	"\at_array\x18\x0e \x01(\v2!.instserver.daemon.v1.TargetArrayH\x00R\x06tArray\x12>\n" +
+	"\bdn_array\x18\x0f \x01(\v2!.instserver.daemon.v1.DomainArrayH\x00R\adnArrayB\a\n" +
 	"\x05value\"\xa0\x01\n" +
 	"\aGlobals\x128\n" +
 	"\x03map\x18\x01 \x03(\v2&.instserver.daemon.v1.Globals.MapEntryR\x03map\x1a[\n" +
@@ -3093,7 +3232,7 @@ const file_instserver_daemon_v1_daemon_messages_proto_rawDesc = "" +
 	"\x1eERROR_CODE_FILE_DOES_NOT_EXIST\x10\x03\x12\x1b\n" +
 	"\x17ERROR_CODE_PLUGIN_CRASH\x10\x04\x12\x1f\n" +
 	"\x1bERROR_CODE_INSTRUMENT_CRASH\x10\x05\x12\x1f\n" +
-	"\x1bERROR_CODE_BUFFER_NOT_FOUND\x10\x06*\xf8\x02\n" +
+	"\x1bERROR_CODE_BUFFER_NOT_FOUND\x10\x06*\xdc\x03\n" +
 	"\bLuaTypes\x12\x19\n" +
 	"\x15LUA_TYPES_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLUA_TYPES_INT64\x10\x01\x12\x14\n" +
@@ -3109,7 +3248,11 @@ const file_instserver_daemon_v1_daemon_messages_proto_rawDesc = "" +
 	"\x12\x1f\n" +
 	"\x1bLUA_TYPES_DATA_BUFFER_ARRAY\x10\v\x12\x1e\n" +
 	"\x1aLUA_TYPES_CALL_STACK_ARRAY\x10\f\x12\x19\n" +
-	"\x15LUA_TYPES_MIXED_ARRAY\x10\r*\xbb\x01\n" +
+	"\x15LUA_TYPES_MIXED_ARRAY\x10\r\x12\x14\n" +
+	"\x10LUA_TYPES_TARGET\x10\x0e\x12\x1a\n" +
+	"\x16LUA_TYPES_TARGET_ARRAY\x10\x0f\x12\x14\n" +
+	"\x10LUA_TYPES_DOMAIN\x10\x10\x12\x1a\n" +
+	"\x16LUA_TYPES_DOMAIN_ARRAY\x10\x11*\xbb\x01\n" +
 	"\tJobStatus\x12\x1a\n" +
 	"\x16JOB_STATUS_UNSPECIFIED\x10\x00\x12\x15\n" +
 	"\x11JOB_STATUS_QUEUED\x10\x01\x12\x16\n" +
@@ -3155,7 +3298,7 @@ func file_instserver_daemon_v1_daemon_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_instserver_daemon_v1_daemon_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_instserver_daemon_v1_daemon_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 52)
+var file_instserver_daemon_v1_daemon_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 54)
 var file_instserver_daemon_v1_daemon_messages_proto_goTypes = []any{
 	(ErrorCode)(0),                    // 0: instserver.daemon.v1.ErrorCode
 	(LuaTypes)(0),                     // 1: instserver.daemon.v1.LuaTypes
@@ -3183,37 +3326,39 @@ var file_instserver_daemon_v1_daemon_messages_proto_goTypes = []any{
 	(*StringArray)(nil),               // 23: instserver.daemon.v1.StringArray
 	(*DataBufferArray)(nil),           // 24: instserver.daemon.v1.DataBufferArray
 	(*CallStackArray)(nil),            // 25: instserver.daemon.v1.CallStackArray
-	(*MixedArray)(nil),                // 26: instserver.daemon.v1.MixedArray
-	(*MixedMap)(nil),                  // 27: instserver.daemon.v1.MixedMap
-	(*VariableValue)(nil),             // 28: instserver.daemon.v1.VariableValue
-	(*Globals)(nil),                   // 29: instserver.daemon.v1.Globals
-	(*MeasureJobRequest)(nil),         // 30: instserver.daemon.v1.MeasureJobRequest
-	(*MeasureJobResponse)(nil),        // 31: instserver.daemon.v1.MeasureJobResponse
-	(*JobStatusRequest)(nil),          // 32: instserver.daemon.v1.JobStatusRequest
-	(*Job)(nil),                       // 33: instserver.daemon.v1.Job
-	(*JobStatusResponse)(nil),         // 34: instserver.daemon.v1.JobStatusResponse
-	(*MeasureJobResultRequest)(nil),   // 35: instserver.daemon.v1.MeasureJobResultRequest
-	(*DataBufferMetadata)(nil),        // 36: instserver.daemon.v1.DataBufferMetadata
-	(*TypedParameter)(nil),            // 37: instserver.daemon.v1.TypedParameter
-	(*CommandResult)(nil),             // 38: instserver.daemon.v1.CommandResult
-	(*MeasureJobResultResponse)(nil),  // 39: instserver.daemon.v1.MeasureJobResultResponse
-	(*JobListRequest)(nil),            // 40: instserver.daemon.v1.JobListRequest
-	(*JobListResponse)(nil),           // 41: instserver.daemon.v1.JobListResponse
-	(*CancelJobRequest)(nil),          // 42: instserver.daemon.v1.CancelJobRequest
-	(*CancelJobResponse)(nil),         // 43: instserver.daemon.v1.CancelJobResponse
-	(*DiscoverRequest)(nil),           // 44: instserver.daemon.v1.DiscoverRequest
-	(*DiscoverResponse)(nil),          // 45: instserver.daemon.v1.DiscoverResponse
-	(*ListDataBuffersRequest)(nil),    // 46: instserver.daemon.v1.ListDataBuffersRequest
-	(*ListDataBuffersResponse)(nil),   // 47: instserver.daemon.v1.ListDataBuffersResponse
-	(*ReleaseBufferRequest)(nil),      // 48: instserver.daemon.v1.ReleaseBufferRequest
-	(*ReleaseBufferResponse)(nil),     // 49: instserver.daemon.v1.ReleaseBufferResponse
-	(*GetBufferMetadataRequest)(nil),  // 50: instserver.daemon.v1.GetBufferMetadataRequest
-	(*GetBufferMetadataResponse)(nil), // 51: instserver.daemon.v1.GetBufferMetadataResponse
-	nil,                               // 52: instserver.daemon.v1.MixedMap.ValuesEntry
-	nil,                               // 53: instserver.daemon.v1.Globals.MapEntry
-	nil,                               // 54: instserver.daemon.v1.JobListResponse.JobsEntry
-	nil,                               // 55: instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry
-	(*timestamppb.Timestamp)(nil),     // 56: google.protobuf.Timestamp
+	(*TargetArray)(nil),               // 26: instserver.daemon.v1.TargetArray
+	(*DomainArray)(nil),               // 27: instserver.daemon.v1.DomainArray
+	(*MixedArray)(nil),                // 28: instserver.daemon.v1.MixedArray
+	(*MixedMap)(nil),                  // 29: instserver.daemon.v1.MixedMap
+	(*VariableValue)(nil),             // 30: instserver.daemon.v1.VariableValue
+	(*Globals)(nil),                   // 31: instserver.daemon.v1.Globals
+	(*MeasureJobRequest)(nil),         // 32: instserver.daemon.v1.MeasureJobRequest
+	(*MeasureJobResponse)(nil),        // 33: instserver.daemon.v1.MeasureJobResponse
+	(*JobStatusRequest)(nil),          // 34: instserver.daemon.v1.JobStatusRequest
+	(*Job)(nil),                       // 35: instserver.daemon.v1.Job
+	(*JobStatusResponse)(nil),         // 36: instserver.daemon.v1.JobStatusResponse
+	(*MeasureJobResultRequest)(nil),   // 37: instserver.daemon.v1.MeasureJobResultRequest
+	(*DataBufferMetadata)(nil),        // 38: instserver.daemon.v1.DataBufferMetadata
+	(*TypedParameter)(nil),            // 39: instserver.daemon.v1.TypedParameter
+	(*CommandResult)(nil),             // 40: instserver.daemon.v1.CommandResult
+	(*MeasureJobResultResponse)(nil),  // 41: instserver.daemon.v1.MeasureJobResultResponse
+	(*JobListRequest)(nil),            // 42: instserver.daemon.v1.JobListRequest
+	(*JobListResponse)(nil),           // 43: instserver.daemon.v1.JobListResponse
+	(*CancelJobRequest)(nil),          // 44: instserver.daemon.v1.CancelJobRequest
+	(*CancelJobResponse)(nil),         // 45: instserver.daemon.v1.CancelJobResponse
+	(*DiscoverRequest)(nil),           // 46: instserver.daemon.v1.DiscoverRequest
+	(*DiscoverResponse)(nil),          // 47: instserver.daemon.v1.DiscoverResponse
+	(*ListDataBuffersRequest)(nil),    // 48: instserver.daemon.v1.ListDataBuffersRequest
+	(*ListDataBuffersResponse)(nil),   // 49: instserver.daemon.v1.ListDataBuffersResponse
+	(*ReleaseBufferRequest)(nil),      // 50: instserver.daemon.v1.ReleaseBufferRequest
+	(*ReleaseBufferResponse)(nil),     // 51: instserver.daemon.v1.ReleaseBufferResponse
+	(*GetBufferMetadataRequest)(nil),  // 52: instserver.daemon.v1.GetBufferMetadataRequest
+	(*GetBufferMetadataResponse)(nil), // 53: instserver.daemon.v1.GetBufferMetadataResponse
+	nil,                               // 54: instserver.daemon.v1.MixedMap.ValuesEntry
+	nil,                               // 55: instserver.daemon.v1.Globals.MapEntry
+	nil,                               // 56: instserver.daemon.v1.JobListResponse.JobsEntry
+	nil,                               // 57: instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry
+	(*timestamppb.Timestamp)(nil),     // 58: google.protobuf.Timestamp
 }
 var file_instserver_daemon_v1_daemon_messages_proto_depIdxs = []int32{
 	0,  // 0: instserver.daemon.v1.ErrorDetails.code:type_name -> instserver.daemon.v1.ErrorCode
@@ -3226,84 +3371,86 @@ var file_instserver_daemon_v1_daemon_messages_proto_depIdxs = []int32{
 	5,  // 7: instserver.daemon.v1.ListInstrumentsResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
 	1,  // 8: instserver.daemon.v1.Parameter.type:type_name -> instserver.daemon.v1.LuaTypes
 	18, // 9: instserver.daemon.v1.TypeManifest.parameters:type_name -> instserver.daemon.v1.Parameter
-	28, // 10: instserver.daemon.v1.MixedArray.values:type_name -> instserver.daemon.v1.VariableValue
-	52, // 11: instserver.daemon.v1.MixedMap.values:type_name -> instserver.daemon.v1.MixedMap.ValuesEntry
+	30, // 10: instserver.daemon.v1.MixedArray.values:type_name -> instserver.daemon.v1.VariableValue
+	54, // 11: instserver.daemon.v1.MixedMap.values:type_name -> instserver.daemon.v1.MixedMap.ValuesEntry
 	20, // 12: instserver.daemon.v1.VariableValue.i_array:type_name -> instserver.daemon.v1.Int64Array
 	21, // 13: instserver.daemon.v1.VariableValue.d_array:type_name -> instserver.daemon.v1.DoubleArray
 	22, // 14: instserver.daemon.v1.VariableValue.b_array:type_name -> instserver.daemon.v1.BoolArray
 	23, // 15: instserver.daemon.v1.VariableValue.s_array:type_name -> instserver.daemon.v1.StringArray
 	24, // 16: instserver.daemon.v1.VariableValue.db_array:type_name -> instserver.daemon.v1.DataBufferArray
 	25, // 17: instserver.daemon.v1.VariableValue.cs_array:type_name -> instserver.daemon.v1.CallStackArray
-	26, // 18: instserver.daemon.v1.VariableValue.m_array:type_name -> instserver.daemon.v1.MixedArray
-	27, // 19: instserver.daemon.v1.VariableValue.m_map:type_name -> instserver.daemon.v1.MixedMap
-	53, // 20: instserver.daemon.v1.Globals.map:type_name -> instserver.daemon.v1.Globals.MapEntry
-	29, // 21: instserver.daemon.v1.MeasureJobRequest.globals:type_name -> instserver.daemon.v1.Globals
-	19, // 22: instserver.daemon.v1.MeasureJobRequest.type_manifest:type_name -> instserver.daemon.v1.TypeManifest
-	5,  // 23: instserver.daemon.v1.MeasureJobResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	3,  // 24: instserver.daemon.v1.Job.type:type_name -> instserver.daemon.v1.JobType
-	2,  // 25: instserver.daemon.v1.Job.status:type_name -> instserver.daemon.v1.JobStatus
-	56, // 26: instserver.daemon.v1.Job.created_at:type_name -> google.protobuf.Timestamp
-	56, // 27: instserver.daemon.v1.Job.started_at:type_name -> google.protobuf.Timestamp
-	56, // 28: instserver.daemon.v1.Job.finished_at:type_name -> google.protobuf.Timestamp
-	5,  // 29: instserver.daemon.v1.JobStatusResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	33, // 30: instserver.daemon.v1.JobStatusResponse.job:type_name -> instserver.daemon.v1.Job
-	56, // 31: instserver.daemon.v1.DataBufferMetadata.captured_at:type_name -> google.protobuf.Timestamp
-	1,  // 32: instserver.daemon.v1.TypedParameter.type:type_name -> instserver.daemon.v1.LuaTypes
-	28, // 33: instserver.daemon.v1.TypedParameter.value:type_name -> instserver.daemon.v1.VariableValue
-	36, // 34: instserver.daemon.v1.TypedParameter.dbmeta:type_name -> instserver.daemon.v1.DataBufferMetadata
-	56, // 35: instserver.daemon.v1.CommandResult.executed_at:type_name -> google.protobuf.Timestamp
-	37, // 36: instserver.daemon.v1.CommandResult.param:type_name -> instserver.daemon.v1.TypedParameter
-	5,  // 37: instserver.daemon.v1.MeasureJobResultResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	2,  // 38: instserver.daemon.v1.MeasureJobResultResponse.status:type_name -> instserver.daemon.v1.JobStatus
-	38, // 39: instserver.daemon.v1.MeasureJobResultResponse.results:type_name -> instserver.daemon.v1.CommandResult
-	5,  // 40: instserver.daemon.v1.JobListResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	54, // 41: instserver.daemon.v1.JobListResponse.jobs:type_name -> instserver.daemon.v1.JobListResponse.JobsEntry
-	5,  // 42: instserver.daemon.v1.CancelJobResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	5,  // 43: instserver.daemon.v1.DiscoverResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	5,  // 44: instserver.daemon.v1.ListDataBuffersResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	55, // 45: instserver.daemon.v1.ListDataBuffersResponse.buffers:type_name -> instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry
-	5,  // 46: instserver.daemon.v1.ReleaseBufferResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	5,  // 47: instserver.daemon.v1.GetBufferMetadataResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
-	36, // 48: instserver.daemon.v1.GetBufferMetadataResponse.meta:type_name -> instserver.daemon.v1.DataBufferMetadata
-	28, // 49: instserver.daemon.v1.MixedMap.ValuesEntry.value:type_name -> instserver.daemon.v1.VariableValue
-	28, // 50: instserver.daemon.v1.Globals.MapEntry.value:type_name -> instserver.daemon.v1.VariableValue
-	33, // 51: instserver.daemon.v1.JobListResponse.JobsEntry.value:type_name -> instserver.daemon.v1.Job
-	36, // 52: instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry.value:type_name -> instserver.daemon.v1.DataBufferMetadata
-	7,  // 53: instserver.daemon.v1.DaemonService.DaemonStatus:input_type -> instserver.daemon.v1.DaemonStatusRequest
-	9,  // 54: instserver.daemon.v1.DaemonService.StartInstrument:input_type -> instserver.daemon.v1.StartInstrumentRequest
-	11, // 55: instserver.daemon.v1.DaemonService.StopInstrument:input_type -> instserver.daemon.v1.StopInstrumentRequest
-	13, // 56: instserver.daemon.v1.DaemonService.InstrumentStatus:input_type -> instserver.daemon.v1.InstrumentStatusRequest
-	16, // 57: instserver.daemon.v1.DaemonService.ListInstruments:input_type -> instserver.daemon.v1.ListInstrumentsRequest
-	30, // 58: instserver.daemon.v1.DaemonService.MeasureJob:input_type -> instserver.daemon.v1.MeasureJobRequest
-	32, // 59: instserver.daemon.v1.DaemonService.JobStatus:input_type -> instserver.daemon.v1.JobStatusRequest
-	35, // 60: instserver.daemon.v1.DaemonService.MeasureJobResult:input_type -> instserver.daemon.v1.MeasureJobResultRequest
-	40, // 61: instserver.daemon.v1.DaemonService.JobList:input_type -> instserver.daemon.v1.JobListRequest
-	42, // 62: instserver.daemon.v1.DaemonService.CancelJob:input_type -> instserver.daemon.v1.CancelJobRequest
-	44, // 63: instserver.daemon.v1.DaemonService.Discover:input_type -> instserver.daemon.v1.DiscoverRequest
-	46, // 64: instserver.daemon.v1.DaemonService.ListDataBuffers:input_type -> instserver.daemon.v1.ListDataBuffersRequest
-	48, // 65: instserver.daemon.v1.DaemonService.ReleaseBuffer:input_type -> instserver.daemon.v1.ReleaseBufferRequest
-	50, // 66: instserver.daemon.v1.DaemonService.GetBufferMetadata:input_type -> instserver.daemon.v1.GetBufferMetadataRequest
-	6,  // 67: instserver.daemon.v1.DaemonService.StopDaemon:input_type -> instserver.daemon.v1.DaemonStop
-	8,  // 68: instserver.daemon.v1.DaemonService.DaemonStatus:output_type -> instserver.daemon.v1.DaemonStatusResponse
-	10, // 69: instserver.daemon.v1.DaemonService.StartInstrument:output_type -> instserver.daemon.v1.StartInstrumentResponse
-	12, // 70: instserver.daemon.v1.DaemonService.StopInstrument:output_type -> instserver.daemon.v1.StopInstrumentResponse
-	15, // 71: instserver.daemon.v1.DaemonService.InstrumentStatus:output_type -> instserver.daemon.v1.InstrumentStatusResponse
-	17, // 72: instserver.daemon.v1.DaemonService.ListInstruments:output_type -> instserver.daemon.v1.ListInstrumentsResponse
-	31, // 73: instserver.daemon.v1.DaemonService.MeasureJob:output_type -> instserver.daemon.v1.MeasureJobResponse
-	34, // 74: instserver.daemon.v1.DaemonService.JobStatus:output_type -> instserver.daemon.v1.JobStatusResponse
-	39, // 75: instserver.daemon.v1.DaemonService.MeasureJobResult:output_type -> instserver.daemon.v1.MeasureJobResultResponse
-	41, // 76: instserver.daemon.v1.DaemonService.JobList:output_type -> instserver.daemon.v1.JobListResponse
-	43, // 77: instserver.daemon.v1.DaemonService.CancelJob:output_type -> instserver.daemon.v1.CancelJobResponse
-	45, // 78: instserver.daemon.v1.DaemonService.Discover:output_type -> instserver.daemon.v1.DiscoverResponse
-	47, // 79: instserver.daemon.v1.DaemonService.ListDataBuffers:output_type -> instserver.daemon.v1.ListDataBuffersResponse
-	49, // 80: instserver.daemon.v1.DaemonService.ReleaseBuffer:output_type -> instserver.daemon.v1.ReleaseBufferResponse
-	51, // 81: instserver.daemon.v1.DaemonService.GetBufferMetadata:output_type -> instserver.daemon.v1.GetBufferMetadataResponse
-	5,  // 82: instserver.daemon.v1.DaemonService.StopDaemon:output_type -> instserver.daemon.v1.StandardResponse
-	68, // [68:83] is the sub-list for method output_type
-	53, // [53:68] is the sub-list for method input_type
-	53, // [53:53] is the sub-list for extension type_name
-	53, // [53:53] is the sub-list for extension extendee
-	0,  // [0:53] is the sub-list for field type_name
+	28, // 18: instserver.daemon.v1.VariableValue.m_array:type_name -> instserver.daemon.v1.MixedArray
+	29, // 19: instserver.daemon.v1.VariableValue.m_map:type_name -> instserver.daemon.v1.MixedMap
+	26, // 20: instserver.daemon.v1.VariableValue.t_array:type_name -> instserver.daemon.v1.TargetArray
+	27, // 21: instserver.daemon.v1.VariableValue.dn_array:type_name -> instserver.daemon.v1.DomainArray
+	55, // 22: instserver.daemon.v1.Globals.map:type_name -> instserver.daemon.v1.Globals.MapEntry
+	31, // 23: instserver.daemon.v1.MeasureJobRequest.globals:type_name -> instserver.daemon.v1.Globals
+	19, // 24: instserver.daemon.v1.MeasureJobRequest.type_manifest:type_name -> instserver.daemon.v1.TypeManifest
+	5,  // 25: instserver.daemon.v1.MeasureJobResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	3,  // 26: instserver.daemon.v1.Job.type:type_name -> instserver.daemon.v1.JobType
+	2,  // 27: instserver.daemon.v1.Job.status:type_name -> instserver.daemon.v1.JobStatus
+	58, // 28: instserver.daemon.v1.Job.created_at:type_name -> google.protobuf.Timestamp
+	58, // 29: instserver.daemon.v1.Job.started_at:type_name -> google.protobuf.Timestamp
+	58, // 30: instserver.daemon.v1.Job.finished_at:type_name -> google.protobuf.Timestamp
+	5,  // 31: instserver.daemon.v1.JobStatusResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	35, // 32: instserver.daemon.v1.JobStatusResponse.job:type_name -> instserver.daemon.v1.Job
+	58, // 33: instserver.daemon.v1.DataBufferMetadata.captured_at:type_name -> google.protobuf.Timestamp
+	1,  // 34: instserver.daemon.v1.TypedParameter.type:type_name -> instserver.daemon.v1.LuaTypes
+	30, // 35: instserver.daemon.v1.TypedParameter.value:type_name -> instserver.daemon.v1.VariableValue
+	38, // 36: instserver.daemon.v1.TypedParameter.dbmeta:type_name -> instserver.daemon.v1.DataBufferMetadata
+	58, // 37: instserver.daemon.v1.CommandResult.executed_at:type_name -> google.protobuf.Timestamp
+	39, // 38: instserver.daemon.v1.CommandResult.param:type_name -> instserver.daemon.v1.TypedParameter
+	5,  // 39: instserver.daemon.v1.MeasureJobResultResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	2,  // 40: instserver.daemon.v1.MeasureJobResultResponse.status:type_name -> instserver.daemon.v1.JobStatus
+	40, // 41: instserver.daemon.v1.MeasureJobResultResponse.results:type_name -> instserver.daemon.v1.CommandResult
+	5,  // 42: instserver.daemon.v1.JobListResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	56, // 43: instserver.daemon.v1.JobListResponse.jobs:type_name -> instserver.daemon.v1.JobListResponse.JobsEntry
+	5,  // 44: instserver.daemon.v1.CancelJobResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	5,  // 45: instserver.daemon.v1.DiscoverResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	5,  // 46: instserver.daemon.v1.ListDataBuffersResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	57, // 47: instserver.daemon.v1.ListDataBuffersResponse.buffers:type_name -> instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry
+	5,  // 48: instserver.daemon.v1.ReleaseBufferResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	5,  // 49: instserver.daemon.v1.GetBufferMetadataResponse.standard_response:type_name -> instserver.daemon.v1.StandardResponse
+	38, // 50: instserver.daemon.v1.GetBufferMetadataResponse.meta:type_name -> instserver.daemon.v1.DataBufferMetadata
+	30, // 51: instserver.daemon.v1.MixedMap.ValuesEntry.value:type_name -> instserver.daemon.v1.VariableValue
+	30, // 52: instserver.daemon.v1.Globals.MapEntry.value:type_name -> instserver.daemon.v1.VariableValue
+	35, // 53: instserver.daemon.v1.JobListResponse.JobsEntry.value:type_name -> instserver.daemon.v1.Job
+	38, // 54: instserver.daemon.v1.ListDataBuffersResponse.BuffersEntry.value:type_name -> instserver.daemon.v1.DataBufferMetadata
+	7,  // 55: instserver.daemon.v1.DaemonService.DaemonStatus:input_type -> instserver.daemon.v1.DaemonStatusRequest
+	9,  // 56: instserver.daemon.v1.DaemonService.StartInstrument:input_type -> instserver.daemon.v1.StartInstrumentRequest
+	11, // 57: instserver.daemon.v1.DaemonService.StopInstrument:input_type -> instserver.daemon.v1.StopInstrumentRequest
+	13, // 58: instserver.daemon.v1.DaemonService.InstrumentStatus:input_type -> instserver.daemon.v1.InstrumentStatusRequest
+	16, // 59: instserver.daemon.v1.DaemonService.ListInstruments:input_type -> instserver.daemon.v1.ListInstrumentsRequest
+	32, // 60: instserver.daemon.v1.DaemonService.MeasureJob:input_type -> instserver.daemon.v1.MeasureJobRequest
+	34, // 61: instserver.daemon.v1.DaemonService.JobStatus:input_type -> instserver.daemon.v1.JobStatusRequest
+	37, // 62: instserver.daemon.v1.DaemonService.MeasureJobResult:input_type -> instserver.daemon.v1.MeasureJobResultRequest
+	42, // 63: instserver.daemon.v1.DaemonService.JobList:input_type -> instserver.daemon.v1.JobListRequest
+	44, // 64: instserver.daemon.v1.DaemonService.CancelJob:input_type -> instserver.daemon.v1.CancelJobRequest
+	46, // 65: instserver.daemon.v1.DaemonService.Discover:input_type -> instserver.daemon.v1.DiscoverRequest
+	48, // 66: instserver.daemon.v1.DaemonService.ListDataBuffers:input_type -> instserver.daemon.v1.ListDataBuffersRequest
+	50, // 67: instserver.daemon.v1.DaemonService.ReleaseBuffer:input_type -> instserver.daemon.v1.ReleaseBufferRequest
+	52, // 68: instserver.daemon.v1.DaemonService.GetBufferMetadata:input_type -> instserver.daemon.v1.GetBufferMetadataRequest
+	6,  // 69: instserver.daemon.v1.DaemonService.StopDaemon:input_type -> instserver.daemon.v1.DaemonStop
+	8,  // 70: instserver.daemon.v1.DaemonService.DaemonStatus:output_type -> instserver.daemon.v1.DaemonStatusResponse
+	10, // 71: instserver.daemon.v1.DaemonService.StartInstrument:output_type -> instserver.daemon.v1.StartInstrumentResponse
+	12, // 72: instserver.daemon.v1.DaemonService.StopInstrument:output_type -> instserver.daemon.v1.StopInstrumentResponse
+	15, // 73: instserver.daemon.v1.DaemonService.InstrumentStatus:output_type -> instserver.daemon.v1.InstrumentStatusResponse
+	17, // 74: instserver.daemon.v1.DaemonService.ListInstruments:output_type -> instserver.daemon.v1.ListInstrumentsResponse
+	33, // 75: instserver.daemon.v1.DaemonService.MeasureJob:output_type -> instserver.daemon.v1.MeasureJobResponse
+	36, // 76: instserver.daemon.v1.DaemonService.JobStatus:output_type -> instserver.daemon.v1.JobStatusResponse
+	41, // 77: instserver.daemon.v1.DaemonService.MeasureJobResult:output_type -> instserver.daemon.v1.MeasureJobResultResponse
+	43, // 78: instserver.daemon.v1.DaemonService.JobList:output_type -> instserver.daemon.v1.JobListResponse
+	45, // 79: instserver.daemon.v1.DaemonService.CancelJob:output_type -> instserver.daemon.v1.CancelJobResponse
+	47, // 80: instserver.daemon.v1.DaemonService.Discover:output_type -> instserver.daemon.v1.DiscoverResponse
+	49, // 81: instserver.daemon.v1.DaemonService.ListDataBuffers:output_type -> instserver.daemon.v1.ListDataBuffersResponse
+	51, // 82: instserver.daemon.v1.DaemonService.ReleaseBuffer:output_type -> instserver.daemon.v1.ReleaseBufferResponse
+	53, // 83: instserver.daemon.v1.DaemonService.GetBufferMetadata:output_type -> instserver.daemon.v1.GetBufferMetadataResponse
+	5,  // 84: instserver.daemon.v1.DaemonService.StopDaemon:output_type -> instserver.daemon.v1.StandardResponse
+	70, // [70:85] is the sub-list for method output_type
+	55, // [55:70] is the sub-list for method input_type
+	55, // [55:55] is the sub-list for extension type_name
+	55, // [55:55] is the sub-list for extension extendee
+	0,  // [0:55] is the sub-list for field type_name
 }
 
 func init() { file_instserver_daemon_v1_daemon_messages_proto_init() }
@@ -3311,7 +3458,7 @@ func file_instserver_daemon_v1_daemon_messages_proto_init() {
 	if File_instserver_daemon_v1_daemon_messages_proto != nil {
 		return
 	}
-	file_instserver_daemon_v1_daemon_messages_proto_msgTypes[24].OneofWrappers = []any{
+	file_instserver_daemon_v1_daemon_messages_proto_msgTypes[26].OneofWrappers = []any{
 		(*VariableValue_IsNil)(nil),
 		(*VariableValue_I)(nil),
 		(*VariableValue_D)(nil),
@@ -3325,15 +3472,17 @@ func file_instserver_daemon_v1_daemon_messages_proto_init() {
 		(*VariableValue_CsArray)(nil),
 		(*VariableValue_MArray)(nil),
 		(*VariableValue_MMap)(nil),
+		(*VariableValue_TArray)(nil),
+		(*VariableValue_DnArray)(nil),
 	}
-	file_instserver_daemon_v1_daemon_messages_proto_msgTypes[34].OneofWrappers = []any{}
+	file_instserver_daemon_v1_daemon_messages_proto_msgTypes[36].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_instserver_daemon_v1_daemon_messages_proto_rawDesc), len(file_instserver_daemon_v1_daemon_messages_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   52,
+			NumMessages:   54,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
