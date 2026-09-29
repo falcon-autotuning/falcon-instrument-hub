@@ -305,14 +305,18 @@ type VariableValue struct {
 }
 
 type (
-	DataBuffer      string
-	CallStack       string
-	Int64Array      []int64
-	DoubleArray     []float64
-	BoolArray       []bool
-	StringArray     []string
-	DataBufferArray []string
-	CallStackArray  []string
+	DataBuffer            string
+	CallStack             string
+	InstrumentTarget      string
+	InstrumentDomain      string
+	Int64Array            []int64
+	DoubleArray           []float64
+	BoolArray             []bool
+	StringArray           []string
+	DataBufferArray       []string
+	CallStackArray        []string
+	InstrumentTargetArray []string
+	InstrumentDomainArray []string
 	// MixedArray      []VariableValue  TODO: Eventually revist ISS if this is necessary
 	// MixedMap        map[string]VariableValue  TODO: Eventually revist ISS if this is necessary
 )
@@ -370,6 +374,12 @@ func (v VariableValue) LuaType() LuaType {
 	case CallStack:
 		return LuaType(daemonv1.LuaTypes_LUA_TYPES_CALL_STACK)
 
+	case InstrumentDomain:
+		return LuaType(daemonv1.LuaTypes_LUA_TYPES_DOMAIN)
+
+	case InstrumentTarget:
+		return LuaType(daemonv1.LuaTypes_LUA_TYPES_TARGET)
+
 	case Int64Array:
 		return LuaType(daemonv1.LuaTypes_LUA_TYPES_INT64_ARRAY)
 
@@ -387,6 +397,12 @@ func (v VariableValue) LuaType() LuaType {
 
 	case CallStackArray:
 		return LuaType(daemonv1.LuaTypes_LUA_TYPES_CALL_STACK_ARRAY)
+
+	case InstrumentDomainArray:
+		return LuaType(daemonv1.LuaTypes_LUA_TYPES_DOMAIN_ARRAY)
+
+	case InstrumentTargetArray:
+		return LuaType(daemonv1.LuaTypes_LUA_TYPES_TARGET_ARRAY)
 
 	//  TODO: Eventually revist ISS if this is necessary
 	// case MixedArray:
@@ -438,6 +454,10 @@ func toGrpcVariableValue(v VariableValue) (*daemonv1.VariableValue, error) {
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: value}}, nil
 	case CallStack:
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
+	case InstrumentDomain:
+		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
+	case InstrumentTarget:
+		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
 	case Int64Array:
 		values := make([]int64, len(value))
 		for i, item := range value {
@@ -454,6 +474,10 @@ func toGrpcVariableValue(v VariableValue) (*daemonv1.VariableValue, error) {
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_DbArray{DbArray: &daemonv1.DataBufferArray{Values: append([]string{}, value...)}}}, nil
 	case CallStackArray:
 		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_CsArray{CsArray: &daemonv1.CallStackArray{Values: append([]string{}, value...)}}}, nil
+	case InstrumentTargetArray:
+		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_TArray{TArray: &daemonv1.TargetArray{Values: append([]string{}, value...)}}}, nil
+	case InstrumentDomainArray:
+		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_DnArray{DnArray: &daemonv1.DomainArray{Values: append([]string{}, value...)}}}, nil
 	default:
 		return nil, fmt.Errorf("unsupported value type %T", v)
 	}
@@ -508,6 +532,14 @@ func fromGrpcVariableValue(value *daemonv1.VariableValue) VariableValue {
 	case *daemonv1.VariableValue_CsArray:
 		return VariableValue{
 			Value: CallStackArray(append([]string{}, v.CsArray.GetValues()...)),
+		}
+	case *daemonv1.VariableValue_TArray:
+		return VariableValue{
+			Value: InstrumentTargetArray(append([]string{}, v.TArray.GetValues()...)),
+		}
+	case *daemonv1.VariableValue_DnArray:
+		return VariableValue{
+			Value: InstrumentDomainArray(append([]string{}, v.DnArray.GetValues()...)),
 		}
 
 	default:
