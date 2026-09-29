@@ -1,0 +1,401 @@
+Bootstrapping vcpkg...
+cmake -P cmake/bootstrap/bootstrap-vcpkg.cmake
+-- Using local project vcpkg: /home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg
+-- ✓ vcpkg executable found at: /home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg/vcpkg
+-- ✓ vcpkg triplets found at: /home/zach/Documents/github/FALCon/falcon-instrument-hub/my-vcpkg-triplets
+-- Reading preset 'linux-clang-release' from CMakePresets.json...
+-- ✓ Found triplet from preset: x64-linux-dynamic
+-- ✓ Found C compiler: clang
+-- ✓ Found CXX compiler: clang++
+-- No .nuget-credentials file found, skipping NuGet setup (local-only build)
+-- Installing vcpkg dependencies for triplet: x64-linux-dynamic...
+-- Using overlay ports from: /home/zach/Documents/github/FALCon/falcon-instrument-hub/ports
+-- Using overlay triplets from: /home/zach/Documents/github/FALCon/falcon-instrument-hub/my-vcpkg-triplets
+Detecting compiler hash for triplet x64-linux...
+Compiler found: /usr/bin/clang++
+Detecting compiler hash for triplet x64-linux-dynamic...
+Compiler found: /usr/bin/clang++
+The following packages are already installed:
+  * abseil:x64-linux@20260107.1#3
+  * abseil:x64-linux-dynamic@20260107.1#3
+  * boost-algorithm:x64-linux-dynamic@1.91.0
+  * boost-align:x64-linux-dynamic@1.91.0
+  * boost-array:x64-linux-dynamic@1.91.0
+  * boost-assert:x64-linux-dynamic@1.91.0
+  * boost-atomic:x64-linux-dynamic@1.91.0
+  * boost-bind:x64-linux-dynamic@1.91.0
+  * boost-cmake:x64-linux-dynamic@1.91.0
+  * boost-compat:x64-linux-dynamic@1.91.0
+  * boost-concept-check:x64-linux-dynamic@1.91.0
+  * boost-config:x64-linux-dynamic@1.91.0
+  * boost-container:x64-linux-dynamic@1.91.0
+  * boost-container-hash:x64-linux-dynamic@1.91.0
+  * boost-conversion:x64-linux-dynamic@1.91.0
+  * boost-core:x64-linux-dynamic@1.91.0
+  * boost-date-time:x64-linux-dynamic@1.91.0
+  * boost-describe:x64-linux-dynamic@1.91.0
+  * boost-detail:x64-linux-dynamic@1.91.0
+  * boost-exception:x64-linux-dynamic@1.91.0
+  * boost-filesystem:x64-linux-dynamic@1.91.0
+  * boost-function:x64-linux-dynamic@1.91.0
+  * boost-function-types:x64-linux-dynamic@1.91.0
+  * boost-functional:x64-linux-dynamic@1.91.0
+  * boost-fusion:x64-linux-dynamic@1.91.0
+  * boost-headers:x64-linux-dynamic@1.91.0
+  * boost-interprocess:x64-linux-dynamic@1.91.0
+  * boost-intrusive:x64-linux-dynamic@1.91.0
+  * boost-io:x64-linux-dynamic@1.91.0
+  * boost-iterator:x64-linux-dynamic@1.91.0
+  * boost-lexical-cast:x64-linux-dynamic@1.91.0
+  * boost-move:x64-linux-dynamic@1.91.0
+  * boost-mp11:x64-linux-dynamic@1.91.0
+  * boost-mpl:x64-linux-dynamic@1.91.0
+  * boost-numeric-conversion:x64-linux-dynamic@1.91.0
+  * boost-optional:x64-linux-dynamic@1.91.0
+  * boost-predef:x64-linux-dynamic@1.91.0
+  * boost-preprocessor:x64-linux-dynamic@1.91.0
+  * boost-range:x64-linux-dynamic@1.91.0
+  * boost-regex:x64-linux-dynamic@1.91.0
+  * boost-scope:x64-linux-dynamic@1.91.0
+  * boost-smart-ptr:x64-linux-dynamic@1.91.0
+  * boost-static-assert:x64-linux-dynamic@1.91.0
+  * boost-system:x64-linux-dynamic@1.91.0
+  * boost-throw-exception:x64-linux-dynamic@1.91.0
+  * boost-tokenizer:x64-linux-dynamic@1.91.0
+  * boost-tuple:x64-linux-dynamic@1.91.0
+  * boost-type-traits:x64-linux-dynamic@1.91.0
+  * boost-typeof:x64-linux-dynamic@1.91.0
+  * boost-uninstall:x64-linux-dynamic@1.91.0
+  * boost-unordered:x64-linux-dynamic@1.91.0
+  * boost-utility:x64-linux-dynamic@1.91.0
+  * boost-uuid:x64-linux-dynamic@1.91.0
+  * boost-variant2:x64-linux-dynamic@1.91.0
+  * boost-winapi:x64-linux-dynamic@1.91.0
+  * c-ares:x64-linux-dynamic@1.34.8
+  * c-ares:x64-linux@1.34.8
+  * cereal:x64-linux-dynamic@1.3.2#1
+  * cereal-xtensor:x64-linux-dynamic@1.3.2
+  * cxxopts:x64-linux-dynamic@3.3.1#1
+  * exprtk:x64-linux-dynamic@0.0.3
+    falcon-core[core,c-api]:x64-linux-dynamic@1.2.13
+  * fmt:x64-linux-dynamic@12.2.0#1
+  * grpc:x64-linux-dynamic@1.81.1
+  * grpc[core,codegen]:x64-linux@1.81.1
+  * hdf5[core,zlib,szip,hl,cpp]:x64-linux-dynamic@2.1.1#1
+  * highfive:x64-linux-dynamic@3.3.0
+  * instrument-call-stack[core,lua]:x64-linux-dynamic@1.0.6
+  * instrument-data:x64-linux-dynamic@1.1.8
+  * instrument-log:x64-linux-dynamic@1.0.5
+  * instrument-plugin-api[core,plugin,host]:x64-linux-dynamic@2.0.7
+    instrument-script-server:x64-linux-dynamic@2.0.24
+    json-schema-validator:x64-linux-dynamic@2.4.0
+  * libaec:x64-linux-dynamic@1.1.7#1
+  * lua:x64-linux-dynamic@5.5.0#1
+    nlohmann-json:x64-linux-dynamic@3.12.0#2
+  * openssl:x64-linux-dynamic@3.6.3
+  * openssl:x64-linux@3.6.3
+  * protobuf:x64-linux-dynamic@6.33.4#2
+  * protobuf[core,libprotoc]:x64-linux@6.33.4#2
+  * re2:x64-linux@2025-11-05
+  * re2:x64-linux-dynamic@2025-11-05
+  * sol2:x64-linux-dynamic@3.5.0#1
+  * spdlog[core,tz-offset,fmt]:x64-linux-dynamic@1.17.0#1
+  * utf8-range:x64-linux@6.33.4
+  * utf8-range:x64-linux-dynamic@6.33.4
+  * uthash:x64-linux-dynamic@2.3.0
+  * vcpkg-boost:x64-linux@2025-03-29
+  * vcpkg-cmake:x64-linux@2024-04-23
+  * vcpkg-cmake:x64-linux-dynamic@2024-04-23
+  * vcpkg-cmake-config:x64-linux@2026-07-21
+  * vcpkg-cmake-config:x64-linux-dynamic@2026-07-21
+  * vcpkg-cmake-get-vars:x64-linux@2025-05-29
+  * xsimd:x64-linux-dynamic@14.3.0
+  * xtensor:x64-linux-dynamic@0.25.0
+  * xtensor-io:x64-linux-dynamic@0.13.0#1
+  * xtl:x64-linux-dynamic@0.7.5
+  * yaml-config-validator:x64-linux-dynamic@1.0.2
+    yaml-cpp:x64-linux-dynamic@0.9.0#1
+  * zlib:x64-linux-dynamic@1.3.2#1
+  * zlib:x64-linux@1.3.2#1
+yaml-cpp provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(yaml-cpp CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE yaml-cpp::yaml-cpp)
+
+yaml-cpp provides pkg-config modules:
+
+  # A YAML parser and emitter for C++
+  yaml-cpp
+
+The package nlohmann-json provides CMake targets:
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+
+The package nlohmann-json can be configured to not provide implicit conversions via a custom triplet file:
+
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+
+For more information, see the docs here:
+    
+    https://json.nlohmann.me/api/macros/json_use_implicit_conversions/
+
+falcon-core provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(falcon-core CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE falcon-core::falcon-core falcon-core::falcon-core-c-api)
+
+falcon-core provides pkg-config modules:
+
+  # Falcon Core C API library
+  falcon-core-c-api
+
+  # Falcon Core C++ library
+  falcon-core
+
+json-schema-validator provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(nlohmann_json_schema_validator CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE nlohmann_json_schema_validator::validator)
+
+instrument-script-server provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(instrument-script-server CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE instrument-script-server::instserver-proto instrument-script-server::instrument-script-server-core instrument-script-server::instrument-script-server-client)
+
+All requested installations completed successfully in: 1.1 ms
+-- ✓ vcpkg bootstrap and dependency installation complete
+rm -rf runtime/proto
+mkdir -p runtime/proto
+cp -R /home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/share/instrument-script-server/proto/* runtime/proto/
+cd runtime && buf generate
+Configuring linux-clang-release...
+cmake --preset linux-clang-release
+Preset CMake variables:
+
+  CMAKE_BUILD_TYPE="Release"
+  CMAKE_CXX_COMPILER="clang++"
+  CMAKE_C_COMPILER="clang"
+  CMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld"
+  CMAKE_EXPORT_COMPILE_COMMANDS="ON"
+  CMAKE_MAKE_PROGRAM="ninja"
+  CMAKE_PREFIX_PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/share;/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed"
+  CMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"
+  CMAKE_TOOLCHAIN_FILE="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg/scripts/buildsystems/vcpkg.cmake"
+  VCPKG_INSTALLED_DIR="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed"
+  VCPKG_OVERLAY_PORTS="/home/zach/Documents/github/FALCon/falcon-instrument-hub/ports"
+  VCPKG_OVERLAY_TRIPLETS="/home/zach/Documents/github/FALCon/falcon-instrument-hub/my-vcpkg-triplets"
+  VCPKG_ROOT="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg"
+  VCPKG_TARGET_TRIPLET="x64-linux-dynamic"
+
+Preset environment variables:
+
+  CC="clang"
+  CXX="clang++"
+
+-- Running vcpkg install
+Detecting compiler hash for triplet x64-linux...
+Compiler found: /usr/bin/clang++
+Detecting compiler hash for triplet x64-linux-dynamic...
+Compiler found: /usr/bin/clang++
+The following packages are already installed:
+  * abseil:x64-linux@20260107.1#3
+  * abseil:x64-linux-dynamic@20260107.1#3
+  * boost-algorithm:x64-linux-dynamic@1.91.0
+  * boost-align:x64-linux-dynamic@1.91.0
+  * boost-array:x64-linux-dynamic@1.91.0
+  * boost-assert:x64-linux-dynamic@1.91.0
+  * boost-atomic:x64-linux-dynamic@1.91.0
+  * boost-bind:x64-linux-dynamic@1.91.0
+  * boost-cmake:x64-linux-dynamic@1.91.0
+  * boost-compat:x64-linux-dynamic@1.91.0
+  * boost-concept-check:x64-linux-dynamic@1.91.0
+  * boost-config:x64-linux-dynamic@1.91.0
+  * boost-container:x64-linux-dynamic@1.91.0
+  * boost-container-hash:x64-linux-dynamic@1.91.0
+  * boost-conversion:x64-linux-dynamic@1.91.0
+  * boost-core:x64-linux-dynamic@1.91.0
+  * boost-date-time:x64-linux-dynamic@1.91.0
+  * boost-describe:x64-linux-dynamic@1.91.0
+  * boost-detail:x64-linux-dynamic@1.91.0
+  * boost-exception:x64-linux-dynamic@1.91.0
+  * boost-filesystem:x64-linux-dynamic@1.91.0
+  * boost-function:x64-linux-dynamic@1.91.0
+  * boost-function-types:x64-linux-dynamic@1.91.0
+  * boost-functional:x64-linux-dynamic@1.91.0
+  * boost-fusion:x64-linux-dynamic@1.91.0
+  * boost-headers:x64-linux-dynamic@1.91.0
+  * boost-interprocess:x64-linux-dynamic@1.91.0
+  * boost-intrusive:x64-linux-dynamic@1.91.0
+  * boost-io:x64-linux-dynamic@1.91.0
+  * boost-iterator:x64-linux-dynamic@1.91.0
+  * boost-lexical-cast:x64-linux-dynamic@1.91.0
+  * boost-move:x64-linux-dynamic@1.91.0
+  * boost-mp11:x64-linux-dynamic@1.91.0
+  * boost-mpl:x64-linux-dynamic@1.91.0
+  * boost-numeric-conversion:x64-linux-dynamic@1.91.0
+  * boost-optional:x64-linux-dynamic@1.91.0
+  * boost-predef:x64-linux-dynamic@1.91.0
+  * boost-preprocessor:x64-linux-dynamic@1.91.0
+  * boost-range:x64-linux-dynamic@1.91.0
+  * boost-regex:x64-linux-dynamic@1.91.0
+  * boost-scope:x64-linux-dynamic@1.91.0
+  * boost-smart-ptr:x64-linux-dynamic@1.91.0
+  * boost-static-assert:x64-linux-dynamic@1.91.0
+  * boost-system:x64-linux-dynamic@1.91.0
+  * boost-throw-exception:x64-linux-dynamic@1.91.0
+  * boost-tokenizer:x64-linux-dynamic@1.91.0
+  * boost-tuple:x64-linux-dynamic@1.91.0
+  * boost-type-traits:x64-linux-dynamic@1.91.0
+  * boost-typeof:x64-linux-dynamic@1.91.0
+  * boost-uninstall:x64-linux-dynamic@1.91.0
+  * boost-unordered:x64-linux-dynamic@1.91.0
+  * boost-utility:x64-linux-dynamic@1.91.0
+  * boost-uuid:x64-linux-dynamic@1.91.0
+  * boost-variant2:x64-linux-dynamic@1.91.0
+  * boost-winapi:x64-linux-dynamic@1.91.0
+  * c-ares:x64-linux-dynamic@1.34.8
+  * c-ares:x64-linux@1.34.8
+  * cereal:x64-linux-dynamic@1.3.2#1
+  * cereal-xtensor:x64-linux-dynamic@1.3.2
+  * cxxopts:x64-linux-dynamic@3.3.1#1
+  * exprtk:x64-linux-dynamic@0.0.3
+    falcon-core[core,c-api]:x64-linux-dynamic@1.2.13
+  * fmt:x64-linux-dynamic@12.2.0#1
+  * grpc:x64-linux-dynamic@1.81.1
+  * grpc[core,codegen]:x64-linux@1.81.1
+  * hdf5[core,zlib,szip,hl,cpp]:x64-linux-dynamic@2.1.1#1
+  * highfive:x64-linux-dynamic@3.3.0
+  * instrument-call-stack[core,lua]:x64-linux-dynamic@1.0.6
+  * instrument-data:x64-linux-dynamic@1.1.8
+  * instrument-log:x64-linux-dynamic@1.0.5
+  * instrument-plugin-api[core,plugin,host]:x64-linux-dynamic@2.0.7
+    instrument-script-server:x64-linux-dynamic@2.0.24
+    json-schema-validator:x64-linux-dynamic@2.4.0
+  * libaec:x64-linux-dynamic@1.1.7#1
+  * lua:x64-linux-dynamic@5.5.0#1
+    nlohmann-json:x64-linux-dynamic@3.12.0#2
+  * openssl:x64-linux-dynamic@3.6.3
+  * openssl:x64-linux@3.6.3
+  * protobuf:x64-linux-dynamic@6.33.4#2
+  * protobuf[core,libprotoc]:x64-linux@6.33.4#2
+  * re2:x64-linux@2025-11-05
+  * re2:x64-linux-dynamic@2025-11-05
+  * sol2:x64-linux-dynamic@3.5.0#1
+  * spdlog[core,tz-offset,fmt]:x64-linux-dynamic@1.17.0#1
+  * utf8-range:x64-linux@6.33.4
+  * utf8-range:x64-linux-dynamic@6.33.4
+  * uthash:x64-linux-dynamic@2.3.0
+  * vcpkg-boost:x64-linux@2025-03-29
+  * vcpkg-cmake:x64-linux@2024-04-23
+  * vcpkg-cmake:x64-linux-dynamic@2024-04-23
+  * vcpkg-cmake-config:x64-linux@2026-07-21
+  * vcpkg-cmake-config:x64-linux-dynamic@2026-07-21
+  * vcpkg-cmake-get-vars:x64-linux@2025-05-29
+  * xsimd:x64-linux-dynamic@14.3.0
+  * xtensor:x64-linux-dynamic@0.25.0
+  * xtensor-io:x64-linux-dynamic@0.13.0#1
+  * xtl:x64-linux-dynamic@0.7.5
+  * yaml-config-validator:x64-linux-dynamic@1.0.2
+    yaml-cpp:x64-linux-dynamic@0.9.0#1
+  * zlib:x64-linux-dynamic@1.3.2#1
+  * zlib:x64-linux@1.3.2#1
+yaml-cpp provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(yaml-cpp CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE yaml-cpp::yaml-cpp)
+
+yaml-cpp provides pkg-config modules:
+
+  # A YAML parser and emitter for C++
+  yaml-cpp
+
+The package nlohmann-json provides CMake targets:
+
+    find_package(nlohmann_json CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE nlohmann_json::nlohmann_json)
+
+The package nlohmann-json can be configured to not provide implicit conversions via a custom triplet file:
+
+    set(nlohmann-json_IMPLICIT_CONVERSIONS OFF)
+
+For more information, see the docs here:
+    
+    https://json.nlohmann.me/api/macros/json_use_implicit_conversions/
+
+falcon-core provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(falcon-core CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE falcon-core::falcon-core falcon-core::falcon-core-c-api)
+
+falcon-core provides pkg-config modules:
+
+  # Falcon Core C API library
+  falcon-core-c-api
+
+  # Falcon Core C++ library
+  falcon-core
+
+json-schema-validator provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(nlohmann_json_schema_validator CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE nlohmann_json_schema_validator::validator)
+
+instrument-script-server provides CMake targets:
+
+  # this is heuristically generated, and may not be correct
+  find_package(instrument-script-server CONFIG REQUIRED)
+  target_link_libraries(main PRIVATE instrument-script-server::instserver-proto instrument-script-server::instrument-script-server-core instrument-script-server::instrument-script-server-client)
+
+All requested installations completed successfully in: 1.12 ms
+-- Running vcpkg install - done
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/zach/Documents/github/FALCon/falcon-instrument-hub/build/linux-clang-release
+cd runtime && go mod tidy
+cd runtime && CGO_ENABLED=1 PKG_CONFIG_PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib/pkgconfig" CGO_LDFLAGS="-L/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib -Wl,-rpath,/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib" PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/usr/local/go/bin" LD_LIBRARY_PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib:" go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub ./cmd
+cmake --build --preset linux-clang-release --target validate-wiremap-config
+ninja: no work to do.
+cd runtime && CGO_ENABLED=1 PKG_CONFIG_PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib/pkgconfig" CGO_LDFLAGS="-L/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib -Wl,-rpath,/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib" PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/.nvm/versions/node/v22.20.0/bin:/home/zach/go/bin:/home/zach/.cargo/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/home/zach/.local/bin:/home/zach/anaconda3/condabin:/home/zach/.local/bin:/home/zach/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin:/usr/local/go/bin:/usr/local/go/bin" LD_LIBRARY_PATH="/home/zach/Documents/github/FALCon/falcon-instrument-hub/vcpkg_installed/x64-linux-dynamic/lib:" go test \
+	-v \
+	-coverprofile=coverage.out \
+	-tags cgo,falcon_core \
+	./internal/interpreter
+=== RUN   TestMeasurementClientMeasure
+--- PASS: TestMeasurementClientMeasure (0.00s)
+=== RUN   TestMeasurementClientRegisterBuffer
+--- PASS: TestMeasurementClientRegisterBuffer (0.00s)
+=== RUN   TestScriptDispatcherRunMeasurement_NoBuffers
+--- PASS: TestScriptDispatcherRunMeasurement_NoBuffers (0.00s)
+=== RUN   TestScriptDispatcherRunMeasurement_DataBuffer
+--- PASS: TestScriptDispatcherRunMeasurement_DataBuffer (0.00s)
+=== RUN   TestScriptDispatcherRunMeasurement_DataBufferArray
+--- PASS: TestScriptDispatcherRunMeasurement_DataBufferArray (0.00s)
+=== RUN   TestScriptDispatcherRunMeasurement_RegisterFails
+--- PASS: TestScriptDispatcherRunMeasurement_RegisterFails (0.00s)
+=== RUN   TestMeasurementDispatcherRunMeasurement
+--- PASS: TestMeasurementDispatcherRunMeasurement (0.00s)
+=== RUN   TestMeasurementDispatcherRunMeasurement_Error
+--- PASS: TestMeasurementDispatcherRunMeasurement_Error (0.00s)
+=== RUN   TestMeasurementDispatcherRunAll
+--- PASS: TestMeasurementDispatcherRunAll (0.00s)
+=== RUN   TestNextMeasurementIDUnique
+--- PASS: TestNextMeasurementIDUnique (0.00s)
+=== RUN   TestRouter_Handle_FirstMatchingHandlerWins
+--- PASS: TestRouter_Handle_FirstMatchingHandlerWins (0.00s)
+=== RUN   TestRouter_Handle_CanHandleError
+--- PASS: TestRouter_Handle_CanHandleError (0.00s)
+=== RUN   TestRouter_Handle_HandlerError
+--- PASS: TestRouter_Handle_HandlerError (0.00s)
+=== RUN   TestRouter_Handle_NoMatchingHandlers
+--- PASS: TestRouter_Handle_NoMatchingHandlers (0.00s)
+PASS
+coverage: 6.5% of statements
+ok  	github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter	0.061s	coverage: 6.5% of statements
