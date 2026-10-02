@@ -5,7 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
@@ -186,7 +188,7 @@ func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
 	_, err := serializePortsToCerealJSON([]ports.ConnectedPort{
 		{
 			PortName:    "Source1.voltage",
-			Role:        "output",
+			Role:        porttype.PortTypeMeter,
 			Unit:        "not-a-unit",
 			Description: "bad unit",
 		},
@@ -204,10 +206,10 @@ func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
 	out, err := serializePortsToCerealJSON([]ports.ConnectedPort{
 		{
 			PortName:       "Mock.Source1.analog.voltage",
-			Role:           "output",
+			Role:           porttype.PortTypeMeter,
 			Unit:           "V",
 			Description:    "Voltage source",
-			InstrumentType: "dc_voltage_source",
+			InstrumentType: instrument.DcVoltageSource,
 			Handle:         conn,
 		},
 	})

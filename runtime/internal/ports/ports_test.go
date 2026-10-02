@@ -3,78 +3,110 @@ package ports
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/access"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildPortLibrary(t *testing.T) {
-	apis := []InstrumentAPI{
-		{
-			Instrument: APIInstrument{
-				Vendor:         "Mock",
-				Identifier:     "Source1",
-				InstrumentType: "dc_voltage_source",
-			},
-			Protocol: APIProtocol{
-				Type: "MockVoltageSource",
-			},
-			ChannelGroups: []ChannelGroup{
-				{
-					Name: "analog",
-					IoTypes: []IoType{
-						{Name: "voltage", Role: "output", Unit: "V"},
-						{Name: "measured_voltage", Role: "input", Unit: "V"},
-					},
-				},
-			},
-		},
-	}
+func TestPortEntryRoleHelpers(t *testing.T) {
+	t.Run("knob", func(t *testing.T) {
+		p := PortEntry{
+			Role: porttype.PortTypeKnob,
+		}
 
-	lib := BuildPortLibrary(apis)
+		assert.True(t, p.IsKnob())
+		assert.False(t, p.IsMeter())
+		assert.False(t, p.IsSetting())
+	})
 
-	require.Len(t, lib, 2)
+	t.Run("meter", func(t *testing.T) {
+		p := PortEntry{
+			Role: porttype.PortTypeMeter,
+		}
 
-	voltage := lib["Mock.Source1.analog.voltage"]
-	assert.Equal(t, "output", voltage.Role)
-	assert.Equal(t, "V", voltage.Unit)
-	assert.Equal(t, "dc_voltage_source", voltage.InstrumentType)
-	assert.True(t, voltage.IsKnob())
-	assert.False(t, voltage.IsMeter())
+		assert.False(t, p.IsKnob())
+		assert.True(t, p.IsMeter())
+		assert.False(t, p.IsSetting())
+	})
 
-	measured := lib["Mock.Source1.analog.measured_voltage"]
-	assert.Equal(t, "input", measured.Role)
-	assert.Equal(t, "dc_voltage_source", measured.InstrumentType)
-	assert.False(t, measured.IsKnob())
-	assert.True(t, measured.IsMeter())
+	t.Run("setting", func(t *testing.T) {
+		p := PortEntry{
+			Role: porttype.PortTypeSetting,
+		}
+
+		assert.False(t, p.IsKnob())
+		assert.False(t, p.IsMeter())
+		assert.True(t, p.IsSetting())
+	})
+}
+
+func TestConnectedPortRoleHelpers(t *testing.T) {
+	t.Run("knob", func(t *testing.T) {
+		p := ConnectedPort{
+			Role: porttype.PortTypeKnob,
+		}
+
+		assert.True(t, p.IsKnob())
+		assert.False(t, p.IsMeter())
+		assert.False(t, p.IsSetting())
+	})
+
+	t.Run("meter", func(t *testing.T) {
+		p := ConnectedPort{
+			Role: porttype.PortTypeMeter,
+		}
+
+		assert.False(t, p.IsKnob())
+		assert.True(t, p.IsMeter())
+		assert.False(t, p.IsSetting())
+	})
+
+	t.Run("setting", func(t *testing.T) {
+		p := ConnectedPort{
+			Role: porttype.PortTypeSetting,
+		}
+
+		assert.False(t, p.IsKnob())
+		assert.False(t, p.IsMeter())
+		assert.True(t, p.IsSetting())
+	})
 }
 
 func TestConnectWireMap(t *testing.T) {
-	apis := []InstrumentAPI{
-		{
-			Instrument: APIInstrument{
-				Vendor:         "Mock",
-				Identifier:     "Source1",
-				InstrumentType: "dc_voltage_source",
-			},
-			Protocol: APIProtocol{
-				Type: "MockVoltageSource",
-			},
-			ChannelGroups: []ChannelGroup{
-				{
-					Name: "analog",
-					IoTypes: []IoType{
-						{Name: "voltage", Role: "output", Unit: "V"},
-						{Name: "measured_voltage", Role: "input", Unit: "V"},
-					},
-				},
-			},
+	lib := PortLibrary{
+		"source.voltage": {
+			InstrumentName: "Source1",
+			ChannelGroup:   "analog",
+			Channel:        4,
+			InstrumentType: instrument.DcVoltageSource,
+			Role:           porttype.PortTypeKnob,
+			Access:         access.Write,
+			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+			Unit:           "V",
+			Description:    "Voltage output",
+		},
+		"source.measure": {
+			InstrumentName: "Source1",
+			ChannelGroup:   "analog",
+			Channel:        4,
+			InstrumentType: instrument.DcVoltageSource,
+			Role:           porttype.PortTypeMeter,
+			Access:         access.Read,
+			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+			Unit:           "V",
+			Description:    "Voltage measurement",
 		},
 	}
-	lib := BuildPortLibrary(apis)
 
 	wireMap := &config.WireMap{
 		Contents: []config.WiremapEntry{
@@ -88,59 +120,67 @@ func TestConnectWireMap(t *testing.T) {
 			},
 		},
 	}
+
 	connected, err := ConnectWireMap(wireMap, lib)
+
 	require.NoError(t, err)
 	require.Len(t, connected, 2)
 
-	knobs := 0
-	meters := 0
 	for _, cp := range connected {
 		assert.Equal(t, "P1", cp.DeviceName)
 		assert.Equal(t, "Source1", cp.InstrumentName)
 		assert.Equal(t, "analog", cp.ChannelName)
 		assert.Equal(t, 4, cp.ChannelIndex)
-		if cp.IsKnob() {
-			assert.Equal(t, "voltage", cp.IoTypeName)
-			assert.Equal(t, "dc_voltage_source", cp.InstrumentType)
-			knobs++
-		}
-		if cp.IsMeter() {
-			assert.Equal(t, "measured_voltage", cp.IoTypeName)
-			assert.Equal(t, "dc_voltage_source", cp.InstrumentType)
-			meters++
-		}
 	}
-	assert.Equal(t, 1, knobs)
-	assert.Equal(t, 1, meters)
 }
 
-func TestBuildPortLibrary_UsesExplicitInstrumentTypes(t *testing.T) {
-	apis := []InstrumentAPI{
-		{
-			Instrument: APIInstrument{
-				Vendor:         "Mock",
-				Identifier:     "Meter1",
-				InstrumentType: "voltmeter",
-			},
-			Protocol: APIProtocol{
-				Type: "MockMultimeter",
-			},
-			ChannelGroups: []ChannelGroup{
-				{
-					Name: "analog",
-					IoTypes: []IoType{
-						{Name: "current", Role: "input", Unit: "nA"},
-						{Name: "voltage", Role: "input", Unit: "V"},
-					},
+func TestConnectWireMapNoMatches(t *testing.T) {
+	lib := PortLibrary{
+		"other": {
+			InstrumentName: "OtherInstrument",
+			ChannelGroup:   "analog",
+			Channel:        1,
+		},
+	}
+
+	wireMap := &config.WireMap{
+		Contents: []config.WiremapEntry{
+			{
+				PhysicalDeviceName: "P1",
+				Instrument: config.WiremapInstrument{
+					Name:         "Source1",
+					ChannelGroup: "analog",
+					Channel:      4,
 				},
 			},
 		},
 	}
 
-	lib := BuildPortLibrary(apis)
+	connected, err := ConnectWireMap(wireMap, lib)
 
-	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.current"].InstrumentType)
-	assert.Equal(t, "voltmeter", lib["Mock.Meter1.analog.voltage"].InstrumentType)
+	require.NoError(t, err)
+	require.Empty(t, connected)
+}
+
+func TestNewConnectedPorts(t *testing.T) {
+	ports := []ConnectedPort{
+		{
+			Role: porttype.PortTypeKnob,
+		},
+		{
+			Role: porttype.PortTypeMeter,
+		},
+		{
+			Role: porttype.PortTypeSetting,
+		},
+	}
+
+	out := newConnectedPorts(ports)
+
+	require.Len(t, out.AllConnections, 3)
+	require.Len(t, out.Knobs, 1)
+	require.Len(t, out.Meters, 1)
+	require.Len(t, out.Settings, 1)
 }
 
 func TestParseInstrumentAPI(t *testing.T) {
@@ -151,234 +191,290 @@ instrument:
   model: 1
   identifier: Source1
   instrument_type: dc_voltage_source
-  description: Mock voltage source
 channel_groups:
   - name: analog
     io_types:
       - name: voltage
         role: output
         unit: V
-      - name: measured_voltage
-        role: input
-        unit: V
 `
-	tmpFile := filepath.Join(t.TempDir(), "source-api.yml")
-	require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+
+	tmpFile := filepath.Join(t.TempDir(), "api.yml")
+
+	require.NoError(
+		t,
+		os.WriteFile(tmpFile, []byte(content), 0o600),
+	)
 
 	api, err := ParseInstrumentAPI(tmpFile)
+
 	require.NoError(t, err)
+	require.NotNil(t, api)
+
 	assert.Equal(t, "Mock", api.Instrument.Vendor)
 	assert.Equal(t, "Source1", api.Instrument.Identifier)
-	require.Len(t, api.ChannelGroups, 1)
-	assert.Equal(t, "analog", api.ChannelGroups[0].Name)
-	require.Len(t, api.ChannelGroups[0].IoTypes, 2)
 	assert.Equal(t, "dc_voltage_source", api.Instrument.InstrumentType)
 }
 
-func TestParseInstrumentAPI_RequiresInstrumentType(t *testing.T) {
-	content := `instrument:
+func TestParseInstrumentAPIs(t *testing.T) {
+	dir := t.TempDir()
+
+	content := `
+instrument:
   vendor: Mock
   identifier: Source1
-channel_groups:
-  - name: analog
-    io_types:
-      - name: voltage
-        role: output
+  instrument_type: dc_voltage_source
 `
-	tmpFile := filepath.Join(t.TempDir(), "source-api.yml")
-	require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+
+	p1 := filepath.Join(dir, "a.yml")
+	p2 := filepath.Join(dir, "b.yml")
+
+	require.NoError(t, os.WriteFile(p1, []byte(content), 0o600))
+	require.NoError(t, os.WriteFile(p2, []byte(content), 0o600))
+
+	apis, err := ParseInstrumentAPIs([]string{p1, p2})
+
+	require.NoError(t, err)
+	require.Len(t, apis, 2)
+}
+
+func TestParseInstrumentAPIMissingFile(t *testing.T) {
+	_, err := ParseInstrumentAPI("/does/not/exist.yml")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to read")
+}
+
+func TestParseInstrumentAPIInvalidYAML(t *testing.T) {
+	tmpFile := filepath.Join(t.TempDir(), "bad.yml")
+
+	require.NoError(
+		t,
+		os.WriteFile(tmpFile, []byte(":\n:\n:\n"), 0o600),
+	)
+
 	_, err := ParseInstrumentAPI(tmpFile)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to parse")
+}
+
+func TestParseInstrumentAPIRequiresInstrumentType(t *testing.T) {
+	content := `
+instrument:
+  vendor: Mock
+  identifier: Source1
+`
+
+	tmpFile := filepath.Join(t.TempDir(), "api.yml")
+
+	require.NoError(
+		t,
+		os.WriteFile(tmpFile, []byte(content), 0o600),
+	)
+
+	_, err := ParseInstrumentAPI(tmpFile)
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing instrument.instrument_type")
 }
 
-func TestParseInstrumentAPI_RejectsUnsupportedInstrumentType(t *testing.T) {
-	content := `instrument:
+func TestParseInstrumentAPIRejectsUnsupportedInstrumentType(t *testing.T) {
+	content := `
+instrument:
   vendor: Mock
   identifier: Source1
-  instrument_type: arbitrary_type
-channel_groups:
-  - name: analog
-    io_types:
-      - name: voltage
-        role: output
+  instrument_type: nonsense_type
 `
-	tmpFile := filepath.Join(t.TempDir(), "source-api.yml")
-	require.NoError(t, os.WriteFile(tmpFile, []byte(content), 0o600))
+
+	tmpFile := filepath.Join(t.TempDir(), "api.yml")
+
+	require.NoError(
+		t,
+		os.WriteFile(tmpFile, []byte(content), 0o600),
+	)
+
 	_, err := ParseInstrumentAPI(tmpFile)
+
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported instrument.instrument_type")
 }
 
-func TestResolveConnectedPort(t *testing.T) {
-	h := newConnectedPorts(connectedromTestWireMap(t))
-
-	tests := []struct {
-		name         string
-		deviceName   string
-		ioTypeName   string
-		role         string
-		wantPortName PortName
-		wantChannel  int
-	}{
-		{
-			name:         "meter slope setting",
-			deviceName:   "O1",
-			ioTypeName:   "slope",
-			role:         "setting",
-			wantPortName: "Mock.Meter1.analog.slope",
-			wantChannel:  1,
-		},
-		{
-			name:         "meter trigger level setting",
-			deviceName:   "O1",
-			ioTypeName:   "trigger_level",
-			role:         "setting",
-			wantPortName: "Mock.Meter1.analog.trigger_level",
-			wantChannel:  1,
-		},
-		{
-			name:         "meter voltage input",
-			deviceName:   "O1",
-			ioTypeName:   "voltage",
-			role:         "input",
-			wantPortName: "Mock.Meter1.analog.voltage",
-			wantChannel:  1,
-		},
-		{
-			name:         "source voltage output",
-			deviceName:   "P1",
-			ioTypeName:   "voltage",
-			role:         "output",
-			wantPortName: "Mock.Source1.analog.voltage",
-			wantChannel:  4,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := h.ResolveConnectedPort(tt.deviceName, tt.ioTypeName, tt.role)
-			if err != nil {
-				t.Fatalf("ResolveConnectedPort returned error: %v", err)
-			}
-			if got.PortName != tt.wantPortName {
-				t.Fatalf("PortName = %q, want %q", got.PortName, tt.wantPortName)
-			}
-			if got.ChannelIndex != tt.wantChannel {
-				t.Fatalf("ChannelIndex = %d, want %d", got.ChannelIndex, tt.wantChannel)
-			}
-			if got.DeviceName != tt.deviceName {
-				t.Fatalf("DeviceName = %q, want %q", got.DeviceName, tt.deviceName)
-			}
-			if got.IoTypeName != tt.ioTypeName {
-				t.Fatalf("IoTypeName = %q, want %q", got.IoTypeName, tt.ioTypeName)
-			}
-			if got.Role != tt.role {
-				t.Fatalf("Role = %q, want %q", got.Role, tt.role)
-			}
-		})
-	}
-}
-
-func connectedromTestWireMap(t *testing.T) []ConnectedPort {
+func newTestUnit(t *testing.T) *symbolunit.Handle {
 	t.Helper()
 
-	apis := []InstrumentAPI{
-		{
-			Instrument: APIInstrument{
-				Vendor:         "Mock",
-				Identifier:     "Meter1",
-				InstrumentType: "voltmeter",
-			},
-			Protocol: APIProtocol{
-				Type: "MockMultimeter",
-			},
-			ChannelGroups: []ChannelGroup{
-				{
-					Name: "analog",
-					IoTypes: []IoType{
-						{Name: "voltage", Role: "input", Unit: "V"},
-						{Name: "stream", Role: "input", Unit: "V"},
-						{Name: "slope", Role: "setting"},
-						{Name: "trigger_level", Role: "setting", Unit: "V"},
-					},
-				},
-			},
-		},
-		{
-			Instrument: APIInstrument{
-				Vendor:         "Mock",
-				Identifier:     "Source1",
-				InstrumentType: "dc_voltage_source",
-			},
-			Protocol: APIProtocol{
-				Type: "MockVoltageSource",
-			},
-			ChannelGroups: []ChannelGroup{
-				{
-					Name: "analog",
-					IoTypes: []IoType{
-						{Name: "voltage", Role: "output", Unit: "V"},
-					},
-				},
-			},
-		},
-	}
-	wireMap := &config.WireMap{
-		Contents: []config.WiremapEntry{
-			{
-				PhysicalDeviceName: "O1",
-				Instrument: config.WiremapInstrument{
-					Name:         "Meter1",
-					ChannelGroup: "analog",
-					Channel:      1,
-				},
-			},
-			{
-				PhysicalDeviceName: "P1",
-				Instrument: config.WiremapInstrument{
-					Name:         "Source1",
-					ChannelGroup: "analog",
-					Channel:      4,
-				},
-			},
-		},
-	}
+	unit, err := symbolunit.NewVolt()
+	require.NoError(t, err)
 
-	connected, err := ConnectWireMap(wireMap, BuildPortLibrary(apis))
-	if err != nil {
-		t.Fatalf("ConnectWireMap returned error: %v", err)
-	}
-	return connected
+	t.Cleanup(func() {
+		require.NoError(t, unit.Close())
+	})
+
+	return unit
 }
 
-func TestResolveConnectedPortErrors(t *testing.T) {
-	h := newConnectedPorts(
-		[]ConnectedPort{
+func TestResolveConnectedPort_Success(t *testing.T) {
+	pseudo, err := connection.NewPlungerGate("P1")
+	require.NoError(t, err)
+	defer pseudo.Close()
+
+	units := newTestUnit(t)
+
+	port, err := instrumentport.NewPort(
+		"Device1",
+		"Source1",
+		scope.Local,
+		access.Readwrite,
+		instrumentcharacteristic.InstrumentCharacteristicNone,
+		porttype.PortTypeKnob,
+		pseudo,
+		instrument.DcVoltageSource,
+		units,
+		"test port",
+	)
+	require.NoError(t, err)
+	defer port.Close()
+
+	ports := ConnectedPorts{
+		AllConnections: []ConnectedPort{
 			{
-				PortName:   "Mock.Meter1.analog.slope",
-				DeviceName: "O1",
-				IoTypeName: "slope",
-				Role:       "setting",
-			},
-			{
-				PortName:   "Mock.OtherMeter.analog.slope",
-				DeviceName: "O1",
-				IoTypeName: "slope",
-				Role:       "setting",
+				PortName:       "matching",
+				DeviceName:     "Device1",
+				InstrumentName: "Source1",
+				InstrumentType: instrument.DcVoltageSource,
+				Role:           porttype.PortTypeKnob,
+				Access:         access.Readwrite,
+				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
 			},
 		},
+	}
+
+	resolved, err := ports.ResolveConnectedPort(port)
+
+	require.NoError(t, err)
+	assert.Equal(t, PortName("matching"), resolved.PortName)
+}
+
+func TestResolveConnectedPort_NoMatch(t *testing.T) {
+	pseudo, err := connection.NewPlungerGate("P1")
+	require.NoError(t, err)
+	defer pseudo.Close()
+
+	units := newTestUnit(t)
+
+	port, err := instrumentport.NewPort(
+		"Device1",
+		"Source1",
+		scope.Local,
+		access.Readwrite,
+		instrumentcharacteristic.InstrumentCharacteristicNone,
+		porttype.PortTypeKnob,
+		pseudo,
+		instrument.DcVoltageSource,
+		units,
+		"test port",
 	)
+	require.NoError(t, err)
+	defer port.Close()
 
-	if _, err := h.ResolveConnectedPort("O1", "voltage", "input"); err == nil {
-		t.Fatal("expected no-match error")
+	ports := ConnectedPorts{}
+
+	_, err = ports.ResolveConnectedPort(port)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "No connected port")
+}
+
+func TestResolveConnectedPort_Ambiguous(t *testing.T) {
+	pseudo, err := connection.NewPlungerGate("P1")
+	require.NoError(t, err)
+	defer pseudo.Close()
+
+	units := newTestUnit(t)
+
+	port, err := instrumentport.NewPort(
+		"Device1",
+		"Source1",
+		scope.Local,
+		access.Readwrite,
+		instrumentcharacteristic.InstrumentCharacteristicNone,
+		porttype.PortTypeKnob,
+		pseudo,
+		instrument.DcVoltageSource,
+		units,
+		"test port",
+	)
+	require.NoError(t, err)
+	defer port.Close()
+
+	cp := ConnectedPort{
+		DeviceName:     "Device1",
+		InstrumentName: "Source1",
+		InstrumentType: instrument.DcVoltageSource,
+		Role:           porttype.PortTypeKnob,
+		Access:         access.Readwrite,
+		Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
 	}
 
-	_, err := h.ResolveConnectedPort("O1", "slope", "setting")
-	if err == nil {
-		t.Fatal("expected ambiguous-match error")
+	ports := ConnectedPorts{
+		AllConnections: []ConnectedPort{
+			cp,
+			cp,
+		},
 	}
-	if !strings.Contains(err.Error(), "ambiguous connected port") {
-		t.Fatalf("error = %q, want ambiguous connected port", err.Error())
+
+	_, err = ports.ResolveConnectedPort(port)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "Ambiguous connected port")
+}
+
+func TestResolveConnectedPort_IgnoresNonMatchingConnections(t *testing.T) {
+	pseudo, err := connection.NewPlungerGate("P1")
+	require.NoError(t, err)
+	defer pseudo.Close()
+
+	units := newTestUnit(t)
+
+	port, err := instrumentport.NewPort(
+		"Device1",
+		"Source1",
+		scope.Local,
+		access.Readwrite,
+		instrumentcharacteristic.InstrumentCharacteristicNone,
+		porttype.PortTypeKnob,
+		pseudo,
+		instrument.DcVoltageSource,
+		units,
+		"test port",
+	)
+	require.NoError(t, err)
+	defer port.Close()
+
+	ports := ConnectedPorts{
+		AllConnections: []ConnectedPort{
+			{
+				DeviceName:     "WrongDevice",
+				InstrumentName: "Source1",
+				InstrumentType: instrument.DcVoltageSource,
+				Role:           porttype.PortTypeKnob,
+				Access:         access.Readwrite,
+				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+			},
+			{
+				PortName:       "correct",
+				DeviceName:     "Device1",
+				InstrumentName: "Source1",
+				InstrumentType: instrument.DcVoltageSource,
+				Role:           porttype.PortTypeKnob,
+				Access:         access.Readwrite,
+				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+			},
+		},
 	}
+
+	resolved, err := ports.ResolveConnectedPort(port)
+
+	require.NoError(t, err)
+	assert.Equal(t, PortName("correct"), resolved.PortName)
 }

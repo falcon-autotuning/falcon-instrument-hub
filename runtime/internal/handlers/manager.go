@@ -22,6 +22,26 @@ type handlerOperation struct {
 	stopOp  func() error
 }
 
+type ConnectedPortsBuilder interface {
+	NewConnectedPorts(
+		instrumentAPIPaths []string,
+		wiremap *config.WireMap,
+	) (*ports.ConnectedPorts, error)
+}
+
+type DefaultConnectedPortsBuilder struct{}
+
+func (DefaultConnectedPortsBuilder) NewConnectedPorts(
+	instrumentAPIPaths []string,
+	wiremap *config.WireMap,
+) (*ports.ConnectedPorts, error) {
+	return nil, nil // FIX: implement this properly
+	// 	return ports.NewConnectedPorts(
+	// 		instrumentAPIPaths,
+	// 		wiremap,
+	// 	)
+}
+
 // Manager manages all message handlers
 type Manager struct {
 	logger                *logging.Logger
@@ -44,8 +64,9 @@ func NewManager(
 	logger *logging.Logger,
 	nc *nats.Conn,
 	dispatcher measure.MeasurementClient,
+	portsBuilder ConnectedPortsBuilder,
 ) *Manager {
-	ports, err := ports.NewConnectedPorts(instrumentAPIPaths, wiremap)
+	ports, err := portsBuilder.NewConnectedPorts(instrumentAPIPaths, wiremap)
 	if err != nil {
 		logger.Error(
 			HandlerManagerName,

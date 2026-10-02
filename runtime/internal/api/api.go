@@ -103,6 +103,7 @@ type PortPayload struct {
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // When the response was completed
 	Knobs     string `yaml:"knobs" json:"knobs"`         // All of the knobs attached to the instrument server
 	Meters    string `yaml:"meters" json:"meters"`       // All of the meters attached to the instrument server
+	Settings  string `yaml:"settings" json:"settings"`   // All of the settings attached to the instrument server
 }
 
 // CapabilityRequest: Request one connected port by logical device name and capability

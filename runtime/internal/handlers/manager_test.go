@@ -7,6 +7,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -98,6 +99,15 @@ func (m *mockMeasurementClient) Measure(
 	return nil, nil
 }
 
+type mockConnectedPortsBuilder struct{}
+
+func (b *mockConnectedPortsBuilder) NewConnectedPorts(
+	instrumentAPIPaths []string,
+	wiremap *config.WireMap,
+) (*ports.ConnectedPorts, error) {
+	return nil, nil
+}
+
 func (m *mockMeasurementClient) ReleaseBuffer(
 	string,
 ) error {
@@ -124,6 +134,7 @@ func TestManagerStartCoreHandlers(t *testing.T) {
 		logger,
 		nc,
 		&mockMeasurementClient{},
+		&mockConnectedPortsBuilder{},
 	)
 
 	require.NoError(t, manager.StartCoreHandlers())

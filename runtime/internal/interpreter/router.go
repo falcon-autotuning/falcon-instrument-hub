@@ -94,8 +94,8 @@ func NewRouter(
 		dispatcher: dispatcher,
 		wiremap:    wiremap,
 		ports:      ports,
-		handlers: []MeasurementHandler{
-			&getVoltageHandler{},
+		handlers:   []MeasurementHandler{
+			//&getVoltageHandler{},
 		},
 	}
 }

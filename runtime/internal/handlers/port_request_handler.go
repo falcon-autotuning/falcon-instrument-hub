@@ -115,10 +115,20 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 		return
 	}
 
+	encodedSettings, err := serializePortsToCerealJSON(h.ports.Settings)
+	if err != nil {
+		h.logger.Error(
+			PortRequestHandlerName,
+			fmt.Sprintf("Failed to serialize settings: %v", err),
+		)
+		return
+	}
+
 	// Create response
 	response := api.PortPayload{
 		Knobs:     encodedKnobs,
 		Meters:    encodedMeters,
+		Settings:  encodedSettings,
 		Timestamp: request.Timestamp,
 	}
 
@@ -174,9 +184,9 @@ func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, e
 
 		var h *instrumentport.Handle
 		if cp.IsKnob() {
-			h, err = instrumentport.NewKnob(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
+			h, err = instrumentport.NewKnob(string(cp.PortName), cp.InstrumentName, conn, cp.InstrumentType, unit, cp.Description)
 		} else {
-			h, err = instrumentport.NewMeter(string(cp.PortName), conn, cp.InstrumentType, unit, cp.Description)
+			h, err = instrumentport.NewMeter(string(cp.PortName), cp.InstrumentName, conn, cp.InstrumentType, unit, cp.Description)
 		}
 		if err != nil {
 			return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)
