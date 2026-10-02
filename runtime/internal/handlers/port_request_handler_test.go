@@ -187,10 +187,12 @@ func TestSerializePortsToCerealJSON_Empty(t *testing.T) {
 func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
 	_, err := serializePortsToCerealJSON([]ports.ConnectedPort{
 		{
-			PortName:    "Source1.voltage",
-			Role:        porttype.PortTypeMeter,
-			Unit:        "not-a-unit",
-			Description: "bad unit",
+			PortEntry: ports.PortEntry{
+				Role:        porttype.PortTypeMeter,
+				Unit:        "not-a-unit",
+				Description: "bad unit",
+			},
+			PortName: "Source1.voltage",
 		},
 	})
 
@@ -205,12 +207,14 @@ func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
 
 	out, err := serializePortsToCerealJSON([]ports.ConnectedPort{
 		{
-			PortName:       "Mock.Source1.analog.voltage",
-			Role:           porttype.PortTypeMeter,
-			Unit:           "V",
-			Description:    "Voltage source",
-			InstrumentType: instrument.DcVoltageSource,
-			Handle:         conn,
+			PortEntry: ports.PortEntry{
+				Role:           porttype.PortTypeMeter,
+				Unit:           "V",
+				Description:    "Voltage source",
+				InstrumentType: instrument.DcVoltageSource,
+			},
+			PortName: "Mock.Source1.analog.voltage",
+			Handle:   conn,
 		},
 	})
 

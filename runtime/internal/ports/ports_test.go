@@ -50,38 +50,6 @@ func TestPortEntryRoleHelpers(t *testing.T) {
 	})
 }
 
-func TestConnectedPortRoleHelpers(t *testing.T) {
-	t.Run("knob", func(t *testing.T) {
-		p := ConnectedPort{
-			Role: porttype.PortTypeKnob,
-		}
-
-		assert.True(t, p.IsKnob())
-		assert.False(t, p.IsMeter())
-		assert.False(t, p.IsSetting())
-	})
-
-	t.Run("meter", func(t *testing.T) {
-		p := ConnectedPort{
-			Role: porttype.PortTypeMeter,
-		}
-
-		assert.False(t, p.IsKnob())
-		assert.True(t, p.IsMeter())
-		assert.False(t, p.IsSetting())
-	})
-
-	t.Run("setting", func(t *testing.T) {
-		p := ConnectedPort{
-			Role: porttype.PortTypeSetting,
-		}
-
-		assert.False(t, p.IsKnob())
-		assert.False(t, p.IsMeter())
-		assert.True(t, p.IsSetting())
-	})
-}
-
 func TestConnectWireMap(t *testing.T) {
 	lib := PortLibrary{
 		"source.voltage": {
@@ -129,8 +97,8 @@ func TestConnectWireMap(t *testing.T) {
 	for _, cp := range connected {
 		assert.Equal(t, "P1", cp.DeviceName)
 		assert.Equal(t, "Source1", cp.InstrumentName)
-		assert.Equal(t, "analog", cp.ChannelName)
-		assert.Equal(t, 4, cp.ChannelIndex)
+		assert.Equal(t, "analog", cp.ChannelGroup)
+		assert.Equal(t, 4, cp.Channel)
 	}
 }
 
@@ -165,13 +133,19 @@ func TestConnectWireMapNoMatches(t *testing.T) {
 func TestNewConnectedPorts(t *testing.T) {
 	ports := []ConnectedPort{
 		{
-			Role: porttype.PortTypeKnob,
+			PortEntry: PortEntry{
+				Role: porttype.PortTypeKnob,
+			},
 		},
 		{
-			Role: porttype.PortTypeMeter,
+			PortEntry: PortEntry{
+				Role: porttype.PortTypeMeter,
+			},
 		},
 		{
-			Role: porttype.PortTypeSetting,
+			PortEntry: PortEntry{
+				Role: porttype.PortTypeSetting,
+			},
 		},
 	}
 
@@ -338,13 +312,15 @@ func TestResolveConnectedPort_Success(t *testing.T) {
 	ports := ConnectedPorts{
 		AllConnections: []ConnectedPort{
 			{
-				PortName:       "matching",
-				DeviceName:     "Device1",
-				InstrumentName: "Source1",
-				InstrumentType: instrument.DcVoltageSource,
-				Role:           porttype.PortTypeKnob,
-				Access:         access.Readwrite,
-				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				PortEntry: PortEntry{
+					InstrumentName: "Source1",
+					InstrumentType: instrument.DcVoltageSource,
+					Role:           porttype.PortTypeKnob,
+					Access:         access.Readwrite,
+					Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				},
+
+				DeviceName: "Device1",
 			},
 		},
 	}
@@ -408,12 +384,15 @@ func TestResolveConnectedPort_Ambiguous(t *testing.T) {
 	defer port.Close()
 
 	cp := ConnectedPort{
-		DeviceName:     "Device1",
-		InstrumentName: "Source1",
-		InstrumentType: instrument.DcVoltageSource,
-		Role:           porttype.PortTypeKnob,
-		Access:         access.Readwrite,
-		Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+		PortEntry: PortEntry{
+			InstrumentName: "Source1",
+			InstrumentType: instrument.DcVoltageSource,
+			Role:           porttype.PortTypeKnob,
+			Access:         access.Readwrite,
+			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+		},
+
+		DeviceName: "Device1",
 	}
 
 	ports := ConnectedPorts{
@@ -454,21 +433,25 @@ func TestResolveConnectedPort_IgnoresNonMatchingConnections(t *testing.T) {
 	ports := ConnectedPorts{
 		AllConnections: []ConnectedPort{
 			{
-				DeviceName:     "WrongDevice",
-				InstrumentName: "Source1",
-				InstrumentType: instrument.DcVoltageSource,
-				Role:           porttype.PortTypeKnob,
-				Access:         access.Readwrite,
-				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				PortEntry: PortEntry{
+					InstrumentName: "Source1",
+					InstrumentType: instrument.DcVoltageSource,
+					Role:           porttype.PortTypeKnob,
+					Access:         access.Readwrite,
+					Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				},
+				DeviceName: "WrongDevice",
 			},
 			{
-				PortName:       "correct",
-				DeviceName:     "Device1",
-				InstrumentName: "Source1",
-				InstrumentType: instrument.DcVoltageSource,
-				Role:           porttype.PortTypeKnob,
-				Access:         access.Readwrite,
-				Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				PortEntry: PortEntry{
+					InstrumentName: "Source1",
+					InstrumentType: instrument.DcVoltageSource,
+					Role:           porttype.PortTypeKnob,
+					Access:         access.Readwrite,
+					Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+				},
+				PortName:   "correct",
+				DeviceName: "Device1",
 			},
 		},
 	}

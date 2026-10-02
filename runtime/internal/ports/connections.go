@@ -42,29 +42,13 @@ type PortName string
 
 // This is a PortEntry merged with the contents of the WireMap for falcon indexing
 type ConnectedPort struct {
+	PortEntry
 	// PortName is the fully qualified port name, e.g. "Mock.Source1.analog.voltage".
-	PortName       PortName
-	DeviceName     string
-	InstrumentName string
-	ChannelName    string
-	ChannelIndex   int
-	InstrumentType instrument.Instrument
-	Role           porttype.PortType
-	Access         access.Access
-	Characteristic instrumentcharacteristic.InstrumentCharacteristic
-	Unit           string
-	Description    string
-	Handle         *connection.Handle
+	PortName PortName
+	// DeviceName is the logical device name, e.g. "P1".
+	DeviceName string
+	Handle     *connection.Handle
 }
-
-// IsKnob reports whether this connected port is an output (knob).
-func (c ConnectedPort) IsKnob() bool { return c.Role == porttype.PortTypeKnob }
-
-// IsMeter reports whether this connected port is an input (meter).
-func (c ConnectedPort) IsMeter() bool { return c.Role == porttype.PortTypeMeter }
-
-// IsMeter reports whether this connected port is an input (meter).
-func (c ConnectedPort) IsSetting() bool { return c.Role == porttype.PortTypeSetting }
 
 // ConnectWireMap resolves wiremap entries against the port library, returning
 // a ConnectedPort for each (wiremap entry, io type) pair that matches.
@@ -88,16 +72,10 @@ func ConnectWireMap(wiremap *config.WireMap, lib PortLibrary) ([]ConnectedPort, 
 		for portName, entry := range lib {
 			if entry.InstrumentName == instrumentName && entry.ChannelGroup == channelName && channel == entry.Channel {
 				connected = append(connected, ConnectedPort{
-					PortName:       portName,
-					DeviceName:     wEntry.PhysicalDeviceName,
-					InstrumentName: instrumentName,
-					ChannelName:    channelName,
-					ChannelIndex:   channel,
-					InstrumentType: entry.InstrumentType,
-					Role:           entry.Role,
-					Unit:           entry.Unit,
-					Description:    entry.Description,
-					Handle:         handle,
+					PortEntry:  entry,
+					PortName:   portName,
+					DeviceName: wEntry.PhysicalDeviceName,
+					Handle:     handle,
 				})
 			}
 		}
