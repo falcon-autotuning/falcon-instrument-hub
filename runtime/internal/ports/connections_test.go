@@ -130,7 +130,7 @@ func TestConnectWireMapNoMatches(t *testing.T) {
 	require.Empty(t, connected)
 }
 
-func TestNewConnectedPorts(t *testing.T) {
+func TestNewConnectedPortsFromConnections(t *testing.T) {
 	ports := []ConnectedPort{
 		{
 			PortEntry: PortEntry{
@@ -149,12 +149,84 @@ func TestNewConnectedPorts(t *testing.T) {
 		},
 	}
 
-	out := newConnectedPorts(ports)
+	out := NewConnectedPortsFromConnections(ports)
 
 	require.Len(t, out.AllConnections, 3)
 	require.Len(t, out.Knobs, 1)
 	require.Len(t, out.Meters, 1)
 	require.Len(t, out.Settings, 1)
+}
+
+func TestBuildPortLibrary(t *testing.T) {
+	apis := []InstrumentAPI{
+		{
+			Instrument: APIInstrument{
+				Identifier:     "Source1",
+				InstrumentType: "dc_voltage_source",
+			},
+			ChannelGroups: []ChannelGroup{
+				{
+					Name: "analog",
+					ChannelParameter: ChannelParameter{
+						Min: 1,
+						Max: 2,
+					},
+					IoTypes: []IoType{
+						{
+							Name:        "voltage",
+							Role:        "output",
+							Unit:        "V",
+							Description: "Voltage output",
+						},
+						{
+							Name:        "measured_voltage",
+							Role:        "input",
+							Unit:        "V",
+							Description: "Voltage measurement",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	library, err := BuildPortLibrary(apis)
+
+	require.NoError(t, err)
+	require.Len(t, library, 4)
+
+	knob, ok := library["Source1.analog.1.voltage"]
+	require.True(t, ok)
+	assert.Equal(t, instrument.DcVoltageSource, knob.InstrumentType)
+	assert.Equal(t, porttype.PortTypeKnob, knob.Role)
+	assert.Equal(t, access.Write, knob.Access)
+	assert.Equal(t, "V", knob.Unit)
+
+	meter, ok := library["Source1.analog.2.measured_voltage"]
+	require.True(t, ok)
+	assert.Equal(t, porttype.PortTypeMeter, meter.Role)
+	assert.Equal(t, access.Read, meter.Access)
+}
+
+func TestBuildPortLibraryRejectsUnsupportedRole(t *testing.T) {
+	_, err := BuildPortLibrary([]InstrumentAPI{
+		{
+			Instrument: APIInstrument{
+				Identifier:     "Source1",
+				InstrumentType: "dc_voltage_source",
+			},
+			ChannelGroups: []ChannelGroup{
+				{
+					Name:             "analog",
+					ChannelParameter: ChannelParameter{Min: 1, Max: 1},
+					IoTypes:          []IoType{{Name: "trigger", Role: "trigger-in"}},
+				},
+			},
+		},
+	})
+
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "unsupported IO role")
 }
 
 func TestParseInstrumentAPI(t *testing.T) {

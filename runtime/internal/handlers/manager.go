@@ -35,11 +35,24 @@ func (DefaultConnectedPortsBuilder) NewConnectedPorts(
 	instrumentAPIPaths []string,
 	wiremap *config.WireMap,
 ) (*ports.ConnectedPorts, error) {
-	return nil, nil // FIX: implement this properly
-	// 	return ports.NewConnectedPorts(
-	// 		instrumentAPIPaths,
-	// 		wiremap,
-	// 	)
+
+	// TODO: update generated APIs to include instrument_type for integration testing
+	apis, err := ports.ParseInstrumentAPIs(instrumentAPIPaths)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse instrument APIs: %w", err)
+	}
+
+	library, err := ports.BuildPortLibrary(apis)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build port library: %w", err)
+	}
+
+	connected, err := ports.ConnectWireMap(wiremap, library)
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect wiremap: %w", err)
+	}
+
+	return ports.NewConnectedPortsFromConnections(connected), nil
 }
 
 // Manager manages all message handlers

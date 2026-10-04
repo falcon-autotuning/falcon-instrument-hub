@@ -40,6 +40,130 @@ type PortLibrary map[PortName]PortEntry
 
 type PortName string
 
+// BuildPortLibrary expands each channel-group IO definition in the parsed
+// instrument APIs into one PortEntry per channel.
+//
+// This is intentionally limited to the current hub API model. It does not
+// create entries for top-level or global IO because those are not represented
+// by InstrumentAPI yet.
+func BuildPortLibrary(apis []InstrumentAPI) (PortLibrary, error) {
+	library := make(PortLibrary)
+
+	for _, api := range apis {
+		instrumentType, err := instrumentTypeFromAPI(api.Instrument.InstrumentType)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"instrument %q: %w",
+				api.Instrument.Identifier,
+				err,
+			)
+		}
+
+		for _, group := range api.ChannelGroups {
+			if group.Name == "" {
+				return nil, fmt.Errorf(
+					"instrument %q has a channel group with no name",
+					api.Instrument.Identifier,
+				)
+			}
+			if group.ChannelParameter.Min > group.ChannelParameter.Max {
+				return nil, fmt.Errorf(
+					"instrument %q channel group %q has min channel %d greater than max channel %d",
+					api.Instrument.Identifier,
+					group.Name,
+					group.ChannelParameter.Min,
+					group.ChannelParameter.Max,
+				)
+			}
+
+			for channel := group.ChannelParameter.Min; channel <= group.ChannelParameter.Max; channel++ {
+				for _, io := range group.IoTypes {
+					role, portAccess, err := portAttributesFromRole(io.Role)
+					if err != nil {
+						return nil, fmt.Errorf(
+							"instrument %q channel group %q IO %q: %w",
+							api.Instrument.Identifier,
+							group.Name,
+							io.Name,
+							err,
+						)
+					}
+					if io.Name == "" {
+						return nil, fmt.Errorf(
+							"instrument %q channel group %q has an IO type with no name",
+							api.Instrument.Identifier,
+							group.Name,
+						)
+					}
+
+					name := PortName(fmt.Sprintf(
+						"%s.%s.%d.%s",
+						api.Instrument.Identifier,
+						group.Name,
+						channel,
+						io.Name,
+					))
+					if _, exists := library[name]; exists {
+						return nil, fmt.Errorf("duplicate port definition %q", name)
+					}
+
+					library[name] = PortEntry{
+						InstrumentName: api.Instrument.Identifier,
+						ChannelGroup:   group.Name,
+						Channel:        channel,
+						InstrumentType: instrumentType,
+						Role:           role,
+						Access:         portAccess,
+						Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
+						Unit:           io.Unit,
+						Description:    io.Description,
+					}
+				}
+			}
+		}
+	}
+
+	return library, nil
+}
+
+func instrumentTypeFromAPI(name string) (instrument.Instrument, error) {
+	types := map[string]instrument.Instrument{
+		"dc_voltage_source": instrument.DcVoltageSource,
+		"amnmeter":          instrument.Amnmeter,
+		"magnet":            instrument.Magnet,
+		"lockin":            instrument.Lockin,
+		"voltage_source":    instrument.VoltageSource,
+		"current_source":    instrument.CurrentSource,
+		"hf_voltage_source": instrument.HfVoltageSource,
+		"dc_current_source": instrument.DcCurrentSource,
+		"hf_current_source": instrument.HfCurrentSource,
+		"thermometer":       instrument.Thermometer,
+		"voltmeter":         instrument.Voltmeter,
+		"fpga":              instrument.Fpga,
+		"clock":             instrument.Clock,
+		"discrete":          instrument.Discrete,
+	}
+
+	value, ok := types[name]
+	if !ok {
+		return 0, fmt.Errorf("unsupported instrument type %q", name)
+	}
+	return value, nil
+}
+
+func portAttributesFromRole(role string) (porttype.PortType, access.Access, error) {
+	switch role {
+	case "output":
+		return porttype.PortTypeKnob, access.Write, nil
+	case "input":
+		return porttype.PortTypeMeter, access.Read, nil
+	case "setting":
+		return porttype.PortTypeSetting, access.Readwrite, nil
+	default:
+		return 0, 0, fmt.Errorf("unsupported IO role %q", role)
+	}
+}
+
 // This is a PortEntry merged with the contents of the WireMap for falcon indexing
 type ConnectedPort struct {
 	PortEntry
@@ -94,7 +218,9 @@ type ConnectedPorts struct {
 	Settings       []ConnectedPort
 }
 
-func newConnectedPorts(ports []ConnectedPort) *ConnectedPorts {
+// NewConnectedPortsFromConnections partitions connected ports by Falcon port
+// type while retaining the complete catalog for resolution.
+func NewConnectedPortsFromConnections(ports []ConnectedPort) *ConnectedPorts {
 	out := &ConnectedPorts{
 		AllConnections: ports,
 	}
