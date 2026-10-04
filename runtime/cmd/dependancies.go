@@ -7,7 +7,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
 )
 
@@ -81,14 +80,15 @@ type RuntimeDependencies struct {
 	) (string, error)
 }
 
-type mockConnectedPortsBuilder struct{}
+// DEPRECATED: Still can exist for testing, but should be removed in favor of the default builder.
+// type mockConnectedPortsBuilder struct{}
 
-func (b *mockConnectedPortsBuilder) NewConnectedPorts(
-	instrumentAPIPaths []string,
-	wiremap *config.WireMap,
-) (*ports.ConnectedPorts, error) {
-	return nil, nil
-}
+// func (b *mockConnectedPortsBuilder) NewConnectedPorts(
+// 	instrumentAPIPaths []string,
+// 	wiremap *config.WireMap,
+// ) (*ports.ConnectedPorts, error) {
+// 	return nil, nil
+// }
 
 var ProductionDependancies = RuntimeDependencies{
 	newISSClient: func(
@@ -121,7 +121,9 @@ var ProductionDependancies = RuntimeDependencies{
 			logger,
 			nc,
 			dispatcher,
-			&mockConnectedPortsBuilder{},
+			// DEPRECATED: Still can exist for testing, but should be removed in favor of the default builder.
+			// &mockConnectedPortsBuilder{},
+			handlers.DefaultConnectedPortsBuilder{},
 		)
 	},
 	newNATSManager: func(
