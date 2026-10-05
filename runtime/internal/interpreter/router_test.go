@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -44,8 +43,8 @@ func (m *mockHandler) CanHandle(
 func (m *mockHandler) Handle(
 	req *FalconMeasurementRequest,
 	dispatcher *MeasurementDispatcher,
-	wiremap *config.WireMap,
-	ports *ports.ConnectedPorts,
+	wiremap config.WireMap,
+	ports *config.ConnectedPorts,
 ) (*FalconMeasurementResponse, error) {
 	m.handleCalls++
 	m.lastRequest = req
@@ -78,8 +77,8 @@ func TestRouter_Handle_FirstMatchingHandlerWins(t *testing.T) {
 
 	router := &Router{
 		dispatcher: dispatcher,
-		wiremap:    &config.WireMap{},
-		ports:      &ports.ConnectedPorts{},
+		wiremap:    []config.WiremapEntry{},
+		ports:      &config.ConnectedPorts{},
 		handlers: []MeasurementHandler{
 			first,
 			second,

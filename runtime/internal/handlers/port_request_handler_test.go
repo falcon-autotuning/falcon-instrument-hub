@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 func runNATSServer(t *testing.T) *server.Server {
@@ -46,7 +46,7 @@ func TestNewPortRequestHandler(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	cp := &ports.ConnectedPorts{}
+	cp := &config.ConnectedPorts{}
 
 	handler := NewPortRequestHandler(logger, cp)
 
@@ -70,7 +70,7 @@ func TestPortRequestHandler_SubscribeUnsubscribe(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
+	handler := NewPortRequestHandler(logger, &config.ConnectedPorts{})
 
 	require.NoError(t, handler.Subscribe(nc))
 
@@ -89,7 +89,7 @@ func TestPortRequestHandler_UnsubscribeWithoutSubscription(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
+	handler := NewPortRequestHandler(logger, &config.ConnectedPorts{})
 
 	require.NoError(t, handler.Unsubscribe())
 }
@@ -107,7 +107,7 @@ func TestPortRequestHandler_InvalidJSON(t *testing.T) {
 	require.NoError(t, err)
 	defer logger.Close()
 
-	handler := NewPortRequestHandler(logger, &ports.ConnectedPorts{})
+	handler := NewPortRequestHandler(logger, &config.ConnectedPorts{})
 
 	require.NoError(t, handler.Subscribe(nc))
 	defer handler.Unsubscribe()
@@ -134,7 +134,7 @@ func TestPortRequestHandler_EmptyPortsE2E(t *testing.T) {
 
 	handler := NewPortRequestHandler(
 		logger,
-		&ports.ConnectedPorts{},
+		&config.ConnectedPorts{},
 	)
 
 	require.NoError(t, handler.Subscribe(nc))
@@ -185,9 +185,9 @@ func TestSerializePortsToCerealJSON_Empty(t *testing.T) {
 }
 
 func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
-	_, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+	_, err := serializePortsToCerealJSON([]config.ConnectedPort{
 		{
-			PortEntry: ports.PortEntry{
+			PortEntry: config.PortEntry{
 				Role:        porttype.PortTypeMeter,
 				Unit:        "not-a-unit",
 				Description: "bad unit",
@@ -205,9 +205,9 @@ func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	defer conn.Close()
 
-	out, err := serializePortsToCerealJSON([]ports.ConnectedPort{
+	out, err := serializePortsToCerealJSON([]config.ConnectedPort{
 		{
-			PortEntry: ports.PortEntry{
+			PortEntry: config.PortEntry{
 				Role:           porttype.PortTypeMeter,
 				Unit:           "V",
 				Description:    "Voltage source",

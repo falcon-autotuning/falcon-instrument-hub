@@ -14,7 +14,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 const (
@@ -133,8 +132,8 @@ type Handler struct {
 	js             nats.JetStreamContext
 	subscription   *nats.Subscription
 	busyManager    BusyManager
-	wiremap        *config.WireMap
-	ports          *ports.ConnectedPorts
+	wiremap        config.WireMap
+	ports          *config.ConnectedPorts
 	router         MeasurementRouter
 	requestFactory FalconRequestFactory
 }
@@ -144,8 +143,8 @@ func newMeasureCommandHandler(
 	busyManager BusyManager,
 	router MeasurementRouter,
 	requestFactory FalconRequestFactory,
-	wireMap *config.WireMap,
-	ports *ports.ConnectedPorts,
+	wireMap config.WireMap,
+	ports *config.ConnectedPorts,
 ) *Handler {
 	return &Handler{
 		logger:         logger,
@@ -163,8 +162,8 @@ func NewMeasureCommandHandler(
 	busyManager BusyManager,
 	scriptsPath string,
 	issClient MeasurementClient,
-	wireMap *config.WireMap,
-	ports *ports.ConnectedPorts,
+	wireMap config.WireMap,
+	ports *config.ConnectedPorts,
 ) *Handler {
 	bufferManager := databuffer.NewDataBufferManager(
 		issClient,

@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/nats-io/nats.go"
@@ -17,309 +18,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDefaultConfig(t *testing.T) {
-	cfg := DefaultConfig()
-
-	assert.Equal(
-		t,
-		8555,
-		cfg.InstrumentServer.RPCPort,
-	)
-
-	assert.True(
-		t,
-		cfg.InstrumentServer.AutoStart,
-	)
-}
-
-func TestLoadConfig_FullConfig(t *testing.T) {
-	tmp := t.TempDir()
-
-	const (
-		wiremapPath         = "wiremap.yaml"
-		quantumDotConfig    = "quantum_dot.yaml"
-		natsURL             = "nats://localhost:4222"
-		localDatabase       = "/tmp/database"
-		workingDirectory    = "/tmp/workdir"
-		userMeasurementLuas = "/tmp/scripts"
-
-		rpcPort = 9000
-
-		instrument1Config = "instrument1.yaml"
-		instrument1Plugin = "plugin1.so"
-
-		instrument2Config = "instrument2.yaml"
-		instrument2Plugin = "plugin2.so"
-	)
-	autostart := true
-
-	cfgFile := filepath.Join(tmp, "hub.yaml")
-
-	err := os.WriteFile(
-		cfgFile,
-		[]byte(fmt.Sprintf(
-			`
-wiremap: %s
-quantum-dot-config: %s
-nats-url: %s
-local-database: %s
-working-directory: %s
-user-measurement-luas: %s
-
-instrument-server:
-  rpc-port: %d
-  autostart: %t 
-
-  instruments:
-    - config: %s
-      plugin: %s
-
-    - config: %s
-      plugin: %s
-`,
-			wiremapPath,
-			quantumDotConfig,
-			natsURL,
-			localDatabase,
-			workingDirectory,
-			userMeasurementLuas,
-			rpcPort,
-			autostart,
-			instrument1Config,
-			instrument1Plugin,
-			instrument2Config,
-			instrument2Plugin,
-		)),
-		0644,
-	)
-	require.NoError(t, err)
-
-	cfg, err := LoadConfig(cfgFile)
-	require.NoError(t, err)
-
-	assert.Equal(t, wiremapPath, cfg.Wiremap)
-	assert.Equal(t, quantumDotConfig, cfg.QuantumDotConfig)
-	assert.Equal(t, natsURL, cfg.NATSURL)
-	assert.Equal(t, localDatabase, cfg.LocalDatabase)
-	assert.Equal(t, workingDirectory, cfg.WorkingDirectory)
-	assert.Equal(t, userMeasurementLuas, cfg.UserMeasurementLuasDir)
-
-	assert.Equal(t, rpcPort, cfg.InstrumentServer.RPCPort)
-	assert.Equal(t, autostart, cfg.InstrumentServer.AutoStart)
-
-	require.Len(t, cfg.InstrumentServer.Instruments, 2)
-
-	assert.Equal(
-		t,
-		instrument1Config,
-		cfg.InstrumentServer.Instruments[0].ConfigPath,
-	)
-	assert.Equal(
-		t,
-		instrument1Plugin,
-		cfg.InstrumentServer.Instruments[0].PluginPath,
-	)
-
-	assert.Equal(
-		t,
-		instrument2Config,
-		cfg.InstrumentServer.Instruments[1].ConfigPath,
-	)
-	assert.Equal(
-		t,
-		instrument2Plugin,
-		cfg.InstrumentServer.Instruments[1].PluginPath,
-	)
-}
-
-func TestLoadConfig_InvalidYAML(t *testing.T) {
-	tmp := t.TempDir()
-
-	cfgFile := filepath.Join(tmp, "hub.yaml")
-
-	err := os.WriteFile(
-		cfgFile,
-		[]byte(`
-instrument-server:
-  instruments:
-    - config: foo
-      plugin: bad
-    - :
-`),
-		0644,
-	)
-	require.NoError(t, err)
-
-	_, err = LoadConfig(cfgFile)
-
-	require.Error(t, err)
-}
-
-func TestLoadConfig_FileDoesNotExist(t *testing.T) {
-	_, err := LoadConfig("does_not_exist.yaml")
-
-	require.Error(t, err)
-}
-
-func TestValidate_NoInstruments(t *testing.T) {
-	cfg := DefaultConfig()
-
-	tmpDir := t.TempDir()
-
-	cfg.WorkingDirectory = tmpDir
-
-	err := Validate(&cfg)
-
-	require.Error(t, err)
-
-	assert.Contains(
-		t,
-		err.Error(),
-		"at least one instrument is required",
-	)
-}
-
-func TestValidate_MissingPlugin(t *testing.T) {
-	cfg := DefaultConfig()
-
-	cfg.WorkingDirectory = t.TempDir()
-
-	cfg.InstrumentServer.Instruments = []InstrumentConfig{
-		{
-			ConfigPath: "config.yaml",
-		},
-	}
-
-	err := Validate(&cfg)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "plugin is required")
-}
-
-func TestValidate_MissingWorkingDirectory(t *testing.T) {
-	cfg := DefaultConfig()
-
-	cfg.WorkingDirectory = filepath.Join(
-		t.TempDir(),
-		"does-not-exist",
-	)
-
-	cfg.InstrumentServer.Instruments = []InstrumentConfig{
-		{
-			ConfigPath: "instrument.yaml", PluginPath: "plugin.so",
-		},
-	}
-
-	err := Validate(&cfg)
-
-	require.Error(t, err)
-
-	assert.Contains(
-		t,
-		err.Error(),
-		"working directory does not exist",
-	)
-}
-
-func TestUpdateConfig_OverridesFields(t *testing.T) {
-	cfg := DefaultConfig()
-
-	err := CLIOptions{
-		NATSURL:          "nats://localhost:4222",
-		DeviceConfig:     "device.yaml",
-		Wiremap:          "wiremap.yaml",
-		WorkingDirectory: "/tmp/test",
-	}.Update(&cfg)
-
-	require.NoError(t, err)
-
-	assert.Equal(t, "nats://localhost:4222", cfg.NATSURL)
-	assert.Equal(t, "device.yaml", cfg.QuantumDotConfig)
-	assert.Equal(t, "wiremap.yaml", cfg.Wiremap)
-	assert.Equal(t, "/tmp/test", cfg.WorkingDirectory)
-}
-
-func TestUpdateConfig_ParsesInstrumentList(t *testing.T) {
-	cfg := DefaultConfig()
-
-	err := CLIOptions{
-		Instruments: []string{
-			"config1.yaml:plugin1.so",
-			"config2.yaml:plugin2.so",
-		},
-	}.Update(&cfg)
-
-	require.NoError(t, err)
-
-	require.Len(
-		t,
-		cfg.InstrumentServer.Instruments,
-		2,
-	)
-
-	assert.Equal(
-		t,
-		"config1.yaml",
-		cfg.InstrumentServer.Instruments[0].ConfigPath,
-	)
-
-	assert.Equal(
-		t,
-		"plugin1.so",
-		cfg.InstrumentServer.Instruments[0].PluginPath,
-	)
-}
-
-func TestUpdateConfig_InvalidInstrument(t *testing.T) {
-	cfg := DefaultConfig()
-
-	err := CLIOptions{
-		Instruments: []string{
-			"invalid",
-		},
-	}.Update(&cfg)
-
-	require.Error(t, err)
-	assert.Contains(
-		t,
-		err.Error(),
-		"expected config.yaml:plugin",
-	)
-}
-
-func TestRootCommandFlags(t *testing.T) {
-	cmd, _ := buildRootCmd(RuntimeDependencies{})
-	require.NotNil(t, cmd.RunE)
-
-	flags := cmd.Flags()
-
-	tests := []string{
-		"config",
-		"nats-url",
-		"device-config",
-		"wiremap",
-		"working-dir",
-		"local-database",
-		"user-measurement-luas",
-		"measurement-metadata",
-		"no-iss",
-		"instrument",
-	}
-
-	for _, name := range tests {
-		assert.NotNil(
-			t,
-			flags.Lookup(name),
-			"missing flag %s",
-			name,
-		)
-	}
-}
-
 func TestCheckEnvironment_SetsDefaultRPCPort(t *testing.T) {
 	t.Setenv("INSTRUMENT_SCRIPT_SERVER_RPC_PORT", "")
 
-	cfg := DefaultConfig()
+	cfg := config.DefaultConfig()
 
 	// Pretend we found ISS
 	tmpDir := t.TempDir()
@@ -347,7 +49,7 @@ func TestCheckEnvironment_RespectsExistingRPCPort(t *testing.T) {
 		"9999",
 	)
 
-	cfg := DefaultConfig()
+	cfg := config.DefaultConfig()
 
 	tmpDir := t.TempDir()
 	binary := filepath.Join(tmpDir, "instrument-script-server")
@@ -370,7 +72,7 @@ func TestCheckEnvironment_InvalidRPCPort(t *testing.T) {
 		"not-a-number",
 	)
 
-	cfg := DefaultConfig()
+	cfg := config.DefaultConfig()
 
 	tmpDir := t.TempDir()
 	binary := filepath.Join(tmpDir, "instrument-script-server")
@@ -393,7 +95,7 @@ func TestCheckEnvironment_InvalidRPCPort(t *testing.T) {
 func TestCheckEnvironment_MissingISSBinary(t *testing.T) {
 	t.Setenv("PATH", "")
 
-	cfg := DefaultConfig()
+	cfg := config.DefaultConfig()
 
 	err := CheckEnvironment(&cfg)
 
@@ -409,7 +111,7 @@ func TestCheckEnvironment_MissingISSBinary(t *testing.T) {
 func TestInitializeRuntimeEnvironment_CreatesDirectories(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	cfg := DefaultConfig()
+	cfg := config.DefaultConfig()
 	cfg.WorkingDirectory = tmpDir
 
 	err := InitializeRuntimeEnvironment(&cfg)
@@ -530,9 +232,9 @@ func TestStartInstruments(t *testing.T) {
 	client := &FakeISSClient{}
 
 	runtime := Runtime{
-		cfg: &HubConfig{
-			InstrumentServer: InstrumentServerConfig{
-				Instruments: []InstrumentConfig{
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				Instruments: []config.InstrumentConfig{
 					{
 						ConfigPath: "a.yaml",
 						PluginPath: "a.so",
@@ -565,9 +267,9 @@ func TestFailStartInstruments(t *testing.T) {
 	client := &FakeISSClient{startInstrumentError: fmt.Errorf("Broken start")}
 
 	runtime := Runtime{
-		cfg: &HubConfig{
-			InstrumentServer: InstrumentServerConfig{
-				Instruments: []InstrumentConfig{
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				Instruments: []config.InstrumentConfig{
 					{
 						ConfigPath: "a.yaml",
 						PluginPath: "a.so",
@@ -724,8 +426,8 @@ func TestClose_ShutsDownISS(t *testing.T) {
 }
 
 func TestNewRuntime_NATSFailure(t *testing.T) {
-	cfg := &HubConfig{
-		InstrumentServer: InstrumentServerConfig{
+	cfg := &config.HubConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
 	}
@@ -743,11 +445,11 @@ func TestNewRuntime_NATSFailure(t *testing.T) {
 }
 
 func TestNewRuntime_MeasurementManagerFailure(t *testing.T) {
-	cfg := &HubConfig{
-		InstrumentServer: InstrumentServerConfig{
+	cfg := &config.HubConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
-		RuntimePaths: RuntimePaths{
+		RuntimePaths: config.RuntimePaths{
 			DataCache: t.TempDir(),
 		},
 	}
@@ -769,11 +471,11 @@ func TestNewRuntime_MeasurementManagerFailure(t *testing.T) {
 }
 
 func TestNewRuntime_LoggerFailure(t *testing.T) {
-	cfg := &HubConfig{
-		InstrumentServer: InstrumentServerConfig{
+	cfg := &config.HubConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
-		RuntimePaths: RuntimePaths{
+		RuntimePaths: config.RuntimePaths{
 			DataCache: t.TempDir(),
 			Logs:      t.TempDir(),
 		},
@@ -815,7 +517,7 @@ func TestWaitForISSDaemonReady_Success(t *testing.T) {
 		},
 	}
 
-	cfg := InstrumentServerConfig{
+	cfg := config.InstrumentServerConfig{
 		RPCPort: 8555,
 	}
 
@@ -843,7 +545,7 @@ func TestWaitForISSDaemonReady_Timeout(t *testing.T) {
 		},
 	}
 
-	cfg := InstrumentServerConfig{
+	cfg := config.InstrumentServerConfig{
 		RPCPort: 8555,
 	}
 
@@ -871,13 +573,14 @@ func TestWaitForISSDaemonStopped_PortOpen(t *testing.T) {
 
 	port := listener.Addr().(*net.TCPAddr).Port
 
-	cfg := InstrumentServerConfig{
+	cfg := config.InstrumentServerConfig{
 		RPCPort: port,
 	}
 
 	assert.False(
 		t,
-		cfg.waitForISSDaemonStopped(
+		waitForISSDaemonStopped(
+			cfg,
 			50*time.Millisecond,
 		),
 	)
@@ -894,13 +597,14 @@ func TestWaitForISSDaemonStopped_PortClosed(t *testing.T) {
 
 	require.NoError(t, listener.Close())
 
-	cfg := InstrumentServerConfig{
+	cfg := config.InstrumentServerConfig{
 		RPCPort: port,
 	}
 
 	assert.True(
 		t,
-		cfg.waitForISSDaemonStopped(
+		waitForISSDaemonStopped(
+			cfg,
 			time.Second,
 		),
 	)
@@ -961,7 +665,7 @@ func TestStopISSDaemonViaCLI(t *testing.T) {
 		execCommand = oldExec
 	}()
 
-	cfg := InstrumentServerConfig{
+	cfg := config.InstrumentServerConfig{
 		ISSBinary: "instrument-script-server",
 	}
 
@@ -975,8 +679,8 @@ func TestStartISSDaemon(t *testing.T) {
 		execCommand = oldExec
 	}()
 
-	cfg := &HubConfig{
-		InstrumentServer: InstrumentServerConfig{
+	cfg := &config.HubConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			ISSBinary: "instrument-script-server",
 			RPCPort:   65534,
 		},

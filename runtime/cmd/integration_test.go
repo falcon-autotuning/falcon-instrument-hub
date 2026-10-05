@@ -33,12 +33,12 @@ type DependencySpy struct {
 func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 	spy := &DependencySpy{}
 
-	cfg := &HubConfig{
+	cfg := &config.HubConfig{
 		LocalDatabase: "/tmp/measurements",
-		RuntimePaths: RuntimePaths{
+		RuntimePaths: config.RuntimePaths{
 			DataCache: "/tmp/cache",
 		},
-		InstrumentServer: InstrumentServerConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
 	}
@@ -76,10 +76,10 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 func TestRuntime_PassesCorrectNATSURL(t *testing.T) {
 	spy := &DependencySpy{}
 
-	cfg := &HubConfig{
+	cfg := &config.HubConfig{
 		NATSURL: "nats://localhost:4222",
 
-		InstrumentServer: InstrumentServerConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
 	}
@@ -106,12 +106,12 @@ func TestRuntime_PassesCorrectNATSURL(t *testing.T) {
 func TestRuntime_PassesCorrectLoggerPath(t *testing.T) {
 	spy := &DependencySpy{}
 
-	cfg := &HubConfig{
-		RuntimePaths: RuntimePaths{
+	cfg := &config.HubConfig{
+		RuntimePaths: config.RuntimePaths{
 			Logs: "/tmp/log",
 		},
 
-		InstrumentServer: InstrumentServerConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
 	}
@@ -138,110 +138,6 @@ func TestRuntime_PassesCorrectLoggerPath(t *testing.T) {
 		t,
 		"/tmp/log",
 		spy.loggerOutputPath,
-	)
-}
-
-func TestCLIToConfig(t *testing.T) {
-	cfg := DefaultConfig()
-
-	cmd, cli := buildRootCmd(
-		RuntimeDependencies{},
-	)
-
-	err := cmd.Flags().Parse([]string{
-		"--config", "hub.yaml",
-		"--nats-url", "nats://localhost:4222",
-		"--device-config", "device.yaml",
-		"--wiremap", "wiremap.yaml",
-		"--working-dir", "/tmp/workdir",
-		"--local-database", "/tmp/database",
-		"--user-measurement-luas", "/tmp/scripts",
-		"--measurement-metadata", "metadata.yaml",
-		"--no-iss",
-		"--instrument", "awg.yaml:awg.so",
-		"--instrument", "dac.yaml:dac.so",
-	})
-	require.NoError(t, err)
-
-	err = cli.Update(&cfg)
-	require.NoError(t, err)
-
-	assert.Equal(
-		t,
-		"hub.yaml",
-		cli.Config,
-	)
-
-	assert.Equal(
-		t,
-		"nats://localhost:4222",
-		cfg.NATSURL,
-	)
-
-	assert.Equal(
-		t,
-		"device.yaml",
-		cfg.QuantumDotConfig,
-	)
-
-	assert.Equal(
-		t,
-		"wiremap.yaml",
-		cfg.Wiremap,
-	)
-
-	assert.Equal(
-		t,
-		"/tmp/workdir",
-		cfg.WorkingDirectory,
-	)
-
-	assert.Equal(
-		t,
-		"/tmp/database",
-		cfg.LocalDatabase,
-	)
-
-	assert.Equal(
-		t,
-		"/tmp/scripts",
-		cfg.UserMeasurementLuasDir,
-	)
-
-	// --no-iss should disable autostart
-	assert.False(
-		t,
-		cfg.InstrumentServer.AutoStart,
-	)
-
-	require.Len(
-		t,
-		cfg.InstrumentServer.Instruments,
-		2,
-	)
-
-	assert.Equal(
-		t,
-		"awg.yaml",
-		cfg.InstrumentServer.Instruments[0].ConfigPath,
-	)
-
-	assert.Equal(
-		t,
-		"awg.so",
-		cfg.InstrumentServer.Instruments[0].PluginPath,
-	)
-
-	assert.Equal(
-		t,
-		"dac.yaml",
-		cfg.InstrumentServer.Instruments[1].ConfigPath,
-	)
-
-	assert.Equal(
-		t,
-		"dac.so",
-		cfg.InstrumentServer.Instruments[1].PluginPath,
 	)
 }
 
@@ -325,7 +221,7 @@ instrument-server:
 
 func TestRunServer(t *testing.T) {
 	r := Runtime{
-		cfg: &HubConfig{},
+		cfg: &config.HubConfig{},
 		natsManager: &FakeNATSManager{
 			conn: &nats.Conn{},
 		},
@@ -356,17 +252,17 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 
 	handler := &FakeHandlerManager{}
 
-	cfg := &HubConfig{
+	cfg := &config.HubConfig{
 		NATSURL: "nats://localhost:4222",
 
 		LocalDatabase: t.TempDir(),
 
-		RuntimePaths: RuntimePaths{
+		RuntimePaths: config.RuntimePaths{
 			Logs:      t.TempDir(),
 			DataCache: t.TempDir(),
 		},
 
-		InstrumentServer: InstrumentServerConfig{
+		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
 		},
 	}
@@ -389,26 +285,10 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 			)
 		},
 
-		newConfig: func(
-			string,
-		) (string, error) {
-			tracker = append(tracker, "config")
-			return "", nil
-		},
-
-		newWiremap: func(
-			string,
-			string,
-		) (*config.WireMap, error) {
-			tracker = append(tracker, "wiremap")
-
-			return &config.WireMap{}, nil
-		},
-
 		newHandlerManager: func(
 			deviceConfigJSON string,
-			wiremap *config.WireMap,
-			instrumentAPIPaths []string,
+			wiremap config.WireMap,
+			ports *config.ConnectedPorts,
 			measurementScriptsPath string,
 			logger *logging.Logger,
 			nc *nats.Conn,
@@ -433,8 +313,6 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 		[]string{
 			"nats",
 			"logger",
-			"config",
-			"wiremap",
 			"handlers",
 		},
 		tracker,

@@ -45,6 +45,40 @@ type NATSManager interface {
 
 var _ NATSManager = (*networking.NATSManager)(nil)
 
+type ConfigProvider interface {
+	LoadConfig(path string) (*config.HubConfig, error)
+	Validate(*config.HubConfig) error
+	LoadDeviceConfig(path string) (string, error)
+	NewConnectedPorts([]config.InstrumentConfig, config.WireMap) (*config.ConnectedPorts, error)
+}
+
+type DefaultConfigProvider struct{}
+
+func (DefaultConfigProvider) LoadConfig(
+	path string,
+) (*config.HubConfig, error) {
+	return config.LoadConfig(path)
+}
+
+func (DefaultConfigProvider) Validate(
+	cfg *config.HubConfig,
+) error {
+	return config.Validate(cfg)
+}
+
+func (DefaultConfigProvider) LoadDeviceConfig(
+	path string,
+) (string, error) {
+	return config.LoadDeviceConfig(path)
+}
+
+func (DefaultConfigProvider) NewConnectedPorts(
+	instruments []config.InstrumentConfig,
+	wiremap config.WireMap,
+) (*config.ConnectedPorts, error) {
+	return config.NewConnectedPorts(instruments, wiremap)
+}
+
 type RuntimeDependencies struct {
 	newISSClient func(
 		host string,
@@ -54,8 +88,8 @@ type RuntimeDependencies struct {
 
 	newHandlerManager func(
 		deviceConfigJSON string,
-		wiremap *config.WireMap,
-		instrumentAPIPaths []string,
+		wiremap config.WireMap,
+		ports *config.ConnectedPorts,
 		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
@@ -70,25 +104,8 @@ type RuntimeDependencies struct {
 		outputPath string,
 	) (*logging.Logger, error)
 
-	newWiremap func(
-		wiremapPath string,
-		deviceConfigPath string,
-	) (*config.WireMap, error)
-
-	newConfig func(
-		deviceConfigPath string,
-	) (string, error)
+	configProvider ConfigProvider
 }
-
-// DEPRECATED: Still can exist for testing, but should be removed in favor of the default builder.
-// type mockConnectedPortsBuilder struct{}
-
-// func (b *mockConnectedPortsBuilder) NewConnectedPorts(
-// 	instrumentAPIPaths []string,
-// 	wiremap *config.WireMap,
-// ) (*ports.ConnectedPorts, error) {
-// 	return nil, nil
-// }
 
 var ProductionDependancies = RuntimeDependencies{
 	newISSClient: func(
@@ -106,8 +123,8 @@ var ProductionDependancies = RuntimeDependencies{
 	},
 	newHandlerManager: func(
 		deviceConfigJSON string,
-		wiremap *config.WireMap,
-		instrumentAPIPaths []string,
+		wiremap config.WireMap,
+		ports *config.ConnectedPorts,
 		measurementScriptsPath string,
 		logger *logging.Logger,
 		nc *nats.Conn,
@@ -116,14 +133,11 @@ var ProductionDependancies = RuntimeDependencies{
 		return handlers.NewManager(
 			deviceConfigJSON,
 			wiremap,
-			instrumentAPIPaths,
+			ports,
 			measurementScriptsPath,
 			logger,
 			nc,
 			dispatcher,
-			// DEPRECATED: Still can exist for testing, but should be removed in favor of the default builder.
-			// &mockConnectedPortsBuilder{},
-			handlers.DefaultConnectedPortsBuilder{},
 		)
 	},
 	newNATSManager: func(
@@ -138,20 +152,5 @@ var ProductionDependancies = RuntimeDependencies{
 			Diagnostics: false,
 		})
 	},
-	newConfig: func(
-		deviceConfigPath string,
-	) (string, error) {
-		return config.LoadConfig(
-			deviceConfigPath,
-		)
-	},
-	newWiremap: func(
-		wiremapPath string,
-		deviceConfigPath string,
-	) (*config.WireMap, error) {
-		return config.LoadWiremap(
-			wiremapPath,
-			deviceConfigPath,
-		)
-	},
+	configProvider: DefaultConfigProvider{},
 }

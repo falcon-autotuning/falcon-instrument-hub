@@ -7,7 +7,6 @@ import (
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
 )
 
@@ -22,39 +21,6 @@ type handlerOperation struct {
 	stopOp  func() error
 }
 
-type ConnectedPortsBuilder interface {
-	NewConnectedPorts(
-		instrumentAPIPaths []string,
-		wiremap *config.WireMap,
-	) (*ports.ConnectedPorts, error)
-}
-
-type DefaultConnectedPortsBuilder struct{}
-
-func (DefaultConnectedPortsBuilder) NewConnectedPorts(
-	instrumentAPIPaths []string,
-	wiremap *config.WireMap,
-) (*ports.ConnectedPorts, error) {
-
-	// TODO: update generated APIs to include instrument_type for integration testing
-	apis, err := ports.ParseInstrumentAPIs(instrumentAPIPaths)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse instrument APIs: %w", err)
-	}
-
-	library, err := ports.BuildPortLibrary(apis)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build port library: %w", err)
-	}
-
-	connected, err := ports.ConnectWireMap(wiremap, library)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect wiremap: %w", err)
-	}
-
-	return ports.NewConnectedPortsFromConnections(connected), nil
-}
-
 // Manager manages all message handlers
 type Manager struct {
 	logger                *logging.Logger
@@ -65,28 +31,18 @@ type Manager struct {
 	portRequestHandler    *PortRequestHandler
 	isBusy                bool
 	instrumentError       error
-	metadataError         error
 }
 
 // NewManager creates a new handler manager
 func NewManager(
 	deviceConfigJSON string,
-	wiremap *config.WireMap,
-	instrumentAPIPaths []string,
+	wiremap config.WireMap,
+	ports *config.ConnectedPorts,
 	measurementScriptsPath string,
 	logger *logging.Logger,
 	nc *nats.Conn,
 	dispatcher measure.MeasurementClient,
-	portsBuilder ConnectedPortsBuilder,
 ) *Manager {
-	ports, err := portsBuilder.NewConnectedPorts(instrumentAPIPaths, wiremap)
-	if err != nil {
-		logger.Error(
-			HandlerManagerName,
-			fmt.Sprintf("Failed to load connected ports: %v", err),
-		)
-	}
-
 	manager := &Manager{
 		logger:              logger,
 		nc:                  nc,
@@ -96,7 +52,6 @@ func NewManager(
 			ports,
 		),
 		statusHandler: NewStatusHandler(logger),
-		metadataError: err,
 	}
 	manager.measureCommandHandler = measure.NewMeasureCommandHandler(
 		logger,
@@ -114,9 +69,6 @@ func NewManager(
 func (m *Manager) Start() error {
 	if m.instrumentError != nil {
 		return fmt.Errorf("invalid instrument configuration: %w", m.instrumentError)
-	}
-	if m.metadataError != nil {
-		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
 	}
 	m.logger.Info(HandlerManagerName, "Starting handler manager")
 
@@ -141,9 +93,6 @@ func (m *Manager) Start() error {
 func (m *Manager) StartCoreHandlers() error {
 	if m.instrumentError != nil {
 		return fmt.Errorf("invalid instrument configuration: %w", m.instrumentError)
-	}
-	if m.metadataError != nil {
-		return fmt.Errorf("invalid measurement metadata: %w", m.metadataError)
 	}
 	m.logger.Info(HandlerManagerName, "Starting core handler manager")
 

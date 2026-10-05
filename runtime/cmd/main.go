@@ -14,10 +14,7 @@ import (
 	"syscall"
 	"time"
 
-	"gopkg.in/yaml.v3"
-
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/spf13/cobra"
 )
@@ -26,172 +23,12 @@ var execCommand = exec.Command
 
 const (
 	DaemonStartStopPollTime = 10 * time.Millisecond
+	LogsDir                 = "log"
+	DataDir                 = "data"
+	DataCacheDir            = "datacache"
 )
 
-var ValidCharacteristics = map[instrument.Instrument][]instrumentcharacteristic.InstrumentCharacteristic{
-	instrument.Amnmeter: {
-		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
-	},
-	instrument.Voltmeter: {
-		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
-	},
-
-	instrument.Fpga: {
-		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
-		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
-		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
-	},
-
-	instrument.DcVoltageSource: {
-		instrumentcharacteristic.InstrumentCharacteristicAppliedVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope,
-		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicMaxVoltageRampSlope,
-		instrumentcharacteristic.InstrumentCharacteristicMinVoltageRampSlope,
-	},
-
-	instrument.VoltageSource: {
-		instrumentcharacteristic.InstrumentCharacteristicAppliedVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope,
-		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicMaxVoltageRampSlope,
-		instrumentcharacteristic.InstrumentCharacteristicMinVoltageRampSlope,
-	},
-
-	instrument.HFVoltageSource: {
-		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
-		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
-	},
-
-	instrument.Magnet: {
-		instrumentcharacteristic.InstrumentCharacteristicMagnetStrength,
-	},
-
-	instrument.Thermometer: {
-		instrumentcharacteristic.InstrumentCharacteristicTemperature,
-	},
-}
-
-type InstrumentCharacteristic struct {
-	Identifier   string `yaml:"identifier"`
-	ReadCommand  string `yaml:"readCommand,omitempty"`
-	WriteCommand string `yaml:"writeCommand,omitempty"`
-}
-
-func (c InstrumentCharacteristic) Validate() error {
-	if c.Identifier == "" {
-		return fmt.Errorf("identifier is required")
-	}
-
-	if c.ReadCommand == "" && c.WriteCommand == "" {
-		return fmt.Errorf(
-			"at least one of readCommand or writeCommand must be specified",
-		)
-	}
-
-	return nil
-}
-
-var validInstrumentTypes = map[string]instrument.Instrument{
-	"dc_voltage_source": instrument.DcVoltageSource,
-	"amnmeter":          instrument.Amnmeter,
-	"magnet":            instrument.Magnet,
-	"lockin":            instrument.Lockin,
-	"voltage_source":    instrument.VoltageSource,
-	"current_source":    instrument.CurrentSource,
-	"hf_voltage_source": instrument.HfVoltageSource,
-	"dc_current_source": instrument.DcCurrentSource,
-	"hf_current_source": instrument.HfCurrentSource,
-	"thermometer":       instrument.Thermometer,
-	"voltmeter":         instrument.Voltmeter,
-	"fpga":              instrument.Fpga,
-	"clock":             instrument.Clock,
-	"discrete":          instrument.Discrete,
-}
-
-func ParseInstrumentType(s string) (instrument.Instrument, error) {
-	v, ok := validInstrumentTypes[s]
-	if !ok {
-		return 0, fmt.Errorf("unknown instrument type %q", s)
-	}
-	return v, nil
-}
-
-type InstrumentConfig struct {
-	ConfigPath         string                     `yaml:"config"`
-	PluginPath         string                     `yaml:"plugin"`
-	InstrumentTypeName string                     `yaml:"type"`
-	InstrumentType     instrument.Instrument      `yaml:"-"`
-	Characteristics    []InstrumentCharacteristic `yaml:"characteristics"`
-}
-
-func (i InstrumentConfig) Validate() error {
-	if i.ConfigPath == "" {
-		return fmt.Errorf("config is required")
-	}
-
-	if i.PluginPath == "" {
-		return fmt.Errorf("plugin is required")
-	}
-	var err error
-	if i.InstrumentType, err = ParseInstrumentType(i.InstrumentTypeName); err != nil {
-		return err
-	}
-
-	for j, characteristic := range i.Characteristics {
-		if err := characteristic.Validate(); err != nil {
-			return fmt.Errorf(
-				"characteristics[%d]: %w",
-				j,
-				err,
-			)
-		}
-	}
-
-	return nil
-}
-
-type InstrumentServerConfig struct {
-	RPCPort     int                `yaml:"rpc-port"`
-	AutoStart   bool               `yaml:"autostart"`
-	Instruments []InstrumentConfig `yaml:"instruments"`
-	ISSBinary   string             `yaml:"-"`
-}
-
-func (s InstrumentServerConfig) Validate() error {
-	if len(s.Instruments) == 0 {
-		return fmt.Errorf("at least one instrument is required")
-	}
-
-	for i, inst := range s.Instruments {
-		if err := inst.Validate(); err != nil {
-			return fmt.Errorf(
-				"instruments[%d]: %w",
-				i,
-				err,
-			)
-		}
-	}
-
-	return nil
-}
-
-func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig, timeout time.Duration) (ISSClient, error) {
+func (deps RuntimeDependencies) waitForISSDaemonReady(cfg config.InstrumentServerConfig, timeout time.Duration) (ISSClient, error) {
 	deadline := time.Now().Add(timeout)
 	var lastErr error
 	for time.Now().Before(deadline) {
@@ -214,7 +51,7 @@ func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig
 	return nil, fmt.Errorf("instrument-script-server daemon on %s:%d did not become ready within %s: %w", defaultHost, cfg.RPCPort, timeout, lastErr)
 }
 
-func stopISSDaemonViaCLI(cfg InstrumentServerConfig) {
+func stopISSDaemonViaCLI(cfg config.InstrumentServerConfig) {
 	cmd := execCommand(cfg.ISSBinary, "daemon", "stop")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -223,7 +60,7 @@ func stopISSDaemonViaCLI(cfg InstrumentServerConfig) {
 	}
 }
 
-func (cfg InstrumentServerConfig) waitForISSDaemonStopped(timeout time.Duration) bool {
+func waitForISSDaemonStopped(cfg config.InstrumentServerConfig, timeout time.Duration) bool {
 	deadline := time.Now().Add(timeout)
 	address := fmt.Sprintf("%s:%d", defaultHost, cfg.RPCPort)
 	for time.Now().Before(deadline) {
@@ -237,95 +74,7 @@ func (cfg InstrumentServerConfig) waitForISSDaemonStopped(timeout time.Duration)
 	return false
 }
 
-const (
-	LogsDir      = "log"
-	DataDir      = "data"
-	DataCacheDir = "datacache"
-)
-
-type RuntimePaths struct {
-	Logs      string
-	Data      string
-	DataCache string
-}
-
-type HubConfig struct {
-	Wiremap                string                 `yaml:"wiremap"`
-	QuantumDotConfig       string                 `yaml:"quantum-dot-config"`
-	NATSURL                string                 `yaml:"nats-url"`
-	LocalDatabase          string                 `yaml:"local-database"`
-	WorkingDirectory       string                 `yaml:"working-directory"`
-	UserMeasurementLuasDir string                 `yaml:"user-measurement-luas"`
-	InstrumentAPIPaths     []string               `yaml:"instrument-apis"`
-	InstrumentServer       InstrumentServerConfig `yaml:"instrument-server"`
-	RuntimePaths           RuntimePaths           `yaml:"-"`
-}
-
-func DefaultConfig() HubConfig {
-	return HubConfig{
-		InstrumentServer: InstrumentServerConfig{
-			RPCPort:   8555,
-			AutoStart: true,
-		},
-	}
-}
-
-func LoadConfig(path string) (*HubConfig, error) {
-	cfg := DefaultConfig()
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, err
-	}
-
-	return &cfg, nil
-}
-
-func Validate(c *HubConfig) error {
-	if c.QuantumDotConfig != "" {
-		if _, err := os.Stat(c.QuantumDotConfig); os.IsNotExist(err) {
-			return fmt.Errorf("device config file does not exist: %s", c.QuantumDotConfig)
-		}
-	}
-
-	if c.UserMeasurementLuasDir != "" {
-		if _, err := os.Stat(c.UserMeasurementLuasDir); os.IsNotExist(err) {
-			return fmt.Errorf("the measurement luas dir does not exist: %s", c.UserMeasurementLuasDir)
-		}
-	}
-
-	if c.Wiremap != "" {
-		if _, err := os.Stat(c.Wiremap); os.IsNotExist(err) {
-			return fmt.Errorf("wiremap file does not exist: %s", c.Wiremap)
-		}
-	}
-
-	if c.WorkingDirectory == "" {
-		var err error
-		c.WorkingDirectory, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("Could not get the current working directory: %s", err)
-		}
-	}
-	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
-		return fmt.Errorf("working directory does not exist: %s", c.WorkingDirectory)
-	}
-
-	if c.LocalDatabase == "" {
-		c.LocalDatabase = filepath.Join(c.WorkingDirectory, DataDir)
-	}
-	if err := c.InstrumentServer.Validate(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func CheckEnvironment(cfg *HubConfig) error {
+func CheckEnvironment(cfg *config.HubConfig) error {
 	var err error
 	cfg.InstrumentServer.ISSBinary, err = exec.LookPath("instrument-script-server")
 	if err != nil {
@@ -347,7 +96,7 @@ func CheckEnvironment(cfg *HubConfig) error {
 	return nil
 }
 
-func InitializeRuntimeEnvironment(cfg *HubConfig) error {
+func InitializeRuntimeEnvironment(cfg *config.HubConfig) error {
 	if err := os.Chdir(cfg.WorkingDirectory); err != nil {
 		return fmt.Errorf("failed to change to the working directory: %w", err)
 	}
@@ -376,7 +125,7 @@ func InitializeRuntimeEnvironment(cfg *HubConfig) error {
 }
 
 type Runtime struct {
-	cfg *HubConfig
+	cfg *config.HubConfig
 
 	natsManager    NATSManager
 	logger         *logging.Logger
@@ -386,10 +135,11 @@ type Runtime struct {
 }
 
 func (r *Runtime) startISSDaemon() (*os.Process, error) {
+	// TODO: See if we can attach to already running daemon
 	// Stop any stale daemon from a previous run before starting fresh.
 	instrumentServerConfig := r.cfg.InstrumentServer
 	stopISSDaemonViaCLI(instrumentServerConfig)
-	if !instrumentServerConfig.waitForISSDaemonStopped(5 * time.Second) {
+	if !waitForISSDaemonStopped(instrumentServerConfig, 5*time.Second) {
 		return nil, fmt.Errorf("instrument-script-server did not release port %d after stop", r.cfg.InstrumentServer.RPCPort)
 	}
 
@@ -434,7 +184,7 @@ const (
 )
 
 func (deps RuntimeDependencies) NewRuntime(
-	cfg *HubConfig,
+	cfg *config.HubConfig,
 ) (*Runtime, error) {
 	services := &Runtime{
 		cfg: cfg,
@@ -477,21 +227,18 @@ func (deps RuntimeDependencies) NewRuntime(
 	}
 	services.logger = logger
 
-	configJSON, err := deps.newConfig(cfg.QuantumDotConfig)
+	configJSON, err := deps.configProvider.LoadDeviceConfig(cfg.QuantumDotConfig)
 	if err != nil {
 		return services, fmt.Errorf("failed to load configuration: %w", err)
 	}
-	wiremap, err := deps.newWiremap(cfg.Wiremap, cfg.QuantumDotConfig)
-	if err != nil {
-		return services, fmt.Errorf("failed to load wiremap: %w", err)
-	}
+	ports, err := deps.configProvider.NewConnectedPorts(cfg.InstrumentServer.Instruments, cfg.Wiremap)
 
 	logger.LogStats()
 
 	handlerManager := deps.newHandlerManager(
 		configJSON,
-		wiremap,
-		cfg.InstrumentAPIPaths,
+		cfg.Wiremap,
+		ports,
 		cfg.UserMeasurementLuasDir,
 		logger,
 		natsManager.GetConnection(),
@@ -577,75 +324,7 @@ func (r Runtime) runServer() error {
 }
 
 type CLIOptions struct {
-	Config              string
-	NATSURL             string
-	Wiremap             string
-	DeviceConfig        string
-	WorkingDirectory    string
-	LocalDatabase       string
-	UserMeasurementLua  string
-	MeasurementMetadata string
-	LogDiagnostics      bool
-	NoISS               bool
-
-	// repeatable:
-	// --instrument config.yaml:plugin
-	Instruments []string
-}
-
-func (cli CLIOptions) Update(cfg *HubConfig) error {
-	if cli.NATSURL != "" {
-		cfg.NATSURL = cli.NATSURL
-	}
-
-	if cli.Wiremap != "" {
-		cfg.Wiremap = cli.Wiremap
-	}
-
-	if cli.DeviceConfig != "" {
-		cfg.QuantumDotConfig = cli.DeviceConfig
-	}
-
-	if cli.WorkingDirectory != "" {
-		cfg.WorkingDirectory = cli.WorkingDirectory
-	}
-
-	if cli.LocalDatabase != "" {
-		cfg.LocalDatabase = cli.LocalDatabase
-	}
-
-	if cli.UserMeasurementLua != "" {
-		cfg.UserMeasurementLuasDir = cli.UserMeasurementLua
-	}
-
-	if cli.NoISS {
-		cfg.InstrumentServer.AutoStart = false
-	}
-
-	if len(cli.Instruments) > 0 {
-		cfg.InstrumentServer.Instruments = nil
-
-		for _, instrument := range cli.Instruments {
-			parts := strings.SplitN(instrument, ":", 2)
-
-			if len(parts) != 2 {
-				return fmt.Errorf(
-					"invalid instrument %q, expected config.yaml:plugin",
-					instrument,
-				)
-			}
-
-			cfg.InstrumentServer.Instruments = append(
-				cfg.InstrumentServer.Instruments,
-				InstrumentConfig{
-					ConfigPath: parts[0],
-					PluginPath: parts[1],
-				},
-			)
-		}
-	}
-
-	return nil
+	Config string
 }
 
 func NewRunHub(
@@ -653,10 +332,10 @@ func NewRunHub(
 	cli *CLIOptions,
 ) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
-		cfg := DefaultConfig()
+		cfg := config.DefaultConfig()
 
 		if cli.Config != "" {
-			loadedCfg, err := LoadConfig(cli.Config)
+			loadedCfg, err := config.LoadConfig(cli.Config)
 			if err != nil {
 				return err
 			}
@@ -664,11 +343,7 @@ func NewRunHub(
 			cfg = *loadedCfg
 		}
 
-		if err := cli.Update(&cfg); err != nil {
-			return err
-		}
-
-		if err := Validate(&cfg); err != nil {
+		if err := config.Validate(&cfg); err != nil {
 			return err
 		}
 
@@ -707,68 +382,6 @@ func buildRootCmd(deps RuntimeDependencies) (*cobra.Command, *CLIOptions) {
 		"path to hub configuration yaml",
 	)
 
-	flags.StringVar(
-		&cli.NATSURL,
-		"nats-url",
-		"",
-		"nats server url",
-	)
-
-	flags.StringVar(
-		&cli.DeviceConfig,
-		"device-config",
-		"",
-		"path to device configuration yaml",
-	)
-
-	flags.StringVar(
-		&cli.Wiremap,
-		"wiremap",
-		"",
-		"path to wiremap yaml",
-	)
-
-	flags.StringVar(
-		&cli.WorkingDirectory,
-		"working-dir",
-		"",
-		"working directory",
-	)
-
-	flags.StringVar(
-		&cli.LocalDatabase,
-		"local-database",
-		"",
-		"path to local database",
-	)
-
-	flags.StringVar(
-		&cli.UserMeasurementLua,
-		"user-measurement-luas",
-		"",
-		"path to user lua measurement scripts",
-	)
-
-	flags.StringVar(
-		&cli.MeasurementMetadata,
-		"measurement-metadata",
-		"",
-		"path to measurement metadata yaml",
-	)
-
-	flags.BoolVar(
-		&cli.NoISS,
-		"no-iss",
-		false,
-		"disable ISS autostart",
-	)
-
-	flags.StringSliceVar(
-		&cli.Instruments,
-		"instrument",
-		nil,
-		"instrument definition: config.yaml:plugin",
-	)
 	return rootCmd, cli
 }
 

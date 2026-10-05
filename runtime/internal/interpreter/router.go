@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 // MeasurementHandler represents a single measurement workflow.
@@ -40,8 +39,8 @@ type MeasurementHandler interface {
 	Handle(
 		req *FalconMeasurementRequest,
 		dispatcher *MeasurementDispatcher,
-		wiremap *config.WireMap,
-		ports *ports.ConnectedPorts,
+		wiremap config.WireMap,
+		ports *config.ConnectedPorts,
 	) (*FalconMeasurementResponse, error)
 }
 
@@ -60,8 +59,8 @@ type Router struct {
 
 	handlers []MeasurementHandler
 
-	wiremap *config.WireMap
-	ports   *ports.ConnectedPorts
+	wiremap config.WireMap
+	ports   *config.ConnectedPorts
 }
 
 // NewRouter constructs a router using the supplied dispatcher.
@@ -87,8 +86,8 @@ type Router struct {
 // and would be registered below.
 func NewRouter(
 	dispatcher *MeasurementDispatcher,
-	wiremap *config.WireMap,
-	ports *ports.ConnectedPorts,
+	wiremap config.WireMap,
+	ports *config.ConnectedPorts,
 ) *Router {
 	return &Router{
 		dispatcher: dispatcher,

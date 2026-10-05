@@ -12,10 +12,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// WireMap is the top-level YAML structure for the wiremap format.
-type WireMap struct {
+// WireMap is the top-level YAML structure and deprecated
+type wireMap struct {
 	Contents []WiremapEntry `yaml:"wiremap"`
 }
+
+func LoadWiremap(
+	wiremapPath string,
+	deviceConfigPath string,
+) (*wireMap, error) {
+	data, err := os.ReadFile(wiremapPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var wiremap wireMap
+	if err := yaml.Unmarshal(data, &wiremap); err != nil {
+		return nil, err
+	}
+	err = ResolveWiremap(wiremap.Contents, deviceConfigPath)
+	if err != nil {
+		return nil, err
+	}
+	return &wiremap, nil
+}
+
+type WireMap []WiremapEntry
 
 type WiremapEntry struct {
 	PhysicalDeviceName string            `yaml:"name"`
@@ -48,38 +70,28 @@ func loadConfig(deviceConfigPath string) (*falconconfig.Handle, error) {
 // LoadWiremap loads the YAML and validates every wiremap entry
 // against the Falcon device configuration. Each entry is linked
 // to its resolved Falcon gate object.
-func LoadWiremap(
-	wiremapPath string,
+func ResolveWiremap(
+	entries []WiremapEntry,
 	deviceConfigPath string,
-) (*WireMap, error) {
-	data, err := os.ReadFile(wiremapPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var wiremap WireMap
-	if err := yaml.Unmarshal(data, &wiremap); err != nil {
-		return nil, err
-	}
-
+) error {
 	conf, err := loadConfig(deviceConfigPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	connections, err := conf.GetAllConnections()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	rawConnections, err := connections.Items()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	listConnections, err := rawConnections.Items()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Build lookup table once.
@@ -88,19 +100,17 @@ func LoadWiremap(
 	for _, gate := range listConnections {
 		name, err := gate.Name()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		gates[name] = gate
 	}
 
 	// Resolve every wiremap entry.
-	for i := range wiremap.Contents {
-		entry := &wiremap.Contents[i]
-
+	for _, entry := range entries {
 		gate, ok := gates[entry.PhysicalDeviceName]
 		if !ok {
-			return nil, fmt.Errorf(
+			return fmt.Errorf(
 				"wiremap references unknown gate %q",
 				entry.PhysicalDeviceName,
 			)
@@ -109,10 +119,10 @@ func LoadWiremap(
 		entry.Gate = gate
 	}
 
-	return &wiremap, nil
+	return nil
 }
 
-func LoadConfig(deviceConfigPath string) (string, error) {
+func LoadDeviceConfig(deviceConfigPath string) (string, error) {
 	conf, err := loadConfig(deviceConfigPath)
 	if err != nil {
 		return "", err

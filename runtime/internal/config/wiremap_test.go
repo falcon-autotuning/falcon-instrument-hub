@@ -189,12 +189,12 @@ wiremap:
 	return path
 }
 
-func TestLoadConfig(t *testing.T) {
+func TestLoadDeviceConfig(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	deviceConfig := writeTestDeviceConfig(t, tmpDir)
 
-	cfg, err := LoadConfig(deviceConfig)
+	cfg, err := LoadDeviceConfig(deviceConfig)
 	require.NoError(t, err)
 	assert.NotEmpty(t, cfg)
 }

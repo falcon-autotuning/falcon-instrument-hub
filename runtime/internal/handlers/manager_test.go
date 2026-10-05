@@ -1,13 +1,11 @@
 package handlers
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -49,22 +47,6 @@ func TestManagerBusyState(t *testing.T) {
 	assert.False(t, m.IsBusy())
 }
 
-func TestManagerStartFailsForMetadataError(t *testing.T) {
-	m := &Manager{
-		metadataError: errors.New("metadata exploded"),
-	}
-
-	for _, fn := range []func() error{
-		m.Start,
-		m.StartCoreHandlers,
-	} {
-		err := fn()
-
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "invalid measurement metadata")
-	}
-}
-
 func TestManagerStartStatus(t *testing.T) {
 	server := runNATSServer(t)
 	defer server.Shutdown()
@@ -104,7 +86,7 @@ type mockConnectedPortsBuilder struct{}
 func (b *mockConnectedPortsBuilder) NewConnectedPorts(
 	instrumentAPIPaths []string,
 	wiremap *config.WireMap,
-) (*ports.ConnectedPorts, error) {
+) (*config.ConnectedPorts, error) {
 	return nil, nil
 }
 
@@ -128,13 +110,12 @@ func TestManagerStartCoreHandlers(t *testing.T) {
 
 	manager := NewManager(
 		"{}",
-		&config.WireMap{},
+		[]config.WiremapEntry{},
 		nil,
 		t.TempDir(),
 		logger,
 		nc,
 		&mockMeasurementClient{},
-		&mockConnectedPortsBuilder{},
 	)
 
 	require.NoError(t, manager.StartCoreHandlers())

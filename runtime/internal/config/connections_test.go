@@ -1,4 +1,4 @@
-package ports
+package config
 
 import (
 	"os"
@@ -13,7 +13,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -76,11 +75,11 @@ func TestConnectWireMap(t *testing.T) {
 		},
 	}
 
-	wireMap := &config.WireMap{
-		Contents: []config.WiremapEntry{
+	wireMap := &WireMap{
+		Contents: []WiremapEntry{
 			{
 				PhysicalDeviceName: "P1",
-				Instrument: config.WiremapInstrument{
+				Instrument: WiremapInstrument{
 					Name:         "Source1",
 					ChannelGroup: "analog",
 					Channel:      4,
@@ -111,11 +110,11 @@ func TestConnectWireMapNoMatches(t *testing.T) {
 		},
 	}
 
-	wireMap := &config.WireMap{
-		Contents: []config.WiremapEntry{
+	wireMap := &WireMap{
+		Contents: []WiremapEntry{
 			{
 				PhysicalDeviceName: "P1",
-				Instrument: config.WiremapInstrument{
+				Instrument: WiremapInstrument{
 					Name:         "Source1",
 					ChannelGroup: "analog",
 					Channel:      4,

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/callstack"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
@@ -96,11 +95,10 @@ func (*getVoltageHandler) Handle(
 		return nil, err
 	}
 
-	serialized, err := (callstack.Descriptor{
+	serialized, err := (instrumenttarget.Descriptor{
 		Instrument: resolved.InstrumentName,
 		Group:      resolved.ChannelName,
 		Channel:    resolved.ChannelIndex,
-		Command:    getVoltageCommand,
 	}).Serialize()
 	if err != nil {
 		return nil, fmt.Errorf("serialize get_voltage CallStack: %w", err)

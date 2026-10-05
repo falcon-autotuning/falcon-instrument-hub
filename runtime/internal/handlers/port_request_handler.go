@@ -9,9 +9,9 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 const (
@@ -30,13 +30,13 @@ type PortRequestHandler struct {
 	logger       *logging.Logger
 	nc           *nats.Conn
 	subscription *nats.Subscription
-	ports        *ports.ConnectedPorts
+	ports        *config.ConnectedPorts
 }
 
 // NewPortRequestHandler creates a new handler
 func NewPortRequestHandler(
 	logger *logging.Logger,
-	ports *ports.ConnectedPorts,
+	ports *config.ConnectedPorts,
 ) *PortRequestHandler {
 	return &PortRequestHandler{
 		logger: logger,
@@ -159,7 +159,7 @@ func (h *PortRequestHandler) handlePortRequest(msg *nats.Msg) {
 	)
 }
 
-func serializePortsToCerealJSON(connectedPorts []ports.ConnectedPort) (string, error) {
+func serializePortsToCerealJSON(connectedPorts []config.ConnectedPort) (string, error) {
 	if len(connectedPorts) == 0 {
 		portsHandle, err := falconports.NewEmpty()
 		if err != nil {
