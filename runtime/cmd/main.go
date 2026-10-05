@@ -16,6 +16,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/spf13/cobra"
 )
@@ -26,9 +28,142 @@ const (
 	DaemonStartStopPollTime = 10 * time.Millisecond
 )
 
+var ValidCharacteristics = map[instrument.Instrument][]instrumentcharacteristic.InstrumentCharacteristic{
+	instrument.Amnmeter: {
+		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
+	},
+	instrument.Voltmeter: {
+		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
+	},
+
+	instrument.Fpga: {
+		instrumentcharacteristic.InstrumentCharacteristicSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
+		instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
+		instrumentcharacteristic.InstrumentCharacteristicMinNumberOfSamples,
+	},
+
+	instrument.DcVoltageSource: {
+		instrumentcharacteristic.InstrumentCharacteristicAppliedVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicMaxVoltageRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMinVoltageRampSlope,
+	},
+
+	instrument.VoltageSource: {
+		instrumentcharacteristic.InstrumentCharacteristicAppliedVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicMaxVoltageRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMinVoltageRampSlope,
+	},
+
+	instrument.HFVoltageSource: {
+		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
+		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage,
+	},
+
+	instrument.Magnet: {
+		instrumentcharacteristic.InstrumentCharacteristicMagnetStrength,
+	},
+
+	instrument.Thermometer: {
+		instrumentcharacteristic.InstrumentCharacteristicTemperature,
+	},
+}
+
+type InstrumentCharacteristic struct {
+	Identifier   string `yaml:"identifier"`
+	ReadCommand  string `yaml:"readCommand,omitempty"`
+	WriteCommand string `yaml:"writeCommand,omitempty"`
+}
+
+func (c InstrumentCharacteristic) Validate() error {
+	if c.Identifier == "" {
+		return fmt.Errorf("identifier is required")
+	}
+
+	if c.ReadCommand == "" && c.WriteCommand == "" {
+		return fmt.Errorf(
+			"at least one of readCommand or writeCommand must be specified",
+		)
+	}
+
+	return nil
+}
+
+var validInstrumentTypes = map[string]instrument.Instrument{
+	"dc_voltage_source": instrument.DcVoltageSource,
+	"amnmeter":          instrument.Amnmeter,
+	"magnet":            instrument.Magnet,
+	"lockin":            instrument.Lockin,
+	"voltage_source":    instrument.VoltageSource,
+	"current_source":    instrument.CurrentSource,
+	"hf_voltage_source": instrument.HfVoltageSource,
+	"dc_current_source": instrument.DcCurrentSource,
+	"hf_current_source": instrument.HfCurrentSource,
+	"thermometer":       instrument.Thermometer,
+	"voltmeter":         instrument.Voltmeter,
+	"fpga":              instrument.Fpga,
+	"clock":             instrument.Clock,
+	"discrete":          instrument.Discrete,
+}
+
+func ParseInstrumentType(s string) (instrument.Instrument, error) {
+	v, ok := validInstrumentTypes[s]
+	if !ok {
+		return 0, fmt.Errorf("unknown instrument type %q", s)
+	}
+	return v, nil
+}
+
 type InstrumentConfig struct {
-	ConfigPath string `yaml:"config"`
-	PluginPath string `yaml:"plugin"`
+	ConfigPath         string                     `yaml:"config"`
+	PluginPath         string                     `yaml:"plugin"`
+	InstrumentTypeName string                     `yaml:"type"`
+	InstrumentType     instrument.Instrument      `yaml:"-"`
+	Characteristics    []InstrumentCharacteristic `yaml:"characteristics"`
+}
+
+func (i InstrumentConfig) Validate() error {
+	if i.ConfigPath == "" {
+		return fmt.Errorf("config is required")
+	}
+
+	if i.PluginPath == "" {
+		return fmt.Errorf("plugin is required")
+	}
+	var err error
+	if i.InstrumentType, err = ParseInstrumentType(i.InstrumentTypeName); err != nil {
+		return err
+	}
+
+	for j, characteristic := range i.Characteristics {
+		if err := characteristic.Validate(); err != nil {
+			return fmt.Errorf(
+				"characteristics[%d]: %w",
+				j,
+				err,
+			)
+		}
+	}
+
+	return nil
 }
 
 type InstrumentServerConfig struct {
@@ -36,6 +171,24 @@ type InstrumentServerConfig struct {
 	AutoStart   bool               `yaml:"autostart"`
 	Instruments []InstrumentConfig `yaml:"instruments"`
 	ISSBinary   string             `yaml:"-"`
+}
+
+func (s InstrumentServerConfig) Validate() error {
+	if len(s.Instruments) == 0 {
+		return fmt.Errorf("at least one instrument is required")
+	}
+
+	for i, inst := range s.Instruments {
+		if err := inst.Validate(); err != nil {
+			return fmt.Errorf(
+				"instruments[%d]: %w",
+				i,
+				err,
+			)
+		}
+	}
+
+	return nil
 }
 
 func (deps RuntimeDependencies) waitForISSDaemonReady(cfg InstrumentServerConfig, timeout time.Duration) (ISSClient, error) {
@@ -165,19 +318,8 @@ func Validate(c *HubConfig) error {
 	if c.LocalDatabase == "" {
 		c.LocalDatabase = filepath.Join(c.WorkingDirectory, DataDir)
 	}
-
-	if len(c.InstrumentServer.Instruments) == 0 {
-		return fmt.Errorf("at least one instrument is required")
-	}
-
-	for i, inst := range c.InstrumentServer.Instruments {
-		if inst.ConfigPath == "" {
-			return fmt.Errorf("instrument[%d].config is required", i)
-		}
-
-		if inst.PluginPath == "" {
-			return fmt.Errorf("instrument[%d].plugin is required", i)
-		}
+	if err := c.InstrumentServer.Validate(); err != nil {
+		return err
 	}
 
 	return nil

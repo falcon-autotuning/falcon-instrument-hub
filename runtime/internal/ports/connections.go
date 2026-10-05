@@ -9,6 +9,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 )
@@ -21,6 +22,7 @@ type PortEntry struct {
 	InstrumentType instrument.Instrument
 	Role           porttype.PortType
 	Access         access.Access
+	Scope          scope.Scope
 	Characteristic instrumentcharacteristic.InstrumentCharacteristic
 	Unit           string
 	Description    string
