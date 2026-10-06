@@ -5,7 +5,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"os/exec"
 
 	"gopkg.in/yaml.v3"
 
@@ -13,33 +12,136 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
 )
 
-var execCommand = exec.Command
+type Reducer string
 
-type APIParseCharacteristic struct {
-	Command       string `yaml:"command,omitempty"`
-	ParameterName string `yaml:"parameterName,omitempty"`
-	Max           bool   `yaml:"max,omitempty"`
-	Min           bool   `yaml:"min,omitempty"`
-}
+const (
+	ReducerNone Reducer = ""
+	ReducerMin  Reducer = "min"
+	ReducerMax  Reducer = "max"
+)
 
-func (c APIParseCharacteristic) Validate() error {
-	if c.Command != "" {
+func (r Reducer) Validate() error {
+	switch r {
+	case ReducerNone, ReducerMin, ReducerMax:
 		return nil
-	}
 
-	if c.ParameterName != "" {
-		if c.Min || c.Max {
-			return nil
-		}
-
+	default:
 		return fmt.Errorf(
-			"parameter parsing requires min, max, or both to be specified",
+			"unknown reducer %q",
+			r,
 		)
 	}
+}
 
-	return fmt.Errorf(
-		"either parameterName or command must be specified",
-	)
+type APIParseCharacteristic struct {
+	Command string `yaml:"command,omitempty" json:"command,omitempty"`
+
+	ParameterName string  `yaml:"parameterName,omitempty" json:"parameterName,omitempty"`
+	Reducer       Reducer `yaml:"reducer,omitempty" json:"reducer,omitempty"`
+}
+
+func (c APIParseCharacteristic) Empty() bool {
+	return c.Command == "" &&
+		c.ParameterName == ""
+}
+
+func findParameter(
+	api *InstrumentAPI,
+	name string,
+) (*IoType, bool) {
+	for i := range api.IO {
+		if api.IO[i].Name == name {
+			return &api.IO[i], true
+		}
+	}
+
+	for i := range api.ChannelGroups {
+		for j := range api.ChannelGroups[i].IoTypes {
+			io := &api.ChannelGroups[i].IoTypes[j]
+
+			if io.Suffix == name {
+				return io, true
+			}
+		}
+	}
+
+	return nil, false
+}
+
+func (c APIParseCharacteristic) Validate(
+	api *InstrumentAPI,
+) error {
+	if err := c.Reducer.Validate(); err != nil {
+		return err
+	}
+
+	switch {
+	case c.Command != "":
+		if c.ParameterName != "" {
+			return fmt.Errorf(
+				"cannot specify both command and parameterName",
+			)
+		}
+
+		if c.Reducer != ReducerNone {
+			return fmt.Errorf(
+				"reducers are only valid with parameterName",
+			)
+		}
+
+		if api != nil {
+			if _, ok := api.Commands[CommandName(c.Command)]; !ok {
+				return fmt.Errorf(
+					"unknown API command %q",
+					c.Command,
+				)
+			}
+		}
+
+		return nil
+
+	case c.ParameterName != "":
+		if api == nil {
+			return fmt.Errorf(
+				"unknown API parameter %q: no API provided",
+				c.ParameterName,
+			)
+		}
+		param, ok := findParameter(
+			api,
+			c.ParameterName,
+		)
+		if !ok {
+			return fmt.Errorf(
+				"unknown API parameter %q",
+				c.ParameterName,
+			)
+		}
+		switch c.Reducer {
+		case ReducerMin:
+			if param.Min == "" {
+				return fmt.Errorf(
+					"parameter %q does not define a minimum value",
+					c.ParameterName,
+				)
+			}
+
+		case ReducerMax:
+			if param.Max == "" {
+				return fmt.Errorf(
+					"parameter %q does not define a maximum value",
+					c.ParameterName,
+				)
+			}
+		}
+
+		return nil
+
+	default:
+		return fmt.Errorf(
+			"either parameterName or command must be specified",
+		)
+	}
 }
 
 var validCharacteristicNames = map[string]instrumentcharacteristic.InstrumentCharacteristic{
@@ -224,15 +326,15 @@ var ValidCharacteristics = map[instrument.Instrument]CharacteristicSet{
 }
 
 type InstrumentCharacteristic struct {
-	Identifier string `yaml:"identifier"`
+	Identifier     string                                            `yaml:"identifier" json:"identifier"`
+	Characteristic instrumentcharacteristic.InstrumentCharacteristic `yaml:"-" json:"-"`
 
-	Characteristic instrumentcharacteristic.InstrumentCharacteristic `yaml:"-"`
-
-	ReadCommand  APIParseCharacteristic `yaml:"readCommand,omitempty"`
-	WriteCommand APIParseCharacteristic `yaml:"writeCommand,omitempty"`
+	ReadCommand  APIParseCharacteristic `yaml:"readCommand,omitempty" json:"readCommand"`
+	WriteCommand APIParseCharacteristic `yaml:"writeCommand,omitempty" json:"writeCommand"`
 }
 
 func (c *InstrumentCharacteristic) Validate(
+	api *InstrumentAPI,
 	validChars CharacteristicSet,
 ) error {
 	parsed, err := ParseCharacteristic(c.Identifier)
@@ -249,35 +351,29 @@ func (c *InstrumentCharacteristic) Validate(
 
 	c.Characteristic = parsed
 
-	if c.ReadCommand.Command == "" &&
-		c.ReadCommand.ParameterName == "" &&
-		c.WriteCommand.Command == "" &&
-		c.WriteCommand.ParameterName == "" {
+	if c.ReadCommand.Empty() &&
+		c.WriteCommand.Empty() {
 		return fmt.Errorf(
 			"at least one of readCommand or writeCommand must be specified",
 		)
 	}
 
-	if c.ReadCommand.Command != "" ||
-		c.ReadCommand.ParameterName != "" {
-		if err := c.ReadCommand.Validate(); err != nil {
+	for name, command := range map[string]APIParseCharacteristic{
+		"readCommand":  c.ReadCommand,
+		"writeCommand": c.WriteCommand,
+	} {
+		if command.Empty() {
+			continue
+		}
+
+		if err := command.Validate(api); err != nil {
 			return fmt.Errorf(
-				"readCommand: %w",
+				"%s: %w",
+				name,
 				err,
 			)
 		}
 	}
-
-	if c.WriteCommand.Command != "" ||
-		c.WriteCommand.ParameterName != "" {
-		if err := c.WriteCommand.Validate(); err != nil {
-			return fmt.Errorf(
-				"writeCommand: %w",
-				err,
-			)
-		}
-	}
-
 	return nil
 }
 
@@ -307,11 +403,15 @@ func ParseInstrumentType(s string) (instrument.Instrument, error) {
 }
 
 type InstrumentConfig struct {
-	ConfigPath         string                     `yaml:"config"`
-	PluginPath         string                     `yaml:"plugin"`
-	InstrumentTypeName string                     `yaml:"type"`
-	InstrumentType     instrument.Instrument      `yaml:"-"`
-	Characteristics    []InstrumentCharacteristic `yaml:"characteristics"`
+	ConfigPath         string                `yaml:"config" json:"config"`
+	PluginPath         string                `yaml:"plugin" json:"plugin"`
+	InstrumentTypeName string                `yaml:"type" json:"type"`
+	InstrumentType     instrument.Instrument `yaml:"-" json:"-"`
+
+	Characteristics []InstrumentCharacteristic `yaml:"characteristics" json:"characteristics"`
+
+	ConfigFile *InstrumentConfigFile `yaml:"-" json:"-"`
+	API        *InstrumentAPI        `yaml:"-" json:"-"`
 }
 
 func (i *InstrumentConfig) Validate() error {
@@ -322,14 +422,47 @@ func (i *InstrumentConfig) Validate() error {
 	if i.PluginPath == "" {
 		return fmt.Errorf("plugin is required")
 	}
+
 	var err error
-	i.InstrumentType, err = ParseInstrumentType(i.InstrumentTypeName)
+
+	i.InstrumentType, err = ParseInstrumentType(
+		i.InstrumentTypeName,
+	)
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func (i *InstrumentConfig) Resolve() error {
+	if i.API != nil {
+		return nil
+	}
+	instrumentConfig, err := ParseInstrumentConfig(
+		i.ConfigPath,
+	)
+	if err != nil {
+		return err
+	}
+
+	api, err := ParseInstrumentAPI(
+		instrumentConfig.API_ref,
+	)
+	if err != nil {
+		return err
+	}
+	i.ConfigFile = instrumentConfig
+	i.API = api
 	validCharacteristics := ValidCharacteristics[i.InstrumentType]
-	for j, characteristic := range i.Characteristics {
-		if err := characteristic.Validate(validCharacteristics); err != nil {
+
+	for j := range i.Characteristics {
+		characteristic := &i.Characteristics[j]
+
+		if err := characteristic.Validate(
+			i.API,
+			validCharacteristics,
+		); err != nil {
 			return fmt.Errorf(
 				"characteristics[%d]: %w",
 				j,
@@ -337,15 +470,14 @@ func (i *InstrumentConfig) Validate() error {
 			)
 		}
 	}
-
 	return nil
 }
 
 type InstrumentServerConfig struct {
-	RPCPort     int                `yaml:"rpc-port"`
-	AutoStart   bool               `yaml:"autostart"`
-	Instruments []InstrumentConfig `yaml:"instruments"`
-	ISSBinary   string             `yaml:"-"`
+	RPCPort     int                `yaml:"rpc-port" json:"rpc-port"`
+	AutoStart   bool               `yaml:"autostart" json:"autostart"`
+	Instruments []InstrumentConfig `yaml:"instruments" json:"instruments"`
+	ISSBinary   string             `yaml:"-" json:"-"`
 }
 
 func (s *InstrumentServerConfig) Validate() error {
@@ -354,13 +486,24 @@ func (s *InstrumentServerConfig) Validate() error {
 	}
 
 	for i := range s.Instruments {
-		if err := s.Instruments[i].Validate(); err != nil {
+		instrument := &s.Instruments[i]
+
+		if err := instrument.Validate(); err != nil {
 			return fmt.Errorf(
 				"instruments[%d]: %w",
 				i,
 				err,
 			)
 		}
+
+		if err := instrument.Resolve(); err != nil {
+			return fmt.Errorf(
+				"instruments[%d]: %w",
+				i,
+				err,
+			)
+		}
+
 	}
 
 	return nil
@@ -373,14 +516,21 @@ type RuntimePaths struct {
 }
 
 type HubConfig struct {
-	Wiremap                []WiremapEntry         `yaml:"wiremap"`
-	QuantumDotConfig       string                 `yaml:"quantum-dot-config"`
-	NATSURL                string                 `yaml:"nats-url"`
-	LocalDatabase          string                 `yaml:"local-database"`
-	WorkingDirectory       string                 `yaml:"working-directory"`
-	UserMeasurementLuasDir string                 `yaml:"user-measurement-luas"`
-	InstrumentServer       InstrumentServerConfig `yaml:"instrument-server"`
-	RuntimePaths           RuntimePaths           `yaml:"-"`
+	// Logical to physical connection mappings
+	Wiremap []WiremapEntry `yaml:"wiremap" json:"wiremap"`
+	// Global Path to the quantum dot config describing the device loaded
+	QuantumDotConfig string `yaml:"quantum-dot-config" json:"quantum-dot-config"`
+	// NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222
+	NATSURL string `yaml:"nats-url" json:"nats-url"`
+	// Global Path to the local runtime database for collected data
+	LocalDatabase string `yaml:"local-database" json:"local-database"`
+	// Global Path for location of all logging to be deposited
+	WorkingDirectory string `yaml:"working-directory" json:"working-directory"`
+	// Global Path to measurement scripts directory
+	UserMeasurementLuasDir string `yaml:"user-measurement-luas" json:"user-measurement-luas"`
+	// Configuration for the Instrument Script Server
+	InstrumentServer InstrumentServerConfig `yaml:"instrument-server" json:"instrument-server"`
+	RuntimePaths     RuntimePaths           `yaml:"-" json:"-"`
 }
 
 func DefaultConfig() HubConfig {
@@ -431,7 +581,7 @@ func Validate(c *HubConfig) error {
 		var err error
 		c.WorkingDirectory, err = os.Getwd()
 		if err != nil {
-			return fmt.Errorf("Could not get the current working directory: %s", err)
+			return fmt.Errorf("could not get the current working directory: %s", err)
 		}
 	}
 	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
@@ -441,8 +591,6 @@ func Validate(c *HubConfig) error {
 	if err := c.InstrumentServer.Validate(); err != nil {
 		return err
 	}
-
-	// TODO: Validate APIParseCharacteristic using ParseInstrumentAPI
 
 	return nil
 }

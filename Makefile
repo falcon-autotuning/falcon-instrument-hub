@@ -53,7 +53,11 @@ ifeq ($(CMAKE_BUILD_TYPE),Debug)
 else
 	cd runtime && $(GO_ENV) go build -tags cgo,falcon_core -ldflags="-s -w" -o bin/instrument-hub ./cmd
 endif
-	cmake --build --preset $(PRESET) --target validate-wiremap-config
+	# Updates the schema for validation
+	cd runtime && $(GO_ENV) go run ./cmd/schema-gen
+	# Builds the new validator for the schema
+	cmake --build --preset $(PRESET) 
+
 
 test: build
 	@echo "Running tests for $(PRESET)..."
@@ -109,13 +113,6 @@ test-measure: build
 		-tags cgo,falcon_core \
 		./internal/handlers/measure
 
-test-ports: build
-	cd runtime && $(GO_ENV) go test \
-		-v \
-		-coverprofile=coverage.out \
-		-tags cgo,falcon_core \
-		./internal/ports
-
 test-handlers: build
 	cd runtime && $(GO_ENV) go test \
 		-v \
@@ -152,15 +149,7 @@ clean:
 
 .PHONY: configure-schema
 configure-schema: vcpkg-bootstrap
-	cmake -S . -B $(SCHEMA_BUILD_DIR) -G Ninja \
-		-DCMAKE_BUILD_TYPE=Release \
-		-DBUILD_TESTING=ON \
-		-DCMAKE_TOOLCHAIN_FILE="$(abspath vcpkg/scripts/buildsystems/vcpkg.cmake)" \
-		-DVCPKG_INSTALLED_DIR="$(abspath vcpkg_installed)" \
-		-DVCPKG_OVERLAY_TRIPLETS="$(abspath my-vcpkg-triplets)" \
-		-DVCPKG_OVERLAY_PORTS="$(abspath ports)" \
-		-DVCPKG_TARGET_TRIPLET="$(VCPKG_TRIPLET)" \
-		-DCMAKE_PREFIX_PATH="$(LOCAL_VCPKG_INSTALLED)/share;$(abspath vcpkg_installed)"
+	cmake --preset $(PRESET)
 
 .PHONY: test-schema
 test-schema: configure-schema

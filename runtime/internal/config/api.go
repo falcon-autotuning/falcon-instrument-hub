@@ -80,6 +80,8 @@ type IoType struct {
 	Role        string `yaml:"role"`
 	Description string `yaml:"description"`
 	Suffix      string `yaml:"suffix"`
+	Min         string `yaml:"min,omitempty"`
+	Max         string `yaml:"max,omitempty"`
 	Unit        string `yaml:"unit"`
 }
 type (

@@ -1,0 +1,178 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/falcon-autotuning/instrument-server/runtime/internal/config/hub-config",
+  "$ref": "#/$defs/HubConfig",
+  "$defs": {
+    "APIParseCharacteristic": {
+      "properties": {
+        "command": {
+          "type": "string"
+        },
+        "parameterName": {
+          "type": "string"
+        },
+        "reducer": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "HubConfig": {
+      "properties": {
+        "wiremap": {
+          "items": {
+            "$ref": "#/$defs/WiremapEntry"
+          },
+          "type": "array",
+          "description": "Logical to physical connection mappings"
+        },
+        "quantum-dot-config": {
+          "type": "string",
+          "description": "Global Path to the quantum dot config describing the device loaded"
+        },
+        "nats-url": {
+          "type": "string",
+          "description": "NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222"
+        },
+        "local-database": {
+          "type": "string",
+          "description": "Global Path to the local runtime database for collected data"
+        },
+        "working-directory": {
+          "type": "string",
+          "description": "Global Path for location of all logging to be deposited"
+        },
+        "user-measurement-luas": {
+          "type": "string",
+          "description": "Global Path to measurement scripts directory"
+        },
+        "instrument-server": {
+          "$ref": "#/$defs/InstrumentServerConfig",
+          "description": "Configuration for the Instrument Script Server"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "wiremap",
+        "quantum-dot-config",
+        "nats-url",
+        "local-database",
+        "working-directory",
+        "user-measurement-luas",
+        "instrument-server"
+      ]
+    },
+    "InstrumentCharacteristic": {
+      "properties": {
+        "identifier": {
+          "type": "string"
+        },
+        "readCommand": {
+          "$ref": "#/$defs/APIParseCharacteristic"
+        },
+        "writeCommand": {
+          "$ref": "#/$defs/APIParseCharacteristic"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "identifier",
+        "readCommand",
+        "writeCommand"
+      ]
+    },
+    "InstrumentConfig": {
+      "properties": {
+        "config": {
+          "type": "string"
+        },
+        "plugin": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string"
+        },
+        "characteristics": {
+          "items": {
+            "$ref": "#/$defs/InstrumentCharacteristic"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "config",
+        "plugin",
+        "type",
+        "characteristics"
+      ]
+    },
+    "InstrumentServerConfig": {
+      "properties": {
+        "rpc-port": {
+          "type": "integer"
+        },
+        "autostart": {
+          "type": "boolean"
+        },
+        "instruments": {
+          "items": {
+            "$ref": "#/$defs/InstrumentConfig"
+          },
+          "type": "array"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "rpc-port",
+        "autostart",
+        "instruments"
+      ]
+    },
+    "WiremapEntry": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Logical device connection name, for example P1, B2, or O1"
+        },
+        "instrument": {
+          "$ref": "#/$defs/WiremapInstrument"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "instrument"
+      ]
+    },
+    "WiremapInstrument": {
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Instrument instance name, for example Source1 or Meter1"
+        },
+        "channel_group": {
+          "type": "string",
+          "description": "Instrument channel group family used i.e. Analog"
+        },
+        "index": {
+          "type": "integer",
+          "description": "Physical channel index i.e. 1"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "name",
+        "channel_group",
+        "index"
+      ]
+    }
+  }
+}

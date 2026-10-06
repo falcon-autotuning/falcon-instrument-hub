@@ -40,17 +40,21 @@ func LoadWiremap(
 type WireMap []WiremapEntry
 
 type WiremapEntry struct {
-	PhysicalDeviceName string            `yaml:"name"`
-	Instrument         WiremapInstrument `yaml:"instrument"`
+	// Logical device connection name, for example P1, B2, or O1
+	PhysicalDeviceName string            `yaml:"name" json:"name"`
+	Instrument         WiremapInstrument `yaml:"instrument" json:"instrument"`
 
 	// Not serialized. Populated during validation.
-	Gate *connection.Handle `yaml:"-"`
+	Gate *connection.Handle `yaml:"-" json:"-"`
 }
 
 type WiremapInstrument struct {
-	Name         string `yaml:"name"`
-	ChannelGroup string `yaml:"channel_group"`
-	Channel      int    `yaml:"index"`
+	// Instrument instance name, for example Source1 or Meter1
+	Name string `yaml:"name" json:"name"`
+	// Instrument channel group family used i.e. Analog
+	ChannelGroup string `yaml:"channel_group" json:"channel_group"`
+	// Physical channel index i.e. 1
+	Channel int `yaml:"index" json:"index"`
 }
 
 func loadConfig(deviceConfigPath string) (*falconconfig.Handle, error) {
@@ -67,7 +71,7 @@ func loadConfig(deviceConfigPath string) (*falconconfig.Handle, error) {
 	return ch, nil
 }
 
-// LoadWiremap loads the YAML and validates every wiremap entry
+// ResolveWiremap loads the YAML and validates every wiremap entry
 // against the Falcon device configuration. Each entry is linked
 // to its resolved Falcon gate object.
 func ResolveWiremap(

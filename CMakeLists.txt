@@ -11,18 +11,25 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include(CTest)
 
-find_package(falcon-core CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
-find_package(nlohmann_json_schema_validator CONFIG REQUIRED)
-find_package(yaml-cpp CONFIG REQUIRED)
+find_package(yaml-config-validator CONFIG REQUIRED)
 
-set(WIREMAP_SCHEMA_FILE "${CMAKE_SOURCE_DIR}/schemas/wiremap.schema.json")
+# Embedded JSON schemas
+set(HUB_SCHEMA_FILE
+    "${CMAKE_SOURCE_DIR}/schemas/hub.schema.json")
 
-if(NOT EXISTS "${WIREMAP_SCHEMA_FILE}")
-  message(FATAL_ERROR "Required schema file does not exist: ${WIREMAP_SCHEMA_FILE}")
-endif()
+foreach(schema_file
+    HUB_SCHEMA_FILE
+)
+  if(NOT EXISTS "${${schema_file}}")
+    message(FATAL_ERROR
+      "Required schema file does not exist: ${${schema_file}}")
+  endif()
+endforeach()
 
-file(READ "${WIREMAP_SCHEMA_FILE}" WIREMAP_SCHEMA)
+file(READ
+  "${HUB_SCHEMA_FILE}"
+  HUB_SCHEMA
+)
 
 function(validate_json_schema schema_name schema_contents)
   string(
@@ -33,20 +40,36 @@ function(validate_json_schema schema_name schema_contents)
   )
 
   if(json_error)
-    message(FATAL_ERROR "${schema_name} is not valid JSON: ${json_error}")
+    message(FATAL_ERROR
+      "${schema_name} is not valid JSON: ${json_error}")
   endif()
 
   if(NOT schema_type STREQUAL "OBJECT")
-    message(FATAL_ERROR "${schema_name} must contain a JSON object, got: ${schema_type}")
+    message(FATAL_ERROR
+      "${schema_name} must contain a JSON object, got: ${schema_type}")
   endif()
 endfunction()
 
-validate_json_schema("Wiremap schema" "${WIREMAP_SCHEMA}")
+validate_json_schema(
+  "Hub schema"
+  "${HUB_SCHEMA}"
+)
+
+
+foreach(schema_variable
+    HUB_SCHEMA
+)
+  string(LENGTH "${${schema_variable}}" schema_length)
+
+  message(STATUS
+    "${schema_variable} size: ${schema_length} bytes")
+endforeach()
 
 set_property(
   DIRECTORY
   APPEND
-  PROPERTY CMAKE_CONFIGURE_DEPENDS "${WIREMAP_SCHEMA_FILE}"
+  PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${HUB_SCHEMA_FILE}"
 )
 
 configure_file(
@@ -55,50 +78,22 @@ configure_file(
   @ONLY
 )
 
-add_executable(validate-wiremap-config
-  src/wiremap_config_validator.cpp
-  "${CMAKE_BINARY_DIR}/embedded_schemas.cpp"
+add_executable(validate-hub
+  src/hub_config_validator.cpp
+  ${CMAKE_BINARY_DIR}/embedded_schemas.cpp
 )
-
-target_link_libraries(validate-wiremap-config
+target_link_libraries(validate-hub
   PRIVATE
-    nlohmann_json::nlohmann_json
-    nlohmann_json_schema_validator::validator
-    yaml-cpp::yaml-cpp
+    yaml-config-validator::yaml-config-validator
 )
 
 install(
-  TARGETS validate-wiremap-config
+  TARGETS validate-hub
   RUNTIME DESTINATION bin
 )
 
 install(
-  FILES "${WIREMAP_SCHEMA_FILE}"
+  FILES "${HUB_SCHEMA_FILE}"
   DESTINATION share/falcon-instrument-hub/schemas
 )
 
-if(BUILD_TESTING)
-  add_test(
-    NAME validate-wiremap-valid-fixture
-    COMMAND validate-wiremap-config
-            "${CMAKE_SOURCE_DIR}/test_data/2-dot-1-chargesensor-wiremap.yml"
-  )
-
-  foreach(invalid_fixture
-      duplicate-logical-name
-      duplicate-physical-endpoint
-      invalid-name
-      missing-index
-      unknown-field
-  )
-    add_test(
-      NAME "validate-wiremap-invalid-${invalid_fixture}"
-      COMMAND validate-wiremap-config
-              "${CMAKE_SOURCE_DIR}/tests/wiremap/${invalid_fixture}.yml"
-    )
-    set_tests_properties(
-      "validate-wiremap-invalid-${invalid_fixture}"
-      PROPERTIES WILL_FAIL TRUE
-    )
-  endforeach()
-endif()

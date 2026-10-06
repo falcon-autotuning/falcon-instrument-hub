@@ -1,8 +1,7 @@
 // Auto-generated file - do not edit manually.
 
-namespace hub_schema {
+namespace hub {
 
-extern const char WIREMAP_SCHEMA[] =
-    R"schema(@WIREMAP_SCHEMA@)schema";
+extern const char HUB_SCHEMA[] = R"schema(@HUB_SCHEMA@)schema";
 
-} // namespace hub_schema
+} // namespace hub

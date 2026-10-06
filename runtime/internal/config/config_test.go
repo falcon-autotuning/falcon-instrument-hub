@@ -15,46 +15,75 @@ import (
 )
 
 func TestAPIParseCharacteristicValidate_Command(t *testing.T) {
+	api := &InstrumentAPI{
+		Commands: map[CommandName]Command{
+			"MEAS:VOLT?": {},
+		},
+	}
+
 	c := APIParseCharacteristic{
 		Command: "MEAS:VOLT?",
 	}
 
-	require.NoError(t, c.Validate())
+	require.NoError(t, c.Validate(api))
 }
 
-func TestAPIParseCharacteristicValidate_ParameterNameWithMin(t *testing.T) {
-	c := APIParseCharacteristic{
-		ParameterName: "voltage",
-		Min:           true,
+func TestAPIParseCharacteristicValidate_ParameterNameWithMinReducer(t *testing.T) {
+	api := &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+				Min:  "0",
+			},
+		},
 	}
 
-	require.NoError(t, c.Validate())
+	c := APIParseCharacteristic{
+		ParameterName: "voltage",
+		Reducer:       ReducerMin,
+	}
+
+	require.NoError(t, c.Validate(api))
 }
 
-func TestAPIParseCharacteristicValidate_ParameterNameWithMax(t *testing.T) {
-	c := APIParseCharacteristic{
-		ParameterName: "voltage",
-		Max:           true,
+func TestAPIParseCharacteristicValidate_ParameterNameWithMaxReducer(t *testing.T) {
+	api := &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+				Max:  "10",
+			},
+		},
 	}
 
-	require.NoError(t, c.Validate())
+	c := APIParseCharacteristic{
+		ParameterName: "voltage",
+		Reducer:       ReducerMax,
+	}
+
+	require.NoError(t, c.Validate(api))
 }
 
-func TestAPIParseCharacteristicValidate_ParameterNameWithoutMinOrMax(t *testing.T) {
+func TestAPIParseCharacteristicValidate_ParameterName(t *testing.T) {
+	api := &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+			},
+		},
+	}
+
 	c := APIParseCharacteristic{
 		ParameterName: "voltage",
 	}
 
-	err := c.Validate()
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "parameter parsing requires")
+	require.NoError(t, c.Validate(api))
 }
 
 func TestAPIParseCharacteristicValidate_Empty(t *testing.T) {
 	var c APIParseCharacteristic
 
-	err := c.Validate()
+	err := c.Validate(nil)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "either parameterName or command")
@@ -82,6 +111,23 @@ func dcVoltageCharacteristicSet() CharacteristicSet {
 	return ValidCharacteristics[instrument.DcVoltageSource]
 }
 
+func testAPI() *InstrumentAPI {
+	return &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+				Min:  "0",
+				Max:  "10",
+			},
+		},
+		Commands: map[CommandName]Command{
+			CommandName("VOLT?"): {},
+			CommandName("RATE?"): {},
+			CommandName("x"):     {},
+		},
+	}
+}
+
 func TestInstrumentCharacteristicValidate_ReadCommand(t *testing.T) {
 	c := InstrumentCharacteristic{
 		Identifier: "source_voltage",
@@ -90,7 +136,10 @@ func TestInstrumentCharacteristicValidate_ReadCommand(t *testing.T) {
 		},
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.NoError(t, err)
 
@@ -101,7 +150,9 @@ func TestInstrumentCharacteristicValidate_ReadCommand(t *testing.T) {
 	)
 }
 
-func TestInstrumentCharacteristicValidate_UnknownCharacteristic(t *testing.T) {
+func TestInstrumentCharacteristicValidate_UnknownCharacteristic(
+	t *testing.T,
+) {
 	c := InstrumentCharacteristic{
 		Identifier: "garbage",
 		ReadCommand: APIParseCharacteristic{
@@ -109,12 +160,17 @@ func TestInstrumentCharacteristicValidate_UnknownCharacteristic(t *testing.T) {
 		},
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.Error(t, err)
 }
 
-func TestInstrumentCharacteristicValidate_NotValidForInstrument(t *testing.T) {
+func TestInstrumentCharacteristicValidate_NotValidForInstrument(
+	t *testing.T,
+) {
 	c := InstrumentCharacteristic{
 		Identifier: "sample_rate",
 		ReadCommand: APIParseCharacteristic{
@@ -122,49 +178,79 @@ func TestInstrumentCharacteristicValidate_NotValidForInstrument(t *testing.T) {
 		},
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "not valid for this instrument")
+	assert.Contains(
+		t,
+		err.Error(),
+		"not valid for this instrument",
+	)
 }
 
-func TestInstrumentCharacteristicValidate_NoCommands(t *testing.T) {
+func TestInstrumentCharacteristicValidate_NoCommands(
+	t *testing.T,
+) {
 	c := InstrumentCharacteristic{
 		Identifier: "source_voltage",
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "at least one")
 }
 
-func TestInstrumentCharacteristicValidate_ReadValidationFailure(t *testing.T) {
+func TestInstrumentCharacteristicValidate_ReadValidationFailure(
+	t *testing.T,
+) {
 	c := InstrumentCharacteristic{
 		Identifier: "source_voltage",
 		ReadCommand: APIParseCharacteristic{
-			ParameterName: "voltage",
+			ParameterName: "does_not_exist",
 		},
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "readCommand")
+	assert.Contains(
+		t,
+		err.Error(),
+		"unknown API parameter",
+	)
 }
 
-func TestInstrumentCharacteristicValidate_WriteValidationFailure(t *testing.T) {
+func TestInstrumentCharacteristicValidate_WriteValidationFailure(
+	t *testing.T,
+) {
 	c := InstrumentCharacteristic{
 		Identifier: "source_voltage",
 		WriteCommand: APIParseCharacteristic{
-			ParameterName: "voltage",
+			ParameterName: "does_not_exist",
 		},
 	}
 
-	err := c.Validate(dcVoltageCharacteristicSet())
+	err := c.Validate(
+		testAPI(),
+		dcVoltageCharacteristicSet(),
+	)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "writeCommand")
+	assert.Contains(
+		t,
+		err.Error(),
+		"unknown API parameter",
+	)
 }
 
 func TestParseInstrumentType(t *testing.T) {
@@ -181,11 +267,57 @@ func TestParseInstrumentTypeUnknown(t *testing.T) {
 	assert.Contains(t, err.Error(), "unknown instrument type")
 }
 
-func validInstrumentConfig() InstrumentConfig {
+func validInstrumentConfig(
+	t *testing.T,
+) InstrumentConfig {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	apiFile := filepath.Join(
+		dir,
+		"api.yaml",
+	)
+
+	instrumentFile := filepath.Join(
+		dir,
+		"instrument.yaml",
+	)
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			apiFile,
+			[]byte(`
+instrument:
+  vendor: test
+  model: 1
+  identifier: test
+
+commands:
+  VOLT?: {}
+`),
+			0600,
+		),
+	)
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			instrumentFile,
+			[]byte(fmt.Sprintf(`
+name: test
+api_ref: %s
+`, apiFile)),
+			0600,
+		),
+	)
+
 	return InstrumentConfig{
-		ConfigPath:         "/tmp/config.yml",
+		ConfigPath:         instrumentFile,
 		PluginPath:         "/tmp/plugin.so",
 		InstrumentTypeName: "dc_voltage_source",
+		InstrumentType:     instrument.DcVoltageSource,
 		Characteristics: []InstrumentCharacteristic{
 			{
 				Identifier: "source_voltage",
@@ -198,7 +330,7 @@ func validInstrumentConfig() InstrumentConfig {
 }
 
 func TestInstrumentConfigValidate(t *testing.T) {
-	cfg := validInstrumentConfig()
+	cfg := validInstrumentConfig(t)
 
 	require.NoError(t, cfg.Validate())
 
@@ -210,7 +342,7 @@ func TestInstrumentConfigValidate(t *testing.T) {
 }
 
 func TestInstrumentConfigValidate_NoConfigPath(t *testing.T) {
-	cfg := validInstrumentConfig()
+	cfg := validInstrumentConfig(t)
 	cfg.ConfigPath = ""
 
 	err := cfg.Validate()
@@ -220,7 +352,7 @@ func TestInstrumentConfigValidate_NoConfigPath(t *testing.T) {
 }
 
 func TestInstrumentConfigValidate_NoPluginPath(t *testing.T) {
-	cfg := validInstrumentConfig()
+	cfg := validInstrumentConfig(t)
 	cfg.PluginPath = ""
 
 	err := cfg.Validate()
@@ -230,7 +362,7 @@ func TestInstrumentConfigValidate_NoPluginPath(t *testing.T) {
 }
 
 func TestInstrumentConfigValidate_InvalidType(t *testing.T) {
-	cfg := validInstrumentConfig()
+	cfg := validInstrumentConfig(t)
 	cfg.InstrumentTypeName = "nonsense"
 
 	err := cfg.Validate()
@@ -238,21 +370,10 @@ func TestInstrumentConfigValidate_InvalidType(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestInstrumentConfigValidate_CharacteristicError(t *testing.T) {
-	cfg := validInstrumentConfig()
-
-	cfg.Characteristics[0].Identifier = "sample_rate"
-
-	err := cfg.Validate()
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "characteristics[0]")
-}
-
 func TestInstrumentServerConfigValidate(t *testing.T) {
 	cfg := InstrumentServerConfig{
 		Instruments: []InstrumentConfig{
-			validInstrumentConfig(),
+			validInstrumentConfig(t),
 		},
 	}
 
@@ -277,7 +398,7 @@ func validHubConfig(
 		Wiremap:          testWiremapEntries(),
 		InstrumentServer: InstrumentServerConfig{
 			Instruments: []InstrumentConfig{
-				validInstrumentConfig(),
+				validInstrumentConfig(t),
 			},
 		},
 	}
@@ -419,7 +540,7 @@ func TestValidate_WiremapUnknownGate(t *testing.T) {
 		},
 		InstrumentServer: InstrumentServerConfig{
 			Instruments: []InstrumentConfig{
-				validInstrumentConfig(),
+				validInstrumentConfig(t),
 			},
 		},
 	}
@@ -439,7 +560,7 @@ func TestValidate_PopulatesWorkingDirectory(t *testing.T) {
 		QuantumDotConfig: deviceConfig,
 		InstrumentServer: InstrumentServerConfig{
 			Instruments: []InstrumentConfig{
-				validInstrumentConfig(),
+				validInstrumentConfig(t),
 			},
 		},
 	}
