@@ -16,19 +16,27 @@ type getVoltageHandler struct{}
 
 func (*getVoltageHandler) Name() string { return "get_voltage" }
 
-func (*getVoltageHandler) CanHandle(req *FalconMeasurementRequest) (bool, error) {
+func (*getVoltageHandler) CanHandle(
+	req *FalconMeasurementRequest,
+) (bool, error) {
 	if req == nil {
 		return false, fmt.Errorf("request is nil")
 	}
 	return true, nil
 }
 
-func getVoltageFromResult(result MeasurementResult, expected config.ConnectedPort) (float64, error) {
+func getVoltageFromResult(
+	result MeasurementResult,
+	expected config.ConnectedPort,
+) (float64, error) {
 	if result.Err != nil {
 		return 0, result.Err
 	}
 	if len(result.Results) != 1 {
-		return 0, fmt.Errorf("get_voltage returned %d instrument calls, want 1", len(result.Results))
+		return 0, fmt.Errorf(
+			"get_voltage returned %d instrument calls, want 1",
+			len(result.Results),
+		)
 	}
 
 	call := result.Results[0]
@@ -45,7 +53,10 @@ func getVoltageFromResult(result MeasurementResult, expected config.ConnectedPor
 		)
 	}
 	if len(call.Return) != 1 {
-		return 0, fmt.Errorf("get_voltage returned %d values, want 1", len(call.Return))
+		return 0, fmt.Errorf(
+			"get_voltage returned %d values, want 1",
+			len(call.Return),
+		)
 	}
 
 	var voltage float64
@@ -81,7 +92,10 @@ func (*getVoltageHandler) Handle(
 		return nil, fmt.Errorf("extract get_voltage getter: %w", err)
 	}
 	if len(getters) != 1 {
-		return nil, fmt.Errorf("get_voltage requires exactly one getter, got %d", len(getters))
+		return nil, fmt.Errorf(
+			"get_voltage requires exactly one getter, got %d",
+			len(getters),
+		)
 	}
 	getter := getters[0]
 
@@ -113,7 +127,10 @@ func (*getVoltageHandler) Handle(
 		}},
 	}})
 	if len(results) != 1 {
-		return nil, fmt.Errorf("get_voltage returned %d measurement results, want 1", len(results))
+		return nil, fmt.Errorf(
+			"get_voltage returned %d measurement results, want 1",
+			len(results),
+		)
 	}
 
 	voltage, err := getVoltageFromResult(results[0], resolved)

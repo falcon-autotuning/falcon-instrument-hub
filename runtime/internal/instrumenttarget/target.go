@@ -46,7 +46,10 @@ func (t Target) Serialize() (string, error) {
 		return "", err
 	}
 	if t.Channel < math.MinInt32 || t.Channel > math.MaxInt32 {
-		return "", fmt.Errorf("channel %d is outside the native int range", t.Channel)
+		return "", fmt.Errorf(
+			"channel %d is outside the native int range",
+			t.Channel,
+		)
 	}
 
 	instrument := C.CString(t.Instrument)

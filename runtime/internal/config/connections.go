@@ -347,11 +347,21 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 	for _, instrument := range instruments {
 		config, err := ParseInstrumentConfig(instrument.ConfigPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse instrument config %q: %w", instrument.ConfigPath, err)
+			return nil, fmt.Errorf(
+				"failed to parse instrument config %q: %w",
+				instrument.ConfigPath,
+				err,
+			)
 		}
-		api, err := ParseInstrumentAPI(filepath.Join(filepath.Dir(instrument.ConfigPath), config.API_ref))
+		api, err := ParseInstrumentAPI(
+			filepath.Join(filepath.Dir(instrument.ConfigPath), config.API_ref),
+		)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse instrument API %q: %w", instrument.ConfigPath, err)
+			return nil, fmt.Errorf(
+				"failed to parse instrument API %q: %w",
+				instrument.ConfigPath,
+				err,
+			)
 		}
 		expandedNames := buildExpandedIONames(api)
 		seenExpandedNames := make(map[string]struct{})
@@ -554,7 +564,9 @@ func ConnectWireMap(wiremap WireMap, lib PortLibrary) ([]ConnectedPort, error) {
 
 		// Find all port library entries matching this instrument + channel.
 		for portName, entry := range lib {
-			if entry.InstrumentName == instrumentName && entry.ChannelGroup == channelName && channel == entry.Channel {
+			if entry.InstrumentName == instrumentName &&
+				entry.ChannelGroup == channelName &&
+				channel == entry.Channel {
 				connected = append(connected, ConnectedPort{
 					PortEntry:  entry,
 					PortName:   portName,
@@ -566,7 +578,10 @@ func ConnectWireMap(wiremap WireMap, lib PortLibrary) ([]ConnectedPort, error) {
 	}
 
 	if len(errs) > 0 {
-		return connected, fmt.Errorf("wiremap connection errors: %s", strings.Join(errs, "; "))
+		return connected, fmt.Errorf(
+			"wiremap connection errors: %s",
+			strings.Join(errs, "; "),
+		)
 	}
 	return connected, nil
 }
@@ -620,7 +635,9 @@ func NewConnectedPorts(
 
 // ResolveConnectedPort resolves a logical device name plus IO/capability name
 // to exactly one connected instrument port.
-func (h ConnectedPorts) ResolveConnectedPort(port *instrumentport.Handle) (ConnectedPort, error) {
+func (h ConnectedPorts) ResolveConnectedPort(
+	port *instrumentport.Handle,
+) (ConnectedPort, error) {
 	defaultName, err := port.DefaultName()
 	if err != nil {
 		return ConnectedPort{}, fmt.Errorf(
@@ -666,7 +683,12 @@ func (h ConnectedPorts) ResolveConnectedPort(port *instrumentport.Handle) (Conne
 
 	var matches []ConnectedPort
 	for _, cp := range h.AllConnections {
-		if cp.DeviceName == defaultName && cp.InstrumentName == instrumentName && cp.InstrumentType == instrumentType && cp.Role == role && access == cp.Access && characteristic == cp.Characteristic {
+		if cp.DeviceName == defaultName &&
+			cp.InstrumentName == instrumentName &&
+			cp.InstrumentType == instrumentType &&
+			cp.Role == role &&
+			access == cp.Access &&
+			characteristic == cp.Characteristic {
 			matches = append(matches, cp)
 		}
 	}

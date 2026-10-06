@@ -18,10 +18,15 @@ type FalconMeasurementRequest struct {
 
 // NewFalconMeasurementRequestFromJSON deserializes a MeasurementRequest from JSON
 // using the falcon-core API.
-func NewFalconMeasurementRequestFromJSON(jsonStr string) (*FalconMeasurementRequest, error) {
+func NewFalconMeasurementRequestFromJSON(
+	jsonStr string,
+) (*FalconMeasurementRequest, error) {
 	handle, err := measurementrequest.FromJSON(jsonStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize MeasurementRequest from JSON: %w", err)
+		return nil, fmt.Errorf(
+			"failed to deserialize MeasurementRequest from JSON: %w",
+			err,
+		)
 	}
 
 	return &FalconMeasurementRequest{handle: handle}, nil
@@ -63,10 +68,15 @@ type FalconMeasurementResponse struct {
 }
 
 // NewFalconMeasurementResponseFromJSON deserializes a MeasurementResponse from JSON.
-func NewFalconMeasurementResponseFromJSON(jsonStr string) (*FalconMeasurementResponse, error) {
+func NewFalconMeasurementResponseFromJSON(
+	jsonStr string,
+) (*FalconMeasurementResponse, error) {
 	handle, err := measurementresponse.FromJSON(jsonStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize MeasurementResponse from JSON: %w", err)
+		return nil, fmt.Errorf(
+			"failed to deserialize MeasurementResponse from JSON: %w",
+			err,
+		)
 	}
 
 	return &FalconMeasurementResponse{handle: handle}, nil

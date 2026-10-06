@@ -20,12 +20,14 @@ end
 
 --- Measure DC voltage
 --- @param id string Instrument instance identifier
+--- @param channel_group string Instrument channel group
 --- @param channel number Voltage source channel number (1-32)
 --- @return number measured_voltage
-function Mock1Source1:getVoltage(id: string, channel: number): number
+function Mock1Source1:getVoltage(id: string, channel_group: string, channel: number): number
   local cs = instrument_call_stack.new({
     instrument = id,
     command = "GET_VOLTAGE",
+    channel_group = channel_group,
     channel = channel,
   })
   return context:call(cs)

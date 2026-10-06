@@ -18,8 +18,7 @@ import (
 //   - constructing the final response
 //   - FIX: storing the data in the falconcore database (does not currently exist)
 //
-// Handlers are evaluated in registration order. The first handler whose
-// CanHandle() method returns true will process the request.
+// Every handler is evaluated. Exactly one handler must claim the request.
 //
 // Measurement handlers are intentionally decoupled from the router and may
 // live in any package that can import the interpreter package.
@@ -30,7 +29,7 @@ type MeasurementHandler interface {
 	// Name returns a human-readable identifier used for logging.
 	Name() string
 
-	// CanHandle determines whether this handler should process the request.
+	// CanHandle determines whether this handler can process the request.
 	CanHandle(
 		req *FalconMeasurementRequest,
 	) (bool, error)
@@ -53,7 +52,7 @@ type MeasurementHandler interface {
 //   - handlers are registered during construction
 //   - no runtime plugin mechanism exists
 //
-// Handlers are checked sequentially until one matches.
+// All handlers are checked before one is selected.
 type Router struct {
 	dispatcher *MeasurementDispatcher
 
@@ -93,8 +92,8 @@ func NewRouter(
 		dispatcher: dispatcher,
 		wiremap:    wiremap,
 		ports:      ports,
-		handlers:   []MeasurementHandler{
-			//&getVoltageHandler{},
+		handlers: []MeasurementHandler{
+			&getVoltageHandler{},
 		},
 	}
 }

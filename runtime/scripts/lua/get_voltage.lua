@@ -1,7 +1,11 @@
--- The hub creates this CallStack from the resolved instrument port and ISS
--- converts the typed serialized value into CallStack userdata.
+local source = require("source")
+
 ---@param ctx RuntimeContext
----@param getter CallStack
+---@param getter InstrumentTarget
 function main(ctx, getter)
-    ctx:call(getter)
+    return source:getVoltage(
+        getter:get_instrument_name(),
+        getter:get_channel_group(),
+        getter:get_channel()
+    )
 end
