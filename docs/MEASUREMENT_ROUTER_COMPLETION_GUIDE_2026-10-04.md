@@ -1,13 +1,18 @@
 # Measurement Router Completion Review
 
-Date: 2026-10-04  
-Updated against hub revision: `569a68e`
+Original review: 2026-10-04
+
+Source review updated: 2026-10-05
+
+Updated against hub revision: `abe4166` (previous review: `569a68e`)
 
 ## Scope
 
-This review covers the current `falcon-instrument-hub` source plus the downloaded `falcon-core-main`, `falcon-core-libs-main`, and `instrument-script-server-main` source snapshots under `~/Downloads/tmp_falcon`. `falcon-routine` and the configuration generators were not available in that directory, so routing ownership and generated API policy still need confirmation there.
+This review now uses the local Git checkouts under `/home/zach/Documents/github/FALCon`, replacing the earlier downloaded snapshots. The primary review covers `falcon-core`, `falcon-core-libs`, `falcon-routine`, `falcon-instrument-hub`, and `instrument-script-server`; supporting target bindings and downstream controller pins were also inspected. The revision inventory and mapping to the original refactor checklist appear under [Repo observations](#repo-observations-2026-10-05).
 
-No tests were run for this review. The findings come from reading the current source and downloaded dependency snapshots. The hub still pins `falcon-core-libs/go/falcon-core v0.0.6`; downloaded `main` sources describe proposed/current upstream work and are not automatically the interfaces used by the hub build.
+This is a source review, not certification that every refactor or integration test passes. An offline, compile-only Go check was attempted with Go 1.25.2 and the hub's configured pkg-config directory. It failed because `falcon-core-c-api.pc` is unavailable there; no runtime tests were executed. The hub still selects Go bindings `v0.0.6` and native core `1.2.17`, while the sibling core and binding checkouts target `1.2.18`. No dependency pins or implementation files were changed for this review.
+
+The implementation steps below remain recommendations. They describe future work, while the observations distinguish source already present from outstanding work.
 
 The task is to complete this successful path:
 
@@ -25,7 +30,7 @@ MEASURE_COMMAND
 
 ### MeasurementRequest still has no dedicated route field
 
-The downloaded `falcon-core` and `falcon-core-libs` sources confirm that `MeasurementRequest` contains:
+The cloned `falcon-core` and `falcon-core-libs` sources confirm that `MeasurementRequest` contains:
 
 - the inherited base-message `message` string;
 - waveforms;
@@ -33,11 +38,11 @@ The downloaded `falcon-core` and `falcon-core-libs` sources confirm that `Measur
 - meter transforms;
 - a time domain.
 
-There is no `measurement_name`, script name, or route-key field. Therefore `Message()` is the only presently visible routing candidate, but its use as a stable handler identifier still needs confirmation from `falcon-routine`. Keep that decision in one `RouteKey()` adapter.
+There is no `measurement_name`, script name, or route-key field. `Message()` remains a possible future routing carrier, but **it is not an established route identifier in the inspected routine producer**: [`ramp()`](../../falcon-routine/src/hub.cpp) constructs a request with `"Performing a ramp measurement"`, and `request_measurement()` forwards the supplied request unchanged. An exact `get_voltage`/`ramp` dispatch convention therefore needs a coordinated producer change or a dedicated shared request field. Keep the eventual decision in one `RouteKey()` adapter; do not treat a hub-only adapter as completion of that contract.
 
 ### ISS typed target behavior is now confirmed
 
-The downloaded ISS protobuf defines scalar and array types for `InstrumentTarget` and `InstrumentDomain`. ISS deserializes these values according to the request `TypeManifest` before calling `main(ctx, ...)`.
+The cloned ISS protobuf defines scalar and array types for `InstrumentTarget` and `InstrumentDomain`. ISS deserializes these values according to the request `TypeManifest` before calling `main(ctx, ...)`.
 
 The current Lua target interface uses methods, not fields:
 
@@ -47,7 +52,7 @@ target:get_channel_group()
 target:get_channel()
 ```
 
-The ISS `target.lua` test constructs a CallStack from those three values. Hub scripts that use `getter.id` or `getter.channel` are stale against this contract.
+The [`instrument-target` Lua binding](../../instrument-target/src/instrument-target-lua.c) checks userdata in argument 1, so use colon calls as above (or pass the receiver explicitly). The ISS `target.lua` fixture attempts to construct a CallStack from those three values but uses dot calls without a receiver; that fixture is not proof of working accessor invocation. Hub scripts that use `getter.id` or `getter.channel` are stale against this contract.
 
 ### ISS helper loading requires an explicit module load
 
@@ -55,20 +60,24 @@ ISS reads `INSTRUMENT_SCRIPT_SERVER_OPT_LUA_LIB`. Directory entries are added to
 
 ### The current ISS API schema cannot fully define Falcon ports
 
-The downloaded ISS `instrument_api.schema.json` requires top-level `io` and `commands`; `channel_groups` is optional. It does not define:
+The cloned ISS [`instrument_api.schema.json`](../../instrument-script-server/schemas/instrument_api.schema.json) requires top-level `io` and `commands`; `channel_groups` is optional. It does not define:
 
 - Falcon instrument type;
 - Falcon scope;
 - Falcon access;
 - Falcon instrument characteristic.
 
-It also permits roles beyond the hub parser's current comment: `input`, `output`, `inout`, trigger roles, clock roles, and `setting`. The hub parser currently ignores top-level `io`, requires the non-schema field `instrument.instrument_type`, and reads only channel-group IO entries. This is a real schema mismatch, not a missing local mapping function.
+It also permits roles beyond the hub parser's current comment: `input`, `output`, `inout`, trigger roles, clock roles, and `setting`. The hub parser currently ignores top-level `io`, requires the non-schema field `instrument.instrument_type`, and reads only channel-group IO entries. This is a real schema mismatch, not a missing local mapping function. In addition, the schema declares `instrument.model` as a string while the hub uses an `int`, and channel-group IO identifies a capability with required `suffix` while the new hub builder requires `IoType.Name`. The schema sets `instrument.additionalProperties: false`, so adding `instrument_type` directly to an otherwise valid ISS API is not compatible with that schema.
 
 Do not silently manufacture the missing Falcon attributes. Either extend the shared instrument API schema and generator, or introduce a separate hub-owned mapping configuration with explicit defaults and validation.
 
-### The downloaded Falcon sources are internally transitional
+### The active core/C/Go port contracts use enums and are aligned in the clones
 
-The downloaded `falcon-core` `InstrumentPort.hpp` still declares the enum-based `Instrument`, while `Instrument.hpp` defines `Instrument` as `std::string`. The downloaded Go bindings still expose the enum values used by the hub. Treat the enum-to-string instrument migration as unfinished and keep the hub adapter compatible with its pinned binding until the upstream C/C++ and Go interfaces agree.
+The current [`InstrumentPort.hpp`](../../falcon-core/include/falcon-core/instrument_interfaces/names/InstrumentPort.hpp), [`InstrumentPort_c_api.h`](../../falcon-core/include/falcon-core/instrument_interfaces/names/InstrumentPort_c_api.h), and [Go instrument binding](../../falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument/instrument.go) all use an instrument-type enum. Concrete `instrument_name` is a separate string. Scope, access, port type, and the expanded instrument characteristics are represented across these interfaces.
+
+A leftover [`Instrument.hpp`](../../falcon-core/include/falcon-core/instrument_interfaces/names/Instrument.hpp) still aliases `Instrument` to `std::string`, but no include of that header was found in core's `include` or `src` trees. This is a header-cleanup concern, not evidence that consumers should implement an enum/string compatibility shim. The earlier migration conclusion is superseded by this inspection.
+
+Core provides the vocabulary for instrument categories and characteristics; its generic `InstrumentPort` constructor checks non-null units but does not enforce a per-instrument characteristic allowlist. A real-instrument configuration and validator still need to connect that vocabulary to actual hardware, scope, access, units, and supported operations.
 
 ## Visible changes from the recent pull
 
@@ -115,21 +124,25 @@ The dispatcher in [dispatcher.go](../runtime/internal/interpreter/dispatcher.go)
 
 The missing work is primarily between request deserialization and dispatcher invocation.
 
+### Connected-port construction is now implemented and selected in production
+
+Commit `e1195aa` added `BuildPortLibrary` and the exported `NewConnectedPortsFromConnections`; `abe4166` switched `ProductionDependancies` to `DefaultConnectedPortsBuilder`. The builder now parses APIs, expands channel-group IO into unique `<instrument>.<group>.<channel>.<IO name>` keys, joins the wire map, and partitions knobs/meters/settings. Duplicate library keys are rejected, and source tests cover the new builder and partitioning.
+
+This closes the previous empty-library and unexported-constructor blockers. The remaining limitations are configuration coverage and identity correctness, described next.
+
 ## Current blockers
 
-### 1. Connected-port construction has started but is not complete
+### 1. Connected-port configuration and identity remain incomplete
 
-`DefaultConnectedPortsBuilder.NewConnectedPorts` now parses the API files and calls `ConnectWireMap`. Three concrete gaps remain:
+The construction pipeline exists, but it only handles the hub's channel-group API dialect:
 
-- `apis` is parsed but never used to populate `PortLibrary`;
-- the empty library produces no connections;
-- `ports.newConnectedPorts` is unexported and cannot be called from the `handlers` package.
+- Top-level/global IO is not parsed or built, and `PortEntry` has no `Scope` field or separate IO-capability field.
+- `portAttributesFromRole` hard-codes `output -> Knob/Write`, `input -> Meter/Read`, and `setting -> Setting/ReadWrite`; every characteristic is assigned `None`. These defaults do not establish the intended settings policy.
+- `ConnectWireMap` silently leaves unmatched wire-map entries out of the result; its error slice is never populated. Unique library keys alone do not validate all physical mappings.
+- The serializer puts `ConnectedPort.PortName` in Falcon `default_name`, but `ResolveConnectedPort` compares that value with `ConnectedPort.DeviceName`. A returned port such as `Source1.analog.4.voltage` will not round-trip against device name `P1`.
+- Resolution does not compare the request's connection, scope, units, or a separate IO capability. Distinct capabilities can remain ambiguous when their compared attributes coincide.
 
-`ConnectWireMap` returns `[]ConnectedPort`, while the builder interface returns `*ConnectedPorts`. Export the partitioning constructor, for example `NewConnectedPortsFromConnections`, or expose one higher-level function in `ports` that performs parse, library construction, wire-map joining, and partitioning.
-
-The library builder must create one entry per addressable instrument/group/channel/IO capability. Its key must include the channel and capability so expanded channel groups do not overwrite one another.
-
-This cannot yet be completed faithfully from the latest ISS YAML schema alone. Decide where Falcon-only port attributes live before filling the library with zero enum values.
+Finish the shared configuration and round-trip identity rules before treating a non-empty catalog as a working measurement path. The parser/schema differences above also mean valid upstream ISS APIs are not automatically valid hub inputs.
 
 ### 2. Setting serialization is incomplete
 
@@ -164,9 +177,9 @@ The handler should only be registered after its package location and dependencie
 
 ### 5. The routing discriminator is not settled
 
-Both the pinned binding and downloaded upstream sources expose `Message()`, getters, waveforms, meter transforms, and a time domain. Neither source exposes the previous `MeasurementName()` method or a replacement route field.
+Both the cached pinned binding (`v0.0.6`) and cloned upstream sources expose `Message()`, getters, waveforms, meter transforms, and a time domain. Neither source exposes the previous `MeasurementName()` method or a replacement route field.
 
-The router needs an explicit, stable key such as `get_voltage`. Confirm with `falcon-routine` whether `MeasurementRequest.message` is now the canonical script/handler identifier. If it is not, an upstream request-field change is required.
+The router needs an explicit, stable key such as `get_voltage`. Routine currently emits descriptive text for ramps, so agree and implement a message-based route convention across producers or introduce a dedicated request field. A local `RouteKey()` wrapper alone cannot establish that shared convention.
 
 Do not infer the handler from its ports. Several measurements can use the same ports but perform different procedures.
 
@@ -188,7 +201,7 @@ Treat this file as a draft and update it to the current `InstrumentPort -> Conne
 
 The current [get_voltage.lua](../runtime/scripts/lua/get_voltage.lua) accepts a CallStack built by Go. The older [get_voltage_old.lua](../runtime/scripts/lua/get_voltage_old.lua) accepts a target, but reads obsolete fields such as `getter.id`.
 
-The downloaded ISS source confirms that a target must be read through `get_instrument_name()`, `get_channel_group()`, and `get_channel()`. The generated [source.tl](../runtime/scripts/teal/source.tl) maps `getVoltage` to `GET_VOLTAGE` and constructs the CallStack, which preserves the intended ownership: Go supplies the endpoint and generated Lua owns the command.
+The cloned ISS source confirms that a target must be read through `get_instrument_name()`, `get_channel_group()`, and `get_channel()`. The generated [source.tl](../runtime/scripts/teal/source.tl) maps `getVoltage` to `GET_VOLTAGE` and constructs the CallStack, which preserves the intended ownership: Go supplies the endpoint and generated Lua owns the command.
 
 The generated source module must also be loaded explicitly. When its compiled Lua is supplied through an ISS helper directory, use `local source = require("source")` and call `source:getVoltage(...)`.
 
@@ -202,70 +215,23 @@ The dispatcher appends `<measurement>.lua` directly to the configured scripts di
 
 Two earlier questions are now answered: current ISS target accessors are known, and helper directories require `require(...)`. Confirm the remaining items before spreading assumptions through handlers:
 
-1. Does `falcon-routine` put `get_voltage` in `MeasurementRequest.message`?
+1. Which coordinated route contract will replace the current descriptive routine message (`"Performing a ramp measurement"`)? The inspected routine does not establish `get_voltage` as a message convention.
 2. Which shared configuration owns Falcon scope, access, characteristic, and instrument type?
 3. Does an API role describe flow relative to Falcon or relative to the instrument command?
 4. How are global settings represented when they have no channel gate in the wire map?
-5. Which synchronized Falcon Core release changes instrument type from the current enum to a string?
+5. Which synchronized native core/Go binding versions will the hub select? Current core `1.2.18` and the cloned bindings use enums; no enum-to-string migration is required by these active APIs.
 
-The role question is essential. Existing hub source fixtures label settable voltage as `output` and measured voltage as `input`. The downloaded ISS example labels voltage-to-set as `input` and measured voltage as `output`. Do not hard-code an input/output-to-knob/meter map until the generator and schema agree.
+The role question is essential. Existing hub source fixtures label settable voltage as `output` and measured voltage as `input`. The cloned ISS example labels voltage-to-set as `input` and measured voltage as `output`. The builder now hard-codes the hub fixture convention. Reconcile it with the shared schema/generator before using upstream APIs directly.
 
 Keep temporary compatibility logic inside adapters. Do not put fallback guesses into every handler.
 
-### Step 2: Restore connected-port construction
+### Step 2: Complete configuration and port identity around the existing builder
 
-Implement the real builder behind `ConnectedPortsBuilder`:
+The previously proposed `ParseInstrumentAPIs -> BuildPortLibrary -> ConnectWireMap -> NewConnectedPortsFromConnections` chain is implemented and selected in production. Do not reimplement it or restore the mock builder.
 
-```go
-func (DefaultConnectedPortsBuilder) NewConnectedPorts(
-    apiPaths []string,
-    wiremap *config.WireMap,
-) (*ports.ConnectedPorts, error) {
-    apis, err := ports.ParseInstrumentAPIs(apiPaths)
-    if err != nil {
-        return nil, err
-    }
+Extend it to consume the agreed hub configuration, including top-level/global settings and explicit scope, access, characteristic, units, and instrument identity. Preserve channel and capability uniqueness, reject invalid/unmatched mappings, and make the advertised Falcon port round-trip through `ResolveConnectedPort` without renaming or dropping identity fields.
 
-    library, err := ports.BuildPortLibrary(apis)
-    if err != nil {
-        return nil, err
-    }
-
-    connected, err := ports.ConnectWireMap(wiremap, library)
-    if err != nil {
-        return nil, err
-    }
-
-    return ports.NewConnectedPortsFromConnections(connected), nil
-}
-```
-
-The exact function names can differ. The required behavior is:
-
-- parse the instrument configuration/API inputs;
-- map configuration strings to Falcon enums in one place;
-- create a unique `PortEntry` for every addressable channel and port;
-- join those entries with the wire map;
-- partition the result into knobs, meters, and settings;
-- reject duplicate or ambiguous identities.
-
-The current `PortLibrary` is a map. If entries are expanded per channel, its key must include the channel or the representation must change to avoid overwriting channels that share an IO name.
-
-A suitable identity is:
-
-```text
-<instrument identifier>.<channel group>.<channel>.<IO capability>
-```
-
-Keep the IO capability in `PortEntry` as well as the map key. Add `Scope` if settings remain represented by `PortEntry`. For each channel-group IO entry, the library builder should copy the API identifier, group, channel, capability, unit, and description, then obtain the Falcon-only fields through the agreed adapter.
-
-The builder must also handle top-level `io`. Channel-group IO can be expanded through `channel_parameter.min..max`; global IO cannot be forced through that loop.
-
-The current manager draft should not call `ports.newConnectedPorts`: lowercase identifiers are private to the `ports` package. Export a narrow constructor rather than exporting internal slices.
-
-Also settle port naming before measurements use the resolver. `PortRequestHandler` currently serializes `PortName` as the Falcon port's `default_name`, while `ResolveConnectedPort` compares `default_name` to `ConnectedPort.DeviceName` from the wire map. Those identities must be made the same or compared through separate, documented fields.
-
-Then replace `mockConnectedPortsBuilder` in `ProductionDependancies` with `DefaultConnectedPortsBuilder`. Keep mock builders inside tests.
+The library already keys entries by `<instrument identifier>.<channel group>.<channel>.<IO name>`. Keep the capability in the entry as well as in the key, reconcile schema `suffix` versus the hub's required `name`, and define how global settings bypass channel-gate wire-map joining.
 
 ### Step 3: Finish PortRequest serialization
 
@@ -386,7 +352,7 @@ function main(ctx, getter)
 end
 ```
 
-The target also exposes `get_channel_group()`. The current generated `source.tl` wrapper drops that value and creates a CallStack with only instrument, command, and channel. Confirm that `teal-gen-api` writes the command's configured channel group into the CallStack, especially for instruments with more than one channel group. Fix that in the generator or Teal source, not in each measurement script.
+The target also exposes `get_channel_group()`. The current generated `source.tl` wrapper drops that value and creates a CallStack with only instrument, command, and channel. Confirm that `teal-api-gen` writes the command's configured channel group into the CallStack, especially for instruments with more than one channel group. Fix that in the generator or Teal source, not in each measurement script.
 
 ### Step 7: Validate and attribute ISS results
 
@@ -437,17 +403,17 @@ After that path is stable, add handlers in increasing complexity:
 
 | File | First change |
 |---|---|
-| `runtime/internal/handlers/manager.go` | Implement the real connected-port builder. |
-| `runtime/cmd/dependancies.go` | Use the default builder in production. |
+| `runtime/internal/handlers/manager.go` | Keep the real builder; extend its inputs to the agreed validated configuration. |
+| `runtime/go.mod` and `ports/falcon-core/vcpkg.json` | Select and verify a matching Go/native core pair; the default builder is already used in production. |
 | `runtime/internal/ports/api.go` | Parse or adapt the approved new port configuration fields. |
-| `runtime/internal/ports/connections.go` | Restore construction APIs and enforce unique port identities. |
+| `runtime/internal/ports/connections.go` | Complete scope/capability policy and port round-trip identity; construction APIs already exist. |
 | `runtime/internal/handlers/port_request_handler.go` | Serialize settings with the correct Falcon constructor. |
 | `runtime/internal/interpreter/falcon_core.go` | Restore the minimal request extraction and route-key adapter. |
 | `runtime/internal/interpreter/router.go` | Register one exact handler. |
 | `runtime/internal/interpreter/commands/get_voltage_handler.go` | Move/rewrite it against `InstrumentTarget` and current port fields. |
 | `runtime/internal/interpreter/commands/measure_command_handler_response.go` | Move the active response builder back to a usable package. |
 | `runtime/scripts/lua/get_voltage.lua` | Use the generated target-based API contract. |
-| `runtime/scripts/teal/source.tl` or `teal-gen-api` | Change only if its generated target/CallStack contract differs from ISS. |
+| `runtime/scripts/teal/source.tl` or `teal-api-gen` | Change only if its generated target/CallStack contract differs from ISS. |
 
 ## Avoid during this task
 
@@ -457,3 +423,95 @@ After that path is stable, add handlers in increasing complexity:
 - Do not migrate all measurement scripts at once.
 - Do not copy the deprecated monolithic measurement handler back into service.
 - Do not hard-code assumptions from unmerged external repositories throughout the hub; isolate them in adapters.
+
+## Repo observations (2026-10-05)
+
+### Reviewed revisions and dependency selection
+
+| Repository | Local HEAD | Observation |
+|---|---|---|
+| `falcon-core` | `fe23fc76` (`v1.2.18`) | Expanded characteristics, richer ports, Measurement/Setting messages, and corresponding C APIs are present. |
+| `falcon-core-libs` | `08e8d0dc` | Local tags `go/falcon-core/v0.0.7` and `go/falcon-core/v0.0.8` point here; native overlay targets core `1.2.18`. Selected Go port/message bindings match the current C API. |
+| `falcon-routine` | `847b840` | Updated native dependency to core `1.2.18`; producer and settings gaps remain below. |
+| `falcon-instrument-hub` | `abe4166` | Production port construction is wired; measurement routing and settings handling remain unfinished. |
+| `instrument-script-server` | `3da21b0` | Typed targets/domains and explicit helper loading are implemented; its API schema is incompatible with several hub parser assumptions. |
+| `instrument-target` | `4002d76` | Lua methods require the userdata receiver; confirms the target accessor contract. |
+| `instrument-domain` | `5b19217` | Supporting domain library is cloned; waveform integration was not executed. |
+| `instrument-call-stack` | `6c34897` | Supporting command descriptor/Lua binding is present; generated wrappers must preserve its channel-group identity. |
+| `instrument-data` | `053205f` | Supporting data library is cloned; buffer lifecycle integration was not executed. |
+| `instrument-controller` | `9d9df1c` | Downstream overlay still selects core `1.2.16`; it is not automatically using the new sibling core checkout. |
+
+The hub's [`go.mod`](../runtime/go.mod) and `go.sum` still select bindings `v0.0.6`, with no local `replace`; its [native overlay](../ports/falcon-core/vcpkg.json) selects core `1.2.17`. In contrast, [routine's overlay](../../falcon-routine/ports/falcon-core/vcpkg.json) and [core-libs' overlay](../../falcon-core-libs/ports/falcon-core/vcpkg.json) both select `1.2.18`. Updating cloned repositories does not update these consumers' builds. These are checked-in selections, not proof of what native library is installed on the machine.
+
+The active C++/C/Go definitions inspected here support the view that the main core API refactor has landed and that the selected Go bindings have followed it. This review did not build all of core or audit every generated binding, so “fully refactored” should not be read as an all-repository test result. The older standalone `Instrument.hpp` alias still needs cleanup or an explicit compatibility decision.
+
+### Original refactor checklist mapped to current code
+
+The repeated measurement-router item in the initial plan is consolidated below.
+
+| Original work item | Observed status | Evidence / remaining boundary |
+|---|---|---|
+| Update falcon-routine to improved API | **Partially integrated** | Core `1.2.18` dependency and current five-argument `MeasurementRequest` construction are present. Routing, settings consumption, and hub tests are unfinished. |
+| Update std-lib to improved core/routine binding | **Not verified** | No standalone `std-lib` checkout is present in this workspace. Its consumers and generated bindings cannot be certified from these repositories. |
+| Update mock-hub to invert routine communications | **Not verified** | No standalone `mock-hub` or `falcon-comms` checkout is present. Routine calls `subscribe_measure_response(json_req, timeout_ms, timestamp)`, but the transport implementation and mock inversion are external. |
+| Add integration tests for Falcon library | **Not demonstrated end to end** | Core has C/C++ serialization integration tests and Go has binding tests. Routine's CMake target lists only database/log tests. Hub's named get-voltage integration test uses obsolete APIs and a fake executor. No successful cross-repository run was obtained. |
+| Add hub SettingRequest -> SettingResponse handler | **Missing in inspected hub/routine paths** | Core C++/C messages and Go wrappers exist; hub API/manager/handlers do not define or register a settings transport handler, and routine exposes no settings request helper. |
+| Set up router and fulfill settings requests | **Missing** | `MeasurementHandler`/`Router` only accept measurement requests; no setting router or dispatch path was found. |
+| Connect measurements through router to response | **Partially integrated** | NATS envelope, deserialization, dispatcher, and response publication exist. Router registers zero handlers; command package, target script, route key, and port identity remain blockers. |
+| Update falcon-core API | **Present for inspected contracts** | Rich ports, current measurement constructor, and settings request/response are implemented in core `1.2.18`; full build/test completion not established here. |
+| Core contains real instruments and allowed properties | **Vocabulary present; hardware policy incomplete** | Instrument name, category enum, scope/access, and characteristic enum exist. The generic port constructor does not validate a per-instrument characteristic allowlist or map physical devices to ISS endpoints. |
+| Update falcon-core C API | **Present for inspected contracts** | Port constructors/enums and Measurement/Setting message C APIs reflect the reviewed C++ interfaces. |
+| Update falcon-core-libs C API bindings | **Present for inspected Go contracts; hub pin behind** | Go uses the new C port constructors and settings wrappers, and targets core `1.2.18`; hub still selects bindings `v0.0.6`/core `1.2.17`. |
+| New validated hub config wrapping instrument API | **Incomplete** | Existing wire-map validation and API parser are not the proposed full hardware/property configuration. ISS rejects the hub-only `instrument_type` field; scope/characteristic/global settings policy is absent. |
+| Add setting options to hub Port and connect configs | **Partial** | `PortEntry`, catalog partitioning, and payload include settings; missing scope, forced defaults, ignored global IO, and lack of allowed-property validation prevent completion. |
+| Update hub PortRequest -> Response | **Partial** | `PortPayload` contains knobs/meters/settings, but settings serialize as meters and advertised names fail resolver round-trip. Routine still consumes only knobs/meters. |
+
+### Concrete falcon-routine follow-up
+
+The latest commit is a focused compatibility update: it changes the core pin and the `Timer()` call, adds the validator overlay, and removes an empty `test_hub.cpp`. It is not evidence that the remaining multi-repository plan has been completed.
+
+In [`src/hub.cpp`](../../falcon-routine/src/hub.cpp) and [`include/falcon-routine/hub.hpp`](../../falcon-routine/include/falcon-routine/hub.hpp):
+
+- `request_measurement()` serializes the caller's request, awaits a response through `RoutineComms`, and pulls the first measurement data item. It does not add or normalize a route key.
+- `ramp()` supplies the descriptive message `"Performing a ramp measurement"`. Establish its route contract together with the hub and other producers.
+- `request_port_payload()` deserializes only `resp.knobs` and `resp.meters` and returns a two-element tuple. Extending the hub payload with `settings` has not yet extended routine's public interface.
+- No `SettingRequest`/`SettingResponse` request helper is exposed. Add the agreed communication envelope, correlated response, and settings port access together with the hub implementation.
+- [`tests/CMakeLists.txt`](../../falcon-routine/tests/CMakeLists.txt) registers `test_database.cpp` and `test_log.cpp`, with no hub request/response tests. Add producer-to-hub coverage for ports, measurement route selection, settings, and error/timeout behavior.
+
+Two additional source-level concerns should be covered while changing these helpers: `ramp()` ignores the boolean result of `safe_voltage_change()` and does not reject a zero/negative `max_ramp_rate`; `get_ohmics_connected_to_voltage_sources()` starts its reverse loop at unsigned `size() - 1`, which underflows for an empty result. These were observed in source, not reproduced in a runtime test.
+
+### Settings need their own complete contract
+
+Core already defines [`SettingRequest`](../../falcon-core/include/falcon-core/communications/messages/SettingRequest.hpp) as message + getter ports + a port-to-Quantity setter map, and [`SettingResponse`](../../falcon-core/include/falcon-core/communications/messages/SettingResponse.hpp) as message + a port-to-Quantity getter map. Matching [Go request](../../falcon-core-libs/go/falcon-core/communications/messages/settingrequest/settingRequest.go) and [response](../../falcon-core-libs/go/falcon-core/communications/messages/settingresponse/settingResponse.go) wrappers are present.
+
+The missing work is transport and execution: define subjects/envelopes and correlation with the communications consumer, expose settings through routine, resolve local/global setting identity, enforce allowed access and characteristics, execute typed ISS operations, and return attributed quantities or an agreed failure response. Advertising a `settings` string in `PortPayload` does not provide this execution path. C++ permits a setting without a gate connection; the complete C/Go/config path for global settings still needs explicit validation.
+
+### Schema, generator, and script observations
+
+The new hub library builder uses its own older API dialect. In addition to missing Falcon-specific attributes, the upstream schema uses string model names, requires top-level IO, and uses channel-group `suffix` identifiers. An agreed wrapper configuration should preserve the ISS API and attach Falcon policy explicitly, or the schema/generator/parser must be revised together.
+
+The generated [`source.tl`](../runtime/scripts/teal/source.tl) omits `channel_group` from its CallStack. The active get-voltage Lua still consumes a Go-built CallStack. The guide's target-based Lua example is therefore a proposed replacement, not the current behavior. The `teal-api-gen` repository is not cloned here; its hub [dependency recipe](../ports/teal-api-gen/portfile.cmake) and generated output are available, but the generator implementation was not reviewed.
+
+The ISS target fixture's dot-call issue also means the accessor example above should be validated against the actual [`instrument-target` binding](../../instrument-target/src/instrument-target-lua.c), not copied verbatim from that fixture. Directory helper loading and scalar/array target/domain manifest entries are present in [`CommandHandlers.cpp`](../../instrument-script-server/src/daemon/CommandHandlers.cpp) and the [protobuf](../../instrument-script-server/proto/instserver/daemon/v1/daemon_messages.proto).
+
+### Validation and next completion boundary
+
+The offline check used the cached Go 1.25.2 executable, `CGO_ENABLED=1`, `GOPROXY=off`, `-mod=readonly`, the native pkg-config directory from the hub's CMake cache, and:
+
+```sh
+go test -tags cgo,falcon_core -run '^$' \
+  ./internal/interpreter/... ./internal/ports ./internal/handlers/...
+```
+
+This is a compile-only check. It stopped at missing `falcon-core-c-api.pc` for the core-dependent packages; the device-config handler package reported `[no tests to run]`. Consequently the package-boundary and stale-signature findings above are source observations, not claimed compiler diagnostics from a completed native build. Initial toolchain-launch attempts also encountered local Go 1.22.6/checksum configuration issues; invoking the cached 1.25.2 binary directly reached the native dependency failure. No dependencies were installed and no passing integration result is claimed.
+
+The existing [`get_voltage_handler_integration_test.go`](../runtime/cmd/get_voltage_handler_integration_test.go) calls `NewMeter` with the former string-based signature, calls `measurementrequest.New` with both message and measurement name, constructs old connected-port fields, and asserts a serialized CallStack from a fake executor. Update it alongside the implementation; its filename alone is not evidence of a current ISS integration test. The [port tests](../runtime/internal/ports/connections_test.go) already cover construction/resolver pieces, but a serialize-then-resolve test is needed to expose the current name mismatch.
+
+Prioritize the remaining work in this order:
+
+1. Select matching core/C/Go versions and make the native dependency available to the hub build.
+2. Agree producer route keys, settings transport, and validated instrument/property configuration across routine/comms/hub.
+3. Complete port scope/capability/identity and setting serialization around the existing production builder; extend routine's port response consumption.
+4. Repair the interpreter package, register one exact route, and complete the typed-target/get-voltage path including generated channel-group preservation.
+5. Update stale tests and demonstrate the full correlated measurement round-trip; implement and verify a settings getter/setter round-trip with the same identity rules.
+6. Verify std-lib, mock-hub, communications, and generator consumers in their own repositories before calling the original multi-repository refactor complete.
