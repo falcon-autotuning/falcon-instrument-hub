@@ -1,4 +1,16 @@
 
+build/
+vcpkg
+my-vcpkg-triplets/
+*.log
+_codeql_*
+site/
+*.profraw
+.cache/
+vcpkg_installed/
+.nuget-credentials
+out.folded
+perf.*
 # ignore testing data
 /test-outs
 *.npz
