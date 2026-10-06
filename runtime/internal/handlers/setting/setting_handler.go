@@ -45,8 +45,7 @@ type FalconRequest interface {
 	Getters() ([]config.ConnectedPort, error)
 }
 
-//TODO: uncomment
-//var _ FalconRequest = (*interpreter.FalconSettingmentRequest)(nil)
+var _ FalconRequest = (*settinginterpreter.FalconSettingRequest)(nil)
 
 type FalconRequestFactory interface {
 	FromJSON(string) (FalconRequest, error)
@@ -57,10 +56,8 @@ type falconRequestFactory struct{}
 func (falconRequestFactory) FromJSON(
 	jsonStr string,
 ) (FalconRequest, error) {
-	return nil, nil
-	//TODO: uncomment
-	// 	return interpreter.NewFalconSettingmentRequestFromJSON(
-	// 		jsonStr,)
+	return settinginterpreter.NewFalconSettingRequestFromJSON(
+		jsonStr)
 }
 
 var _ FalconRequestFactory = (*falconRequestFactory)(nil)
@@ -71,8 +68,7 @@ type FalconResponse interface {
 	Close() error
 }
 
-//TODO: uncomment
-//var _ FalconResponse = (*interpreter.FalconSettingmentResponse)(nil)
+var _ FalconResponse = (*settinginterpreter.FalconSettingResponse)(nil)
 
 type SettingRouter interface {
 	Handle(
@@ -101,7 +97,7 @@ func (r *routerAdapter) Handle(
 	)
 }
 
-// var _ MeasurementRouter = (*routerAdapter)(nil)
+var _ SettingRouter = (*routerAdapter)(nil)
 
 type BufferRegistrar interface {
 	RegisterBuffer(
