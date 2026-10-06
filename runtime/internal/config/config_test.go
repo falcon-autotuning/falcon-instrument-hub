@@ -259,13 +259,44 @@ func TestInstrumentServerConfigValidate(t *testing.T) {
 	require.NoError(t, cfg.Validate())
 }
 
-func TestInstrumentServerConfigValidate_NoInstruments(t *testing.T) {
-	var cfg InstrumentServerConfig
+func validHubConfig(
+	t *testing.T,
+) *HubConfig {
+	t.Helper()
 
-	err := cfg.Validate()
+	tmpDir := t.TempDir()
+
+	deviceConfig := writeTestDeviceConfig(
+		t,
+		tmpDir,
+	)
+
+	return &HubConfig{
+		QuantumDotConfig: deviceConfig,
+		WorkingDirectory: tmpDir,
+		Wiremap:          testWiremapEntries(),
+		InstrumentServer: InstrumentServerConfig{
+			Instruments: []InstrumentConfig{
+				validInstrumentConfig(),
+			},
+		},
+	}
+}
+
+func TestValidate_NoInstruments(t *testing.T) {
+	cfg := validHubConfig(t)
+
+	cfg.InstrumentServer.Instruments = nil
+
+	err := Validate(cfg)
 
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "at least one instrument")
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"at least one instrument is required",
+	)
 }
 
 func TestInstrumentServerConfigValidate_WrapsErrors(t *testing.T) {
@@ -423,7 +454,6 @@ func TestLoadConfig_FullConfig(t *testing.T) {
 	tmp := t.TempDir()
 
 	const (
-		wiremapPath         = "wiremap.yaml"
 		quantumDotConfig    = "quantum_dot.yaml"
 		natsURL             = "nats://localhost:4222"
 		localDatabase       = "/tmp/database"
@@ -446,7 +476,12 @@ func TestLoadConfig_FullConfig(t *testing.T) {
 		cfgFile,
 		[]byte(fmt.Sprintf(
 			`
-wiremap: %s
+wiremap:
+  - name: P1
+    instrument:
+      name: Source1
+      channel_group: analog
+      index: 1
 quantum-dot-config: %s
 nats-url: %s
 local-database: %s
@@ -464,7 +499,6 @@ instrument-server:
     - config: %s
       plugin: %s
 `,
-			wiremapPath,
 			quantumDotConfig,
 			natsURL,
 			localDatabase,
@@ -484,7 +518,33 @@ instrument-server:
 	cfg, err := LoadConfig(cfgFile)
 	require.NoError(t, err)
 
-	assert.Equal(t, wiremapPath, cfg.Wiremap)
+	require.Len(t, cfg.Wiremap, 1)
+
+	entry := cfg.Wiremap[0]
+
+	assert.Equal(
+		t,
+		"P1",
+		entry.PhysicalDeviceName,
+	)
+
+	assert.Equal(
+		t,
+		"Source1",
+		entry.Instrument.Name,
+	)
+
+	assert.Equal(
+		t,
+		"analog",
+		entry.Instrument.ChannelGroup,
+	)
+
+	assert.Equal(
+		t,
+		1,
+		entry.Instrument.Channel,
+	)
 	assert.Equal(t, quantumDotConfig, cfg.QuantumDotConfig)
 	assert.Equal(t, natsURL, cfg.NATSURL)
 	assert.Equal(t, localDatabase, cfg.LocalDatabase)
@@ -548,56 +608,36 @@ func TestLoadConfig_FileDoesNotExist(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestValidate_NoInstruments(t *testing.T) {
-	cfg := DefaultConfig()
+func TestValidate_MissingPlugin(t *testing.T) {
+	cfg := validHubConfig(t)
 
-	tmpDir := t.TempDir()
+	cfg.InstrumentServer.Instruments = []InstrumentConfig{
+		{
+			ConfigPath:         "config.yaml",
+			InstrumentTypeName: "dc_voltage_source",
+		},
+	}
 
-	cfg.WorkingDirectory = tmpDir
-
-	err := Validate(&cfg)
+	err := Validate(cfg)
 
 	require.Error(t, err)
 
 	assert.Contains(
 		t,
 		err.Error(),
-		"at least one instrument is required",
+		"plugin is required",
 	)
 }
 
-func TestValidate_MissingPlugin(t *testing.T) {
-	cfg := DefaultConfig()
-
-	cfg.WorkingDirectory = t.TempDir()
-
-	cfg.InstrumentServer.Instruments = []InstrumentConfig{
-		{
-			ConfigPath: "config.yaml",
-		},
-	}
-
-	err := Validate(&cfg)
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "plugin is required")
-}
-
 func TestValidate_MissingWorkingDirectory(t *testing.T) {
-	cfg := DefaultConfig()
+	cfg := validHubConfig(t)
 
 	cfg.WorkingDirectory = filepath.Join(
 		t.TempDir(),
 		"does-not-exist",
 	)
 
-	cfg.InstrumentServer.Instruments = []InstrumentConfig{
-		{
-			ConfigPath: "instrument.yaml", PluginPath: "plugin.so",
-		},
-	}
-
-	err := Validate(&cfg)
+	err := Validate(cfg)
 
 	require.Error(t, err)
 

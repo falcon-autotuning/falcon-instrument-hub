@@ -71,9 +71,9 @@ var validCharacteristicNames = map[string]instrumentcharacteristic.InstrumentCha
 	"max_sink_frequency": instrumentcharacteristic.InstrumentCharacteristicMaxSinkFrequency,
 	"min_sink_frequency": instrumentcharacteristic.InstrumentCharacteristicMinSinkFrequency,
 
-	"ac_amplitude":     instrumentcharacteristic.InstrumentCharacteristicACAmplitude,
-	"max_ac_amplitude": instrumentcharacteristic.InstrumentCharacteristicMaxACAmplitude,
-	"min_ac_amplitude": instrumentcharacteristic.InstrumentCharacteristicMinACAmplitude,
+	"ac_amplitude":     instrumentcharacteristic.InstrumentCharacteristicAcAmplitude,
+	"max_ac_amplitude": instrumentcharacteristic.InstrumentCharacteristicMaxAcAmplitude,
+	"min_ac_amplitude": instrumentcharacteristic.InstrumentCharacteristicMinAcAmplitude,
 
 	"number_of_samples":     instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
 	"max_number_of_samples": instrumentcharacteristic.InstrumentCharacteristicMaxNumberOfSamples,
@@ -135,23 +135,23 @@ var ValidCharacteristics = map[instrument.Instrument]CharacteristicSet{
 		instrumentcharacteristic.InstrumentCharacteristicMinCurrentRampSlope: {},
 	},
 
-	instrument.HFVoltageSource: {
+	instrument.HfVoltageSource: {
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage:   {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceVoltage:   {},
-		instrumentcharacteristic.InstrumentCharacteristicACAmplitude:        {},
-		instrumentcharacteristic.InstrumentCharacteristicMaxACAmplitude:     {},
-		instrumentcharacteristic.InstrumentCharacteristicMinACAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicAcAmplitude:        {},
+		instrumentcharacteristic.InstrumentCharacteristicMaxAcAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicMinAcAmplitude:     {},
 		instrumentcharacteristic.InstrumentCharacteristicSourceFrequency:    {},
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceFrequency: {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceFrequency: {},
 	},
 
-	instrument.HFCurrentSource: {
+	instrument.HfCurrentSource: {
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceCurrent:   {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceCurrent:   {},
-		instrumentcharacteristic.InstrumentCharacteristicACAmplitude:        {},
-		instrumentcharacteristic.InstrumentCharacteristicMaxACAmplitude:     {},
-		instrumentcharacteristic.InstrumentCharacteristicMinACAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicAcAmplitude:        {},
+		instrumentcharacteristic.InstrumentCharacteristicMaxAcAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicMinAcAmplitude:     {},
 		instrumentcharacteristic.InstrumentCharacteristicSourceFrequency:    {},
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceFrequency: {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceFrequency: {},
@@ -176,9 +176,9 @@ var ValidCharacteristics = map[instrument.Instrument]CharacteristicSet{
 	},
 
 	instrument.Lockin: {
-		instrumentcharacteristic.InstrumentCharacteristicACAmplitude:        {},
-		instrumentcharacteristic.InstrumentCharacteristicMaxACAmplitude:     {},
-		instrumentcharacteristic.InstrumentCharacteristicMinACAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicAcAmplitude:        {},
+		instrumentcharacteristic.InstrumentCharacteristicMaxAcAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicMinAcAmplitude:     {},
 		instrumentcharacteristic.InstrumentCharacteristicSourceFrequency:    {},
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceFrequency: {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceFrequency: {},
@@ -208,9 +208,9 @@ var ValidCharacteristics = map[instrument.Instrument]CharacteristicSet{
 		instrumentcharacteristic.InstrumentCharacteristicSampleRate:         {},
 		instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate:      {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSampleRate:      {},
-		instrumentcharacteristic.InstrumentCharacteristicACAmplitude:        {},
-		instrumentcharacteristic.InstrumentCharacteristicMaxACAmplitude:     {},
-		instrumentcharacteristic.InstrumentCharacteristicMinACAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicAcAmplitude:        {},
+		instrumentcharacteristic.InstrumentCharacteristicMaxAcAmplitude:     {},
+		instrumentcharacteristic.InstrumentCharacteristicMinAcAmplitude:     {},
 		instrumentcharacteristic.InstrumentCharacteristicSourceFrequency:    {},
 		instrumentcharacteristic.InstrumentCharacteristicMaxSourceFrequency: {},
 		instrumentcharacteristic.InstrumentCharacteristicMinSourceFrequency: {},

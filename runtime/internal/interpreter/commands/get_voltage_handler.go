@@ -8,7 +8,6 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 )
 
 const getVoltageCommand = "GET_VOLTAGE"
@@ -24,7 +23,7 @@ func (*getVoltageHandler) CanHandle(req *FalconMeasurementRequest) (bool, error)
 	return true, nil
 }
 
-func getVoltageFromResult(result MeasurementResult, expected ports.ConnectedPort) (float64, error) {
+func getVoltageFromResult(result MeasurementResult, expected config.ConnectedPort) (float64, error) {
 	if result.Err != nil {
 		return 0, result.Err
 	}
@@ -68,7 +67,7 @@ func (*getVoltageHandler) Handle(
 	req *FalconMeasurementRequest,
 	dispatcher *MeasurementDispatcher,
 	_ *config.WireMap,
-	connected *ports.ConnectedPorts,
+	connected *config.ConnectedPorts,
 ) (*FalconMeasurementResponse, error) {
 	if req == nil {
 		return nil, fmt.Errorf("request is nil")

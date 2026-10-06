@@ -16,7 +16,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
-	hubports "github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -108,8 +107,8 @@ func TestGetVoltageRoutesSerializedCallStackToLua(t *testing.T) {
 		&getVoltageBufferRegistrar{},
 		"/scripts",
 	)
-	connected := &hubports.ConnectedPorts{
-		AllConnections: []hubports.ConnectedPort{{
+	connected := &config.ConnectedPorts{
+		AllConnections: []config.ConnectedPort{{
 			DeviceName:     "P1",
 			InstrumentName: "Source1",
 			ChannelName:    "analog",

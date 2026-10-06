@@ -107,16 +107,16 @@ func ResolveWiremap(
 	}
 
 	// Resolve every wiremap entry.
-	for _, entry := range entries {
-		gate, ok := gates[entry.PhysicalDeviceName]
+	for i := range entries {
+		gate, ok := gates[entries[i].PhysicalDeviceName]
 		if !ok {
 			return fmt.Errorf(
 				"wiremap references unknown gate %q",
-				entry.PhysicalDeviceName,
+				entries[i].PhysicalDeviceName,
 			)
 		}
 
-		entry.Gate = gate
+		entries[i].Gate = gate
 	}
 
 	return nil

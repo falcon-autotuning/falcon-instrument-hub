@@ -50,18 +50,42 @@ func addIOPort(
 	io IoType,
 	context string,
 ) error {
-	if io.Name == "" {
-		return fmt.Errorf("%s has an IO type with no name", context)
+	if channelGroup != "" {
+		// Channel-group IOs use suffixes.
+		if io.Suffix == "" {
+			return fmt.Errorf(
+				"%s has a channel IO type with no suffix",
+				context,
+			)
+		}
+	} else {
+		// Global IOs use names.
+		if io.Name == "" {
+			return fmt.Errorf(
+				"%s has a global IO type with no name",
+				context,
+			)
+		}
 	}
 
 	role, err := ParseIORole(io.Role)
 	if err != nil {
-		return fmt.Errorf("%s IO %q: %w", context, io.Name, err)
+		id := io.Name
+		if id == "" {
+			id = io.Suffix
+		}
+
+		return fmt.Errorf("%s IO %q: %w", context, id, err)
 	}
 
 	portType, portAccess, err := portAttributesFromRole(role)
 	if err != nil {
-		return fmt.Errorf("%s IO %q: %w", context, io.Name, err)
+		id := io.Name
+		if id == "" {
+			id = io.Suffix
+		}
+
+		return fmt.Errorf("%s IO %q: %w", context, id, err)
 	}
 
 	return addPort(
@@ -434,7 +458,7 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 
 			if scopeType == scope.Global {
 				name := PortName(fmt.Sprintf(
-					"%s.%s",
+					"%s.characteristic.%s",
 					config.Name,
 					characteristic.Identifier,
 				))
@@ -469,7 +493,7 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 			for channel := group.ChannelParameter.Min; channel <= group.ChannelParameter.Max; channel++ {
 
 				name := PortName(fmt.Sprintf(
-					"%s.%s.%d.%s",
+					"%s.characteristic.%s.%d.%s",
 					config.Name,
 					channelGroup,
 					channel,

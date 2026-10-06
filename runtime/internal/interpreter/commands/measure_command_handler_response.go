@@ -15,7 +15,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/ports"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 )
 
 type measurementResponseTarget struct {
@@ -24,7 +24,7 @@ type measurementResponseTarget struct {
 	ConnectionJSON string
 	InstrumentType instrument.Instrument
 	UnitsJSON      string
-	ConnectedPort  *ports.ConnectedPort
+	ConnectedPort  *config.ConnectedPort
 }
 
 // buildMeasurementResponseJSON constructs a falcon-core MeasurementResponse
