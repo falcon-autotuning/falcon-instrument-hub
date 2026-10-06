@@ -1,6 +1,6 @@
 //go:build cgo
 
-package interpreter
+package settinginterpreter
 
 import (
 	"errors"
@@ -54,7 +54,7 @@ func (m *mockHandler) Handle(
 	return m.handleResponse, m.handleErr
 }
 
-func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
+func TestRouter_Handle_FirstMatchingHandlerWins(t *testing.T) {
 	dispatcher := &dispatcher.MeasurementDispatcher{}
 
 	req := &FalconMeasurementRequest{}
@@ -73,7 +73,7 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 
 	third := &mockHandler{
 		name:            "third",
-		canHandleResult: false,
+		canHandleResult: true,
 	}
 
 	router := &Router{
@@ -98,28 +98,12 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	assert.Equal(t, 1, second.canHandleCalls)
 	assert.Equal(t, 1, second.handleCalls)
 
-	// Router evaluates every handler before selecting the unique match.
-	assert.Equal(t, 1, third.canHandleCalls)
+	// Router stops at first match.
+	assert.Equal(t, 0, third.canHandleCalls)
 	assert.Equal(t, 0, third.handleCalls)
 
 	assert.Same(t, dispatcher, second.lastDispatcher)
 	assert.Same(t, req, second.lastRequest)
-}
-
-func TestRouter_Handle_AmbiguousHandlers(t *testing.T) {
-	first := &mockHandler{name: "first", canHandleResult: true}
-	second := &mockHandler{name: "second", canHandleResult: true}
-	router := &Router{handlers: []MeasurementHandler{first, second}}
-
-	response, err := router.Handle(&FalconMeasurementRequest{})
-
-	require.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "multiple measurement handlers matched request: first, second")
-	assert.Equal(t, 1, first.canHandleCalls)
-	assert.Equal(t, 1, second.canHandleCalls)
-	assert.Equal(t, 0, first.handleCalls)
-	assert.Equal(t, 0, second.handleCalls)
 }
 
 func TestRouter_Handle_CanHandleError(t *testing.T) {

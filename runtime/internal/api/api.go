@@ -156,6 +156,20 @@ type MeasureResponse struct {
 	Response  string `yaml:"response" json:"response"`   // uploaded data from the runtime
 }
 
+// SettingCommand: issued to runtime to request a setting from the instrument server
+type SettingCommand struct {
+	Request   string `yaml:"request" json:"request"`     // the measurement request to be taken
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // Correlates this command with its response
+	Hash      int64  `yaml:"hash" json:"hash"`           // the hash for the requesting unit
+}
+
+// SettingResponse: Recieve a response from the runtime as to the setting performed
+type SettingResponse struct {
+	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // Correlates this response with its command
+	Hash      int64  `yaml:"hash" json:"hash"`           // correlation hash from the MeasureCommand
+	Response  string `yaml:"response" json:"response"`   // uploaded data from the runtime
+}
+
 // CommandRegistry maps command names to empty struct instances
 var CommandRegistry = map[string]interface{}{
 	"LOG":                      Log{},
@@ -178,4 +192,6 @@ var CommandRegistry = map[string]interface{}{
 	"DEVICE_CONFIG_RESPONSE":   DeviceConfigResponse{},
 	"MEASURE_COMMAND":          MeasureCommand{},
 	"MEASURE_RESPONSE":         MeasureResponse{},
+	"SETTING_COMMAND":          SettingCommand{},
+	"SETTING_RESPONSE":         SettingResponse{},
 }

@@ -1,4 +1,4 @@
-package measurehandlers
+package settinghandler
 
 import (
 	"encoding/json"
@@ -13,20 +13,20 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settinginterpreter"
 )
 
 const (
-	MeasureCommandHandlerName = "MEASURE_COMMAND_HANDLER"
-	// INSTRUMENTHUB.MEASURE_COMMAND is the subject published by falcon-comms
+	SettingCommandHandlerName = "SETTING_COMMAND_HANDLER"
+	// INSTRUMENTHUB.SETTING_COMMAND is the subject published by falcon-comms
 	// RoutineComms on the controller side (routine_comms.cpp make_measure_command_subject).
-	MeasureCommandSubject = "INSTRUMENTHUB.MEASURE_COMMAND"
-	// FALCON.MEASURE_RESPONSE.<timestamp> is subscribed to by falcon-comms
+	SettingCommandSubject = "INSTRUMENTHUB.SETTING_COMMAND"
+	// FALCON.SETTING_RESPONSE.<timestamp> is subscribed to by falcon-comms
 	// RoutineComms on the controller side.
-	MeasureResponseSubject = "FALCON.MEASURE_RESPONSE"
-	MeasureCommandName     = "MEASURE_COMMAND"
-	MeasureResponseName    = "MEASURE_RESPONSE"
+	SettingResponseSubject = "FALCON.SETTING_RESPONSE"
+	SettingCommandName     = "SETTING_COMMAND"
+	SettingResponseName    = "SETTING_RESPONSE"
 )
 
 // BusyManager interface allows the handler to manage busy state
@@ -34,24 +34,24 @@ type BusyManager interface {
 	SetIsBusy(busy bool)
 }
 
-func measurementResponseSubject(timestamp int64) string {
-	return MeasureResponseSubject + "." + strconv.FormatInt(timestamp, 10)
+func settingResponseSubject(timestamp int64) string {
+	return SettingResponseSubject + "." + strconv.FormatInt(timestamp, 10)
+}
+
+type Quantity struct {
+	Value float64
+	Unit  string
 }
 
 // Allows us to inject mocks instead of real FalconRequest
 type FalconRequest interface {
 	Close() error
+	Setters() (map[config.ConnectedPort]Quantity, error)
+	Getters() ([]config.ConnectedPort, error)
 }
 
-var _ FalconRequest = (*interpreter.FalconMeasurementRequest)(nil)
-
-// Allows us to inject mocks instead of real FalconResponse
-type FalconResponse interface {
-	ToJSON() (string, error)
-	Close() error
-}
-
-var _ FalconResponse = (*interpreter.FalconMeasurementResponse)(nil)
+//TODO: uncomment
+//var _ FalconRequest = (*interpreter.FalconSettingmentRequest)(nil)
 
 type FalconRequestFactory interface {
 	FromJSON(string) (FalconRequest, error)
@@ -62,27 +62,37 @@ type falconRequestFactory struct{}
 func (falconRequestFactory) FromJSON(
 	jsonStr string,
 ) (FalconRequest, error) {
-	return interpreter.NewFalconMeasurementRequestFromJSON(
-		jsonStr,
-	)
+	return nil, nil
+	//TODO: uncomment
+	// 	return interpreter.NewFalconSettingmentRequestFromJSON(
+	// 		jsonStr,)
 }
 
 var _ FalconRequestFactory = (*falconRequestFactory)(nil)
 
-type MeasurementRouter interface {
+// Allows us to inject mocks instead of real FalconResponse
+type FalconResponse interface {
+	ToJSON() (string, error)
+	Close() error
+}
+
+//TODO: uncomment
+//var _ FalconResponse = (*interpreter.FalconSettingmentResponse)(nil)
+
+type SettingRouter interface {
 	Handle(
 		FalconRequest,
 	) (FalconResponse, error)
 }
 
 type routerAdapter struct {
-	router *interpreter.Router
+	router *settinginterpreter.Router
 }
 
 func (r *routerAdapter) Handle(
 	req FalconRequest,
 ) (FalconResponse, error) {
-	falconReq, ok := req.(*interpreter.FalconMeasurementRequest)
+	falconReq, ok := req.(*settinginterpreter.FalconMeasurementRequest)
 	if !ok {
 		return nil,
 			fmt.Errorf(
@@ -96,15 +106,7 @@ func (r *routerAdapter) Handle(
 	)
 }
 
-var _ MeasurementRouter = (*routerAdapter)(nil)
-
-type MeasurementDispatcher interface {
-	RunAll(
-		requests []dispatcher.MeasurementRequest,
-	) []dispatcher.MeasurementResult
-}
-
-var _ MeasurementDispatcher = (*dispatcher.MeasurementDispatcher)(nil)
+// var _ MeasurementRouter = (*routerAdapter)(nil)
 
 type BufferRegistrar interface {
 	RegisterBuffer(
@@ -115,7 +117,7 @@ type BufferRegistrar interface {
 
 var _ BufferRegistrar = (*databuffer.DataBufferManager)(nil)
 
-type MeasurementClient interface {
+type SettingClient interface {
 	Measure(
 		scriptPath string,
 		variables []instrumentserver.MeasureVariable,
@@ -135,34 +137,36 @@ type Handler struct {
 	busyManager    BusyManager
 	wiremap        config.WireMap
 	ports          *config.ConnectedPorts
-	router         MeasurementRouter
 	requestFactory FalconRequestFactory
+	dispatcher     dispatcher.MeasurementDispatcher
+	router         settinginterpreter.Router
 }
 
-func newMeasureCommandHandler(
+func newSettingCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
-	router MeasurementRouter,
+	router SettingRouter,
 	requestFactory FalconRequestFactory,
 	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
+	dispatcher dispatcher.MeasurementDispatcher,
 ) *Handler {
 	return &Handler{
 		logger:         logger,
 		busyManager:    busyManager,
 		wiremap:        wireMap,
 		ports:          ports,
-		router:         router,
 		requestFactory: requestFactory,
+		router:         router,
 	}
 }
 
-// NewMeasureCommandHandler creates a new handler
-func NewMeasureCommandHandler(
+// NewSettingCommandHandler creates a new handler
+func NewSettingCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
 	scriptsPath string,
-	issClient MeasurementClient,
+	issClient SettingClient,
 	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 ) *Handler {
@@ -177,20 +181,21 @@ func NewMeasureCommandHandler(
 	)
 
 	router := &routerAdapter{
-		router: interpreter.NewRouter(
+		router: settinginterpreter.NewRouter(
 			dispatcher,
 			wireMap,
 			ports,
 		),
 	}
 
-	return newMeasureCommandHandler(
+	return newSettingCommandHandler(
 		logger,
 		busyManager,
 		router,
 		falconRequestFactory{},
 		wireMap,
 		ports,
+		*dispatcher,
 	)
 }
 
@@ -213,19 +218,19 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 	}
 
 	h.subscription, err = nc.Subscribe(
-		MeasureCommandSubject,
+		SettingCommandSubject,
 		h.handleMessage,
 	)
 	if err != nil {
 		return fmt.Errorf(
-			"failed to subscribe to "+MeasureCommandSubject+": %w",
+			"failed to subscribe to "+SettingCommandSubject+": %w",
 			err,
 		)
 	}
 
 	h.logger.Info(
-		MeasureCommandHandlerName,
-		"Subscribed to "+MeasureCommandSubject,
+		SettingCommandHandlerName,
+		"Subscribed to "+SettingCommandSubject,
 	)
 	return nil
 }
@@ -240,59 +245,47 @@ func (h *Handler) Unsubscribe() error {
 	}
 
 	h.logger.Info(
-		MeasureCommandHandlerName,
-		"Unsubscribed from "+MeasureCommandSubject,
+		SettingCommandHandlerName,
+		"Unsubscribed from "+SettingCommandSubject,
 	)
 	return nil
 }
 
-func (h *Handler) publishMeasurementResponse(cmd api.MeasureCommand, responseSubject, respJSON string) bool {
-	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing measurement data: subject=%s bytes=%d", measureSubject, len(respJSON)))
-	if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
-		return false
-	}
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Published measurement data: subject=%s", measureSubject))
-
-	measureResp := api.MeasureResponse{
-		Stream:    measureSubject,
+func (h *Handler) publishSettingmentResponse(cmd api.SettingCommand, responseSubject, respJSON string) bool {
+	measureResp := api.SettingResponse{
 		Response:  respJSON,
 		Timestamp: cmd.Timestamp,
 		Hash:      cmd.Hash,
 	}
 	respData, err := json.Marshal(measureResp)
 	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
+		h.logger.Error(SettingCommandHandlerName,
+			fmt.Sprintf("failed to marshal SettingResponse: %v", err))
 		return false
 	}
 
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing %s: subject=%s stream=%s bytes=%d", MeasureResponseName, responseSubject, measureSubject, len(respData)))
+	h.logger.Info(SettingCommandHandlerName,
+		fmt.Sprintf("Publishing %s: subject=%s bytes=%d", SettingResponseName, responseSubject, len(respData)))
 	if err := h.nc.Publish(responseSubject, respData); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
+		h.logger.Error(SettingCommandHandlerName,
 			fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
 		return false
 	}
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Published %s: subject=%s stream=%s", MeasureResponseName, responseSubject, measureSubject))
+	h.logger.Info(SettingCommandHandlerName,
+		fmt.Sprintf("Published %s: subject=%s ", SettingResponseName, responseSubject))
 	return true
 }
 
 func (h *Handler) handleMessage(msg *nats.Msg) {
 	h.logger.Debug(
-		MeasureCommandHandlerName,
+		SettingCommandHandlerName,
 		fmt.Sprintf("Received command: %s", string(msg.Data)),
 	)
 
-	var cmd api.MeasureCommand
+	var cmd api.SettingCommand
 	if err := json.Unmarshal(msg.Data, &cmd); err != nil {
 		h.logger.Error(
-			MeasureCommandHandlerName,
+			SettingCommandHandlerName,
 			fmt.Sprintf(
 				"failed to unmarshal MEASURE_COMMAND: %v",
 				err,
@@ -303,13 +296,13 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 
 	if cmd.Request == "" {
 		h.logger.Debug(
-			MeasureCommandHandlerName,
+			SettingCommandHandlerName,
 			"empty request, ignoring",
 		)
 		return
 	}
 
-	responseSubject := measurementResponseSubject(
+	responseSubject := settingResponseSubject(
 		cmd.Timestamp,
 	)
 
@@ -321,9 +314,9 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	)
 	if err != nil {
 		h.logger.Error(
-			MeasureCommandHandlerName,
+			SettingCommandHandlerName,
 			fmt.Sprintf(
-				"failed to parse MeasurementRequest: %v",
+				"failed to parse SettingmentRequest: %v",
 				err,
 			),
 		)
@@ -335,13 +328,7 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		falconReq,
 	)
 	if err != nil {
-		h.logger.Error(
-			MeasureCommandHandlerName,
-			fmt.Sprintf(
-				"measurement routing failed: %v",
-				err,
-			),
-		)
+		h.logger.Error(SettingCommandHandlerName, fmt.Sprintf("failed to build new falcon response %v", err))
 		return
 	}
 	defer falconResp.Close()
@@ -349,16 +336,16 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	respJSON, err := falconResp.ToJSON()
 	if err != nil {
 		h.logger.Error(
-			MeasureCommandHandlerName,
+			SettingCommandHandlerName,
 			fmt.Sprintf(
-				"failed to encode MeasurementResponse: %v",
+				"failed to encode SettingmentResponse: %v",
 				err,
 			),
 		)
 		return
 	}
 
-	h.publishMeasurementResponse(
+	h.publishSettingmentResponse(
 		cmd,
 		responseSubject,
 		respJSON,
