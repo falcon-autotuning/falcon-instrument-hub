@@ -18,13 +18,13 @@ type mockHandler struct {
 	canHandleResult bool
 	canHandleErr    error
 
-	handleResponse *FalconMeasurementResponse
+	handleResponse *FalconSettingResponse
 	handleErr      error
 
 	canHandleCalls int
 	handleCalls    int
 
-	lastRequest    *FalconMeasurementRequest
+	lastRequest    *FalconSettingRequest
 	lastDispatcher *dispatcher.MeasurementDispatcher
 }
 
@@ -33,7 +33,7 @@ func (m *mockHandler) Name() string {
 }
 
 func (m *mockHandler) CanHandle(
-	req *FalconMeasurementRequest,
+	req *FalconSettingRequest,
 ) (bool, error) {
 	m.canHandleCalls++
 	m.lastRequest = req
@@ -42,11 +42,11 @@ func (m *mockHandler) CanHandle(
 }
 
 func (m *mockHandler) Handle(
-	req *FalconMeasurementRequest,
+	req *FalconSettingRequest,
 	dispatcher *dispatcher.MeasurementDispatcher,
 	wiremap config.WireMap,
 	ports *config.ConnectedPorts,
-) (*FalconMeasurementResponse, error) {
+) (*FalconSettingResponse, error) {
 	m.handleCalls++
 	m.lastRequest = req
 	m.lastDispatcher = dispatcher
@@ -57,8 +57,8 @@ func (m *mockHandler) Handle(
 func TestRouter_Handle_FirstMatchingHandlerWins(t *testing.T) {
 	dispatcher := &dispatcher.MeasurementDispatcher{}
 
-	req := &FalconMeasurementRequest{}
-	resp := &FalconMeasurementResponse{}
+	req := &FalconSettingRequest{}
+	resp := &FalconSettingResponse{}
 
 	first := &mockHandler{
 		name:            "first",
@@ -124,7 +124,7 @@ func TestRouter_Handle_CanHandleError(t *testing.T) {
 	}
 
 	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+		&FalconSettingRequest{},
 	)
 
 	require.Error(t, err)
@@ -154,7 +154,7 @@ func TestRouter_Handle_HandlerError(t *testing.T) {
 	}
 
 	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+		&FalconSettingRequest{},
 	)
 
 	require.Error(t, err)
@@ -187,7 +187,7 @@ func TestRouter_Handle_NoMatchingHandlers(t *testing.T) {
 	}
 
 	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+		&FalconSettingRequest{},
 	)
 
 	require.Error(t, err)

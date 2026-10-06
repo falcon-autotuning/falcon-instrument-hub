@@ -38,15 +38,10 @@ func settingResponseSubject(timestamp int64) string {
 	return SettingResponseSubject + "." + strconv.FormatInt(timestamp, 10)
 }
 
-type Quantity struct {
-	Value float64
-	Unit  string
-}
-
 // Allows us to inject mocks instead of real FalconRequest
 type FalconRequest interface {
 	Close() error
-	Setters() (map[config.ConnectedPort]Quantity, error)
+	Setters() (map[config.ConnectedPort]settinginterpreter.Quantity, error)
 	Getters() ([]config.ConnectedPort, error)
 }
 
@@ -92,11 +87,11 @@ type routerAdapter struct {
 func (r *routerAdapter) Handle(
 	req FalconRequest,
 ) (FalconResponse, error) {
-	falconReq, ok := req.(*settinginterpreter.FalconMeasurementRequest)
+	falconReq, ok := req.(*settinginterpreter.FalconSettingRequest)
 	if !ok {
 		return nil,
 			fmt.Errorf(
-				"expected *FalconMeasurementRequest, got %T",
+				"expected *FalconSettingRequest, got %T",
 				req,
 			)
 	}
@@ -139,7 +134,7 @@ type Handler struct {
 	ports          *config.ConnectedPorts
 	requestFactory FalconRequestFactory
 	dispatcher     dispatcher.MeasurementDispatcher
-	router         settinginterpreter.Router
+	router         SettingRouter
 }
 
 func newSettingCommandHandler(
@@ -174,7 +169,7 @@ func NewSettingCommandHandler(
 		issClient,
 	)
 
-	dispatcher := dispatcher.NewMeasurementDispatcher(
+	measurementDispatcher := dispatcher.NewMeasurementDispatcher(
 		issClient,
 		bufferManager,
 		scriptsPath,
@@ -182,7 +177,7 @@ func NewSettingCommandHandler(
 
 	router := &routerAdapter{
 		router: settinginterpreter.NewRouter(
-			dispatcher,
+			measurementDispatcher,
 			wireMap,
 			ports,
 		),
@@ -195,7 +190,7 @@ func NewSettingCommandHandler(
 		falconRequestFactory{},
 		wireMap,
 		ports,
-		*dispatcher,
+		*measurementDispatcher,
 	)
 }
 

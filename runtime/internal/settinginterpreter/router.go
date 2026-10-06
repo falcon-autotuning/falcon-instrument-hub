@@ -17,7 +17,6 @@ import (
 //   - extracting parameters from the request
 //   - executing any required measurements
 //   - constructing the final response
-//   - FIX: storing the data in the falconcore database (does not currently exist)
 //
 // Handlers are evaluated in registration order. The first handler whose
 // CanHandle() method returns true will process the request.
@@ -31,18 +30,18 @@ type MeasurementHandler interface {
 	// Name returns a human-readable identifier used for logging.
 	Name() string
 
-	// CanHandle determines whether this handler should process the request.
+	// CanHandle determines whether this handler can process the request.
 	CanHandle(
-		req *FalconMeasurementRequest,
+		req *FalconSettingRequest,
 	) (bool, error)
 
 	// Handle executes the measurement workflow.
 	Handle(
-		req *FalconMeasurementRequest,
+		req *FalconSettingRequest,
 		dispatcher *dispatcher.MeasurementDispatcher,
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
-	) (*FalconMeasurementResponse, error)
+	) (*FalconSettingResponse, error)
 }
 
 // Router dispatches Falcon measurement requests to the appropriate
@@ -110,8 +109,8 @@ func NewRouter(
 //
 // Returns an error when no handler claims responsibility for the request.
 func (r *Router) Handle(
-	req *FalconMeasurementRequest,
-) (*FalconMeasurementResponse, error) {
+	req *FalconSettingRequest,
+) (*FalconSettingResponse, error) {
 	for _, handler := range r.handlers {
 		pass, err := handler.CanHandle(req)
 		if err != nil {

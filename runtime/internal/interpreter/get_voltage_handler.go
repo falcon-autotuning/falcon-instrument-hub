@@ -17,6 +17,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledarrayslabelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 )
@@ -167,7 +168,7 @@ func (*getVoltageHandler) CanHandle(
 }
 
 func voltageFromResult(
-	result MeasurementResult,
+	result dispatcher.MeasurementResult,
 	expected config.ConnectedPort,
 	getter *instrumentport.Handle,
 ) (float64, error) {
@@ -313,7 +314,7 @@ func newScalarMeasurementResponse(
 
 func (*getVoltageHandler) Handle(
 	req *FalconMeasurementRequest,
-	dispatcher *MeasurementDispatcher,
+	measurementDispatcher *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	connected *config.ConnectedPorts,
 ) (*FalconMeasurementResponse, error) {
@@ -326,7 +327,7 @@ func (*getVoltageHandler) Handle(
 	}
 	defer getter.Close()
 
-	if dispatcher == nil {
+	if measurementDispatcher == nil {
 		return nil, fmt.Errorf("measurement dispatcher is nil")
 	}
 	if connected == nil {
@@ -359,7 +360,7 @@ func (*getVoltageHandler) Handle(
 		)
 	}
 
-	results := dispatcher.RunAll([]MeasurementRequest{{
+	results := measurementDispatcher.RunAll([]dispatcher.MeasurementRequest{{
 		Script: getVoltageHandlerName,
 		Variables: []instrumentserver.MeasureVariable{{
 			Name: "getter",

@@ -211,32 +211,6 @@ type MeasurementResult struct {
 	Err     error
 }
 
-func (d *MeasurementDispatcher) registerBuffers(
-	requestorID string,
-	value instrumentserver.VariableValue,
-) error {
-	switch v := value.Value.(type) {
-
-	case instrumentserver.DataBuffer:
-		return d.buffers.RegisterBuffer(
-			requestorID,
-			string(v),
-		)
-
-	case instrumentserver.DataBufferArray:
-		for _, bufferID := range v {
-			if err := d.buffers.RegisterBuffer(
-				requestorID,
-				bufferID,
-			); err != nil {
-				return err
-			}
-		}
-	}
-
-	return nil
-}
-
 // measurementAdapter is a measurement-scoped adapter that binds a
 // requestor ID to buffer registration operations.
 //

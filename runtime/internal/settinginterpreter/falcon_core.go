@@ -5,44 +5,68 @@ package settinginterpreter
 import (
 	"fmt"
 
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementrequest"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementresponse"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 )
 
-// FalconMeasurementRequest wraps a falcon-core MeasurementRequest handle
+// FalconSettingRequest wraps a falcon-core settingrequest handle
 // and provides convenience methods for extracting instrument information.
-type FalconMeasurementRequest struct {
-	handle *measurementrequest.Handle
+type FalconSettingRequest struct {
+	handle *settingrequest.Handle
 }
 
-// NewFalconMeasurementRequestFromJSON deserializes a MeasurementRequest from JSON
+// NewFalconSettingRequestFromJSON deserializes a settingrequest from JSON
 // using the falcon-core API.
-func NewFalconMeasurementRequestFromJSON(jsonStr string) (*FalconMeasurementRequest, error) {
-	handle, err := measurementrequest.FromJSON(jsonStr)
+func NewFalconSettingRequestFromJSON(jsonStr string) (*FalconSettingRequest, error) {
+	handle, err := settingrequest.FromJSON(jsonStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize MeasurementRequest from JSON: %w", err)
+		return nil, fmt.Errorf("failed to deserialize settingrequest from JSON: %w", err)
 	}
 
-	return &FalconMeasurementRequest{handle: handle}, nil
+	return &FalconSettingRequest{handle: handle}, nil
 }
 
 // Close releases the underlying falcon-core handle.
 // Must be called when done with the request.
-func (r *FalconMeasurementRequest) Close() error {
+func (r *FalconSettingRequest) Close() error {
 	if r.handle != nil {
 		return r.handle.Close()
 	}
 	return nil
 }
 
-// Handle returns the underlying measurementrequest.Handle for direct API access.
-func (r *FalconMeasurementRequest) Handle() *measurementrequest.Handle {
+func (r *FalconSettingRequest) Getters() ([]config.ConnectedPort, error) {
+	if r.handle != nil {
+		return nil, r.handle.Close()
+	}
+	_, err := r.handle.Getters()
+	// FIX: do something with Getters
+	return nil, err
+}
+
+type Quantity struct {
+	Value float64
+	Unit  string
+}
+
+func (r *FalconSettingRequest) Setters() (map[config.ConnectedPort]Quantity, error) {
+	if r.handle != nil {
+		return nil, r.handle.Close()
+	}
+	_, err := r.handle.Setters()
+	// FIX: do something with Setters
+	return nil, err
+}
+
+// Handle returns the underlying settingrequest.Handle for direct API access.
+func (r *FalconSettingRequest) Handle() *settingrequest.Handle {
 	return r.handle
 }
 
-// ToJSON serializes the MeasurementRequest to JSON using the falcon-core API.
-func (r *FalconMeasurementRequest) ToJSON() (string, error) {
+// ToJSON serializes the settingrequest to JSON using the falcon-core API.
+func (r *FalconSettingRequest) ToJSON() (string, error) {
 	if r.handle == nil {
 		return "", fmt.Errorf("handle is nil")
 	}
@@ -50,43 +74,43 @@ func (r *FalconMeasurementRequest) ToJSON() (string, error) {
 }
 
 // Message returns the message string from the request.
-func (r *FalconMeasurementRequest) Message() (string, error) {
+func (r *FalconSettingRequest) Message() (string, error) {
 	if r.handle == nil {
 		return "", fmt.Errorf("handle is nil")
 	}
 	return r.handle.Message()
 }
 
-// FalconMeasurementResponse wraps a falcon-core MeasurementResponse handle.
-type FalconMeasurementResponse struct {
-	handle *measurementresponse.Handle
+// FalconSettingResponse wraps a falcon-core settingresponse handle.
+type FalconSettingResponse struct {
+	handle *settingresponse.Handle
 }
 
-// NewFalconMeasurementResponseFromJSON deserializes a MeasurementResponse from JSON.
-func NewFalconMeasurementResponseFromJSON(jsonStr string) (*FalconMeasurementResponse, error) {
-	handle, err := measurementresponse.FromJSON(jsonStr)
+// NewFalconSettingResponseFromJSON deserializes a settingresponse from JSON.
+func NewFalconSettingResponseFromJSON(jsonStr string) (*FalconSettingResponse, error) {
+	handle, err := settingresponse.FromJSON(jsonStr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to deserialize MeasurementResponse from JSON: %w", err)
+		return nil, fmt.Errorf("failed to deserialize settingresponse from JSON: %w", err)
 	}
 
-	return &FalconMeasurementResponse{handle: handle}, nil
+	return &FalconSettingResponse{handle: handle}, nil
 }
 
 // Close releases the underlying handle.
-func (r *FalconMeasurementResponse) Close() error {
+func (r *FalconSettingResponse) Close() error {
 	if r.handle != nil {
 		return r.handle.Close()
 	}
 	return nil
 }
 
-// Handle returns the underlying measurementresponse.Handle.
-func (r *FalconMeasurementResponse) Handle() *measurementresponse.Handle {
+// Handle returns the underlying settingresponse.Handle.
+func (r *FalconSettingResponse) Handle() *settingresponse.Handle {
 	return r.handle
 }
 
-// ToJSON serializes the MeasurementResponse to JSON.
-func (r *FalconMeasurementResponse) ToJSON() (string, error) {
+// ToJSON serializes the settingresponse to JSON.
+func (r *FalconSettingResponse) ToJSON() (string, error) {
 	if r.handle == nil {
 		return "", fmt.Errorf("handle is nil")
 	}
@@ -94,7 +118,7 @@ func (r *FalconMeasurementResponse) ToJSON() (string, error) {
 }
 
 // Message returns the message string from the response.
-func (r *FalconMeasurementResponse) Message() (string, error) {
+func (r *FalconSettingResponse) Message() (string, error) {
 	if r.handle == nil {
 		return "", fmt.Errorf("handle is nil")
 	}
