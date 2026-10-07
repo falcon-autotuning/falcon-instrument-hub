@@ -16,6 +16,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/spf13/cobra"
 )
 
@@ -183,6 +184,28 @@ const (
 	MeasurementsDB = "measurements.db"
 )
 
+func BuildInstrumentMetadata(
+	cfg *config.HubConfig,
+) map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata {
+	result := make(
+		map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+	)
+
+	for _, instrument := range cfg.InstrumentServer.Instruments {
+		if instrument.ConfigFile == nil {
+			continue
+		}
+
+		result[settingrouter.InstrumentName(
+			instrument.ConfigFile.Name,
+		)] = settingrouter.InstrumentMetadata{
+			Characteristics: instrument.Characteristics,
+		}
+	}
+
+	return result
+}
+
 func (deps RuntimeDependencies) NewRuntime(
 	cfg *config.HubConfig,
 ) (*Runtime, error) {
@@ -243,6 +266,7 @@ func (deps RuntimeDependencies) NewRuntime(
 		logger,
 		natsManager.GetConnection(),
 		services.issClient,
+		BuildInstrumentMetadata(cfg),
 	)
 	services.handlerManager = handlerManager
 
@@ -305,7 +329,6 @@ func (r *Runtime) Close() {
 func (r Runtime) runServer() error {
 	log.Printf("starting Falcon Instrument Hub...")
 	log.Printf("device config: %s", r.cfg.QuantumDotConfig)
-	log.Printf("wiremap: %s", r.cfg.Wiremap)
 	log.Printf("working directory: %s", r.cfg.WorkingDirectory)
 	log.Printf(
 		"nats url: %s",

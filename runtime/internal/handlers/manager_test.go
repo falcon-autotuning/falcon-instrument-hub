@@ -25,6 +25,7 @@ func TestManagerOperations(t *testing.T) {
 			"device config handler",
 			"measure command handler",
 			"port request handler",
+			"setting command handler",
 		}
 
 		if includeStatus {
@@ -116,6 +117,7 @@ func TestManagerStartCoreHandlers(t *testing.T) {
 		logger,
 		nc,
 		&mockMeasurementClient{},
+		nil,
 	)
 
 	require.NoError(t, manager.StartCoreHandlers())

@@ -2,11 +2,14 @@ package handlers
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
+	setting "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/setting"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/nats-io/nats.go"
 )
 
@@ -27,6 +30,7 @@ type Manager struct {
 	nc                    *nats.Conn
 	deviceConfigHandler   *deviceconfighandlers.Handler
 	measureCommandHandler *measure.Handler
+	settingCommandHandler *setting.Handler
 	statusHandler         *StatusHandler
 	portRequestHandler    *PortRequestHandler
 	isBusy                bool
@@ -42,6 +46,7 @@ func NewManager(
 	logger *logging.Logger,
 	nc *nats.Conn,
 	dispatcher measure.MeasurementClient,
+	instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) *Manager {
 	manager := &Manager{
 		logger:              logger,
@@ -60,6 +65,15 @@ func NewManager(
 		dispatcher,
 		wiremap,
 		ports,
+	)
+	manager.settingCommandHandler = setting.NewSettingCommandHandler(
+		logger,
+		manager,
+		measurementScriptsPath,
+		dispatcher,
+		wiremap,
+		ports,
+		instrumentMetadata,
 	)
 
 	return manager
@@ -126,11 +140,11 @@ func (m *Manager) Stop() error {
 
 	// Execute each shutdown operation in reverse order (continue on errors)
 	ops := m.getHandlerOperations(true)
-	for i := len(ops) - 1; i >= 0; i-- {
-		if err := ops[i].stopOp(); err != nil {
+	for _, op := range slices.Backward(ops) {
+		if err := op.stopOp(); err != nil {
 			m.logger.Error(
 				HandlerManagerName,
-				fmt.Sprintf("Failed to stop %s", ops[i].name),
+				fmt.Sprintf("Failed to stop %s", op.name),
 			)
 		}
 	}
@@ -161,6 +175,11 @@ func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 			name:    "port request handler",
 			startOp: func() error { return m.portRequestHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.portRequestHandler.Unsubscribe() },
+		},
+		{
+			name:    "setting command handler",
+			startOp: func() error { return m.settingCommandHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.settingCommandHandler.Unsubscribe() },
 		},
 	}
 	if includeStatus {

@@ -103,6 +103,7 @@ func NewSettingCommandHandler(
 	issClient SettingClient,
 	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
+	instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) *Handler {
 	bufferManager := databuffer.NewDataBufferManager(
 		issClient,
@@ -118,6 +119,7 @@ func NewSettingCommandHandler(
 		measurementDispatcher,
 		wireMap,
 		ports,
+		instrumentMetadata,
 	)
 
 	return newSettingCommandHandler(

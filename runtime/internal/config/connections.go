@@ -99,7 +99,7 @@ func addIOPort(
 			Role:           portType,
 			Access:         portAccess,
 			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-			Unit:           io.Unit,
+			Unit:           io.Unit, // FIX: This unit needs to come from the io_config in the ConfigFile since the ISS is upholding this
 			Description:    io.Description,
 		},
 	)

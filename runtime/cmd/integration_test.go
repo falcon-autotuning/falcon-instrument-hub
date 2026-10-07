@@ -11,6 +11,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -191,6 +192,7 @@ instrument-server:
   instruments:
     - config: a.yaml
       plugin: a.so
+      type: dc_voltage_source
 `, tmp)),
 		0644,
 	)
@@ -293,6 +295,7 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 			logger *logging.Logger,
 			nc *nats.Conn,
 			dispatcher measure.MeasurementClient,
+			instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 		) HandlerManager {
 			tracker = append(tracker, "handlers")
 

@@ -570,6 +570,10 @@ func Validate(c *HubConfig) error {
 		}
 	}
 
+	if err := c.InstrumentServer.Validate(); err != nil {
+		return err
+	}
+
 	if err := ResolveWiremap(
 		c.Wiremap,
 		c.QuantumDotConfig,
@@ -586,10 +590,6 @@ func Validate(c *HubConfig) error {
 	}
 	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
 		return fmt.Errorf("working directory does not exist: %s", c.WorkingDirectory)
-	}
-
-	if err := c.InstrumentServer.Validate(); err != nil {
-		return err
 	}
 
 	return nil

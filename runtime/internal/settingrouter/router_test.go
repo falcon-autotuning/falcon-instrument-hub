@@ -94,6 +94,7 @@ func (m *mockGetterHandler) Get(
 	_ *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	_ *config.ConnectedPorts,
+	_ map[InstrumentName]InstrumentMetadata,
 ) (Quantity, error) {
 	m.getCalls++
 	m.lastPort = port
@@ -431,6 +432,7 @@ func (f *fakeGetter) Get(
 	_ *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	_ *config.ConnectedPorts,
+	_ map[InstrumentName]InstrumentMetadata,
 ) (Quantity, error) {
 	return f.result, nil
 }

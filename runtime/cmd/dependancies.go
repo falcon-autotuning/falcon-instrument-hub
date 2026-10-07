@@ -7,6 +7,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/networking"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/nats-io/nats.go"
 )
 
@@ -94,6 +95,7 @@ type RuntimeDependencies struct {
 		logger *logging.Logger,
 		nc *nats.Conn,
 		dispatcher measure.MeasurementClient,
+		instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 	) HandlerManager
 
 	newNATSManager func(
@@ -129,6 +131,7 @@ var ProductionDependancies = RuntimeDependencies{
 		logger *logging.Logger,
 		nc *nats.Conn,
 		dispatcher measure.MeasurementClient,
+		instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 	) HandlerManager {
 		return handlers.NewManager(
 			deviceConfigJSON,
@@ -138,6 +141,7 @@ var ProductionDependancies = RuntimeDependencies{
 			logger,
 			nc,
 			dispatcher,
+			instrumentMetadata,
 		)
 	},
 	newNATSManager: func(

@@ -513,6 +513,7 @@ func (r *recordingGetter) Get(
 	*dispatcher.MeasurementDispatcher,
 	config.WireMap,
 	*config.ConnectedPorts,
+	map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) (settingrouter.Quantity, error) {
 	return r.result, nil
 }
@@ -547,6 +548,7 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 		nil,
 		nil,
 		portsCatalog,
+		nil,
 	)
 
 	router.RegisterSetter(setter)

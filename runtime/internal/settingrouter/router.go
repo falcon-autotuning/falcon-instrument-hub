@@ -9,6 +9,15 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 )
 
+// InstrumentName is the name of each instrument
+type InstrumentName string
+
+type InstrumentMetadata struct {
+	Characteristics []config.InstrumentCharacteristic
+	ConfigFile      *config.InstrumentConfigFile
+	API             *config.InstrumentAPI
+}
+
 // GetterHandler retrieves the current value of a single connected port.
 //
 // Getter handlers are responsible for:
@@ -37,6 +46,7 @@ type GetterHandler interface {
 		dispatcher *dispatcher.MeasurementDispatcher,
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
+		instrumentMetadata map[InstrumentName]InstrumentMetadata,
 	) (Quantity, error)
 }
 
@@ -95,8 +105,9 @@ type Router struct {
 	setters []SetterHandler
 	getters []GetterHandler
 
-	wiremap config.WireMap
-	ports   *config.ConnectedPorts
+	wiremap            config.WireMap
+	ports              *config.ConnectedPorts
+	instrumentMetadata map[InstrumentName]InstrumentMetadata
 }
 
 // RegisterSetter adds a setter handler to the router.
@@ -150,11 +161,13 @@ func NewRouter(
 	dispatcher *dispatcher.MeasurementDispatcher,
 	wiremap config.WireMap,
 	ports *config.ConnectedPorts,
+	instrumentMetadata map[InstrumentName]InstrumentMetadata,
 ) *Router {
 	r := &Router{
-		dispatcher: dispatcher,
-		wiremap:    wiremap,
-		ports:      ports,
+		dispatcher:         dispatcher,
+		wiremap:            wiremap,
+		ports:              ports,
+		instrumentMetadata: instrumentMetadata,
 	}
 
 	// Production handler registrations go here.
@@ -206,6 +219,7 @@ func (r *Router) get(
 				r.dispatcher,
 				r.wiremap,
 				r.ports,
+				r.instrumentMetadata,
 			)
 		}
 	}
