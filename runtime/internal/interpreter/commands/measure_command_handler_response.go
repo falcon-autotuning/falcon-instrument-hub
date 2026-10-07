@@ -61,7 +61,9 @@ func buildMeasurementResponseJSONForTargets(
 	hash int64,
 ) (string, error) {
 	if len(targets) == 0 {
-		return "", fmt.Errorf("buildMeasurementResponseJSONForTargets requires at least one target")
+		return "", fmt.Errorf(
+			"buildMeasurementResponseJSONForTargets requires at least one target",
+		)
 	}
 
 	labelledArrays := make([]*labelledmeasuredarray.Handle, 0, len(targets))
@@ -70,12 +72,18 @@ func buildMeasurementResponseJSONForTargets(
 		if target.PortJSON != "" {
 			port, err := instrumentport.FromJSON(target.PortJSON)
 			if err != nil {
-				return "", fmt.Errorf("buildMeasurementResponseJSON instrumentport.FromJSON: %w", err)
+				return "", fmt.Errorf(
+					"buildMeasurementResponseJSON instrumentport.FromJSON: %w",
+					err,
+				)
 			}
 			ac, err = acquisitioncontext.NewFromPort(port)
 			port.Close()
 			if err != nil {
-				return "", fmt.Errorf("buildMeasurementResponseJSON acquisitioncontext.NewFromPort: %w", err)
+				return "", fmt.Errorf(
+					"buildMeasurementResponseJSON acquisitioncontext.NewFromPort: %w",
+					err,
+				)
 			}
 		} else {
 			conn, err := connection.FromJSON(target.ConnectionJSON)
@@ -118,17 +126,26 @@ func buildMeasurementResponseJSONForTargets(
 		if len(bufferData) == 0 {
 			bufferData = []float64{}
 		}
-		fa, err := farraydouble.FromData(bufferData, []uint64{uint64(len(bufferData))})
+		fa, err := farraydouble.FromData(
+			bufferData,
+			[]uint64{uint64(len(bufferData))},
+		)
 		if err != nil {
 			ac.Close()
-			return "", fmt.Errorf("buildMeasurementResponseJSON farraydouble.FromData: %w", err)
+			return "", fmt.Errorf(
+				"buildMeasurementResponseJSON farraydouble.FromData: %w",
+				err,
+			)
 		}
 
 		lma, err := labelledmeasuredarray.FromFArray(fa, ac)
 		fa.Close()
 		ac.Close()
 		if err != nil {
-			return "", fmt.Errorf("buildMeasurementResponseJSON labelledmeasuredarray.FromFArray: %w", err)
+			return "", fmt.Errorf(
+				"buildMeasurementResponseJSON labelledmeasuredarray.FromFArray: %w",
+				err,
+			)
 		}
 		labelledArrays = append(labelledArrays, lma)
 	}
@@ -140,19 +157,28 @@ func buildMeasurementResponseJSONForTargets(
 
 	list, err := listlabelledmeasuredarray.New(labelledArrays)
 	if err != nil {
-		return "", fmt.Errorf("buildMeasurementResponseJSON listlabelledmeasuredarray.New: %w", err)
+		return "", fmt.Errorf(
+			"buildMeasurementResponseJSON listlabelledmeasuredarray.New: %w",
+			err,
+		)
 	}
 	defer list.Close()
 
 	arrays, err := labelledarrayslabelledmeasuredarray.NewFromList(list)
 	if err != nil {
-		return "", fmt.Errorf("buildMeasurementResponseJSON labelledarrayslabelledmeasuredarray.NewFromList: %w", err)
+		return "", fmt.Errorf(
+			"buildMeasurementResponseJSON labelledarrayslabelledmeasuredarray.NewFromList: %w",
+			err,
+		)
 	}
 	defer arrays.Close()
 
 	resp, err := measurementresponse.New(arrays)
 	if err != nil {
-		return "", fmt.Errorf("buildMeasurementResponseJSON measurementresponse.New: %w", err)
+		return "", fmt.Errorf(
+			"buildMeasurementResponseJSON measurementresponse.New: %w",
+			err,
+		)
 	}
 	defer resp.Close()
 

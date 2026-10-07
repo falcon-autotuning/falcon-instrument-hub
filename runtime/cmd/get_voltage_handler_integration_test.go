@@ -14,6 +14,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/domains/labelleddomain"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/stretchr/testify/assert"

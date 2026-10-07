@@ -1,0 +1,186 @@
+api_version: 1.0.0
+instrument:
+  vendor: MockVendor
+  model: MockModel
+  identifier: MockAPI
+  description: Mock instrument for testing
+protocol:
+  type: Custom
+  name: Mock
+channel_groups:
+  - name: channel
+    count: 2
+    description: Analog input channels
+    channel_parameter:
+      type: int
+      min: 1
+      max: 2
+      description: Channel index (1-based)
+    io_types:
+      - suffix: waveform
+        type: buffer
+        element_type: float
+        role: output
+        unit: V
+        description: Acquired waveform
+      - suffix: sample_rate
+        type: float
+        role: setting
+        description: Per-channel sample rate
+io:
+  - name: voltage
+    type: float
+    role: input
+    description: Voltage value
+    unit: V
+  - name: current
+    type: float
+    role: output
+    description: Measured current
+    unit: A
+  - name: channel
+    type: integer
+    role: setting
+    description: Channel number
+  - name: message
+    type: string
+    role: setting
+    description: Text message
+  - name: status
+    type: boolean
+    role: setting
+    description: Status flag
+  - name: range
+    type: float
+    role: setting
+    description: Measurement range
+    unit: V
+  - name: config_param1
+    type: float
+    role: setting
+    description: Configuration parameter 1
+  - name: config_param2
+    type: string
+    role: setting
+    description: Configuration parameter 2
+  - name: config_param3
+    type: boolean
+    role: setting
+    description: Configuration parameter 3
+  - name: channel1_waveform
+    type: buffer
+    role: output
+    description: Acquired waveform
+    unit: V
+    element_type: float
+  - name: channel1_sample_rate
+    type: float
+    role: setting
+    description: Per-channel sample rate
+  - name: channel2_waveform
+    type: buffer
+    role: output
+    description: Acquired waveform
+    unit: V
+    element_type: float
+  - name: channel2_sample_rate
+    type: float
+    role: setting
+    description: Per-channel sample rate
+commands:
+  IDN:
+    template: "*IDN?"
+    description: Identification query
+    parameters: []
+    outputs: [message]
+  ECHO:
+    template: ECHO
+    description: Echo test
+    parameters: []
+    outputs: [message]
+  MEASURE:
+    template: MEAS:CURR?
+    description: Measure current
+    parameters: []
+    outputs: [current]
+  SAFE_MEASURE:
+    template: SMEAS:CURR
+    description: Measure current with a safety message
+    parameters: []
+    outputs: [message, current]
+  SET:
+    template: SOUR:VOLT {channel} {voltage}
+    description: Set voltage on a channel
+    channel_group: channel
+    parameters:
+      - io: voltage
+    outputs: []
+  GET:
+    template: SOUR:VOLT {channel}?
+    description: Get voltage setting on a channel
+    channel_group: channel
+    parameters: []
+    outputs: [voltage]
+  GET_DOUBLE:
+    template: GET:DOUBLE?
+    description: Get double value
+    parameters: []
+    outputs: [current]
+  GET_STRING:
+    template: GET:STRING?
+    description: Get string value
+    parameters: []
+    outputs: [message]
+  GET_BOOL:
+    template: GET:BOOL?
+    description: Get boolean value
+    parameters: []
+    outputs: [status]
+  GET_ARRAY:
+    template: GET:ARRAY?
+    description: Get array of values
+    channel_group: channel
+    parameters: []
+    outputs: [waveform]
+  SET_SAMPLE_RATE:
+    template: SOUR:SRAT {channel} {sample_rate}
+    description: Set sample rate on a channel
+    channel_group: channel
+    parameters:
+      - io: sample_rate
+    outputs: []
+  SET_RANGE:
+    template: VOLT:RANG {range}
+    description: Set measurement range
+    parameters:
+      - io: range
+    outputs: []
+  GET_RANGE:
+    template: VOLT:RANG?
+    description: Get measurement range
+    parameters: []
+    outputs: [range]
+  CONFIGURE:
+    template: CONF {config_param1},{config_param2},{config_param3}
+    description: Configure instrument
+    parameters:
+      - io: config_param1
+      - io: config_param2
+      - io: config_param3
+    outputs: []
+  RESET:
+    template: "*RST"
+    description: Reset instrument
+    parameters: []
+    outputs: []
+  GET_LARGE_DATA:
+    template: WAVEFORM:DATA?
+    description: Get large waveform data
+    channel_group: channel
+    parameters: []
+    outputs: [waveform]
+  GET_SMALL_DATA:
+    template: DATA:SMALL?
+    description: Get small data value
+    parameters: []
+    outputs: [current]
