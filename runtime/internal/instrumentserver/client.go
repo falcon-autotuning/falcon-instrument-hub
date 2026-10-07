@@ -667,12 +667,7 @@ var (
 )
 
 func currentMeasurementTimeout() time.Duration {
-	active := inflightMeasurements.Load()
-
-	if active < 1 {
-		active = 1
-	}
-
+	active := max(inflightMeasurements.Load(), 1)
 	return time.Duration(active) * baseMeasurementTimeout
 }
 
