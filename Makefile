@@ -133,12 +133,18 @@ test-target: build
 		-coverprofile=coverage.out \
 		-tags cgo,falcon_core \
 		./internal/instrumenttarget
-test-settinginterpreter: build
+test-settingrouter: build
 	cd runtime && $(GO_ENV) go test \
 		-v \
 		-coverprofile=coverage.out \
 		-tags cgo,falcon_core \
-		./internal/settinginterpreter
+		./internal/settingrouter
+test-setting: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/handlers/setting
 
 
 install: build

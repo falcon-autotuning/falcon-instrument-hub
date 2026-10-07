@@ -1,6 +1,6 @@
 //go:build cgo
 
-package settinginterpreter
+package settingrouter
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ import (
 // CanGet() method returns true is responsible for producing the value.
 //
 // Getter handlers are intentionally decoupled from the router and may be
-// implemented in any package that can import settinginterpreter.
+// implemented in any package that can import settingrouter.
 //
 // The only requirement is that the type satisfy the GetterHandler
 // interface and be registered in NewRouter().
@@ -52,7 +52,7 @@ type GetterHandler interface {
 // CanSet() method returns true is responsible for performing the write.
 //
 // Setter handlers are intentionally decoupled from the router and may be
-// implemented in any package that can import settinginterpreter.
+// implemented in any package that can import settingrouter.
 //
 // The only requirement is that the type satisfy the SetterHandler
 // interface and be registered in NewRouter().
@@ -99,6 +99,34 @@ type Router struct {
 	ports   *config.ConnectedPorts
 }
 
+// RegisterSetter adds a setter handler to the router.
+//
+// Handlers are evaluated in registration order.
+func (r *Router) RegisterSetter(
+	handler SetterHandler,
+) *Router {
+	r.setters = append(
+		r.setters,
+		handler,
+	)
+
+	return r
+}
+
+// RegisterGetter adds a getter handler to the router.
+//
+// Handlers are evaluated in registration order.
+func (r *Router) RegisterGetter(
+	handler GetterHandler,
+) *Router {
+	r.getters = append(
+		r.getters,
+		handler,
+	)
+
+	return r
+}
+
 // NewRouter constructs a Router with the supplied measurement dispatcher,
 // wiremap, and connected-port catalog.
 //
@@ -107,7 +135,7 @@ type Router struct {
 // Getter and setter handlers may be implemented anywhere in the codebase.
 // A typical organization is:
 //
-//	internal/settinginterpreter/
+//	internal/settingrouter/
 //	    router.go
 //
 //	internal/settings/
@@ -123,14 +151,18 @@ func NewRouter(
 	wiremap config.WireMap,
 	ports *config.ConnectedPorts,
 ) *Router {
-	return &Router{
+	r := &Router{
 		dispatcher: dispatcher,
 		wiremap:    wiremap,
 		ports:      ports,
-		// TODO: populate these
-		setters: []SetterHandler{},
-		getters: []GetterHandler{},
 	}
+
+	// Production handler registrations go here.
+	//
+	// r.RegisterSetter(NewVoltageSetter())
+	// r.RegisterGetter(NewVoltageGetter())
+
+	return r
 }
 
 // set routes a single setter operation to the first compatible

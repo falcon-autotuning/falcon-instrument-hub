@@ -1,25 +1,21 @@
 //go:build cgo
 
-package settinginterpreter
+package settingrouter
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/generic/mapinstrumentportquantity"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/access"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/quantity"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -288,136 +284,13 @@ func TestRouter_Get_HandlerError(
 	)
 }
 
-func mustFalconPort(
-	t *testing.T,
-) *instrumentport.Handle {
-	t.Helper()
-
-	unit, err := symbolunit.NewVolt()
-	require.NoError(t, err)
-
-	conn, err := connection.NewPlungerGate("P1")
-	require.NoError(t, err)
-
-	port, err := instrumentport.NewKnob(
-		"P1",
-		"Source1",
-		conn,
-		instrument.DcVoltageSource,
-		unit,
-		"test port",
-	)
-	require.NoError(t, err)
-
-	return port
-}
-
-func buildTestConnectedPorts(
-	t *testing.T,
-) *config.ConnectedPorts {
-	t.Helper()
-
-	return &config.ConnectedPorts{
-		AllConnections: []config.ConnectedPort{
-			{
-				PortEntry: config.PortEntry{
-					InstrumentName: "Source1",
-					InstrumentType: instrument.DcVoltageSource,
-					Role:           porttype.PortTypeKnob,
-					Access:         access.Write,
-					Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-				},
-				PortName:   "Source1.voltage",
-				DeviceName: "P1",
-			},
-			{
-				PortEntry: config.PortEntry{
-					InstrumentName: "Source1",
-					InstrumentType: instrument.DcVoltageSource,
-					Role:           porttype.PortTypeMeter,
-					Access:         access.Read,
-					Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-				},
-				PortName:   "Source1.measure_voltage",
-				DeviceName: "P1",
-			},
-		},
-	}
-}
-
-func newTestKnobPort(
-	t *testing.T,
-) *instrumentport.Handle {
-	t.Helper()
-
-	unit, err := symbolunit.NewVolt()
-	require.NoError(t, err)
-
-	conn, err := connection.NewPlungerGate("P1")
-	require.NoError(t, err)
-
-	port, err := instrumentport.NewKnob(
-		"P1",
-		"Source1",
-		conn,
-		instrument.DcVoltageSource,
-		unit,
-		"voltage source",
-	)
-	require.NoError(t, err)
-
-	return port
-}
-
-func newTestMeterPort(
-	t *testing.T,
-) *instrumentport.Handle {
-	t.Helper()
-
-	unit, err := symbolunit.NewVolt()
-	require.NoError(t, err)
-
-	conn, err := connection.NewPlungerGate("P1")
-	require.NoError(t, err)
-
-	port, err := instrumentport.NewMeter(
-		"P1",
-		"Source1",
-		conn,
-		instrument.DcVoltageSource,
-		unit,
-		"voltage meter",
-	)
-	require.NoError(t, err)
-
-	return port
-}
-
-func newVoltQuantity(
-	t *testing.T,
-	value float64,
-) *quantity.Handle {
-	t.Helper()
-
-	unit, err := symbolunit.NewVolt()
-	require.NoError(t, err)
-
-	q, err := quantity.New(
-		value,
-		unit,
-	)
-	require.NoError(t, err)
-
-	return q
-}
-
 func TestFalconSettingResponse_RoundTrip(
 	t *testing.T,
 ) {
-	falconPort := mustFalconPort(t)
+	falconPort := testutil.NewTestKnobPort(t)
 	defer falconPort.Close()
 
-	q := newVoltQuantity(t, 7)
+	q := testutil.NewVoltQuantity(t, 7)
 	defer q.Close()
 
 	response, err := NewFalconSettingResponse(
@@ -492,16 +365,86 @@ func TestFalconSettingResponse_RoundTrip(
 	)
 }
 
+type fakeSetter struct {
+	calls int
+
+	lastPort  ConnectedPort
+	lastValue Quantity
+}
+
+func (f *fakeSetter) Name() string { return "fake-setter" }
+
+func (f *fakeSetter) CanSet(
+	port ConnectedPort,
+	value Quantity,
+) bool {
+	return true
+}
+
+func (f *fakeSetter) Set(
+	port ConnectedPort,
+	value Quantity,
+	_ *dispatcher.MeasurementDispatcher,
+	_ config.WireMap,
+	_ *config.ConnectedPorts,
+) error {
+	f.calls++
+	f.lastPort = port
+
+	if f.lastValue.Handle != nil {
+		_ = f.lastValue.Close()
+	}
+
+	copied, err := quantity.Copy(value.Handle)
+	if err != nil {
+		return fmt.Errorf(
+			"failed to copy quantity: %w",
+			err,
+		)
+	}
+
+	f.lastValue = Quantity{
+		Handle: copied,
+	}
+
+	return nil
+}
+
+func (f *fakeSetter) Close() error {
+	return f.lastValue.Close()
+}
+
+type fakeGetter struct {
+	result Quantity
+}
+
+func (f *fakeGetter) Name() string { return "fake-getter" }
+
+func (f *fakeGetter) CanGet(
+	ConnectedPort,
+) bool {
+	return true
+}
+
+func (f *fakeGetter) Get(
+	_ ConnectedPort,
+	_ *dispatcher.MeasurementDispatcher,
+	_ config.WireMap,
+	_ *config.ConnectedPorts,
+) (Quantity, error) {
+	return f.result, nil
+}
+
 func TestFalconSettingRequest_RoundTrip(
 	t *testing.T,
 ) {
-	knob := newTestKnobPort(t)
+	knob := testutil.NewTestKnobPort(t)
 	defer knob.Close()
 
-	meter := newTestMeterPort(t)
+	meter := testutil.NewTestMeterPort(t)
 	defer meter.Close()
 
-	q := newVoltQuantity(t, 5)
+	q := testutil.NewVoltQuantity(t, 5)
 	defer q.Close()
 
 	setters, err := mapinstrumentportquantity.NewEmpty()
@@ -537,7 +480,7 @@ func TestFalconSettingRequest_RoundTrip(
 
 	req, err := NewFalconSettingRequestFromJSON(
 		jsonText,
-		buildTestConnectedPorts(t),
+		testutil.BuildTestConnectedPorts(t),
 	)
 	require.NoError(t, err)
 	defer req.Close()
@@ -573,109 +516,12 @@ func TestFalconSettingRequest_RoundTrip(
 	)
 }
 
-type fakeSetter struct {
-	calls int
-
-	lastPort  ConnectedPort
-	lastValue Quantity
-}
-
-func (f *fakeSetter) Name() string { return "fake-setter" }
-
-func (f *fakeSetter) CanSet(
-	port ConnectedPort,
-	value Quantity,
-) bool {
-	return true
-}
-
-func (f *fakeSetter) Set(
-	port ConnectedPort,
-	value Quantity,
-	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
-	_ *config.ConnectedPorts,
-) error {
-	f.calls++
-	f.lastPort = port
-	f.lastValue = value
-
-	return nil
-}
-
-type fakeGetter struct {
-	result Quantity
-}
-
-func (f *fakeGetter) Name() string { return "fake-getter" }
-
-func (f *fakeGetter) CanGet(
-	ConnectedPort,
-) bool {
-	return true
-}
-
-func (f *fakeGetter) Get(
-	_ ConnectedPort,
-	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
-	_ *config.ConnectedPorts,
-) (Quantity, error) {
-	return f.result, nil
-}
-
-func buildRealFalconRequest(
-	t *testing.T,
-) string {
-	t.Helper()
-
-	knob := newTestKnobPort(t)
-	defer knob.Close()
-
-	meter := newTestMeterPort(t)
-	defer meter.Close()
-
-	q := newVoltQuantity(t, 5)
-	defer q.Close()
-
-	setters, err := mapinstrumentportquantity.NewEmpty()
-	require.NoError(t, err)
-	defer setters.Close()
-
-	err = setters.InsertOrAssign(
-		knob,
-		q,
-	)
-	require.NoError(t, err)
-
-	getters, err := ports.New(
-		[]*instrumentport.Handle{
-			meter,
-		},
-	)
-	require.NoError(t, err)
-	defer getters.Close()
-
-	req, err := settingrequest.New(
-		"integration test",
-		getters,
-		setters,
-	)
-	require.NoError(t, err)
-	defer req.Close()
-
-	jsonText, err := req.ToJSON()
-	require.NoError(t, err)
-
-	return jsonText
-}
-
 func TestRouter_Handle_EndToEnd(
 	t *testing.T,
 ) {
-	portsCatalog := buildTestConnectedPorts(t)
+	portsCatalog := testutil.BuildTestConnectedPorts(t)
 
-	inputRequest := buildRealFalconRequest(
+	inputRequest := testutil.BuildRealFalconRequest(
 		t,
 	)
 
@@ -687,9 +533,10 @@ func TestRouter_Handle_EndToEnd(
 	defer req.Close()
 
 	setter := &fakeSetter{}
+	defer setter.Close()
 
 	getterResult := Quantity{
-		Handle: newVoltQuantity(t, 7),
+		Handle: testutil.NewVoltQuantity(t, 7),
 	}
 	defer getterResult.Close()
 

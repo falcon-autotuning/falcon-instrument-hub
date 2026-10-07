@@ -14,7 +14,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/settinginterpreter"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 )
 
 const (
@@ -40,8 +40,8 @@ func settingResponseSubject(timestamp int64) string {
 
 type SettingRouter interface {
 	Handle(
-		*settinginterpreter.FalconSettingRequest,
-	) (*settinginterpreter.FalconSettingResponse, error)
+		*settingrouter.FalconSettingRequest,
+	) (*settingrouter.FalconSettingResponse, error)
 }
 
 type BufferRegistrar interface {
@@ -114,7 +114,7 @@ func NewSettingCommandHandler(
 		scriptsPath,
 	)
 
-	router := settinginterpreter.NewRouter(
+	router := settingrouter.NewRouter(
 		measurementDispatcher,
 		wireMap,
 		ports,
@@ -240,7 +240,7 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	h.busyManager.SetIsBusy(true)
 	defer h.busyManager.SetIsBusy(false)
 
-	falconReq, err := settinginterpreter.NewFalconSettingRequestFromJSON(
+	falconReq, err := settingrouter.NewFalconSettingRequestFromJSON(
 		cmd.Request,
 		h.ports,
 	)

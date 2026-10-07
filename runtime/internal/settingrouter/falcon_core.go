@@ -1,6 +1,6 @@
 //go:build cgo
 
-package settinginterpreter
+package settingrouter
 
 import (
 	"fmt"
