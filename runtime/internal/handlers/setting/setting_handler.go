@@ -38,66 +38,11 @@ func settingResponseSubject(timestamp int64) string {
 	return SettingResponseSubject + "." + strconv.FormatInt(timestamp, 10)
 }
 
-// Allows us to inject mocks instead of real FalconRequest
-type FalconRequest interface {
-	Close() error
-	Setters() (map[config.ConnectedPort]settinginterpreter.Quantity, error)
-	Getters() ([]config.ConnectedPort, error)
-}
-
-var _ FalconRequest = (*settinginterpreter.FalconSettingRequest)(nil)
-
-type FalconRequestFactory interface {
-	FromJSON(string) (FalconRequest, error)
-}
-
-type falconRequestFactory struct{}
-
-func (falconRequestFactory) FromJSON(
-	jsonStr string,
-) (FalconRequest, error) {
-	return settinginterpreter.NewFalconSettingRequestFromJSON(
-		jsonStr)
-}
-
-var _ FalconRequestFactory = (*falconRequestFactory)(nil)
-
-// Allows us to inject mocks instead of real FalconResponse
-type FalconResponse interface {
-	ToJSON() (string, error)
-	Close() error
-}
-
-var _ FalconResponse = (*settinginterpreter.FalconSettingResponse)(nil)
-
 type SettingRouter interface {
 	Handle(
-		FalconRequest,
-	) (FalconResponse, error)
+		*settinginterpreter.FalconSettingRequest,
+	) (*settinginterpreter.FalconSettingResponse, error)
 }
-
-type routerAdapter struct {
-	router *settinginterpreter.Router
-}
-
-func (r *routerAdapter) Handle(
-	req FalconRequest,
-) (FalconResponse, error) {
-	falconReq, ok := req.(*settinginterpreter.FalconSettingRequest)
-	if !ok {
-		return nil,
-			fmt.Errorf(
-				"expected *FalconSettingRequest, got %T",
-				req,
-			)
-	}
-
-	return r.router.Handle(
-		falconReq,
-	)
-}
-
-var _ SettingRouter = (*routerAdapter)(nil)
 
 type BufferRegistrar interface {
 	RegisterBuffer(
@@ -121,34 +66,32 @@ type SettingClient interface {
 
 // Handler handles MEASURE_COMMAND requests
 type Handler struct {
-	logger         *logging.Logger
-	nc             *nats.Conn
-	js             nats.JetStreamContext
-	subscription   *nats.Subscription
-	busyManager    BusyManager
-	wiremap        config.WireMap
-	ports          *config.ConnectedPorts
-	requestFactory FalconRequestFactory
-	dispatcher     dispatcher.MeasurementDispatcher
-	router         SettingRouter
+	logger       *logging.Logger
+	nc           *nats.Conn
+	js           nats.JetStreamContext
+	subscription *nats.Subscription
+	busyManager  BusyManager
+	wiremap      config.WireMap
+	ports        *config.ConnectedPorts
+	dispatcher   dispatcher.MeasurementDispatcher
+	router       SettingRouter
 }
 
 func newSettingCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
 	router SettingRouter,
-	requestFactory FalconRequestFactory,
 	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 	dispatcher dispatcher.MeasurementDispatcher,
 ) *Handler {
 	return &Handler{
-		logger:         logger,
-		busyManager:    busyManager,
-		wiremap:        wireMap,
-		ports:          ports,
-		requestFactory: requestFactory,
-		router:         router,
+		logger:      logger,
+		busyManager: busyManager,
+		wiremap:     wireMap,
+		ports:       ports,
+		router:      router,
+		dispatcher:  dispatcher,
 	}
 }
 
@@ -171,19 +114,16 @@ func NewSettingCommandHandler(
 		scriptsPath,
 	)
 
-	router := &routerAdapter{
-		router: settinginterpreter.NewRouter(
-			measurementDispatcher,
-			wireMap,
-			ports,
-		),
-	}
+	router := settinginterpreter.NewRouter(
+		measurementDispatcher,
+		wireMap,
+		ports,
+	)
 
 	return newSettingCommandHandler(
 		logger,
 		busyManager,
 		router,
-		falconRequestFactory{},
 		wireMap,
 		ports,
 		*measurementDispatcher,
@@ -300,8 +240,9 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	h.busyManager.SetIsBusy(true)
 	defer h.busyManager.SetIsBusy(false)
 
-	falconReq, err := h.requestFactory.FromJSON(
+	falconReq, err := settinginterpreter.NewFalconSettingRequestFromJSON(
 		cmd.Request,
+		h.ports,
 	)
 	if err != nil {
 		h.logger.Error(
