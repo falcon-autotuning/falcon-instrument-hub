@@ -16,7 +16,8 @@ type FalconMeasurementRequest struct {
 	handle *measurementrequest.Handle
 }
 
-// NewFalconMeasurementRequestFromJSON deserializes a MeasurementRequest from JSON
+// NewFalconMeasurementRequestFromJSON deserializes a MeasurementRequest from
+// JSON
 // using the falcon-core API.
 func NewFalconMeasurementRequestFromJSON(
 	jsonStr string,
@@ -41,7 +42,8 @@ func (r *FalconMeasurementRequest) Close() error {
 	return nil
 }
 
-// Handle returns the underlying measurementrequest.Handle for direct API access.
+// Handle returns the underlying measurementrequest.Handle for direct API
+// access.
 func (r *FalconMeasurementRequest) Handle() *measurementrequest.Handle {
 	return r.handle
 }
@@ -67,7 +69,8 @@ type FalconMeasurementResponse struct {
 	handle *measurementresponse.Handle
 }
 
-// NewFalconMeasurementResponseFromJSON deserializes a MeasurementResponse from JSON.
+// NewFalconMeasurementResponseFromJSON deserializes a MeasurementResponse from
+// JSON.
 func NewFalconMeasurementResponseFromJSON(
 	jsonStr string,
 ) (*FalconMeasurementResponse, error) {

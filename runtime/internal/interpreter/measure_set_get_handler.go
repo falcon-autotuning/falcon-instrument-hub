@@ -18,6 +18,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledarrayslabelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axesinstrumentport"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
@@ -25,9 +26,10 @@ import (
 )
 
 const (
-	measureGetSetHandlerName = "measure_get_set"
+	measureGetSetHandlerName = "measure_set_get"
 	measureSetVoltageCommand = "SET_VOLTAGE"
 	measureGetCommand        = "GET_DATAPOINT"
+	measureSetInput          = "voltage"
 	measureGetOutput         = "voltage"
 )
 
@@ -57,245 +59,254 @@ func (r *measureGetSetRequest) Close() {
 // one identity-transformed voltage setpoint and one scalar voltage getter.
 func parseMeasureGetSetRequest(
 	req *FalconMeasurementRequest,
-) (*measureGetSetRequest, bool, error) {
+) (*measureGetSetRequest, error) {
 	if req == nil || req.Handle() == nil {
-		return nil, false, fmt.Errorf("request is nil")
+		return nil, fmt.Errorf("request is nil")
 	}
 
 	candidate := &measureGetSetRequest{}
-	keep := false
+	success := false
 	defer func() {
-		if !keep {
+		if !success {
 			candidate.Close()
 		}
 	}()
 
 	meterTransforms, err := req.Handle().MeterTransforms()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request meter transforms: %w", err)
+		return nil, fmt.Errorf("read request meter transforms: %w", err)
 	}
 	defer meterTransforms.Close()
 	meterTransformCount, err := meterTransforms.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request meter-transform count: %w", err)
+		return nil, fmt.Errorf(
+			"read request meter-transform count: %w",
+			err,
+		)
 	}
 	if meterTransformCount != 0 {
-		return nil, false, nil
+		return nil, nil
 	}
 
 	getters, err := req.Handle().Getters()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request getters: %w", err)
+		return nil, fmt.Errorf("read request getters: %w", err)
 	}
 	defer getters.Close()
 	getterCount, err := getters.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request getter count: %w", err)
+		return nil, fmt.Errorf("read request getter count: %w", err)
 	}
 	if getterCount != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	candidate.getter, err = getters.At(0)
 	if err != nil {
-		return nil, false, fmt.Errorf("read request getter: %w", err)
+		return nil, fmt.Errorf("read request getter: %w", err)
 	}
 
 	isMeter, err := candidate.getter.IsMeter()
 	if err != nil {
-		return nil, false, fmt.Errorf("read getter port type: %w", err)
+		return nil, fmt.Errorf("read getter port type: %w", err)
 	}
 	if !isMeter {
-		return nil, false, nil
+		return nil, nil
 	}
 	getterAccess, err := candidate.getter.Access()
 	if err != nil {
-		return nil, false, fmt.Errorf("read getter access: %w", err)
+		return nil, fmt.Errorf("read getter access: %w", err)
 	}
 	if getterAccess != access.Read && getterAccess != access.Readwrite {
-		return nil, false, nil
+		return nil, nil
 	}
 	getterInstrumentType, err := candidate.getter.InstrumentType()
 	if err != nil {
-		return nil, false, fmt.Errorf("read getter instrument type: %w", err)
+		return nil, fmt.Errorf("read getter instrument type: %w", err)
 	}
-	switch getterInstrumentType {
-	case instrument.DcVoltageSource,
-		instrument.VoltageSource,
-		instrument.HfVoltageSource,
-		instrument.Voltmeter:
-	default:
-		return nil, false, nil
+	if getterInstrumentType != instrument.Voltmeter {
+		return nil, nil
 	}
 
 	getterUnits, err := candidate.getter.Units()
 	if err != nil {
-		return nil, false, fmt.Errorf("read getter units: %w", err)
+		return nil, fmt.Errorf("read getter units: %w", err)
 	}
 	defer getterUnits.Close()
 	volts, err := SymbolUnitFromString("V")
 	if err != nil {
-		return nil, false, fmt.Errorf("create voltage unit: %w", err)
+		return nil, fmt.Errorf("create voltage unit: %w", err)
 	}
 	defer volts.Close()
 	compatible, err := getterUnits.IsCompatibleWith(volts)
 	if err != nil {
-		return nil, false, fmt.Errorf("compare getter units with volts: %w", err)
+		return nil, fmt.Errorf(
+			"compare getter units with volts: %w",
+			err,
+		)
 	}
 	if !compatible {
-		return nil, false, nil
+		return nil, nil
 	}
 
 	waveforms, err := req.Handle().Waveforms()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request waveforms: %w", err)
+		return nil, fmt.Errorf("read request waveforms: %w", err)
 	}
 	defer waveforms.Close()
 	waveformCount, err := waveforms.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read request waveform count: %w", err)
+		return nil, fmt.Errorf("read request waveform count: %w", err)
 	}
 	if waveformCount != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	waveform, err := waveforms.At(0)
 	if err != nil {
-		return nil, false, fmt.Errorf("read request waveform: %w", err)
+		return nil, fmt.Errorf("read request waveform: %w", err)
 	}
 	defer waveform.Close()
 
 	space, err := waveform.Space()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform space: %w", err)
+		return nil, fmt.Errorf("read waveform space: %w", err)
 	}
 	defer space.Close()
 	knobs, err := space.Knobs()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform knobs: %w", err)
+		return nil, fmt.Errorf("read waveform knobs: %w", err)
 	}
 	defer knobs.Close()
 	knobCount, err := knobs.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform knob count: %w", err)
+		return nil, fmt.Errorf("read waveform knob count: %w", err)
 	}
 	if knobCount != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	candidate.setter, err = knobs.At(0)
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform knob: %w", err)
+		return nil, fmt.Errorf("read waveform knob: %w", err)
 	}
 
 	isKnob, err := candidate.setter.IsKnob()
 	if err != nil {
-		return nil, false, fmt.Errorf("read setter port type: %w", err)
+		return nil, fmt.Errorf("read setter port type: %w", err)
 	}
 	if !isKnob {
-		return nil, false, nil
+		return nil, nil
 	}
 	setterAccess, err := candidate.setter.Access()
 	if err != nil {
-		return nil, false, fmt.Errorf("read setter access: %w", err)
+		return nil, fmt.Errorf("read setter access: %w", err)
 	}
 	if setterAccess != access.Write && setterAccess != access.Readwrite {
-		return nil, false, nil
+		return nil, nil
 	}
 	setterInstrumentType, err := candidate.setter.InstrumentType()
 	if err != nil {
-		return nil, false, fmt.Errorf("read setter instrument type: %w", err)
+		return nil, fmt.Errorf("read setter instrument type: %w", err)
 	}
-	switch setterInstrumentType {
-	case instrument.DcVoltageSource,
-		instrument.VoltageSource,
-		instrument.HfVoltageSource:
-	default:
-		return nil, false, nil
+	if setterInstrumentType != instrument.DcVoltageSource {
+		return nil, nil
 	}
-
 	setterUnits, err := candidate.setter.Units()
 	if err != nil {
-		return nil, false, fmt.Errorf("read setter units: %w", err)
+		return nil, fmt.Errorf("read setter units: %w", err)
 	}
 	defer setterUnits.Close()
 	compatible, err = setterUnits.IsCompatibleWith(volts)
 	if err != nil {
-		return nil, false, fmt.Errorf("compare setter units with volts: %w", err)
+		return nil, fmt.Errorf(
+			"compare setter units with volts: %w",
+			err,
+		)
 	}
 	if !compatible {
-		return nil, false, nil
+		return nil, nil
 	}
 
 	transforms, err := waveform.Transforms()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform transforms: %w", err)
+		return nil, fmt.Errorf("read waveform transforms: %w", err)
 	}
 	defer transforms.Close()
 	transformCount, err := transforms.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform transform count: %w", err)
+		return nil, fmt.Errorf("read waveform transform count: %w", err)
 	}
 	if transformCount != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	transform, err := transforms.At(0)
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform transform: %w", err)
+		return nil, fmt.Errorf("read waveform transform: %w", err)
 	}
 	defer transform.Close()
 	identity, err := porttransform.NewIdentityTransform(candidate.setter)
 	if err != nil {
-		return nil, false, fmt.Errorf("create identity transform: %w", err)
+		return nil, fmt.Errorf("create identity transform: %w", err)
 	}
 	defer identity.Close()
 	isIdentity, err := transform.Equal(identity)
 	if err != nil {
-		return nil, false, fmt.Errorf("compare waveform transform: %w", err)
+		return nil, fmt.Errorf("compare waveform transform: %w", err)
 	}
 	if !isIdentity {
-		return nil, false, nil
+		return nil, nil
 	}
 
-	axes, err := axesinstrumentport.New([]*instrumentport.Handle{candidate.setter})
+	axes, err := axesinstrumentport.New(
+		[]*instrumentport.Handle{candidate.setter},
+	)
 	if err != nil {
-		return nil, false, fmt.Errorf("create setter projection axes: %w", err)
+		return nil, fmt.Errorf("create setter projection axes: %w", err)
 	}
 	defer axes.Close()
 	projection, err := space.GetProjection(axes)
 	if err != nil {
-		return nil, false, fmt.Errorf("project waveform setpoints: %w", err)
+		return nil, fmt.Errorf("project waveform setpoints: %w", err)
 	}
 	defer projection.Close()
 	projectionCount, err := projection.Size()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform projection count: %w", err)
+		return nil, fmt.Errorf(
+			"read waveform projection count: %w",
+			err,
+		)
 	}
 	if projectionCount != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	setpoints, err := projection.At(0)
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform setpoint array: %w", err)
+		return nil, fmt.Errorf("read waveform setpoint array: %w", err)
 	}
 	defer setpoints.Close()
 	values, err := setpoints.Data()
 	if err != nil {
-		return nil, false, fmt.Errorf("read waveform setpoints: %w", err)
+		return nil, fmt.Errorf("read waveform setpoints: %w", err)
 	}
 	if len(values) != 1 {
-		return nil, false, nil
+		return nil, nil
 	}
 	if math.IsNaN(values[0]) || math.IsInf(values[0], 0) {
-		return nil, false, fmt.Errorf("waveform setpoint is not finite")
+		return nil, fmt.Errorf("waveform setpoint is not finite")
 	}
 
 	candidate.voltage, err = setterUnits.ConvertValueTo(values[0], volts)
 	if err != nil {
-		return nil, false, fmt.Errorf("convert waveform setpoint to volts: %w", err)
+		return nil, fmt.Errorf(
+			"convert waveform setpoint to volts: %w",
+			err,
+		)
 	}
 	if math.IsNaN(candidate.voltage) || math.IsInf(candidate.voltage, 0) {
-		return nil, false, fmt.Errorf("converted voltage setpoint is not finite")
+		return nil, fmt.Errorf(
+			"converted voltage setpoint is not finite",
+		)
 	}
-	keep = true
-	return candidate, true, nil
+	success = true
+	return candidate, nil
 }
 
 func (*measureGetSetHandler) CanHandle(
@@ -447,12 +458,19 @@ func measureGetSetValue(
 		)
 	}
 	if math.IsNaN(value) || math.IsInf(value, 0) {
-		return 0, fmt.Errorf("%s returned a non-finite value", measureGetSetHandlerName)
+		return 0, fmt.Errorf(
+			"%s returned a non-finite value",
+			measureGetSetHandlerName,
+		)
 	}
 
 	resultUnits, err := SymbolUnitFromString(measured.Unit)
 	if err != nil {
-		return 0, fmt.Errorf("read measurement result units %q: %w", measured.Unit, err)
+		return 0, fmt.Errorf(
+			"read measurement result units %q: %w",
+			measured.Unit,
+			err,
+		)
 	}
 	defer resultUnits.Close()
 	getterUnits, err := getterPort.Units()
@@ -473,10 +491,15 @@ func measureGetSetValue(
 
 	converted, err := resultUnits.ConvertValueTo(value, getterUnits)
 	if err != nil {
-		return 0, fmt.Errorf("convert measurement result to getter units: %w", err)
+		return 0, fmt.Errorf(
+			"convert measurement result to getter units: %w",
+			err,
+		)
 	}
 	if math.IsNaN(converted) || math.IsInf(converted, 0) {
-		return 0, fmt.Errorf("converted measurement result is not finite")
+		return 0, fmt.Errorf(
+			"converted measurement result is not finite",
+		)
 	}
 	return converted, nil
 }
@@ -487,12 +510,18 @@ func newMeasureGetSetResponse(
 ) (*FalconMeasurementResponse, error) {
 	context, err := acquisitioncontext.NewFromPort(getter)
 	if err != nil {
-		return nil, fmt.Errorf("create acquisition context from getter: %w", err)
+		return nil, fmt.Errorf(
+			"create acquisition context from getter: %w",
+			err,
+		)
 	}
 	defer context.Close()
 	data, err := farraydouble.FromData([]float64{value}, []uint64{1})
 	if err != nil {
-		return nil, fmt.Errorf("create scalar measurement data: %w", err)
+		return nil, fmt.Errorf(
+			"create scalar measurement data: %w",
+			err,
+		)
 	}
 	defer data.Close()
 	array, err := labelledmeasuredarray.FromFArray(data, context)
@@ -500,19 +529,30 @@ func newMeasureGetSetResponse(
 		return nil, fmt.Errorf("label scalar measurement data: %w", err)
 	}
 	defer array.Close()
-	list, err := listlabelledmeasuredarray.New([]*labelledmeasuredarray.Handle{array})
+	list, err := listlabelledmeasuredarray.New(
+		[]*labelledmeasuredarray.Handle{array},
+	)
 	if err != nil {
-		return nil, fmt.Errorf("create scalar measurement array list: %w", err)
+		return nil, fmt.Errorf(
+			"create scalar measurement array list: %w",
+			err,
+		)
 	}
 	defer list.Close()
 	arrays, err := labelledarrayslabelledmeasuredarray.NewFromList(list)
 	if err != nil {
-		return nil, fmt.Errorf("create labelled scalar measurement arrays: %w", err)
+		return nil, fmt.Errorf(
+			"create labelled scalar measurement arrays: %w",
+			err,
+		)
 	}
 	defer arrays.Close()
 	response, err := measurementresponse.New(arrays)
 	if err != nil {
-		return nil, fmt.Errorf("create measure_get_set MeasurementResponse: %w", err)
+		return nil, fmt.Errorf(
+			"create measure_get_set MeasurementResponse: %w",
+			err,
+		)
 	}
 	return &FalconMeasurementResponse{handle: response}, nil
 }
@@ -523,12 +563,9 @@ func (*measureGetSetHandler) Handle(
 	_ config.WireMap,
 	connected *config.ConnectedPorts,
 ) (*FalconMeasurementResponse, error) {
-	parsed, matches, err := parseMeasureGetSetRequest(req)
+	parsed, err := parseMeasureGetSetRequest(req)
 	if err != nil {
 		return nil, err
-	}
-	if !matches {
-		return nil, fmt.Errorf("request does not match %s", measureGetSetHandlerName)
 	}
 	defer parsed.Close()
 	if measurementDispatcher == nil {
@@ -540,21 +577,27 @@ func (*measureGetSetHandler) Handle(
 
 	setter, err := connected.ResolveConnectedPort(parsed.setter)
 	if err != nil {
-		return nil, fmt.Errorf("resolve measure_get_set setter: %w", err)
-	}
-	if !strings.HasSuffix(string(setter.PortName), ".voltage") {
 		return nil, fmt.Errorf(
-			"measure_get_set requires the voltage setter port, resolved %q",
+			"resolve measure_set_get setter: %w",
+			err,
+		)
+	}
+	if !strings.HasSuffix(string(setter.PortName), "."+measureSetInput) {
+		return nil, fmt.Errorf(
+			"measure_set_get requires the voltage setter port, resolved %q",
 			setter.PortName,
 		)
 	}
 	getter, err := connected.ResolveConnectedPort(parsed.getter)
 	if err != nil {
-		return nil, fmt.Errorf("resolve measure_get_set getter: %w", err)
+		return nil, fmt.Errorf(
+			"resolve measure_set_get getter: %w",
+			err,
+		)
 	}
 	if !strings.HasSuffix(string(getter.PortName), "."+measureGetOutput) {
 		return nil, fmt.Errorf(
-			"measure_get_set requires the scalar voltage getter port, resolved %q",
+			"measure_set_get requires the scalar voltage getter port, resolved %q",
 			getter.PortName,
 		)
 	}
@@ -565,7 +608,10 @@ func (*measureGetSetHandler) Handle(
 		Channel:    setter.Channel,
 	}).Serialize()
 	if err != nil {
-		return nil, fmt.Errorf("serialize measure_get_set setter target: %w", err)
+		return nil, fmt.Errorf(
+			"serialize measure_get_set setter target: %w",
+			err,
+		)
 	}
 	getterTarget, err := (instrumenttarget.Target{
 		Instrument: getter.InstrumentName,
@@ -573,30 +619,41 @@ func (*measureGetSetHandler) Handle(
 		Channel:    getter.Channel,
 	}).Serialize()
 	if err != nil {
-		return nil, fmt.Errorf("serialize measure_get_set getter target: %w", err)
+		return nil, fmt.Errorf(
+			"serialize measure_get_set getter target: %w",
+			err,
+		)
 	}
 
-	results := measurementDispatcher.RunAll([]dispatcher.MeasurementRequest{{
-		Script: measureGetSetHandlerName,
-		Variables: []instrumentserver.MeasureVariable{
-			{
-				Name: "setter",
-				Value: instrumentserver.VariableValue{
-					Value: instrumentserver.InstrumentTarget(setterTarget),
+	results := measurementDispatcher.RunAll(
+		[]dispatcher.MeasurementRequest{{
+			Script: measureGetSetHandlerName,
+			Variables: []instrumentserver.MeasureVariable{
+				{
+					Name: "setter",
+					Value: instrumentserver.VariableValue{
+						Value: instrumentserver.InstrumentTarget(
+							setterTarget,
+						),
+					},
+				},
+				{
+					Name: "getter",
+					Value: instrumentserver.VariableValue{
+						Value: instrumentserver.InstrumentTarget(
+							getterTarget,
+						),
+					},
+				},
+				{
+					Name: "voltage",
+					Value: instrumentserver.VariableValue{
+						Value: parsed.voltage,
+					},
 				},
 			},
-			{
-				Name: "getter",
-				Value: instrumentserver.VariableValue{
-					Value: instrumentserver.InstrumentTarget(getterTarget),
-				},
-			},
-			{
-				Name:  "voltage",
-				Value: instrumentserver.VariableValue{Value: parsed.voltage},
-			},
-		},
-	}})
+		}},
+	)
 	if len(results) != 1 {
 		return nil, fmt.Errorf(
 			"measure_get_set returned %d measurement results, want 1",

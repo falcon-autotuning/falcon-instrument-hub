@@ -98,6 +98,10 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	assert.Equal(t, 1, second.canHandleCalls)
 	assert.Equal(t, 1, second.handleCalls)
 
+<<<<<<< Updated upstream
+=======
+	// Router stops at first match.
+>>>>>>> Stashed changes
 	assert.Equal(t, 0, third.canHandleCalls)
 	assert.Equal(t, 0, third.handleCalls)
 
@@ -105,6 +109,7 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	assert.Same(t, req, second.lastRequest)
 }
 
+<<<<<<< Updated upstream
 func TestRouter_Handle_FirstMatchWins(t *testing.T) {
 	first := &mockHandler{
 		name:            "first",
@@ -135,6 +140,8 @@ func TestRouter_Handle_FirstMatchWins(t *testing.T) {
 	assert.Equal(t, 0, second.handleCalls)
 }
 
+=======
+>>>>>>> Stashed changes
 func TestRouter_Handle_CanHandleError(t *testing.T) {
 	dispatcher := &dispatcher.MeasurementDispatcher{}
 
