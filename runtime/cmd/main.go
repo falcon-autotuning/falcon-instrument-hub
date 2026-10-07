@@ -355,10 +355,14 @@ func NewRunHub(
 	cli *CLIOptions,
 ) func(*cobra.Command, []string) error {
 	return func(cmd *cobra.Command, args []string) error {
+		provider := deps.configProvider
+		if provider == nil {
+			provider = DefaultConfigProvider{}
+		}
 		cfg := config.DefaultConfig()
 
 		if cli.Config != "" {
-			loadedCfg, err := config.LoadConfig(cli.Config)
+			loadedCfg, err := provider.LoadConfig(cli.Config)
 			if err != nil {
 				return err
 			}
@@ -366,7 +370,7 @@ func NewRunHub(
 			cfg = *loadedCfg
 		}
 
-		if err := config.Validate(&cfg); err != nil {
+		if err := provider.Validate(&cfg); err != nil {
 			return err
 		}
 

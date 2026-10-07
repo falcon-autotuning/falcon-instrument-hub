@@ -305,10 +305,10 @@ commands:
 		t,
 		os.WriteFile(
 			instrumentFile,
-			[]byte(fmt.Sprintf(`
+			[]byte(`
 name: test
-api_ref: %s
-`, apiFile)),
+api_ref: api.yaml
+`),
 			0600,
 		),
 	)

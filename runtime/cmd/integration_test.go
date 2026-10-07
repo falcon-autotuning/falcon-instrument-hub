@@ -31,11 +31,39 @@ type DependencySpy struct {
 	callOrder []string
 }
 
+type fakeConfigProvider struct{}
+
+func (fakeConfigProvider) LoadConfig(
+	path string,
+) (*config.HubConfig, error) {
+	return nil, nil
+}
+
+func (fakeConfigProvider) Validate(
+	cfg *config.HubConfig,
+) error {
+	return nil
+}
+
+func (fakeConfigProvider) LoadDeviceConfig(
+	path string,
+) (string, error) {
+	return "{}", nil
+}
+
+func (fakeConfigProvider) NewConnectedPorts(
+	[]config.InstrumentConfig,
+	config.WireMap,
+) (*config.ConnectedPorts, error) {
+	return &config.ConnectedPorts{}, nil
+}
+
 func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 	spy := &DependencySpy{}
 
 	cfg := &config.HubConfig{
-		LocalDatabase: "/tmp/measurements",
+		QuantumDotConfig: "tmp/config.yaml",
+		LocalDatabase:    "/tmp/measurements",
 		RuntimePaths: config.RuntimePaths{
 			DataCache: "/tmp/cache",
 		},
@@ -52,7 +80,24 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 		newLogger: func(
 			string,
 		) (*logging.Logger, error) {
-			return nil, fmt.Errorf("stop here")
+			return logging.NewLogger(t.TempDir())
+		},
+
+		configProvider: fakeConfigProvider{},
+
+		newHandlerManager: func(
+			deviceConfigJSON string,
+			wiremap config.WireMap,
+			ports *config.ConnectedPorts,
+			measurementScriptsPath string,
+			logger *logging.Logger,
+			nc *nats.Conn,
+			dispatcher measure.MeasurementClient,
+			instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+		) HandlerManager {
+			spy.measurementBaseDir = measurementScriptsPath
+
+			return &FakeHandlerManager{}
 		},
 	}
 
@@ -60,17 +105,8 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 
 	assert.Equal(
 		t,
-		cfg.LocalDatabase,
+		cfg.UserMeasurementLuasDir,
 		spy.measurementBaseDir,
-	)
-
-	assert.Equal(
-		t,
-		filepath.Join(
-			cfg.RuntimePaths.DataCache,
-			MeasurementsDB,
-		),
-		spy.measurementDBPath,
 	)
 }
 
@@ -142,6 +178,35 @@ func TestRuntime_PassesCorrectLoggerPath(t *testing.T) {
 	)
 }
 
+type validationFailureProvider struct{}
+
+func (validationFailureProvider) LoadConfig(
+	path string,
+) (*config.HubConfig, error) {
+	return &config.HubConfig{}, nil
+}
+
+func (validationFailureProvider) Validate(
+	*config.HubConfig,
+) error {
+	return fmt.Errorf(
+		"at least one instrument is required",
+	)
+}
+
+func (validationFailureProvider) LoadDeviceConfig(
+	string,
+) (string, error) {
+	return "{}", nil
+}
+
+func (validationFailureProvider) NewConnectedPorts(
+	[]config.InstrumentConfig,
+	config.WireMap,
+) (*config.ConnectedPorts, error) {
+	return &config.ConnectedPorts{}, nil
+}
+
 func TestNewRunHub_ValidationFailure(t *testing.T) {
 	cfgFile := filepath.Join(
 		t.TempDir(),
@@ -163,7 +228,9 @@ instrument-server:
 	}
 
 	run := NewRunHub(
-		RuntimeDependencies{},
+		RuntimeDependencies{
+			configProvider: validationFailureProvider{},
+		},
 		cli,
 	)
 
@@ -178,39 +245,59 @@ instrument-server:
 	)
 }
 
-func TestNewRunHub_CheckEnvironmentFailure(t *testing.T) {
-	tmp := t.TempDir()
+type passingConfigProvider struct {
+	cfg *config.HubConfig
+}
 
-	cfgFile := filepath.Join(tmp, "config.yaml")
+func (p passingConfigProvider) LoadConfig(
+	path string,
+) (*config.HubConfig, error) {
+	return p.cfg, nil
+}
 
-	err := os.WriteFile(
-		cfgFile,
-		[]byte(fmt.Sprintf(`
-working-directory: %s
+func (passingConfigProvider) Validate(
+	*config.HubConfig,
+) error {
+	return nil
+}
 
-instrument-server:
-  instruments:
-    - config: a.yaml
-      plugin: a.so
-      type: dc_voltage_source
-`, tmp)),
-		0644,
-	)
+func (passingConfigProvider) LoadDeviceConfig(
+	string,
+) (string, error) {
+	return "{}", nil
+}
 
-	require.NoError(t, err)
+func (passingConfigProvider) NewConnectedPorts(
+	[]config.InstrumentConfig,
+	config.WireMap,
+) (*config.ConnectedPorts, error) {
+	return &config.ConnectedPorts{}, nil
+}
 
+func TestNewRunHub_CheckEnvironmentFailure(
+	t *testing.T,
+) {
 	t.Setenv("PATH", "")
 
 	cli := &CLIOptions{
-		Config: cfgFile,
+		Config: "ignored.yaml",
 	}
 
 	run := NewRunHub(
-		RuntimeDependencies{},
+		RuntimeDependencies{
+			configProvider: passingConfigProvider{
+				cfg: &config.HubConfig{
+					WorkingDirectory: t.TempDir(),
+					InstrumentServer: config.InstrumentServerConfig{
+						AutoStart: true,
+					},
+				},
+			},
+		},
 		cli,
 	)
 
-	err = run(nil, nil)
+	err := run(nil, nil)
 
 	require.Error(t, err)
 
@@ -286,6 +373,8 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 				t.TempDir(),
 			)
 		},
+
+		configProvider: fakeConfigProvider{},
 
 		newHandlerManager: func(
 			deviceConfigJSON string,

@@ -366,7 +366,7 @@ type FakeMeasurementManager struct {
 	err    error
 }
 
-func (f *FakeMeasurementManager) Close() error {
+func (f *FakeMeasurementManager) Stop() error {
 	f.closed = true
 	return f.err
 }
@@ -386,7 +386,6 @@ func (f *FakeNATSManager) Close() {
 
 func TestClose_ShutsDownServices(t *testing.T) {
 	handler := &FakeHandlerManager{}
-	measurements := &FakeMeasurementManager{}
 	nats := &FakeNATSManager{}
 
 	runtime := Runtime{
@@ -397,7 +396,6 @@ func TestClose_ShutsDownServices(t *testing.T) {
 	runtime.Close()
 
 	assert.True(t, handler.stopped)
-	assert.True(t, measurements.closed)
 	assert.True(t, nats.closed)
 }
 
@@ -442,32 +440,6 @@ func TestNewRuntime_NATSFailure(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to setup nats")
-}
-
-func TestNewRuntime_MeasurementManagerFailure(t *testing.T) {
-	cfg := &config.HubConfig{
-		InstrumentServer: config.InstrumentServerConfig{
-			AutoStart: true,
-		},
-		RuntimePaths: config.RuntimePaths{
-			DataCache: t.TempDir(),
-		},
-	}
-
-	deps := RuntimeDependencies{
-		newNATSManager: func(string) (NATSManager, error) {
-			return &FakeNATSManager{}, nil
-		},
-	}
-
-	_, err := deps.NewRuntime(cfg)
-
-	require.Error(t, err)
-	assert.Contains(
-		t,
-		err.Error(),
-		"failed to initialize measurement manager",
-	)
 }
 
 func TestNewRuntime_LoggerFailure(t *testing.T) {

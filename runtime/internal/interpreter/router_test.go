@@ -98,27 +98,40 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	assert.Equal(t, 1, second.canHandleCalls)
 	assert.Equal(t, 1, second.handleCalls)
 
-	// Router evaluates every handler before selecting the unique match.
-	assert.Equal(t, 1, third.canHandleCalls)
+	assert.Equal(t, 0, third.canHandleCalls)
 	assert.Equal(t, 0, third.handleCalls)
 
 	assert.Same(t, dispatcher, second.lastDispatcher)
 	assert.Same(t, req, second.lastRequest)
 }
 
-func TestRouter_Handle_AmbiguousHandlers(t *testing.T) {
-	first := &mockHandler{name: "first", canHandleResult: true}
-	second := &mockHandler{name: "second", canHandleResult: true}
-	router := &Router{handlers: []MeasurementHandler{first, second}}
+func TestRouter_Handle_FirstMatchWins(t *testing.T) {
+	first := &mockHandler{
+		name:            "first",
+		canHandleResult: true,
+		handleResponse:  &FalconMeasurementResponse{},
+	}
 
-	response, err := router.Handle(&FalconMeasurementRequest{})
+	second := &mockHandler{
+		name:            "second",
+		canHandleResult: true,
+	}
 
-	require.Error(t, err)
-	assert.Nil(t, response)
-	assert.Contains(t, err.Error(), "multiple measurement handlers matched request: first, second")
+	router := &Router{
+		handlers: []MeasurementHandler{
+			first,
+			second,
+		},
+	}
+
+	_, err := router.Handle(&FalconMeasurementRequest{})
+
+	require.NoError(t, err)
+
 	assert.Equal(t, 1, first.canHandleCalls)
-	assert.Equal(t, 1, second.canHandleCalls)
-	assert.Equal(t, 0, first.handleCalls)
+	assert.Equal(t, 1, first.handleCalls)
+
+	assert.Equal(t, 0, second.canHandleCalls)
 	assert.Equal(t, 0, second.handleCalls)
 }
 

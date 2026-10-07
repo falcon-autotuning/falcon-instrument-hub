@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path"
 
 	"gopkg.in/yaml.v3"
 
@@ -447,7 +448,7 @@ func (i *InstrumentConfig) Resolve() error {
 	}
 
 	api, err := ParseInstrumentAPI(
-		instrumentConfig.API_ref,
+		path.Join(path.Dir(i.ConfigPath), instrumentConfig.API_ref),
 	)
 	if err != nil {
 		return err
@@ -570,10 +571,6 @@ func Validate(c *HubConfig) error {
 		}
 	}
 
-	if err := c.InstrumentServer.Validate(); err != nil {
-		return err
-	}
-
 	if err := ResolveWiremap(
 		c.Wiremap,
 		c.QuantumDotConfig,
@@ -588,8 +585,13 @@ func Validate(c *HubConfig) error {
 			return fmt.Errorf("could not get the current working directory: %s", err)
 		}
 	}
+
 	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
 		return fmt.Errorf("working directory does not exist: %s", c.WorkingDirectory)
+	}
+
+	if err := c.InstrumentServer.Validate(); err != nil {
+		return err
 	}
 
 	return nil
