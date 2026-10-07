@@ -317,8 +317,8 @@ type (
 	CallStackArray        []string
 	InstrumentTargetArray []string
 	InstrumentDomainArray []string
-	// MixedArray      []VariableValue  TODO: Eventually revist ISS if this is necessary
-	// MixedMap        map[string]VariableValue  TODO: Eventually revist ISS if this is necessary
+	// MixedArray      []VariableValue  NOTE: Eventually revist ISS if MixedArray is necessary
+	// MixedMap        map[string]VariableValue  NOTE: Eventually revist ISS if MixedMap is necessary
 )
 
 // Type represents a string taken from the LuaTypes.
@@ -404,7 +404,7 @@ func (v VariableValue) LuaType() LuaType {
 	case InstrumentTargetArray:
 		return LuaType(daemonv1.LuaTypes_LUA_TYPES_TARGET_ARRAY)
 
-	//  TODO: Eventually revist ISS if this is necessary
+	//  NOTE: Eventually revist ISS if MixedArray is necessary
 	// case MixedArray:
 	// 	return LuaType(daemonv1.LuaTypes_LUA_TYPES_MIXED_ARRAY)
 
@@ -613,7 +613,7 @@ func measureJobResultToCallResults(resp *daemonv1.MeasureJobResultResponse) []Ca
 		returnValues := make([]ReturnValue, 0, len(params))
 		for _, param := range params {
 			unformattedMetadata := param.GetDbmeta()
-			// TODO: transfer the Type field if important
+			// NOTE: transfer the Type field if important
 			metadata := DataBufferMetadata{
 				ElementCount: uint32(unformattedMetadata.GetElementCount()),
 				Size:         int64(unformattedMetadata.GetByteSize()),
@@ -640,7 +640,7 @@ func measureJobResultToCallResults(resp *daemonv1.MeasureJobResultResponse) []Ca
 }
 
 // This keeps track of the queue on the input to the ISS
-// TODO: This could be improved if the ISS reported the queue size over Grpc
+// NOTE: This could be improved if the ISS reported the queue size over Grpc
 // but right now this is the only sender so it is okay
 const (
 	defaultMeasurementTimeout = 5 * time.Minute
