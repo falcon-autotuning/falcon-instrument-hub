@@ -99,6 +99,13 @@ test-config-handler: build
 		-tags cgo,falcon_core \
 		./internal/handlers/device_config
 
+test-state-handler: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/handlers/device_config
+
 test-interpreter: build
 	cd runtime && $(GO_ENV) go test \
 		-v \

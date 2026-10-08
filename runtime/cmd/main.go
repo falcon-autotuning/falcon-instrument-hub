@@ -125,6 +125,7 @@ func InitializeRuntimeEnvironment(cfg *config.HubConfig) error {
 	return nil
 }
 
+// TODO: Setup the DeviceState container and register teardown
 type Runtime struct {
 	cfg *config.HubConfig
 

@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -18,14 +19,14 @@ const (
 	deviceStateResponseSubject = "FALCON.DEVICE_STATE_RESPONSE"
 )
 
-// DeviceConfigHandler handles INSTRUMENTHUB.DEVICE_STATE_REQUEST messages.
+// Handler handles INSTRUMENTHUB.DEVICE_STATE_REQUEST messages.
 type Handler struct {
 	logger       *logging.Logger
 	nc           *nats.Conn
 	subscription *nats.Subscription
 }
 
-// NewHandle creates a new device state handler
+// NewHandler creates a new device state handler
 func NewHandler(
 	logger *logging.Logger,
 ) *Handler {
@@ -96,13 +97,13 @@ func (h *Handler) handleDeviceStateRequest(msg *nats.Msg) {
 		fmt.Sprintf("Received request on %s: %s", deviceStateRequestSubject, string(rawData)),
 	)
 
-	var deviceConfigReq api.DeviceConfigRequest
-	if err := h.parseRequest(rawData, &deviceConfigReq); err != nil {
+	var deviceStateReq api.DeviceStateRequest
+	if err := h.parseRequest(rawData, &deviceStateReq); err != nil {
 		h.logger.Error(handlerName, err.Error())
 		return
 	}
 
-	if err := h.sendDeviceConfigResponse(); err != nil {
+	if err := h.sendDeviceStateResponse(); err != nil {
 		h.logger.Error(handlerName, err.Error())
 	}
 }
@@ -110,9 +111,9 @@ func (h *Handler) handleDeviceStateRequest(msg *nats.Msg) {
 // parseRequest unmarshals the request data
 func (h *Handler) parseRequest(
 	rawData []byte,
-	deviceConfigReq *api.DeviceConfigRequest,
+	deviceStateReq *api.DeviceStateRequest,
 ) error {
-	if err := json.Unmarshal(rawData, deviceConfigReq); err != nil {
+	if err := json.Unmarshal(rawData, deviceStateReq); err != nil {
 		return fmt.Errorf(
 			"failed to decode device config request JSON: %v",
 			err,
@@ -121,18 +122,27 @@ func (h *Handler) parseRequest(
 	return nil
 }
 
-// sendDeviceConfigResponse sends the device config in cereal JSON format so that
+// sendDeviceStateResponse sends the device config in cereal JSON format so that
 // C++ Config::from_json_string can parse it directly.
-func (h *Handler) sendDeviceConfigResponse() error {
+func (h *Handler) sendDeviceStateResponse() error {
+	states, err := devicestate.Manager().Snapshot().NewFalconDeviceVoltageStates()
+	if err != nil {
+		return err
+	}
+	jsonStates, err := states.ToJSON()
+	if err != nil {
+		return err
+	}
 	// Create the response
-	response := api.DeviceConfigResponse{
+	response := api.DeviceStateResponse{
+		Response:  jsonStates,
 		Timestamp: time.Now().UnixMicro(),
 	}
 
 	// Marshal the response
 	responseData, err := json.Marshal(response)
 	if err != nil {
-		return fmt.Errorf("failed to marshal device config response: %v", err)
+		return fmt.Errorf("failed to marshal device state response: %v", err)
 	}
 
 	if err := h.nc.Publish(deviceStateResponseSubject, responseData); err != nil {
@@ -145,11 +155,11 @@ func (h *Handler) sendDeviceConfigResponse() error {
 
 	h.logger.Debug(
 		handlerName,
-		fmt.Sprintf("Sent device config response to %s", deviceStateResponseSubject),
+		fmt.Sprintf("Sent device state response to %s", deviceStateResponseSubject),
 	)
 	h.logger.Info(
 		handlerName,
-		"Successfully sent device config response",
+		"Successfully sent device state response",
 	)
 	return nil
 }
