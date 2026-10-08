@@ -13,74 +13,24 @@ type TimestampSetter interface {
 }
 
 // Implement TimestampConverter for all API types with Timestamp
-func (l Log) GetTimestamp() int64                    { return l.Timestamp }
-func (m MeasurementReady) GetTimestamp() int64       { return m.Timestamp }
-func (p ProcessData) GetTimestamp() int64            { return p.Timestamp }
-func (s Status) GetTimestamp() int64                 { return s.Timestamp }
-func (u UpdateDaemonProperty) GetTimestamp() int64   { return u.Timestamp }
-func (u UploadData) GetTimestamp() int64             { return u.Timestamp }
-func (c ConfirmInitialization) GetTimestamp() int64  { return c.Timestamp }
-func (p PerformArbitraryMethod) GetTimestamp() int64 { return p.Timestamp }
-func (b Busy) GetTimestamp() int64                   { return b.Timestamp }
-func (p PortRequest) GetTimestamp() int64            { return p.Timestamp }
-func (p PortPayload) GetTimestamp() int64            { return p.Timestamp }
-func (d DeviceConfigRequest) GetTimestamp() int64    { return d.Timestamp }
-func (d DeviceConfigResponse) GetTimestamp() int64   { return d.Timestamp }
+func (s Status) GetTimestamp() int64               { return s.Timestamp }
+func (p PortRequest) GetTimestamp() int64          { return p.Timestamp }
+func (p PortPayload) GetTimestamp() int64          { return p.Timestamp }
+func (d DeviceConfigRequest) GetTimestamp() int64  { return d.Timestamp }
+func (d DeviceConfigResponse) GetTimestamp() int64 { return d.Timestamp }
+func (d DeviceStateRequest) GetTimestamp() int64   { return d.Timestamp }
+func (d DeviceStateResponse) GetTimestamp() int64  { return d.Timestamp }
+func (d MeasureCommand) GetTimestamp() int64       { return d.Timestamp }
+func (d MeasureResponse) GetTimestamp() int64      { return d.Timestamp }
+func (d SettingCommand) GetTimestamp() int64       { return d.Timestamp }
+func (d SettingResponse) GetTimestamp() int64      { return d.Timestamp }
 
 // Implement TimestampSetter for all API types with Timestamp (pointer receivers
 // for mutation)
-func (l *Log) SetTimestamp(
-	timestamp int64,
-) {
-	l.Timestamp = timestamp
-}
-
-func (m *MeasurementReady) SetTimestamp(
-	timestamp int64,
-) {
-	m.Timestamp = timestamp
-}
-
-func (p *ProcessData) SetTimestamp(
-	timestamp int64,
-) {
-	p.Timestamp = timestamp
-}
-
 func (s *Status) SetTimestamp(
 	timestamp int64,
 ) {
 	s.Timestamp = timestamp
-}
-
-func (u *UpdateDaemonProperty) SetTimestamp(
-	timestamp int64,
-) {
-	u.Timestamp = timestamp
-}
-
-func (u *UploadData) SetTimestamp(
-	timestamp int64,
-) {
-	u.Timestamp = timestamp
-}
-
-func (c *ConfirmInitialization) SetTimestamp(
-	timestamp int64,
-) {
-	c.Timestamp = timestamp
-}
-
-func (p *PerformArbitraryMethod) SetTimestamp(
-	timestamp int64,
-) {
-	p.Timestamp = timestamp
-}
-
-func (b *Busy) SetTimestamp(
-	timestamp int64,
-) {
-	b.Timestamp = timestamp
 }
 
 func (p *PortRequest) SetTimestamp(
@@ -102,6 +52,42 @@ func (d *DeviceConfigRequest) SetTimestamp(
 }
 
 func (d *DeviceConfigResponse) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *DeviceStateRequest) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *DeviceStateResponse) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *MeasureCommand) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *MeasureResponse) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *SettingCommand) SetTimestamp(
+	timestamp int64,
+) {
+	d.Timestamp = timestamp
+}
+
+func (d *SettingResponse) SetTimestamp(
 	timestamp int64,
 ) {
 	d.Timestamp = timestamp
