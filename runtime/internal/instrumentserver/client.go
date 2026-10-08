@@ -1,4 +1,5 @@
-// This package assumes that the instrument-script-server was already started via a
+// This package assumes that the instrument-script-server was already started
+// via a
 // exec for "instrument-script-server daemon start"
 package instrumentserver
 
@@ -12,9 +13,10 @@ import (
 	"sync/atomic"
 	"time"
 
-	daemonv1 "github.com/falcon-autotuning/instrument-server/runtime/internal/issproto/instserver/daemon/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+
+	daemonv1 "github.com/falcon-autotuning/instrument-server/runtime/internal/issproto/instserver/daemon/v1"
 )
 
 const (
@@ -49,13 +51,23 @@ func newScriptServerClientForTests(
 	}
 }
 
-// NewScriptServerClient creates a client for the instrument-script-server gRPC API.
+// NewScriptServerClient creates a client for the instrument-script-server gRPC
+// API.
 func NewScriptServerClient(host string, port int) *ScriptServerClient {
-	return NewScriptServerClientWithOptions(host, port, ScriptServerClientOptions{})
+	return NewScriptServerClientWithOptions(
+		host,
+		port,
+		ScriptServerClientOptions{},
+	)
 }
 
-// NewScriptServerClientWithOptions creates a client with optional CLI fallback paths.
-func NewScriptServerClientWithOptions(host string, port int, opts ScriptServerClientOptions) *ScriptServerClient {
+// NewScriptServerClientWithOptions creates a client with optional CLI fallback
+// paths.
+func NewScriptServerClientWithOptions(
+	host string,
+	port int,
+	opts ScriptServerClientOptions,
+) *ScriptServerClient {
 	if host == "" {
 		host = DefaultISSHost
 	}
@@ -93,12 +105,16 @@ func (c *ScriptServerClient) Close() error {
 	return c.conn.Close()
 }
 
-func (c *ScriptServerClient) callContext(timeout time.Duration) (context.Context, context.CancelFunc, error) {
+func (c *ScriptServerClient) callContext(
+	timeout time.Duration,
+) (context.Context, context.CancelFunc, error) {
 	if c.initErr != nil {
 		return nil, nil, c.initErr
 	}
 	if c.client == nil {
-		return nil, nil, errors.New("ISS gRPC client is not initialized")
+		return nil, nil, errors.New(
+			"ISS gRPC client is not initialized",
+		)
 	}
 	if timeout <= 0 {
 		timeout = defaultCallTimeout
@@ -123,7 +139,11 @@ func standardError(resp *daemonv1.StandardResponse) error {
 	return errors.New("ISS request failed")
 }
 
-func withCallContext(c *ScriptServerClient, timeout time.Duration, fn func(context.Context) error) error {
+func withCallContext(
+	c *ScriptServerClient,
+	timeout time.Duration,
+	fn func(context.Context) error,
+) error {
 	ctx, cancel, err := c.callContext(timeout)
 	if err != nil {
 		return err
@@ -133,7 +153,11 @@ func withCallContext(c *ScriptServerClient, timeout time.Duration, fn func(conte
 	return fn(ctx)
 }
 
-func withCallContextValue[T any](c *ScriptServerClient, timeout time.Duration, fn func(context.Context) (T, error)) (T, error) {
+func withCallContextValue[T any](
+	c *ScriptServerClient,
+	timeout time.Duration,
+	fn func(context.Context) (T, error),
+) (T, error) {
 	ctx, cancel, err := c.callContext(timeout)
 	if err != nil {
 		var zero T
@@ -146,128 +170,188 @@ func withCallContextValue[T any](c *ScriptServerClient, timeout time.Duration, f
 
 // ListInstruments returns the list of available instruments.
 func (c *ScriptServerClient) ListInstruments() ([]string, error) {
-	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) ([]string, error) {
-		resp, err := c.client.ListInstruments(
-			ctx,
-			&daemonv1.ListInstrumentsRequest{},
-		)
-		if err != nil {
-			return nil, err
-		}
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) ([]string, error) {
+			resp, err := c.client.ListInstruments(
+				ctx,
+				&daemonv1.ListInstrumentsRequest{},
+			)
+			if err != nil {
+				return nil, err
+			}
 
-		if err := standardError(resp.GetStandardResponse()); err != nil {
-			return nil, err
-		}
+			if err := standardError(
+				resp.GetStandardResponse(),
+			); err != nil {
+				return nil, err
+			}
 
-		return append([]string{}, resp.GetInstrumentName()...), nil
-	})
+			return append(
+				[]string{},
+				resp.GetInstrumentName()...), nil
+		},
+	)
 }
 
 // StartInstrument sends the StartInstrument RPC to create an instrument.
-func (c *ScriptServerClient) StartInstrument(configPath string, pluginPath string) error {
-	return withCallContext(c, defaultCallTimeout, func(ctx context.Context) error {
-		resp, err := c.client.StartInstrument(
-			ctx,
-			&daemonv1.StartInstrumentRequest{
-				ConfigPath: configPath,
-				PluginPath: pluginPath,
-				LogLevel:   DefaultISSLogLevel,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		return standardError(resp.GetStandardResponse())
-	})
+func (c *ScriptServerClient) StartInstrument(
+	configPath, pluginPath string,
+) error {
+	return withCallContext(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) error {
+			resp, err := c.client.StartInstrument(
+				ctx,
+				&daemonv1.StartInstrumentRequest{
+					ConfigPath: configPath,
+					PluginPath: pluginPath,
+					LogLevel:   DefaultISSLogLevel,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			return standardError(resp.GetStandardResponse())
+		},
+	)
 }
 
 // StopInstrument sends the StopInstrument RPC to create an instrument.
 func (c *ScriptServerClient) StopInstrument(name string) error {
-	return withCallContext(c, defaultCallTimeout, func(ctx context.Context) error {
-		resp, err := c.client.StopInstrument(
-			ctx,
-			&daemonv1.StopInstrumentRequest{
-				InstrumentName: name,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		return standardError(resp.GetStandardResponse())
-	})
+	return withCallContext(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) error {
+			resp, err := c.client.StopInstrument(
+				ctx,
+				&daemonv1.StopInstrumentRequest{
+					InstrumentName: name,
+				},
+			)
+			if err != nil {
+				return err
+			}
+			return standardError(resp.GetStandardResponse())
+		},
+	)
 }
 
 // StopDaemon asks the daemon to shut down over gRPC.
 func (c *ScriptServerClient) StopDaemon() error {
-	return withCallContext(c, defaultCallTimeout, func(ctx context.Context) error {
-		resp, err := c.client.StopDaemon(
-			ctx,
-			&daemonv1.DaemonStop{},
-		)
-		if err != nil {
-			return err
-		}
-		return standardError(resp)
-	})
+	return withCallContext(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) error {
+			resp, err := c.client.StopDaemon(
+				ctx,
+				&daemonv1.DaemonStop{},
+			)
+			if err != nil {
+				return err
+			}
+			return standardError(resp)
+		},
+	)
 }
 
 func (c *ScriptServerClient) DaemonStatus() (bool, error) {
-	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) (bool, error) {
-		resp, err := c.client.DaemonStatus(
-			ctx,
-			&daemonv1.DaemonStatusRequest{},
-		)
-		if err != nil {
-			return false, err
-		}
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) (bool, error) {
+			resp, err := c.client.DaemonStatus(
+				ctx,
+				&daemonv1.DaemonStatusRequest{},
+			)
+			if err != nil {
+				return false, err
+			}
 
-		return resp.Running, standardError(resp.GetStandardResponse())
-	})
+			return resp.Running, standardError(
+				resp.GetStandardResponse(),
+			)
+		},
+	)
 }
 
 func (c *ScriptServerClient) ReleaseBuffer(bufferID string) error {
-	return withCallContext(c, defaultCallTimeout, func(ctx context.Context) error {
-		resp, err := c.client.ReleaseBuffer(
-			ctx,
-			&daemonv1.ReleaseBufferRequest{BufferId: bufferID},
-		)
-		if err != nil {
-			return err
-		}
+	return withCallContext(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) error {
+			resp, err := c.client.ReleaseBuffer(
+				ctx,
+				&daemonv1.ReleaseBufferRequest{
+					BufferId: bufferID,
+				},
+			)
+			if err != nil {
+				return err
+			}
 
-		return standardError(resp.GetStandardResponse())
-	})
+			return standardError(resp.GetStandardResponse())
+		},
+	)
 }
 
 type jobID uint32
 
-func (c *ScriptServerClient) requestMeasurement(req *daemonv1.MeasureJobRequest) (jobID, error) {
-	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) (jobID, error) {
-		resp, err := c.client.MeasureJob(ctx, req)
-		if err != nil {
-			return 0, err
-		}
-		return jobID(resp.GetJobId()), standardError(resp.GetStandardResponse())
-	})
+func (c *ScriptServerClient) requestMeasurement(
+	req *daemonv1.MeasureJobRequest,
+) (jobID, error) {
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) (jobID, error) {
+			resp, err := c.client.MeasureJob(ctx, req)
+			if err != nil {
+				return 0, err
+			}
+			return jobID(
+					resp.GetJobId(),
+				), standardError(
+					resp.GetStandardResponse(),
+				)
+		},
+	)
 }
 
-func (c *ScriptServerClient) checkJobStatus(jobID jobID) (daemonv1.JobStatus, error) {
-	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) (daemonv1.JobStatus, error) {
-		resp, err := c.client.JobStatus(
-			ctx,
-			&daemonv1.JobStatusRequest{JobId: uint32(jobID)},
-		)
-		return resp.Job.Status, err
-	})
+func (c *ScriptServerClient) checkJobStatus(
+	jobID jobID,
+) (daemonv1.JobStatus, error) {
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) (daemonv1.JobStatus, error) {
+			resp, err := c.client.JobStatus(
+				ctx,
+				&daemonv1.JobStatusRequest{
+					JobId: uint32(jobID),
+				},
+			)
+			return resp.Job.Status, err
+		},
+	)
 }
 
-func (c *ScriptServerClient) collectMeasureJobResult(jobID jobID) (*daemonv1.MeasureJobResultResponse, error) {
-	return withCallContextValue(c, defaultCallTimeout, func(ctx context.Context) (*daemonv1.MeasureJobResultResponse, error) {
-		return c.client.MeasureJobResult(
-			ctx,
-			&daemonv1.MeasureJobResultRequest{JobId: uint32(jobID)},
-		)
-	})
+func (c *ScriptServerClient) collectMeasureJobResult(
+	jobID jobID,
+) (*daemonv1.MeasureJobResultResponse, error) {
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) (*daemonv1.MeasureJobResultResponse, error) {
+			return c.client.MeasureJobResult(
+				ctx,
+				&daemonv1.MeasureJobResultRequest{
+					JobId: uint32(jobID),
+				},
+			)
+		},
+	)
 }
 
 // VariableValue represents a dynamically-typed measurement value.
@@ -317,8 +401,9 @@ type (
 	CallStackArray        []string
 	InstrumentTargetArray []string
 	InstrumentDomainArray []string
-	// MixedArray      []VariableValue  NOTE: Eventually revist ISS if MixedArray is necessary
-	// MixedMap        map[string]VariableValue  NOTE: Eventually revist ISS if MixedMap is necessary
+	// MixedArray      []VariableValue  NOTE: Eventually revist ISS if
+	// MixedArray is necessary MixedMap        map[string]VariableValue
+	// NOTE: Eventually revist ISS if MixedMap is necessary
 )
 
 // Type represents a string taken from the LuaTypes.
@@ -419,65 +504,150 @@ func (v VariableValue) LuaType() LuaType {
 func toGrpcVariableValue(v VariableValue) (*daemonv1.VariableValue, error) {
 	switch value := v.Value.(type) {
 	case nil:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_IsNil{IsNil: true}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_IsNil{IsNil: true},
+		}, nil
 	case bool:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_B{B: bool(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_B{B: bool(value)},
+		}, nil
 	case int:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case int8:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case int16:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case int32:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case int64:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: value}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: value},
+		}, nil
 	case uint:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case uint8:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case uint16:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case uint32:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case uint64:
 		const maxInt64 = uint64(1<<63 - 1)
 		if value > maxInt64 {
-			return nil, fmt.Errorf("uint64 value %d overflows int64", value)
+			return nil, fmt.Errorf(
+				"uint64 value %d overflows int64",
+				value,
+			)
 		}
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_I{I: int64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_I{I: int64(value)},
+		}, nil
 	case float32:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_D{D: float64(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_D{D: float64(value)},
+		}, nil
 	case float64:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_D{D: value}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_D{D: value},
+		}, nil
 	case string:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: value}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_S{S: value},
+		}, nil
 	case CallStack:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_S{S: string(value)},
+		}, nil
 	case InstrumentDomain:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_S{S: string(value)},
+		}, nil
 	case InstrumentTarget:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_S{S: string(value)}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_S{S: string(value)},
+		}, nil
 	case Int64Array:
 		values := make([]int64, len(value))
 		for i, item := range value {
 			values[i] = int64(item)
 		}
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_IArray{IArray: &daemonv1.Int64Array{Values: values}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_IArray{
+				IArray: &daemonv1.Int64Array{Values: values},
+			},
+		}, nil
 	case DoubleArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_DArray{DArray: &daemonv1.DoubleArray{Values: append([]float64{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_DArray{
+				DArray: &daemonv1.DoubleArray{
+					Values: append([]float64{}, value...),
+				},
+			},
+		}, nil
 	case StringArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_SArray{SArray: &daemonv1.StringArray{Values: append([]string{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_SArray{
+				SArray: &daemonv1.StringArray{
+					Values: append([]string{}, value...),
+				},
+			},
+		}, nil
 	case BoolArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_BArray{BArray: &daemonv1.BoolArray{Values: append([]bool{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_BArray{
+				BArray: &daemonv1.BoolArray{
+					Values: append([]bool{}, value...),
+				},
+			},
+		}, nil
 	case DataBufferArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_DbArray{DbArray: &daemonv1.DataBufferArray{Values: append([]string{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_DbArray{
+				DbArray: &daemonv1.DataBufferArray{
+					Values: append([]string{}, value...),
+				},
+			},
+		}, nil
 	case CallStackArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_CsArray{CsArray: &daemonv1.CallStackArray{Values: append([]string{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_CsArray{
+				CsArray: &daemonv1.CallStackArray{
+					Values: append([]string{}, value...),
+				},
+			},
+		}, nil
 	case InstrumentTargetArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_TArray{TArray: &daemonv1.TargetArray{Values: append([]string{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_TArray{
+				TArray: &daemonv1.TargetArray{
+					Values: append([]string{}, value...),
+				},
+			},
+		}, nil
 	case InstrumentDomainArray:
-		return &daemonv1.VariableValue{Value: &daemonv1.VariableValue_DnArray{DnArray: &daemonv1.DomainArray{Values: append([]string{}, value...)}}}, nil
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_DnArray{
+				DnArray: &daemonv1.DomainArray{
+					Values: append([]string{}, value...),
+				},
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("unsupported value type %T", v)
 	}
@@ -506,40 +676,56 @@ func fromGrpcVariableValue(value *daemonv1.VariableValue) VariableValue {
 
 	case *daemonv1.VariableValue_IArray:
 		return VariableValue{
-			Value: Int64Array(append([]int64{}, v.IArray.GetValues()...)),
+			Value: Int64Array(
+				append([]int64{}, v.IArray.GetValues()...),
+			),
 		}
 
 	case *daemonv1.VariableValue_DArray:
 		return VariableValue{
-			Value: DoubleArray(append([]float64{}, v.DArray.GetValues()...)),
+			Value: DoubleArray(
+				append([]float64{}, v.DArray.GetValues()...),
+			),
 		}
 
 	case *daemonv1.VariableValue_BArray:
 		return VariableValue{
-			Value: BoolArray(append([]bool{}, v.BArray.GetValues()...)),
+			Value: BoolArray(
+				append([]bool{}, v.BArray.GetValues()...),
+			),
 		}
 
 	case *daemonv1.VariableValue_SArray:
 		return VariableValue{
-			Value: StringArray(append([]string{}, v.SArray.GetValues()...)),
+			Value: StringArray(
+				append([]string{}, v.SArray.GetValues()...),
+			),
 		}
 
 	case *daemonv1.VariableValue_DbArray:
 		return VariableValue{
-			Value: DataBufferArray(append([]string{}, v.DbArray.GetValues()...)),
+			Value: DataBufferArray(
+				append([]string{}, v.DbArray.GetValues()...),
+			),
 		}
 
 	case *daemonv1.VariableValue_CsArray:
 		return VariableValue{
-			Value: CallStackArray(append([]string{}, v.CsArray.GetValues()...)),
+			Value: CallStackArray(
+				append([]string{}, v.CsArray.GetValues()...),
+			),
 		}
 	case *daemonv1.VariableValue_TArray:
 		return VariableValue{
-			Value: InstrumentTargetArray(append([]string{}, v.TArray.GetValues()...)),
+			Value: InstrumentTargetArray(
+				append([]string{}, v.TArray.GetValues()...),
+			),
 		}
 	case *daemonv1.VariableValue_DnArray:
 		return VariableValue{
-			Value: InstrumentDomainArray(append([]string{}, v.DnArray.GetValues()...)),
+			Value: InstrumentDomainArray(
+				append([]string{}, v.DnArray.GetValues()...),
+			),
 		}
 
 	default:
@@ -550,7 +736,10 @@ func fromGrpcVariableValue(value *daemonv1.VariableValue) VariableValue {
 	}
 }
 
-func buildMeasureJobRequest(scriptPath string, variables []MeasureVariable) (*daemonv1.MeasureJobRequest, error) {
+func buildMeasureJobRequest(
+	scriptPath string,
+	variables []MeasureVariable,
+) (*daemonv1.MeasureJobRequest, error) {
 	req := &daemonv1.MeasureJobRequest{
 		ScriptPath: scriptPath,
 		Globals: &daemonv1.Globals{
@@ -562,7 +751,11 @@ func buildMeasureJobRequest(scriptPath string, variables []MeasureVariable) (*da
 	for _, variable := range variables {
 		value, err := toGrpcVariableValue(variable.Value)
 		if err != nil {
-			return nil, fmt.Errorf("could not extract the value safely for variable %q: %w", variable.Name, err)
+			return nil, fmt.Errorf(
+				"could not extract the value safely for variable %q: %w",
+				variable.Name,
+				err,
+			)
 		}
 		req.Globals.Map[variable.Name] = value
 		params = append(params, &daemonv1.Parameter{
@@ -574,11 +767,16 @@ func buildMeasureJobRequest(scriptPath string, variables []MeasureVariable) (*da
 	return req, nil
 }
 
-func (c *ScriptServerClient) waitForMeasureJob(jobID jobID) (*daemonv1.MeasureJobResultResponse, error) {
+func (c *ScriptServerClient) waitForMeasureJob(
+	jobID jobID,
+) (*daemonv1.MeasureJobResultResponse, error) {
 	deadline := time.Now().Add(currentMeasurementTimeout())
 	for {
 		if time.Now().After(deadline) {
-			return nil, fmt.Errorf("timeout waiting for ISS measure job %d", jobID)
+			return nil, fmt.Errorf(
+				"timeout waiting for ISS measure job %d",
+				jobID,
+			)
 		}
 		status, err := c.checkJobStatus(jobID)
 		if err != nil {
@@ -591,7 +789,11 @@ func (c *ScriptServerClient) waitForMeasureJob(jobID jobID) (*daemonv1.MeasureJo
 		case daemonv1.JobStatus_JOB_STATUS_FAILED,
 			daemonv1.JobStatus_JOB_STATUS_CANCELLED,
 			daemonv1.JobStatus_JOB_STATUS_CANCELING:
-			return nil, fmt.Errorf("ISS measure job %d ended with status %s", jobID, status.String())
+			return nil, fmt.Errorf(
+				"ISS measure job %d ended with status %s",
+				jobID,
+				status.String(),
+			)
 		default:
 			time.Sleep(defaultPollInterval)
 		}
@@ -606,7 +808,9 @@ func timestampMillis(cmd *daemonv1.CommandResult) int64 {
 	return ts.AsTime().UnixMilli()
 }
 
-func measureJobResultToCallResults(resp *daemonv1.MeasureJobResultResponse) []CallResult {
+func measureJobResultToCallResults(
+	resp *daemonv1.MeasureJobResultResponse,
+) []CallResult {
 	var results []CallResult
 	for _, cmd := range resp.GetResults() {
 		params := cmd.GetParam()
@@ -615,13 +819,26 @@ func measureJobResultToCallResults(resp *daemonv1.MeasureJobResultResponse) []Ca
 			unformattedMetadata := param.GetDbmeta()
 			// NOTE: transfer the Type field if important
 			metadata := DataBufferMetadata{
-				ElementCount: uint32(unformattedMetadata.GetElementCount()),
-				Size:         int64(unformattedMetadata.GetByteSize()),
+				ElementCount: uint32(
+					unformattedMetadata.GetElementCount(),
+				),
+				Size: int64(
+					unformattedMetadata.GetByteSize(),
+				),
+			}
+
+			value := fromGrpcVariableValue(param.GetValue())
+			// A single buffer ID uses the string wire representation; retain
+			// its declared type for buffer registration and handler validation.
+			if param.GetType() == daemonv1.LuaTypes_LUA_TYPES_DATA_BUFFER {
+				if id, ok := value.Value.(string); ok {
+					value.Value = DataBuffer(id)
+				}
 			}
 
 			returnValues = append(returnValues, ReturnValue{
 				Name:     param.GetName(),
-				Value:    fromGrpcVariableValue(param.Value),
+				Value:    value,
 				Unit:     param.GetUnit(),
 				Metadata: metadata,
 			})
@@ -672,7 +889,10 @@ func currentMeasurementTimeout() time.Duration {
 }
 
 // Measure runs a Lua script as an ISS job and returns the parsed call results.
-func (c *ScriptServerClient) Measure(scriptPath string, variables []MeasureVariable) ([]CallResult, error) {
+func (c *ScriptServerClient) Measure(
+	scriptPath string,
+	variables []MeasureVariable,
+) ([]CallResult, error) {
 	inflightMeasurements.Add(1)
 	defer inflightMeasurements.Add(-1)
 	req, err := buildMeasureJobRequest(scriptPath, variables)

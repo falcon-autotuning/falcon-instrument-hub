@@ -1,4 +1,20 @@
-# DataBuffer design for a future 1D voltage sweep handler
+# DataBuffer design for a 1D voltage sweep handler
+
+## Simple sequential implementation
+
+The `measure_1D_buffered` handler now accepts one identity-transformed voltage
+waveform with at least two setpoints and one voltage stream getter. Its Lua
+script sets each voltage in waveform order and invokes `MEASURE_STREAM` with
+one bin after each set. Each stream call hands one single-sample DataBuffer to
+Go; the handler copies and releases each buffer and returns one ordered 1D
+Falcon measurement array. This is a sequential sweep, not a hardware-timed
+source ramp. The response's sample at index `i` corresponds to setter
+setpoint `i`; the response does not separately carry the setter coordinates.
+
+The installed Lua runtime cannot allocate a DataBuffer from a table of scalar
+`GET_DATAPOINT` results. Producing one DataBuffer for the entire sweep would
+require a source/meter command that performs the coordinated sweep and returns
+that buffer, or a new Lua buffer-construction API.
 
 ## Scope
 

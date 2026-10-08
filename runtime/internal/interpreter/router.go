@@ -95,6 +95,7 @@ func NewRouter(
 		ports:      ports,
 		handlers: []MeasurementHandler{
 			&measureGetSetHandler{},
+			&measure1DBufferedHandler{},
 		},
 	}
 }

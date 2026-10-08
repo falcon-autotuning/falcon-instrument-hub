@@ -561,13 +561,23 @@ func LoadConfig(path string) (*HubConfig, error) {
 func Validate(c *HubConfig) error {
 	if c.QuantumDotConfig != "" {
 		if _, err := os.Stat(c.QuantumDotConfig); os.IsNotExist(err) {
-			return fmt.Errorf("device config file does not exist: %s", c.QuantumDotConfig)
+			return fmt.Errorf(
+				"device config file does not exist: %s",
+				c.QuantumDotConfig,
+			)
 		}
 	}
 
 	if c.UserMeasurementLuasDir != "" {
-		if _, err := os.Stat(c.UserMeasurementLuasDir); os.IsNotExist(err) {
-			return fmt.Errorf("the measurement luas dir does not exist: %s", c.UserMeasurementLuasDir)
+		if _, err := os.Stat(
+			c.UserMeasurementLuasDir,
+		); os.IsNotExist(
+			err,
+		) {
+			return fmt.Errorf(
+				"the measurement luas dir does not exist: %s",
+				c.UserMeasurementLuasDir,
+			)
 		}
 	}
 
@@ -582,12 +592,18 @@ func Validate(c *HubConfig) error {
 		var err error
 		c.WorkingDirectory, err = os.Getwd()
 		if err != nil {
-			return fmt.Errorf("could not get the current working directory: %s", err)
+			return fmt.Errorf(
+				"could not get the current working directory: %s",
+				err,
+			)
 		}
 	}
 
 	if _, err := os.Stat(c.WorkingDirectory); os.IsNotExist(err) {
-		return fmt.Errorf("working directory does not exist: %s", c.WorkingDirectory)
+		return fmt.Errorf(
+			"working directory does not exist: %s",
+			c.WorkingDirectory,
+		)
 	}
 
 	if err := c.InstrumentServer.Validate(); err != nil {

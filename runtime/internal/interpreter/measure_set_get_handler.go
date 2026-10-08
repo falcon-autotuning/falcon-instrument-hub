@@ -23,6 +23,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/measurementresult"
 )
 
 const (
@@ -406,6 +407,7 @@ func measureGetSetValue(
 	setter config.ConnectedPort,
 	getter config.ConnectedPort,
 	getterPort *instrumentport.Handle,
+	connected *config.ConnectedPorts,
 ) (float64, error) {
 	if result.Err != nil {
 		return 0, result.Err
@@ -435,6 +437,13 @@ func measureGetSetValue(
 	}
 
 	measured := result.Results[1].Return[0]
+	if err := measurementresult.Validate(
+		measured.Value,
+		getter,
+		connected,
+	); err != nil {
+		return 0, err
+	}
 	if measured.Name != measureGetOutput {
 		return 0, fmt.Errorf(
 			"%s returned output %q, want %q",
@@ -666,6 +675,7 @@ func (*measureGetSetHandler) Handle(
 		setter,
 		getter,
 		parsed.getter,
+		connected,
 	)
 	if err != nil {
 		return nil, err
