@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/spf13/cobra"
 )
@@ -182,7 +184,7 @@ func (r Runtime) startInstruments() error {
 }
 
 const (
-	MeasurementsDB = "measurements.db"
+	MeasurementsDB = "measurements.sqlite"
 )
 
 func BuildInstrumentMetadata(
@@ -382,6 +384,19 @@ func NewRunHub(
 		if err := InitializeRuntimeEnvironment(&cfg); err != nil {
 			return err
 		}
+
+		// For now, a run is one hub session. An experiment ID can replace
+		// this without changing the catalog or HDF5 record format.
+		runID := rand.Text()
+		if err := measurementdb.Initialize(filepath.Join(cfg.RuntimePaths.Data, MeasurementsDB), runID); err != nil {
+			return fmt.Errorf("initialize measurement database: %w", err)
+		}
+		defer func() {
+			if err := measurementdb.Close(); err != nil {
+				log.Printf("close measurement database: %v", err)
+			}
+		}()
+		log.Printf("measurement run ID: %s", runID)
 
 		runtime, err := deps.NewRuntime(&cfg)
 		if err != nil {

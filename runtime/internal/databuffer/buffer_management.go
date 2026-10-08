@@ -110,12 +110,12 @@ func (m *DataBufferManager) RegisterBuffer(
 
 	meta, err := m.bufferLib.getMetadata(bufferID)
 	if err != nil {
-		releaseBuffer(bufferID)
+		m.bufferLib.releaseBuffer(bufferID)
 		return err
 	}
 
 	if err := m.releaser.ReleaseBuffer(bufferID); err != nil {
-		releaseBuffer(bufferID)
+		m.bufferLib.releaseBuffer(bufferID)
 		return err
 	}
 
@@ -324,6 +324,63 @@ func (m *DataBufferManager) ReadBuffer(
 	}
 }
 
+// ConsumeSamples copies numeric samples and releases the hub's reference.
+// Ownership checking, copying, and release happen under the same lock so the
+// shared memory cannot be released while it is being read. An owned buffer is
+// also released when its type is invalid or it is empty.
+func (m *DataBufferManager) ConsumeSamples(
+	requestorID string,
+	bufferID string,
+) ([]float64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	tracked, ok := m.buffers[bufferID]
+	if !ok {
+		return nil, fmt.Errorf("buffer %q not found", bufferID)
+	}
+	if tracked.RequestorID != requestorID {
+		return nil, fmt.Errorf("buffer %q does not belong to measurement %q", bufferID, requestorID)
+	}
+	defer func() {
+		m.bufferLib.releaseBuffer(bufferID)
+		delete(m.buffers, bufferID)
+	}()
+
+	buffer := tracked.Buffer
+	switch buffer.dataBufferType() {
+	case Float32:
+		return copySamples(buffer.float32Slice())
+	case Float64:
+		return copySamples(buffer.float64Slice())
+	case Int32:
+		return copySamples(buffer.int32Slice())
+	case Int64:
+		return copySamples(buffer.int64Slice())
+	case Uint32:
+		return copySamples(buffer.uint32Slice())
+	case Uint64:
+		return copySamples(buffer.uint64Slice())
+	case Uint8:
+		return copySamples(buffer.uint8Slice())
+	default:
+		return nil, fmt.Errorf("unsupported buffer type %d", buffer.dataBufferType())
+	}
+}
+
+func copySamples[T float32 | float64 | int32 | int64 | uint32 | uint64 | uint8](
+	values []T,
+) ([]float64, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("measurement buffer contains no samples")
+	}
+	samples := make([]float64, len(values))
+	for i, value := range values {
+		samples[i] = float64(value)
+	}
+	return samples, nil
+}
+
 func (m *DataBufferManager) ReleaseBuffer(
 	bufferID string,
 ) error {
@@ -359,7 +416,7 @@ func (m *DataBufferManager) ReleaseRequestor(
 			continue
 		}
 
-		releaseBuffer(id)
+		m.bufferLib.releaseBuffer(id)
 
 		delete(
 			m.buffers,

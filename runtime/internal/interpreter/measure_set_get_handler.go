@@ -24,6 +24,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/measurementresult"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 )
 
 const (
@@ -408,6 +409,7 @@ func measureGetSetValue(
 	getter config.ConnectedPort,
 	getterPort *instrumentport.Handle,
 	connected *config.ConnectedPorts,
+	measurementDispatcher *dispatcher.MeasurementDispatcher,
 ) (float64, error) {
 	if result.Err != nil {
 		return 0, result.Err
@@ -437,13 +439,6 @@ func measureGetSetValue(
 	}
 
 	measured := result.Results[1].Return[0]
-	if err := measurementresult.Validate(
-		measured.Value,
-		getter,
-		connected,
-	); err != nil {
-		return 0, err
-	}
 	if measured.Name != measureGetOutput {
 		return 0, fmt.Errorf(
 			"%s returned output %q, want %q",
@@ -453,12 +448,28 @@ func measureGetSetValue(
 		)
 	}
 
-	var value float64
+	var samples []float64
 	switch raw := measured.Value.Value.(type) {
 	case float64:
-		value = raw
+		samples = []float64{raw}
 	case int64:
-		value = float64(raw)
+		samples = []float64{float64(raw)}
+	case instrumentserver.DataBuffer:
+		var err error
+		samples, err = measurementDispatcher.ConsumeMeasurementSamples(
+			result.ID,
+			string(raw),
+		)
+		if err != nil {
+			return 0, fmt.Errorf("consume measurement buffer %q: %w", raw, err)
+		}
+		// A single sample needs no sampling settings. A bin of multiple
+		// samples requires the getter's sample_rate and API bins settings.
+		if len(samples) > 1 {
+			if err := measurementresult.Validate(measured.Value, getter, connected); err != nil {
+				return 0, err
+			}
+		}
 	default:
 		return 0, fmt.Errorf(
 			"%s returned unsupported value type %T",
@@ -466,11 +477,19 @@ func measureGetSetValue(
 			measured.Value.Value,
 		)
 	}
+	if len(samples) == 0 {
+		return 0, fmt.Errorf("measurement contains no samples")
+	}
+	var value float64
+	for i, sample := range samples {
+		if math.IsNaN(sample) || math.IsInf(sample, 0) {
+			return 0, fmt.Errorf("measurement sample %d is not finite", i)
+		}
+		// Divide before summing to avoid overflowing a large raw sum.
+		value += sample / float64(len(samples))
+	}
 	if math.IsNaN(value) || math.IsInf(value, 0) {
-		return 0, fmt.Errorf(
-			"%s returned a non-finite value",
-			measureGetSetHandlerName,
-		)
+		return 0, fmt.Errorf("measurement average is not finite")
 	}
 
 	resultUnits, err := SymbolUnitFromString(measured.Unit)
@@ -509,6 +528,30 @@ func measureGetSetValue(
 		return 0, fmt.Errorf(
 			"converted measurement result is not finite",
 		)
+	}
+	// Preserve raw samples in their ISS unit; the average is only returned.
+	connection, err := getterPort.PseudoName()
+	if err != nil {
+		return 0, fmt.Errorf("read getter connection for storage: %w", err)
+	}
+	defer connection.Close()
+	instrumentType, err := getterPort.InstrumentType()
+	if err != nil {
+		return 0, err
+	}
+	context, err := acquisitioncontext.New(connection, instrumentType, resultUnits)
+	if err != nil {
+		return 0, fmt.Errorf("create raw measurement context: %w", err)
+	}
+	defer context.Close()
+	if err := measurementdb.Save(measurementdb.Record{
+		MeasurementID:   result.ID,
+		MeasurementName: measureGetSetHandlerName,
+		Getter:          string(getter.PortName),
+		Raw:             samples,
+		Unit:            measured.Unit,
+	}, context); err != nil {
+		return 0, fmt.Errorf("store set/get measurement: %w", err)
 	}
 	return converted, nil
 }
@@ -663,6 +706,9 @@ func (*measureGetSetHandler) Handle(
 			},
 		}},
 	)
+	for _, result := range results {
+		defer measurementDispatcher.ReleaseMeasurementBuffers(result.ID)
+	}
 	if len(results) != 1 {
 		return nil, fmt.Errorf(
 			"measure_get_set returned %d measurement results, want 1",
@@ -676,6 +722,7 @@ func (*measureGetSetHandler) Handle(
 		getter,
 		parsed.getter,
 		connected,
+		measurementDispatcher,
 	)
 	if err != nil {
 		return nil, err

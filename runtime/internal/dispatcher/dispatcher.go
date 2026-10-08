@@ -200,6 +200,32 @@ func NewMeasurementDispatcher(
 	}
 }
 
+// ConsumeMeasurementSamples reads and releases a buffer already claimed by
+// RunAll. The buffer manager verifies that it belongs to this measurement.
+func (d *MeasurementDispatcher) ConsumeMeasurementSamples(
+	measurementID string,
+	bufferID string,
+) ([]float64, error) {
+	consumer, ok := d.buffers.(interface {
+		ConsumeSamples(string, string) ([]float64, error)
+	})
+	if !ok {
+		return nil, fmt.Errorf("buffer manager does not support sample consumption")
+	}
+	return consumer.ConsumeSamples(measurementID, bufferID)
+}
+
+// ReleaseMeasurementBuffers cleans up any buffers left after an early return.
+// Registration-only implementations used for scalar results need no cleanup.
+func (d *MeasurementDispatcher) ReleaseMeasurementBuffers(measurementID string) {
+	if releaser, ok := d.buffers.(interface {
+		ReleaseRequestor(string) error
+	}); ok {
+		// DataBufferManager.ReleaseRequestor always returns nil.
+		_ = releaser.ReleaseRequestor(measurementID)
+	}
+}
+
 // MeasurementResult contains the outcome of a single dispatched
 // measurement execution.
 //
