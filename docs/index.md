@@ -27,4 +27,3 @@ make build-go
 make test-go-short
 make test-schema
 ```
-// TODO: updat website after portsetting refactor
