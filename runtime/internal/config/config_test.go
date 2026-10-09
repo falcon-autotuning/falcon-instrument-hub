@@ -514,13 +514,10 @@ func TestResolveWiremap(t *testing.T) {
 	for _, entry := range wiremap {
 		assert.NotNil(t, entry.Gate)
 
-		name, err := entry.Gate.Name()
-		require.NoError(t, err)
-
 		assert.Equal(
 			t,
 			entry.PhysicalDeviceName,
-			name,
+			entry.Gate.Name,
 		)
 	}
 }

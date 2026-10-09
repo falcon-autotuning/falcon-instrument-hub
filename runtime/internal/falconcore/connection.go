@@ -1,4 +1,4 @@
-package devicestate
+package falconcore
 
 import (
 	"fmt"

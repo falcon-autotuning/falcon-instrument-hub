@@ -8,7 +8,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -201,10 +201,6 @@ func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
 }
 
 func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
-	conn, err := connection.NewPlungerGate("P1")
-	require.NoError(t, err)
-	defer conn.Close()
-
 	out, err := serializePortsToCerealJSON([]config.ConnectedPort{
 		{
 			PortEntry: config.PortEntry{
@@ -214,7 +210,7 @@ func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
 				InstrumentType: instrument.DcVoltageSource,
 			},
 			PortName: "Mock.Source1.analog.voltage",
-			Handle:   conn,
+			Handle:   falconcore.Connection{Name: "P1", Type: falconcore.PlungerGate},
 		},
 	})
 

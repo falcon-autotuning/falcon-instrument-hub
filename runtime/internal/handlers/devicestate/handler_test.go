@@ -12,6 +12,8 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 func runNATSServer(t *testing.T) *server.Server {
@@ -52,9 +54,9 @@ func TestHandler_EndToEnd(t *testing.T) {
 		devicestate.Startup(
 			devicestate.DeviceVoltageStates{
 				"P1": {
-					Connection: devicestate.Connection{
+					Connection: falconcore.Connection{
 						Name: "P1",
-						Type: devicestate.PlungerGate,
+						Type: falconcore.PlungerGate,
 					},
 					Quantity: devicestate.Quantity{
 						Value: 1.23,

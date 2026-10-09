@@ -230,10 +230,7 @@ func TestLoadWiremap_ValidatesAndResolvesGates(t *testing.T) {
 	for _, entry := range wiremap.Contents {
 		assert.NotNil(t, entry.Gate)
 
-		name, err := entry.Gate.Name()
-		require.NoError(t, err)
-
-		assert.Equal(t, entry.PhysicalDeviceName, name)
+		assert.Equal(t, entry.PhysicalDeviceName, entry.Gate.Name)
 	}
 }
 

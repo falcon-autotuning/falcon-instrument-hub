@@ -3,12 +3,13 @@ package devicestate
 import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/voltage-states/devicevoltagestate"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/voltage-states/devicevoltagestates"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
-type DeviceVoltageStates map[ConnectionName]DeviceVoltageState
+type DeviceVoltageStates map[falconcore.ConnectionName]DeviceVoltageState
 
 func DeviceVoltageStatesFromFalcon(d *devicevoltagestates.Handle) (DeviceVoltageStates, error) {
-	out := make(map[ConnectionName]DeviceVoltageState)
+	out := make(map[falconcore.ConnectionName]DeviceVoltageState)
 	list, err := d.Items()
 	if err != nil {
 		return DeviceVoltageStates{}, err

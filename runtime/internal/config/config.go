@@ -521,6 +521,8 @@ type HubConfig struct {
 	Wiremap []WiremapEntry `yaml:"wiremap" json:"wiremap"`
 	// Global Path to the quantum dot config describing the device loaded
 	QuantumDotConfig string `yaml:"quantum-dot-config" json:"quantum-dot-config"`
+	// Initial Voltage state to allow for connecting to running devices without shocking. defaults to 0V
+	InitialDeviceVoltageState VoltageStates `yaml:"initial-voltage-state" json:"initial-voltage-state"`
 	// NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222
 	NATSURL string `yaml:"nats-url" json:"nats-url"`
 	// Global Path to the local runtime database for collected data
@@ -607,6 +609,15 @@ func Validate(c *HubConfig) error {
 	}
 
 	if err := c.InstrumentServer.Validate(); err != nil {
+		return err
+	}
+
+	allDeviceConns, err := acquireAllDeviceConns(c.QuantumDotConfig)
+	if err != nil {
+		return err
+	}
+
+	if err := c.InitialDeviceVoltageState.DefaultToZero(allDeviceConns); err != nil {
 		return err
 	}
 

@@ -3,6 +3,7 @@ package devicestate
 import (
 	"testing"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,9 +14,9 @@ func TestStartup(t *testing.T) {
 
 	initial := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: PlungerGate,
+				Type: falconcore.PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1.23,
@@ -40,9 +41,9 @@ func TestStartup_CopiesInput(t *testing.T) {
 
 	initial := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: PlungerGate,
+				Type: falconcore.PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1,
@@ -54,9 +55,9 @@ func TestStartup_CopiesInput(t *testing.T) {
 	require.NoError(t, Startup(initial))
 
 	initial["P2"] = DeviceVoltageState{
-		Connection: Connection{
+		Connection: falconcore.Connection{
 			Name: "P2",
-			Type: BarrierGate,
+			Type: falconcore.BarrierGate,
 		},
 		Quantity: Quantity{
 			Value: 2,
@@ -122,9 +123,9 @@ func TestClose(t *testing.T) {
 		Startup(
 			DeviceVoltageStates{
 				"P1": {
-					Connection: Connection{
+					Connection: falconcore.Connection{
 						Name: "P1",
-						Type: PlungerGate,
+						Type: falconcore.PlungerGate,
 					},
 					Quantity: Quantity{
 						Value: 1,
@@ -158,9 +159,9 @@ func TestClose_ClearsManagerState(t *testing.T) {
 		Startup(
 			DeviceVoltageStates{
 				"P1": {
-					Connection: Connection{
+					Connection: falconcore.Connection{
 						Name: "P1",
-						Type: PlungerGate,
+						Type: falconcore.PlungerGate,
 					},
 					Quantity: Quantity{
 						Value: 1,

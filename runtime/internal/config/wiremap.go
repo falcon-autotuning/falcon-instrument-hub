@@ -8,7 +8,7 @@ import (
 
 	falconconfig "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/config/core/config"
 	falconloader "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/config/loader"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"gopkg.in/yaml.v3"
 )
 
@@ -41,11 +41,11 @@ type WireMap []WiremapEntry
 
 type WiremapEntry struct {
 	// Logical device connection name, for example P1, B2, or O1
-	PhysicalDeviceName string            `yaml:"name" json:"name"`
-	Instrument         WiremapInstrument `yaml:"instrument" json:"instrument"`
+	PhysicalDeviceName falconcore.ConnectionName `yaml:"name" json:"name"`
+	Instrument         WiremapInstrument         `yaml:"instrument" json:"instrument"`
 
 	// Not serialized. Populated during validation.
-	Gate *connection.Handle `yaml:"-" json:"-"`
+	Gate falconcore.Connection `yaml:"-" json:"-"`
 }
 
 type WiremapInstrument struct {
@@ -71,6 +71,23 @@ func loadConfig(deviceConfigPath string) (*falconconfig.Handle, error) {
 	return ch, nil
 }
 
+// Bypass Config port in falconcore package by opening the C handle once again for config, unpacking the Connections and safely shutting back down.
+func acquireAllDeviceConns(quantumDotConfigPath string) (falconcore.Connections, error) {
+	conf, err := loadConfig(quantumDotConfigPath)
+	if err != nil {
+		return falconcore.Connections{}, err
+	}
+
+	connections, err := conf.GetAllConnections()
+	if err != nil {
+		return falconcore.Connections{}, err
+	}
+	out, err := falconcore.ConnectionsFromFalcon(connections)
+	conf.Close()
+	connections.Close()
+	return out, err
+}
+
 // ResolveWiremap loads the YAML and validates every wiremap entry
 // against the Falcon device configuration. Each entry is linked
 // to its resolved Falcon gate object.
@@ -78,36 +95,16 @@ func ResolveWiremap(
 	entries []WiremapEntry,
 	deviceConfigPath string,
 ) error {
-	conf, err := loadConfig(deviceConfigPath)
-	if err != nil {
-		return err
-	}
-
-	connections, err := conf.GetAllConnections()
-	if err != nil {
-		return err
-	}
-
-	rawConnections, err := connections.Items()
-	if err != nil {
-		return err
-	}
-
-	listConnections, err := rawConnections.Items()
+	listConnections, err := acquireAllDeviceConns(deviceConfigPath)
 	if err != nil {
 		return err
 	}
 
 	// Build lookup table once.
-	gates := make(map[string]*connection.Handle, len(listConnections))
+	gates := make(map[falconcore.ConnectionName]falconcore.Connection, len(listConnections))
 
 	for _, gate := range listConnections {
-		name, err := gate.Name()
-		if err != nil {
-			return err
-		}
-
-		gates[name] = gate
+		gates[gate.Name] = gate
 	}
 
 	// Resolve every wiremap entry.
@@ -134,5 +131,3 @@ func LoadDeviceConfig(deviceConfigPath string) (string, error) {
 
 	return conf.ToJSON()
 }
-
-type InstrumentConnection string

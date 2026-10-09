@@ -11,7 +11,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/porttype"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 // PortEntry describes a single port type defined in an instrument API.
@@ -540,8 +540,8 @@ type ConnectedPort struct {
 	// PortName is the fully qualified port name, e.g. "Mock.Source1.analog.voltage".
 	PortName PortName
 	// DeviceName is the logical device name, e.g. "P1".
-	DeviceName string
-	Handle     *connection.Handle
+	DeviceName falconcore.ConnectionName
+	Handle     falconcore.Connection
 }
 
 // ConnectWireMap resolves wiremap entries against the port library, returning
@@ -683,7 +683,7 @@ func (h ConnectedPorts) ResolveConnectedPort(
 
 	var matches []ConnectedPort
 	for _, cp := range h.AllConnections {
-		if cp.DeviceName == defaultName &&
+		if cp.DeviceName == falconcore.ConnectionName(defaultName) &&
 			cp.InstrumentName == instrumentName &&
 			cp.InstrumentType == instrumentType &&
 			cp.Role == role &&

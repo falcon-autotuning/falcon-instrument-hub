@@ -181,12 +181,16 @@ func serializePortsToCerealJSON(connectedPorts []config.ConnectedPort) (string, 
 		if err != nil {
 			return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
 		}
+		realconn, err := conn.NewFalconConnection()
+		if err != nil {
+			return "", err
+		}
 
 		var h *instrumentport.Handle
 		if cp.IsKnob() {
-			h, err = instrumentport.NewKnob(string(cp.PortName), cp.InstrumentName, conn, cp.InstrumentType, unit, cp.Description)
+			h, err = instrumentport.NewKnob(string(cp.PortName), cp.InstrumentName, realconn, cp.InstrumentType, unit, cp.Description)
 		} else {
-			h, err = instrumentport.NewMeter(string(cp.PortName), cp.InstrumentName, conn, cp.InstrumentType, unit, cp.Description)
+			h, err = instrumentport.NewMeter(string(cp.PortName), cp.InstrumentName, realconn, cp.InstrumentType, unit, cp.Description)
 		}
 		if err != nil {
 			return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)

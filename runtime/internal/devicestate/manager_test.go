@@ -5,15 +5,17 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 func TestDeviceStateManager_UpdatePort(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -39,9 +41,9 @@ func TestDeviceStateManager_UpdatePort(t *testing.T) {
 
 	assert.Equal(
 		t,
-		Connection{
+		falconcore.Connection{
 			Name: "P1",
-			Type: PlungerGate,
+			Type: falconcore.PlungerGate,
 		},
 		actual.Connection,
 	)
@@ -65,9 +67,9 @@ func TestDeviceStateManager_Port_Found(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: expected,
 			},
@@ -95,9 +97,9 @@ func TestDeviceStateManager_Snapshot(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -122,9 +124,9 @@ func TestDeviceStateManager_Snapshot_IsCopy(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -137,9 +139,9 @@ func TestDeviceStateManager_Snapshot_IsCopy(t *testing.T) {
 	snapshot := mgr.Snapshot()
 
 	snapshot["P2"] = DeviceVoltageState{
-		Connection: Connection{
+		Connection: falconcore.Connection{
 			Name: "P2",
-			Type: BarrierGate,
+			Type: falconcore.BarrierGate,
 		},
 		Quantity: Quantity{
 			Value: 5,
@@ -157,9 +159,9 @@ func TestDeviceStateManager_Clear(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -178,9 +180,9 @@ func TestDeviceStateManager_Close(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -200,9 +202,9 @@ func TestDeviceStateManager_Close_AlreadyClosed(t *testing.T) {
 	mgr := &DeviceStateManager{
 		state: DeviceVoltageStates{
 			"P1": {
-				Connection: Connection{
+				Connection: falconcore.Connection{
 					Name: "P1",
-					Type: PlungerGate,
+					Type: falconcore.PlungerGate,
 				},
 				Quantity: Quantity{
 					Value: 1,
@@ -243,5 +245,5 @@ func TestDeviceStateManager_UpdatePort_NewPort(t *testing.T) {
 		Unit:  Volt,
 	}, state.Quantity)
 
-	assert.Equal(t, Connection{}, state.Connection)
+	assert.Equal(t, falconcore.Connection{}, state.Connection)
 }

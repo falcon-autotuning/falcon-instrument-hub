@@ -6,6 +6,7 @@ import (
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,7 +35,7 @@ func (f *fakeDeviceVoltageStateReader) Connection() (*connection.Handle, error) 
 }
 
 func TestDeviceVoltageState_NewFalconDeviceVoltageState(t *testing.T) {
-	conn := Connection{
+	conn := falconcore.Connection{
 		Name: "P1",
 	}
 
@@ -65,7 +66,7 @@ func TestDeviceVoltageState_NewFalconDeviceVoltageState_BadUnit(t *testing.T) {
 			Value: 1,
 			Unit:  Unit(999999),
 		},
-		Connection: Connection{
+		Connection: falconcore.Connection{
 			Name: "P1",
 		},
 	}
@@ -95,14 +96,14 @@ func TestDeviceVoltageStateFromFalcon_Success(t *testing.T) {
 
 	require.NoError(t, err)
 
-	assert.Equal(t, 3.14, actual.Quantity.Value)
-	assert.Equal(t, Volt, actual.Quantity.Unit)
+	assert.Equal(t, 3.14, actual.Value)
+	assert.Equal(t, Volt, actual.Unit)
 
 	assert.Equal(
 		t,
-		Connection{
+		falconcore.Connection{
 			Name: "P1",
-			Type: PlungerGate,
+			Type: falconcore.PlungerGate,
 		},
 		actual.Connection,
 	)

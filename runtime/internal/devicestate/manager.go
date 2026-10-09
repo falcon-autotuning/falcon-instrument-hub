@@ -3,6 +3,8 @@ package devicestate
 import (
 	"maps"
 	"sync"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 type DeviceStateManager struct {
@@ -12,7 +14,7 @@ type DeviceStateManager struct {
 }
 
 func (m *DeviceStateManager) UpdatePort(
-	port ConnectionName,
+	port falconcore.ConnectionName,
 	value Quantity,
 ) error {
 	m.mu.Lock()
@@ -25,7 +27,7 @@ func (m *DeviceStateManager) UpdatePort(
 }
 
 func (m *DeviceStateManager) Port(
-	port ConnectionName,
+	port falconcore.ConnectionName,
 ) (Quantity, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -38,7 +40,7 @@ func (m *DeviceStateManager) Snapshot() DeviceVoltageStates {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	result := make(map[ConnectionName]DeviceVoltageState, len(m.state))
+	result := make(map[falconcore.ConnectionName]DeviceVoltageState, len(m.state))
 
 	maps.Copy(result, m.state)
 

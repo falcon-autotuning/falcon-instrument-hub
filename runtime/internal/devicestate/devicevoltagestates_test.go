@@ -3,6 +3,7 @@ package devicestate
 import (
 	"testing"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -29,9 +30,9 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_Single(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: PlungerGate,
+				Type: falconcore.PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1.5,
@@ -57,9 +58,9 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidConnection(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: ConnectionType(999),
+				Type: falconcore.ConnectionType(999),
 			},
 			Quantity: Quantity{
 				Value: 1,
@@ -79,9 +80,9 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidUnit(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: PlungerGate,
+				Type: falconcore.PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1,
@@ -112,9 +113,9 @@ func TestDeviceVoltageStates_RoundTrip(
 ) {
 	original := DeviceVoltageStates{
 		"P1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "P1",
-				Type: PlungerGate,
+				Type: falconcore.PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1.25,
@@ -122,9 +123,9 @@ func TestDeviceVoltageStates_RoundTrip(
 			},
 		},
 		"B1": {
-			Connection: Connection{
+			Connection: falconcore.Connection{
 				Name: "B1",
-				Type: BarrierGate,
+				Type: falconcore.BarrierGate,
 			},
 			Quantity: Quantity{
 				Value: 500,
@@ -155,14 +156,14 @@ func TestDeviceVoltageStates_RoundTrip(
 
 		assert.Equal(
 			t,
-			expected.Quantity.Unit,
-			actual.Quantity.Unit,
+			expected.Unit,
+			actual.Unit,
 		)
 
 		assert.InDelta(
 			t,
-			expected.Quantity.Value,
-			actual.Quantity.Value,
+			expected.Value,
+			actual.Value,
 			1e-12,
 		)
 	}

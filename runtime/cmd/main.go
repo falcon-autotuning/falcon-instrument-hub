@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
@@ -127,7 +129,6 @@ func InitializeRuntimeEnvironment(cfg *config.HubConfig) error {
 	return nil
 }
 
-// TODO: Setup the DeviceState container and register teardown
 type Runtime struct {
 	cfg *config.HubConfig
 
@@ -288,8 +289,64 @@ func (deps RuntimeDependencies) NewRuntime(
 			return services, fmt.Errorf("failed to start status handler: %w", err)
 		}
 	}
+	// Initiliaze with a DeviceVoltageStates of 0 for all gates
+	devicestate.Startup(buildInitialDeviceVoltageState(cfg.Wiremap, cfg.InitialDeviceVoltageState))
 
 	return services, nil
+}
+
+func quantityFromConfig(v config.VoltageState) devicestate.Quantity {
+	value := v.Voltage
+
+	switch v.Unit {
+	case config.Volt:
+		// already volts
+
+	case config.Millivolt:
+		value /= 1e3
+
+	case config.Microvolt:
+		value /= 1e6
+
+	default:
+		// unreachable if config validation is correct
+	}
+
+	return devicestate.Quantity{
+		Value: value,
+		Unit:  devicestate.Volt,
+	}
+}
+
+func buildInitialDeviceVoltageState(
+	wmap config.WireMap,
+	states config.VoltageStates,
+) devicestate.DeviceVoltageStates {
+	outs := make(devicestate.DeviceVoltageStates, len(wmap))
+
+	for _, entry := range wmap {
+		outs[entry.Gate.Name] = devicestate.DeviceVoltageState{
+			Connection: entry.Gate,
+			Quantity: devicestate.Quantity{
+				Value: 0,
+				Unit:  devicestate.Volt,
+			},
+		}
+	}
+
+	for _, state := range states {
+		name := falconcore.ConnectionName(state.Connection)
+
+		current, ok := outs[name]
+		if !ok {
+			continue
+		}
+
+		current.Quantity = quantityFromConfig(state)
+		outs[name] = current
+	}
+
+	return outs
 }
 
 func (r Runtime) stopInstruments() {
@@ -327,6 +384,7 @@ func (r *Runtime) Close() {
 	if r.issClient != nil {
 		r.issClient.Close()
 	}
+	devicestate.Close()
 }
 
 func (r Runtime) runServer() error {
