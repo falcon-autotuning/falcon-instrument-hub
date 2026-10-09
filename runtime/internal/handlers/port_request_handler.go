@@ -10,7 +10,6 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -177,7 +176,7 @@ func serializePortsToCerealJSON(connectedPorts []config.ConnectedPort) (string, 
 	portHandles := make([]*instrumentport.Handle, 0, len(connectedPorts))
 	for _, cp := range connectedPorts {
 		conn := cp.Handle
-		unit, err := interpreter.SymbolUnitFromString(cp.Unit)
+		unit, err := cp.Unit.NewSymbolUnit()
 		if err != nil {
 			return "", fmt.Errorf("failed to create unit %q for port %s: %w", cp.Unit, cp.PortName, err)
 		}

@@ -20,7 +20,7 @@ func TestStartup(t *testing.T) {
 			},
 			Quantity: Quantity{
 				Value: 1.23,
-				Unit:  Volt,
+				Unit:  falconcore.Volt,
 			},
 		},
 	}
@@ -47,7 +47,7 @@ func TestStartup_CopiesInput(t *testing.T) {
 			},
 			Quantity: Quantity{
 				Value: 1,
-				Unit:  Volt,
+				Unit:  falconcore.Volt,
 			},
 		},
 	}
@@ -61,7 +61,7 @@ func TestStartup_CopiesInput(t *testing.T) {
 		},
 		Quantity: Quantity{
 			Value: 2,
-			Unit:  Volt,
+			Unit:  falconcore.Volt,
 		},
 	}
 
@@ -129,7 +129,7 @@ func TestClose(t *testing.T) {
 					},
 					Quantity: Quantity{
 						Value: 1,
-						Unit:  Volt,
+						Unit:  falconcore.Volt,
 					},
 				},
 			},
@@ -165,7 +165,7 @@ func TestClose_ClearsManagerState(t *testing.T) {
 					},
 					Quantity: Quantity{
 						Value: 1,
-						Unit:  Volt,
+						Unit:  falconcore.Volt,
 					},
 				},
 			},

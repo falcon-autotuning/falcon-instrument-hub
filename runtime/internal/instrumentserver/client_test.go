@@ -760,15 +760,15 @@ func TestMeasureJobResultToCallResultsMapsBufferReturn(t *testing.T) {
 		)
 	}
 
-	gotValue, ok := result.Return[0].Value.Value.(string)
+	gotValue, ok := result.Return[0].Value.Value.(DataBuffer)
 	if !ok {
 		t.Fatalf(
-			"return value type = %T, want string",
+			"return value type = %T, want DataBuffer",
 			result.Return[0].Value.Value,
 		)
 	}
 
-	if gotValue != bufferId {
+	if gotValue != DataBuffer(bufferId) {
 		t.Fatalf(
 			"buffer id = %q, want %s",
 			gotValue,

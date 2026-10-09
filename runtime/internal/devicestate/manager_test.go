@@ -19,7 +19,7 @@ func TestDeviceStateManager_UpdatePort(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -29,7 +29,7 @@ func TestDeviceStateManager_UpdatePort(t *testing.T) {
 		"P1",
 		Quantity{
 			Value: 2,
-			Unit:  Millivolt,
+			Unit:  falconcore.Millivolt,
 		},
 	)
 
@@ -52,7 +52,7 @@ func TestDeviceStateManager_UpdatePort(t *testing.T) {
 		t,
 		Quantity{
 			Value: 2,
-			Unit:  Millivolt,
+			Unit:  falconcore.Millivolt,
 		},
 		actual.Quantity,
 	)
@@ -61,7 +61,7 @@ func TestDeviceStateManager_UpdatePort(t *testing.T) {
 func TestDeviceStateManager_Port_Found(t *testing.T) {
 	expected := Quantity{
 		Value: 123,
-		Unit:  Volt,
+		Unit:  falconcore.Volt,
 	}
 
 	mgr := &DeviceStateManager{
@@ -103,7 +103,7 @@ func TestDeviceStateManager_Snapshot(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -130,7 +130,7 @@ func TestDeviceStateManager_Snapshot_IsCopy(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -145,7 +145,7 @@ func TestDeviceStateManager_Snapshot_IsCopy(t *testing.T) {
 		},
 		Quantity: Quantity{
 			Value: 5,
-			Unit:  Volt,
+			Unit:  falconcore.Volt,
 		},
 	}
 
@@ -165,7 +165,7 @@ func TestDeviceStateManager_Clear(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -186,7 +186,7 @@ func TestDeviceStateManager_Close(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -208,7 +208,7 @@ func TestDeviceStateManager_Close_AlreadyClosed(t *testing.T) {
 				},
 				Quantity: Quantity{
 					Value: 1,
-					Unit:  Volt,
+					Unit:  falconcore.Volt,
 				},
 			},
 		},
@@ -232,7 +232,7 @@ func TestDeviceStateManager_UpdatePort_NewPort(t *testing.T) {
 		"P1",
 		Quantity{
 			Value: 1,
-			Unit:  Volt,
+			Unit:  falconcore.Volt,
 		},
 	)
 
@@ -242,7 +242,7 @@ func TestDeviceStateManager_UpdatePort_NewPort(t *testing.T) {
 
 	assert.Equal(t, Quantity{
 		Value: 1,
-		Unit:  Volt,
+		Unit:  falconcore.Volt,
 	}, state.Quantity)
 
 	assert.Equal(t, falconcore.Connection{}, state.Connection)

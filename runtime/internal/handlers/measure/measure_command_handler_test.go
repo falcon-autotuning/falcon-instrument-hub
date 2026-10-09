@@ -694,14 +694,9 @@ func TestHandler_ReceivesMeasureCommand(
 		nc.Flush(),
 	)
 
-	require.Eventually(
-		t,
-		func() bool {
-			return router.callCount > 0
-		},
-		time.Second,
-		10*time.Millisecond,
-	)
+	require.Eventually(t, func() bool {
+		return resp.closeCalls == 1
+	}, time.Second, 10*time.Millisecond)
 
 	assert.Equal(t, 1, router.callCount)
 	assert.Equal(t, 1, req.closeCalls)

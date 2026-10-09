@@ -10,6 +10,7 @@ import (
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -642,7 +643,7 @@ instrument-server:
 
 	assert.Equal(
 		t,
-		"P1",
+		falconcore.ConnectionName("P1"),
 		entry.PhysicalDeviceName,
 	)
 

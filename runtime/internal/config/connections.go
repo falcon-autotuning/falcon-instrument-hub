@@ -24,7 +24,7 @@ type PortEntry struct {
 	Access         access.Access
 	Scope          scope.Scope
 	Characteristic instrumentcharacteristic.InstrumentCharacteristic
-	Unit           string
+	Unit           falconcore.Unit
 	Description    string
 }
 
@@ -87,6 +87,10 @@ func addIOPort(
 
 		return fmt.Errorf("%s IO %q: %w", context, id, err)
 	}
+	unit, err := falconcore.SymbolToUnit(io.Unit)
+	if err != nil {
+		return err
+	}
 
 	return addPort(
 		library,
@@ -99,7 +103,7 @@ func addIOPort(
 			Role:           portType,
 			Access:         portAccess,
 			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-			Unit:           io.Unit, // FIX: This unit needs to come from the io_config in the ConfigFile since the ISS is upholding this
+			Unit:           unit, // FIX: This unit needs to come from the io_config in the ConfigFile since the ISS is upholding this
 			Description:    io.Description,
 		},
 	)

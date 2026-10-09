@@ -14,6 +14,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -60,7 +61,7 @@ func TestConnectWireMap(t *testing.T) {
 			Role:           porttype.PortTypeKnob,
 			Access:         access.Write,
 			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-			Unit:           "V",
+			Unit:           falconcore.Volt,
 			Description:    "Voltage output",
 		},
 		"source.measure": {
@@ -71,7 +72,7 @@ func TestConnectWireMap(t *testing.T) {
 			Role:           porttype.PortTypeMeter,
 			Access:         access.Read,
 			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-			Unit:           "V",
+			Unit:           falconcore.Volt,
 			Description:    "Voltage measurement",
 		},
 	}
@@ -93,7 +94,7 @@ func TestConnectWireMap(t *testing.T) {
 	require.Len(t, connected, 2)
 
 	for _, cp := range connected {
-		assert.Equal(t, "P1", cp.DeviceName)
+		assert.Equal(t, falconcore.ConnectionName("P1"), cp.DeviceName)
 		assert.Equal(t, "Source1", cp.InstrumentName)
 		assert.Equal(t, "analog", cp.ChannelGroup)
 		assert.Equal(t, 4, cp.Channel)
@@ -276,7 +277,7 @@ api_ref: %s
 
 	assert.Equal(
 		t,
-		"V",
+		falconcore.Volt,
 		knob.Unit,
 	)
 

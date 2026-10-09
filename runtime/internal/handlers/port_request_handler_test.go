@@ -184,28 +184,12 @@ func TestSerializePortsToCerealJSON_Empty(t *testing.T) {
 	defer handle.Close()
 }
 
-func TestSerializePortsToCerealJSON_InvalidUnit(t *testing.T) {
-	_, err := serializePortsToCerealJSON([]config.ConnectedPort{
-		{
-			PortEntry: config.PortEntry{
-				Role:        porttype.PortTypeMeter,
-				Unit:        "not-a-unit",
-				Description: "bad unit",
-			},
-			PortName: "Source1.voltage",
-		},
-	})
-
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to create instrument port")
-}
-
 func TestSerializePortsToCerealJSON_HappyPath(t *testing.T) {
 	out, err := serializePortsToCerealJSON([]config.ConnectedPort{
 		{
 			PortEntry: config.PortEntry{
 				Role:           porttype.PortTypeMeter,
-				Unit:           "V",
+				Unit:           falconcore.Volt,
 				Description:    "Voltage source",
 				InstrumentType: instrument.DcVoltageSource,
 			},

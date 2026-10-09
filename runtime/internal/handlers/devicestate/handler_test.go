@@ -60,7 +60,7 @@ func TestHandler_EndToEnd(t *testing.T) {
 					},
 					Quantity: devicestate.Quantity{
 						Value: 1.23,
-						Unit:  devicestate.Volt,
+						Unit:  falconcore.Volt,
 					},
 				},
 			},

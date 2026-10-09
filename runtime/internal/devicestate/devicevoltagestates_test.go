@@ -36,7 +36,7 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_Single(
 			},
 			Quantity: Quantity{
 				Value: 1.5,
-				Unit:  Volt,
+				Unit:  falconcore.Volt,
 			},
 		},
 	}
@@ -64,7 +64,7 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidConnection(
 			},
 			Quantity: Quantity{
 				Value: 1,
-				Unit:  Volt,
+				Unit:  falconcore.Volt,
 			},
 		},
 	}
@@ -86,7 +86,7 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidUnit(
 			},
 			Quantity: Quantity{
 				Value: 1,
-				Unit:  Unit(999),
+				Unit:  falconcore.Unit(999),
 			},
 		},
 	}
@@ -119,7 +119,7 @@ func TestDeviceVoltageStates_RoundTrip(
 			},
 			Quantity: Quantity{
 				Value: 1.25,
-				Unit:  Volt,
+				Unit:  falconcore.Volt,
 			},
 		},
 		"B1": {
@@ -129,7 +129,7 @@ func TestDeviceVoltageStates_RoundTrip(
 			},
 			Quantity: Quantity{
 				Value: 500,
-				Unit:  Millivolt,
+				Unit:  falconcore.Millivolt,
 			},
 		},
 	}

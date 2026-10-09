@@ -31,6 +31,10 @@
           "type": "string",
           "description": "Global Path to the quantum dot config describing the device loaded"
         },
+        "initial-voltage-state": {
+          "$ref": "#/$defs/VoltageStates",
+          "description": "Initial Voltage state to allow for connecting to running devices without shocking. defaults to 0V"
+        },
         "nats-url": {
           "type": "string",
           "description": "NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222"
@@ -57,6 +61,7 @@
       "required": [
         "wiremap",
         "quantum-dot-config",
+        "initial-voltage-state",
         "nats-url",
         "local-database",
         "working-directory",
@@ -133,6 +138,35 @@
         "autostart",
         "instruments"
       ]
+    },
+    "VoltageState": {
+      "properties": {
+        "voltage": {
+          "type": "number",
+          "description": "The starting voltage value on the device"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the device connection"
+        },
+        "unit": {
+          "type": "integer",
+          "description": "The unit of the applied voltage (volt, millivolt, microvolt)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "voltage",
+        "name",
+        "unit"
+      ]
+    },
+    "VoltageStates": {
+      "items": {
+        "$ref": "#/$defs/VoltageState"
+      },
+      "type": "array"
     },
     "WiremapEntry": {
       "properties": {

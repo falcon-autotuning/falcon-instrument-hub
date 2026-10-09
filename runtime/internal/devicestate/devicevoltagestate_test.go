@@ -42,7 +42,7 @@ func TestDeviceVoltageState_NewFalconDeviceVoltageState(t *testing.T) {
 	state := DeviceVoltageState{
 		Quantity: Quantity{
 			Value: 1.25,
-			Unit:  Volt,
+			Unit:  falconcore.Volt,
 		},
 		Connection: conn,
 	}
@@ -64,7 +64,7 @@ func TestDeviceVoltageState_NewFalconDeviceVoltageState_BadUnit(t *testing.T) {
 	state := DeviceVoltageState{
 		Quantity: Quantity{
 			Value: 1,
-			Unit:  Unit(999999),
+			Unit:  falconcore.Unit(999999),
 		},
 		Connection: falconcore.Connection{
 			Name: "P1",
@@ -97,7 +97,7 @@ func TestDeviceVoltageStateFromFalcon_Success(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, 3.14, actual.Value)
-	assert.Equal(t, Volt, actual.Unit)
+	assert.Equal(t, falconcore.Volt, actual.Unit)
 
 	assert.Equal(
 		t,

@@ -314,7 +314,7 @@ func quantityFromConfig(v config.VoltageState) devicestate.Quantity {
 
 	return devicestate.Quantity{
 		Value: value,
-		Unit:  devicestate.Volt,
+		Unit:  falconcore.Volt,
 	}
 }
 
@@ -329,7 +329,7 @@ func buildInitialDeviceVoltageState(
 			Connection: entry.Gate,
 			Quantity: devicestate.Quantity{
 				Value: 0,
-				Unit:  devicestate.Volt,
+				Unit:  falconcore.Volt,
 			},
 		}
 	}

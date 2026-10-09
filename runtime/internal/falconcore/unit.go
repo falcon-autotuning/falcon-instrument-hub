@@ -1,4 +1,4 @@
-package devicestate
+package falconcore
 
 import (
 	"fmt"
@@ -217,14 +217,18 @@ func (u Unit) NewSymbolUnit() (*symbolunit.Handle, error) {
 	}
 }
 
+func SymbolToUnit(s string) (Unit, error) {
+	unit, ok := symbolToUnit[s]
+	if ok {
+		return unit, nil
+	}
+	return 0, fmt.Errorf("unsupported unit symbol %q", s)
+}
+
 func SymbolFromFalcon(s *symbolunit.Handle) (Unit, error) {
 	symbol, err := s.Symbol()
 	if err != nil {
 		return 0, err
 	}
-	unit, ok := symbolToUnit[symbol]
-	if ok {
-		return unit, nil
-	}
-	return 0, fmt.Errorf("unsupported unit symbol %q", symbol)
+	return SymbolToUnit(symbol)
 }
