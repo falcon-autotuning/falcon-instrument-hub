@@ -98,6 +98,3 @@ func (v *VoltageStates) DefaultToZero(
 
 	return nil
 }
-
-// TODO: Need to write tests for this
-// Need to connect to main.go. Need to connect to config contents
