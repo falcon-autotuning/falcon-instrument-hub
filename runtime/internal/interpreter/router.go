@@ -6,8 +6,33 @@ import (
 	"fmt"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
+
+// StateUpdater represents the mandatory state update required by every measurment workflow.
+type StateUpdater interface {
+	UpdatePort(
+		port falconcore.ConnectionName,
+		value devicestate.Quantity,
+	) error
+}
+
+type trackedStateUpdater struct {
+	manager *devicestate.DeviceStateManager
+	updates int
+}
+
+func (t *trackedStateUpdater) UpdatePort(
+	port falconcore.ConnectionName,
+	value devicestate.Quantity,
+) error {
+	t.updates++
+	return t.manager.UpdatePort(port, value)
+}
+
+var _ StateUpdater = (*trackedStateUpdater)(nil)
 
 // MeasurementHandler represents a single measurement workflow.
 //
@@ -41,6 +66,7 @@ type MeasurementHandler interface {
 		dispatcher *dispatcher.MeasurementDispatcher,
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
+		tracker StateUpdater,
 	) (*FalconMeasurementResponse, error)
 }
 
@@ -121,13 +147,36 @@ func (r *Router) Handle(
 				err,
 			)
 		}
+
 		if pass {
-			return handler.Handle(
+			tracker := &trackedStateUpdater{
+				manager: devicestate.Manager(),
+			}
+
+			if tracker.manager == nil {
+				return nil, fmt.Errorf(
+					"device state manager not initialized",
+				)
+			}
+
+			resp, err := handler.Handle(
 				req,
 				r.dispatcher,
 				r.wiremap,
 				r.ports,
+				tracker,
 			)
+			if err != nil {
+				return nil, err
+			}
+
+			if tracker.updates == 0 {
+				return nil, fmt.Errorf(
+					"handler %q completed without updating device state",
+					handler.Name(),
+				)
+			}
+			return resp, nil
 		}
 	}
 

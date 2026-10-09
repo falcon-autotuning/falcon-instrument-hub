@@ -7,7 +7,9 @@ import (
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +25,8 @@ type mockHandler struct {
 
 	canHandleCalls int
 	handleCalls    int
+
+	updatePort bool
 
 	lastRequest    *FalconMeasurementRequest
 	lastDispatcher *dispatcher.MeasurementDispatcher
@@ -46,15 +50,43 @@ func (m *mockHandler) Handle(
 	dispatcher *dispatcher.MeasurementDispatcher,
 	wiremap config.WireMap,
 	ports *config.ConnectedPorts,
+	tracker StateUpdater,
 ) (*FalconMeasurementResponse, error) {
 	m.handleCalls++
 	m.lastRequest = req
 	m.lastDispatcher = dispatcher
 
+	if m.updatePort {
+		_ = tracker.UpdatePort(
+			"P1",
+			devicestate.Quantity{},
+		)
+	}
+
 	return m.handleResponse, m.handleErr
 }
 
+func setupDeviceState(t *testing.T) {
+	t.Helper()
+
+	devicestate.Close()
+
+	err := devicestate.Startup(
+		devicestate.DeviceVoltageStates{
+			"P1": {
+				Connection: falconcore.Connection{
+					Name: "P1",
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	t.Cleanup(devicestate.Close)
+}
+
 func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
+	setupDeviceState(t)
 	dispatcher := &dispatcher.MeasurementDispatcher{}
 
 	req := &FalconMeasurementRequest{}
@@ -69,6 +101,7 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 		name:            "second",
 		canHandleResult: true,
 		handleResponse:  resp,
+		updatePort:      true,
 	}
 
 	third := &mockHandler{
@@ -107,10 +140,12 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 }
 
 func TestRouter_Handle_FirstMatchWins(t *testing.T) {
+	setupDeviceState(t)
 	first := &mockHandler{
 		name:            "first",
 		canHandleResult: true,
 		handleResponse:  &FalconMeasurementResponse{},
+		updatePort:      true,
 	}
 
 	second := &mockHandler{
@@ -166,6 +201,7 @@ func TestRouter_Handle_CanHandleError(t *testing.T) {
 }
 
 func TestRouter_Handle_HandlerError(t *testing.T) {
+	setupDeviceState(t)
 	dispatcher := &dispatcher.MeasurementDispatcher{}
 
 	expectedErr := errors.New("measurement failed")
@@ -231,4 +267,158 @@ func TestRouter_Handle_NoMatchingHandlers(t *testing.T) {
 
 	assert.Equal(t, 1, handler1.canHandleCalls)
 	assert.Equal(t, 1, handler2.canHandleCalls)
+}
+
+func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
+	devicestate.Close()
+
+	err := devicestate.Startup(
+		devicestate.DeviceVoltageStates{
+			"P1": {
+				Connection: falconcore.Connection{
+					Name: "P1",
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	defer devicestate.Close()
+
+	resp := &FalconMeasurementResponse{}
+
+	handler := &mockHandler{
+		name:            "handler",
+		canHandleResult: true,
+		handleResponse:  resp,
+		updatePort:      true,
+	}
+
+	router := &Router{
+		handlers: []MeasurementHandler{
+			handler,
+		},
+	}
+
+	out, err := router.Handle(
+		&FalconMeasurementRequest{},
+	)
+
+	require.NoError(t, err)
+	assert.Same(t, resp, out)
+
+	assert.Equal(t, 1, handler.canHandleCalls)
+	assert.Equal(t, 1, handler.handleCalls)
+}
+
+func TestRouter_Handle_NoStateUpdate(t *testing.T) {
+	devicestate.Close()
+
+	err := devicestate.Startup(
+		devicestate.DeviceVoltageStates{
+			"P1": {
+				Connection: falconcore.Connection{
+					Name: "P1",
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	defer devicestate.Close()
+
+	handler := &mockHandler{
+		name:            "handler",
+		canHandleResult: true,
+		handleResponse:  &FalconMeasurementResponse{},
+		updatePort:      false,
+	}
+
+	router := &Router{
+		handlers: []MeasurementHandler{
+			handler,
+		},
+	}
+
+	resp, err := router.Handle(
+		&FalconMeasurementRequest{},
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, resp)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"completed without updating device state",
+	)
+}
+
+func TestTrackedStateUpdater_UpdatePort(t *testing.T) {
+	devicestate.Close()
+
+	err := devicestate.Startup(
+		devicestate.DeviceVoltageStates{
+			"P1": {
+				Connection: falconcore.Connection{
+					Name: "P1",
+				},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	defer devicestate.Close()
+
+	tracker := &trackedStateUpdater{
+		manager: devicestate.Manager(),
+	}
+
+	err = tracker.UpdatePort(
+		"P1",
+		devicestate.Quantity{
+			Value: 1,
+		},
+	)
+
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, tracker.updates)
+}
+
+func TestRouter_Handle_ManagerNotInitialized(t *testing.T) {
+	// Ensure no global manager exists.
+	devicestate.Close()
+
+	handler := &mockHandler{
+		name:            "handler",
+		canHandleResult: true,
+		handleResponse:  &FalconMeasurementResponse{},
+	}
+
+	router := &Router{
+		handlers: []MeasurementHandler{
+			handler,
+		},
+	}
+
+	resp, err := router.Handle(
+		&FalconMeasurementRequest{},
+	)
+
+	require.Error(t, err)
+	assert.Nil(t, resp)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"device state manager not initialized",
+	)
+
+	// CanHandle should still have been evaluated.
+	assert.Equal(t, 1, handler.canHandleCalls)
+
+	// Handle should never be reached because the router
+	// detects the missing manager first.
+	assert.Equal(t, 0, handler.handleCalls)
 }
