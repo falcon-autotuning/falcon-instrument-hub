@@ -18,6 +18,7 @@ func (c Connections) NewFalconConnections() (*connections.Handle, error) {
 			return nil, err
 		}
 		out.PushBack(realconn)
+		realconn.Close()
 	}
 	return out, nil
 }
@@ -33,6 +34,7 @@ func ConnectionsFromFalcon(c ConnectionsReader) (Connections, error) {
 	if err != nil {
 		return Connections{}, err
 	}
+	defer list.Close()
 	reallist, err := list.Items()
 	if err != nil {
 		return Connections{}, err
@@ -46,6 +48,7 @@ func ConnectionsFromFalcon(c ConnectionsReader) (Connections, error) {
 
 	for _, conn := range reallist {
 		realconn, err := ConnectionFromFalcon(conn)
+		defer conn.Close()
 		if err != nil {
 			return Connections{}, err
 		}
