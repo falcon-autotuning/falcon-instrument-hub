@@ -9,8 +9,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axesint"
 )
 
-// TODO: write full coverage unit tests
-
 type DatabaseEntry struct {
 	Shape        AxesInt
 	UnitDomain   AxesControlArray
