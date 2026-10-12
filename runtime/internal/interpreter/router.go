@@ -2,7 +2,6 @@
 
 package interpreter
 
-// TODO: Unique ID gen system
 import (
 	"fmt"
 
@@ -10,7 +9,44 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 )
+
+// MeasurementRecorder represents the mandatory database upload required by every measurment workflow.
+type MeasurementRecorder interface {
+	Insert(
+		insert measurementdb.InsertEntry,
+		entry measurementdb.DatabaseEntry,
+	) (measurementdb.CatalogEntry, error)
+
+	Writes() int
+}
+
+type trackedMeasurementRecorder struct {
+	writes int
+}
+
+var measurementInsert = measurementdb.Insert
+
+func (t *trackedMeasurementRecorder) Insert(
+	insert measurementdb.InsertEntry,
+	entry measurementdb.DatabaseEntry,
+) (measurementdb.CatalogEntry, error) {
+	out, err := measurementInsert(insert, entry)
+	if err != nil {
+		return measurementdb.CatalogEntry{}, err
+	}
+
+	t.writes++
+
+	return out, nil
+}
+
+func (t *trackedMeasurementRecorder) Writes() int {
+	return t.writes
+}
+
+var _ MeasurementRecorder = (*trackedMeasurementRecorder)(nil)
 
 // StateUpdater represents the mandatory state update required by every measurment workflow.
 type StateUpdater interface {
@@ -29,8 +65,13 @@ func (t *trackedStateUpdater) UpdatePort(
 	port falconcore.ConnectionName,
 	value falconcore.Quantity,
 ) error {
+	err := t.manager.UpdatePort(port, value)
+	if err != nil {
+		return err
+	}
+
 	t.updates++
-	return t.manager.UpdatePort(port, value)
+	return nil
 }
 
 var _ StateUpdater = (*trackedStateUpdater)(nil)
@@ -43,7 +84,7 @@ var _ StateUpdater = (*trackedStateUpdater)(nil)
 //   - extracting parameters from the request
 //   - executing any required measurements
 //   - constructing the final response
-//   - FIX: storing the data in the falconcore database (does not currently exist)
+//   - storing the data in the falconcore database
 //
 // Every handler is evaluated. Exactly one handler must claim the request.
 //
@@ -68,6 +109,7 @@ type MeasurementHandler interface {
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
 		tracker StateUpdater,
+		recorder MeasurementRecorder,
 	) (*FalconMeasurementResponse, error)
 }
 
@@ -159,6 +201,14 @@ func (r *Router) Handle(
 					"device state manager not initialized",
 				)
 			}
+			if _, err := measurementdb.Instance(); err != nil {
+				return nil, fmt.Errorf(
+					"measurement database not initialized: %w",
+					err,
+				)
+			}
+
+			recorder := &trackedMeasurementRecorder{}
 
 			resp, err := handler.Handle(
 				req,
@@ -166,6 +216,7 @@ func (r *Router) Handle(
 				r.wiremap,
 				r.ports,
 				tracker,
+				recorder,
 			)
 			if err != nil {
 				return nil, err
@@ -174,6 +225,12 @@ func (r *Router) Handle(
 			if tracker.updates == 0 {
 				return nil, fmt.Errorf(
 					"handler %q completed without updating device state",
+					handler.Name(),
+				)
+			}
+			if recorder.Writes() == 0 {
+				return nil, fmt.Errorf(
+					"handler %q completed without writing measurement data",
 					handler.Name(),
 				)
 			}

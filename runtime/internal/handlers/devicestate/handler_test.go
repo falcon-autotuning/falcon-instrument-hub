@@ -52,13 +52,13 @@ func TestHandler_EndToEnd(t *testing.T) {
 
 	require.NoError(t,
 		devicestate.Startup(
-			devicestate.DeviceVoltageStates{
+			falconcore.DeviceVoltageStates{
 				"P1": {
 					Connection: falconcore.Connection{
 						Name: "P1",
 						Type: falconcore.PlungerGate,
 					},
-					Quantity: devicestate.Quantity{
+					Quantity: falconcore.Quantity{
 						Value: 1.23,
 						Unit:  falconcore.Volt,
 					},
