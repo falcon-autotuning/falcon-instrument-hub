@@ -475,7 +475,8 @@ func (i *InstrumentConfig) Resolve() error {
 }
 
 type InstrumentServerConfig struct {
-	RPCPort     int                `yaml:"rpc-port" json:"rpc-port"`
+	RPCPort int `yaml:"rpc-port" json:"rpc-port"`
+	// AutoStart indicates if the hub owns the ISS or if it is persisiting in the background. If the hub owns the ISS then it is responsible for shutting it down
 	AutoStart   bool               `yaml:"autostart" json:"autostart"`
 	Instruments []InstrumentConfig `yaml:"instruments" json:"instruments"`
 	ISSBinary   string             `yaml:"-" json:"-"`
