@@ -63,7 +63,10 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 
 	cfg := &config.HubConfig{
 		QuantumDotConfig: "tmp/config.yaml",
-		LocalDatabase:    "/tmp/measurements",
+		Database: config.DatabaseConfig{
+			LocalDatabase: "/tmp/measurements",
+			OwnerName:     "Bob",
+		},
 		RuntimePaths: config.RuntimePaths{
 			DataCache: "/tmp/cache",
 		},
@@ -344,7 +347,10 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 	cfg := &config.HubConfig{
 		NATSURL: "nats://localhost:4222",
 
-		LocalDatabase: t.TempDir(),
+		Database: config.DatabaseConfig{
+			LocalDatabase: t.TempDir(),
+			OwnerName:     "Bob",
+		},
 
 		RuntimePaths: config.RuntimePaths{
 			Logs:      t.TempDir(),

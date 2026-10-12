@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
 	"fmt"
 	"log"
 	"net"
@@ -111,16 +110,24 @@ func InitializeRuntimeEnvironment(cfg *config.HubConfig) error {
 	if err := os.MkdirAll(cfg.RuntimePaths.Logs, 0755); err != nil {
 		return fmt.Errorf("failed to create log directory: %w", err)
 	}
-	cfg.RuntimePaths.Data = path.Join(cfg.WorkingDirectory, DataDir)
+	if cfg.Database.LocalDatabase != "" {
+		cfg.RuntimePaths.Data = cfg.Database.LocalDatabase
+	} else {
+		cfg.RuntimePaths.Data = path.Join(cfg.WorkingDirectory, DataDir)
+	}
 	if err := os.MkdirAll(cfg.RuntimePaths.Data, 0755); err != nil {
 		return fmt.Errorf("failed to create data directory: %w", err)
 	}
-	cfg.RuntimePaths.DataCache = path.Join(cfg.WorkingDirectory, DataCacheDir)
+	if cfg.Database.LocalCache != "" {
+		cfg.RuntimePaths.DataCache = cfg.Database.LocalCache
+	} else {
+		cfg.RuntimePaths.DataCache = path.Join(cfg.WorkingDirectory, DataCacheDir)
+	}
 	if err := os.MkdirAll(cfg.RuntimePaths.DataCache, 0755); err != nil {
 		return fmt.Errorf("failed to create datacache directory: %w", err)
 	}
 	log.Printf(
-		"created %s, %s, and %s directories",
+		"checked %s, %s, and %s directories",
 		LogsDir,
 		DataDir,
 		DataCacheDir,
@@ -443,11 +450,11 @@ func NewRunHub(
 			return err
 		}
 
-		// For now, a run is one hub session. An experiment ID can replace
-		// this without changing the catalog or HDF5 record format.
-		runID := rand.Text()
-		ownerName := "FIxME" // FIX: Check database integration and properly pipe owner from config
-		if err := measurementdb.Startup(filepath.Join(cfg.RuntimePaths.Data, MeasurementsDB), runID, ownerName); err != nil {
+		if err := measurementdb.Startup(
+			cfg.RuntimePaths.DataCache,
+			cfg.RuntimePaths.Data,
+			cfg.Database.OwnerName,
+		); err != nil {
 			return fmt.Errorf("initialize measurement database: %w", err)
 		}
 		defer func() {
@@ -455,7 +462,6 @@ func NewRunHub(
 				log.Printf("close measurement database: %v", err)
 			}
 		}()
-		log.Printf("measurement run ID: %s", runID)
 
 		runtime, err := deps.NewRuntime(&cfg)
 		if err != nil {

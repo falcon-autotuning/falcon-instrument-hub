@@ -510,6 +510,19 @@ func (s *InstrumentServerConfig) Validate() error {
 	return nil
 }
 
+type DatabaseConfig struct {
+	LocalDatabase string `yaml:"local-database" json:"local-database"`
+	LocalCache    string `yaml:"local-cache" json:"local-cache"`
+	OwnerName     string `yaml:"owner" json:"owner"`
+}
+
+func (d DatabaseConfig) Validate() error {
+	if d.OwnerName == "" {
+		return fmt.Errorf("owner name must be specified to edit the database")
+	}
+	return nil
+}
+
 type RuntimePaths struct {
 	Logs      string
 	Data      string
@@ -525,8 +538,8 @@ type HubConfig struct {
 	InitialDeviceVoltageState VoltageStates `yaml:"initial-voltage-state" json:"initial-voltage-state"`
 	// NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222
 	NATSURL string `yaml:"nats-url" json:"nats-url"`
-	// Global Path to the local runtime database for collected data
-	LocalDatabase string `yaml:"local-database" json:"local-database"`
+	// Database configuration information
+	Database DatabaseConfig `yaml:"database" json:"database"`
 	// Global Path for location of all logging to be deposited
 	WorkingDirectory string `yaml:"working-directory" json:"working-directory"`
 	// Global Path to measurement scripts directory
@@ -606,6 +619,10 @@ func Validate(c *HubConfig) error {
 			"working directory does not exist: %s",
 			c.WorkingDirectory,
 		)
+	}
+
+	if err := c.Database.Validate(); err != nil {
+		return err
 	}
 
 	if err := c.InstrumentServer.Validate(); err != nil {

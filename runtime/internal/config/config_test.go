@@ -15,6 +15,149 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestReducerValidateUnknown(t *testing.T) {
+	err := Reducer("banana").Validate()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unknown reducer")
+}
+
+func TestAPIParseCharacteristicValidate_CommandAndParameter(
+	t *testing.T,
+) {
+	c := APIParseCharacteristic{
+		Command:       "VOLT?",
+		ParameterName: "voltage",
+	}
+
+	err := c.Validate(testAPI())
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"cannot specify both",
+	)
+}
+
+func TestAPIParseCharacteristicValidate_ReducerOnCommand(
+	t *testing.T,
+) {
+	c := APIParseCharacteristic{
+		Command: "VOLT?",
+		Reducer: ReducerMin,
+	}
+
+	err := c.Validate(testAPI())
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"reducers are only valid",
+	)
+}
+
+func TestAPIParseCharacteristicValidate_MinReducerMissingMin(
+	t *testing.T,
+) {
+	api := &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+			},
+		},
+	}
+
+	c := APIParseCharacteristic{
+		ParameterName: "voltage",
+		Reducer:       ReducerMin,
+	}
+
+	err := c.Validate(api)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"does not define a minimum value",
+	)
+}
+
+func TestAPIParseCharacteristicValidate_MaxReducerMissingMax(
+	t *testing.T,
+) {
+	api := &InstrumentAPI{
+		IO: []IoType{
+			{
+				Name: "voltage",
+			},
+		},
+	}
+
+	c := APIParseCharacteristic{
+		ParameterName: "voltage",
+		Reducer:       ReducerMax,
+	}
+
+	err := c.Validate(api)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"does not define a maximum value",
+	)
+}
+
+func TestAPIParseCharacteristicValidate_UnknownCommand(
+	t *testing.T,
+) {
+	c := APIParseCharacteristic{
+		Command: "UNKNOWN",
+	}
+
+	err := c.Validate(testAPI())
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"unknown API command",
+	)
+}
+
+func TestAPIParseCharacteristicValidate_NoAPI(
+	t *testing.T,
+) {
+	c := APIParseCharacteristic{
+		ParameterName: "voltage",
+	}
+
+	err := c.Validate(nil)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"no API provided",
+	)
+}
+
+func TestDatabaseConfigValidate_NoOwner(
+	t *testing.T,
+) {
+	err := DatabaseConfig{}.Validate()
+
+	require.Error(t, err)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"owner name",
+	)
+}
+
 func TestAPIParseCharacteristicValidate_Command(t *testing.T) {
 	api := &InstrumentAPI{
 		Commands: map[CommandName]Command{
@@ -402,6 +545,9 @@ func validHubConfig(
 				validInstrumentConfig(t),
 			},
 		},
+		Database: DatabaseConfig{
+			OwnerName: "test",
+		},
 	}
 }
 
@@ -561,6 +707,9 @@ func TestValidate_PopulatesWorkingDirectory(t *testing.T) {
 				validInstrumentConfig(t),
 			},
 		},
+		Database: DatabaseConfig{
+			OwnerName: "test",
+		},
 	}
 
 	err := Validate(cfg)
@@ -586,6 +735,7 @@ func TestLoadConfig_FullConfig(t *testing.T) {
 
 		instrument2Config = "instrument2.yaml"
 		instrument2Plugin = "plugin2.so"
+		owner             = "test-owner"
 	)
 	autostart := true
 
@@ -603,7 +753,9 @@ wiremap:
       index: 1
 quantum-dot-config: %s
 nats-url: %s
-local-database: %s
+database:
+  local-database: %s
+  owner: %s 
 working-directory: %s
 user-measurement-luas: %s
 
@@ -621,6 +773,7 @@ instrument-server:
 			quantumDotConfig,
 			natsURL,
 			localDatabase,
+			owner,
 			workingDirectory,
 			userMeasurementLuas,
 			rpcPort,
@@ -666,7 +819,17 @@ instrument-server:
 	)
 	assert.Equal(t, quantumDotConfig, cfg.QuantumDotConfig)
 	assert.Equal(t, natsURL, cfg.NATSURL)
-	assert.Equal(t, localDatabase, cfg.LocalDatabase)
+	assert.Equal(
+		t,
+		localDatabase,
+		cfg.Database.LocalDatabase,
+	)
+
+	assert.Equal(
+		t,
+		"test-owner",
+		cfg.Database.OwnerName,
+	)
 	assert.Equal(t, workingDirectory, cfg.WorkingDirectory)
 	assert.Equal(t, userMeasurementLuas, cfg.UserMeasurementLuasDir)
 

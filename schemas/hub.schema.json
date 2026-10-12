@@ -18,6 +18,26 @@
       "additionalProperties": false,
       "type": "object"
     },
+    "DatabaseConfig": {
+      "properties": {
+        "local-database": {
+          "type": "string"
+        },
+        "local-cache": {
+          "type": "string"
+        },
+        "owner": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "local-database",
+        "local-cache",
+        "owner"
+      ]
+    },
     "HubConfig": {
       "properties": {
         "wiremap": {
@@ -39,9 +59,9 @@
           "type": "string",
           "description": "NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222"
         },
-        "local-database": {
-          "type": "string",
-          "description": "Global Path to the local runtime database for collected data"
+        "database": {
+          "$ref": "#/$defs/DatabaseConfig",
+          "description": "Database configuration information"
         },
         "working-directory": {
           "type": "string",
@@ -63,7 +83,7 @@
         "quantum-dot-config",
         "initial-voltage-state",
         "nats-url",
-        "local-database",
+        "database",
         "working-directory",
         "user-measurement-luas",
         "instrument-server"
