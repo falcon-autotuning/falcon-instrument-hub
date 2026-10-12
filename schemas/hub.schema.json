@@ -142,7 +142,8 @@
           "type": "integer"
         },
         "autostart": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "AutoStart indicates if the hub owns the ISS or if it is persisiting in the background. If the hub owns the ISS then it is responsible for shutting it down"
         },
         "instruments": {
           "items": {
