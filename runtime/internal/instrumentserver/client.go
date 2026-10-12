@@ -239,6 +239,51 @@ func (c *ScriptServerClient) StopInstrument(name string) error {
 	)
 }
 
+type InstrumentStats struct {
+	CommandsSent      int32
+	CommandsCompleted int32
+	CommandsFailed    int32
+	CommandsTimeout   int32
+}
+
+func (c *ScriptServerClient) InstrumentStatus(
+	name string,
+) (*InstrumentStats, error) {
+	return withCallContextValue(
+		c,
+		defaultCallTimeout,
+		func(ctx context.Context) (*InstrumentStats, error) {
+			resp, err := c.client.InstrumentStatus(
+				ctx,
+				&daemonv1.InstrumentStatusRequest{
+					InstrumentName: name,
+				},
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			if err := standardError(
+				resp.GetStandardResponse(),
+			); err != nil {
+				return nil, err
+			}
+
+			stats := resp.GetStats()
+			if stats == nil {
+				return &InstrumentStats{}, nil
+			}
+
+			return &InstrumentStats{
+				CommandsSent:      stats.GetCommandsSent(),
+				CommandsCompleted: stats.GetCommandsCompleted(),
+				CommandsFailed:    stats.GetCommandsFailed(),
+				CommandsTimeout:   stats.GetCommandsTimeout(),
+			}, nil
+		},
+	)
+}
+
 // StopDaemon asks the daemon to shut down over gRPC.
 func (c *ScriptServerClient) StopDaemon() error {
 	return withCallContext(

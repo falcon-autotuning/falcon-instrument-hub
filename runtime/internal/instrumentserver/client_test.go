@@ -66,6 +66,9 @@ type mockDaemonClient struct {
 
 	measureJobResponse *daemonv1.MeasureJobResponse
 	measureJobResult   *daemonv1.MeasureJobResultResponse
+
+	instrumentStatusError error
+	instrumentStats       *daemonv1.InstrumentStats
 }
 
 func (m *mockDaemonClient) ListInstruments(
@@ -250,11 +253,36 @@ func (m *mockDaemonClient) JobList(
 }
 
 func (m *mockDaemonClient) InstrumentStatus(
-	context.Context,
-	*daemonv1.InstrumentStatusRequest,
-	...grpc.CallOption,
+	ctx context.Context,
+	req *daemonv1.InstrumentStatusRequest,
+	opts ...grpc.CallOption,
 ) (*daemonv1.InstrumentStatusResponse, error) {
-	panic("unexpected call")
+	if m.instrumentStatusError != nil {
+		return nil, m.instrumentStatusError
+	}
+
+	if _, ok := m.instruments[req.GetInstrumentName()]; !ok {
+		return &daemonv1.InstrumentStatusResponse{
+			StandardResponse: &daemonv1.StandardResponse{
+				Ok: false,
+				Error: &daemonv1.ErrorDetails{
+					Message: "instrument not found",
+				},
+			},
+		}, nil
+	}
+
+	stats := m.instrumentStats
+	if stats == nil {
+		stats = &daemonv1.InstrumentStats{}
+	}
+
+	return &daemonv1.InstrumentStatusResponse{
+		StandardResponse: &daemonv1.StandardResponse{
+			Ok: true,
+		},
+		Stats: stats,
+	}, nil
 }
 
 func (m *mockDaemonClient) Discover(
@@ -1242,4 +1270,87 @@ func TestNewScriptServerClientWithOptions(t *testing.T) {
 	}
 
 	_ = client.Close()
+}
+
+func TestInstrumentStatus(t *testing.T) {
+	mock := &mockDaemonClient{
+		instruments: map[string]mockInstrument{
+			"dmm": {},
+		},
+		instrumentStats: &daemonv1.InstrumentStats{
+			CommandsSent:      10,
+			CommandsCompleted: 8,
+			CommandsFailed:    1,
+			CommandsTimeout:   1,
+		},
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	stats, err := client.InstrumentStatus("dmm")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if stats.CommandsSent != 10 {
+		t.Fatalf(
+			"sent=%d want=10",
+			stats.CommandsSent,
+		)
+	}
+
+	if stats.CommandsCompleted != 8 {
+		t.Fatalf(
+			"completed=%d want=8",
+			stats.CommandsCompleted,
+		)
+	}
+
+	if stats.CommandsFailed != 1 {
+		t.Fatalf(
+			"failed=%d want=1",
+			stats.CommandsFailed,
+		)
+	}
+
+	if stats.CommandsTimeout != 1 {
+		t.Fatalf(
+			"timeout=%d want=1",
+			stats.CommandsTimeout,
+		)
+	}
+}
+
+func TestInstrumentStatus_NotFound(t *testing.T) {
+	mock := &mockDaemonClient{
+		instruments: map[string]mockInstrument{},
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	_, err := client.InstrumentStatus(
+		"missing-device",
+	)
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestInstrumentStatus_RPCError(t *testing.T) {
+	mock := &mockDaemonClient{
+		instrumentStatusError: errors.New(
+			"rpc failure",
+		),
+	}
+
+	client := newScriptServerClientForTests(mock)
+
+	_, err := client.InstrumentStatus(
+		"dmm",
+	)
+
+	if err == nil {
+		t.Fatal("expected error")
+	}
 }
