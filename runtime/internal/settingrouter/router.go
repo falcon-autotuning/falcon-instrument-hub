@@ -7,6 +7,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 // InstrumentName is the name of each instrument
@@ -38,16 +39,16 @@ type GetterHandler interface {
 	Name() string
 
 	CanGet(
-		port ConnectedPort,
+		port falconcore.InstrumentPort,
 	) bool
 
 	Get(
-		port ConnectedPort,
+		port falconcore.InstrumentPort,
 		dispatcher *dispatcher.MeasurementDispatcher,
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
 		instrumentMetadata map[InstrumentName]InstrumentMetadata,
-	) (Quantity, error)
+	) (falconcore.Quantity, error)
 }
 
 // SetterHandler applies a value to a single connected port.
@@ -70,13 +71,13 @@ type SetterHandler interface {
 	Name() string
 
 	CanSet(
-		port ConnectedPort,
-		value Quantity,
+		port falconcore.InstrumentPort,
+		value falconcore.Quantity,
 	) bool
 
 	Set(
-		port ConnectedPort,
-		value Quantity,
+		port falconcore.InstrumentPort,
+		value falconcore.Quantity,
 		dispatcher *dispatcher.MeasurementDispatcher,
 		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
@@ -183,8 +184,8 @@ func NewRouter(
 //
 // Returns an error if no registered handler can write the supplied port.
 func (r *Router) set(
-	port ConnectedPort,
-	value Quantity,
+	port falconcore.InstrumentPort,
+	value falconcore.Quantity,
 ) error {
 	for _, handler := range r.setters {
 		if handler.CanSet(port, value) {
@@ -210,8 +211,8 @@ func (r *Router) set(
 // Returns the measured value of the requested port or an error if no
 // handler can service the request.
 func (r *Router) get(
-	port ConnectedPort,
-) (Quantity, error) {
+	port falconcore.InstrumentPort,
+) (falconcore.Quantity, error) {
 	for _, handler := range r.getters {
 		if handler.CanGet(port) {
 			return handler.Get(
@@ -224,39 +225,11 @@ func (r *Router) get(
 		}
 	}
 
-	return Quantity{},
+	return falconcore.Quantity{},
 		fmt.Errorf(
 			"no getter handler for %+v",
 			port,
 		)
-}
-
-func closeQuantities(
-	values map[ConnectedPort]Quantity,
-) {
-	for _, q := range values {
-		_ = q.Close()
-	}
-}
-
-func closePorts(
-	ports []ConnectedPort,
-) {
-	for _, p := range ports {
-		if p.FalconPort != nil {
-			_ = p.FalconPort.Close()
-		}
-	}
-}
-
-func closePortMap(
-	ports map[ConnectedPort]Quantity,
-) {
-	for p := range ports {
-		if p.FalconPort != nil {
-			_ = p.FalconPort.Close()
-		}
-	}
 }
 
 // Handle executes a Falcon setting request.
@@ -272,38 +245,26 @@ func closePortMap(
 // observe the final state established by the writes contained within the
 // same request.
 func (r *Router) Handle(
-	req *FalconSettingRequest,
-) (*FalconSettingResponse, error) {
-	setters, err := req.Setters()
-	if err != nil {
-		return nil, err
-	}
-	defer closeQuantities(setters)
-	defer closePortMap(setters)
-
-	for port, value := range setters {
+	req falconcore.SettingRequest,
+) (falconcore.SettingResponse, error) {
+	for port, value := range req.Setters {
 		if err := r.set(port, value); err != nil {
-			return nil, err
+			return falconcore.SettingResponse{}, err
 		}
 	}
-
-	getters, err := req.Getters()
-	if err != nil {
-		return nil, err
+	out := falconcore.SettingResponse{
+		Getters: make(
+			map[falconcore.InstrumentPort]falconcore.Quantity,
+		),
 	}
-	defer closePorts(getters)
-
-	results := map[ConnectedPort]Quantity{}
-	defer closeQuantities(results)
-
-	for _, port := range getters {
+	for _, port := range req.Getters {
 		value, err := r.get(port)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
 
-		results[port] = value
+		out.Getters[port] = value
 	}
 
-	return NewFalconSettingResponse(results)
+	return out, nil
 }

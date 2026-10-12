@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/quantity"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
@@ -289,48 +289,36 @@ func TestNewSettingCommandHandler(
 	)
 }
 
-func buildMockResponse(
-	t *testing.T,
-) *settingrouter.FalconSettingResponse {
-	t.Helper()
-
-	falconPort := testutil.NewTestKnobPort(t)
-	defer falconPort.Close()
-
-	q := testutil.NewVoltQuantity(t, 7)
-	defer q.Close()
-
-	resp, err := settingrouter.NewFalconSettingResponse(
-		map[settingrouter.ConnectedPort]settingrouter.Quantity{
+func buildMockResponse() falconcore.SettingResponse {
+	return falconcore.SettingResponse{
+		Message: "ok",
+		Getters: map[falconcore.InstrumentPort]falconcore.Quantity{
 			{
-				ConnectedPort: config.ConnectedPort{
-					DeviceName: "P1",
-				},
-				FalconPort: falconPort,
+				DefaultName:    "P1",
+				InstrumentName: "Source1",
+				Unit:           falconcore.Volt,
 			}: {
-				Handle: q,
+				Value: 7,
+				Unit:  falconcore.Volt,
 			},
 		},
-	)
-	require.NoError(t, err)
-
-	return resp
+	}
 }
 
 type mockRouter struct {
-	resp *settingrouter.FalconSettingResponse
+	resp falconcore.SettingResponse
 	err  error
 
 	callCount int
 }
 
 func (m *mockRouter) Handle(
-	_ *settingrouter.FalconSettingRequest,
-) (*settingrouter.FalconSettingResponse, error) {
+	_ falconcore.SettingRequest,
+) (falconcore.SettingResponse, error) {
 	m.callCount++
 
 	if m.err != nil {
-		return nil, m.err
+		return falconcore.SettingResponse{}, m.err
 	}
 
 	return m.resp, nil
@@ -349,9 +337,8 @@ func TestHandler_ReceivesSettingCommand(
 	defer nc.Close()
 
 	router := &mockRouter{
-		resp: buildMockResponse(t),
+		resp: buildMockResponse(),
 	}
-	defer router.resp.Close()
 
 	portsCatalog := testutil.BuildTestConnectedPorts(t)
 
@@ -456,65 +443,51 @@ func TestHandler_ReceivesSettingCommand(
 type recordingSetter struct {
 	calls int
 
-	lastPort  settingrouter.ConnectedPort
-	lastValue settingrouter.Quantity
+	lastPort  falconcore.InstrumentPort
+	lastValue falconcore.Quantity
 }
 
 func (r *recordingSetter) Name() string { return "test" }
 
 func (r *recordingSetter) CanSet(
-	settingrouter.ConnectedPort,
-	settingrouter.Quantity,
+	falconcore.InstrumentPort,
+	falconcore.Quantity,
 ) bool {
 	return true
 }
 
 func (r *recordingSetter) Set(
-	port settingrouter.ConnectedPort,
-	value settingrouter.Quantity,
+	port falconcore.InstrumentPort,
+	value falconcore.Quantity,
 	_ *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	_ *config.ConnectedPorts,
 ) error {
 	r.calls++
 	r.lastPort = port
-	copied, err := quantity.Copy(
-		value.Handle,
-	)
-	if err != nil {
-		return err
-	}
-
-	if r.lastValue.Handle != nil {
-		_ = r.lastValue.Close()
-	}
-
-	r.lastValue = settingrouter.Quantity{
-		Handle: copied,
-	}
-
+	r.lastValue = value
 	return nil
 }
 
 type recordingGetter struct {
-	result settingrouter.Quantity
+	result falconcore.Quantity
 }
 
 func (r *recordingGetter) Name() string { return "test" }
 
 func (r *recordingGetter) CanGet(
-	settingrouter.ConnectedPort,
+	falconcore.InstrumentPort,
 ) bool {
 	return true
 }
 
 func (r *recordingGetter) Get(
-	settingrouter.ConnectedPort,
+	falconcore.InstrumentPort,
 	*dispatcher.MeasurementDispatcher,
 	config.WireMap,
 	*config.ConnectedPorts,
 	map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
-) (settingrouter.Quantity, error) {
+) (falconcore.Quantity, error) {
 	return r.result, nil
 }
 
@@ -533,16 +506,11 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 	portsCatalog := testutil.BuildTestConnectedPorts(t)
 
 	setter := &recordingSetter{}
-	defer func() {
-		if setter.lastValue.Handle != nil {
-			_ = setter.lastValue.Close()
-		}
-	}()
 
-	getterQuantity := settingrouter.Quantity{
-		Handle: testutil.NewVoltQuantity(t, 7),
+	getterQuantity := falconcore.Quantity{
+		Value: 7,
+		Unit:  falconcore.Volt,
 	}
-	defer getterQuantity.Close()
 
 	router := settingrouter.NewRouter(
 		nil,
@@ -674,22 +642,16 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 		busy.calls[1],
 	)
 
-	setterValue, err := setter.lastValue.Value()
-	require.NoError(t, err)
-
 	assert.Equal(
 		t,
 		5.0,
-		setterValue,
+		setter.lastValue.Value,
 	)
-
-	setterUnit, err := setter.lastValue.UnitSymbol()
-	require.NoError(t, err)
 
 	assert.Equal(
 		t,
-		"V",
-		setterUnit,
+		falconcore.Volt,
+		setter.lastValue.Unit,
 	)
 
 	falconResp, err := settingresponse.FromJSON(

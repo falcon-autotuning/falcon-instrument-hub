@@ -8,10 +8,12 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
@@ -40,8 +42,8 @@ func settingResponseSubject(timestamp int64) string {
 
 type SettingRouter interface {
 	Handle(
-		*settingrouter.FalconSettingRequest,
-	) (*settingrouter.FalconSettingResponse, error)
+		falconcore.SettingRequest,
+	) (falconcore.SettingResponse, error)
 }
 
 type BufferRegistrar interface {
@@ -242,21 +244,32 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	h.busyManager.SetIsBusy(true)
 	defer h.busyManager.SetIsBusy(false)
 
-	falconReq, err := settingrouter.NewFalconSettingRequestFromJSON(
-		cmd.Request,
-		h.ports,
-	)
+	rawReq, err := settingrequest.FromJSON(cmd.Request)
 	if err != nil {
 		h.logger.Error(
 			SettingCommandHandlerName,
 			fmt.Sprintf(
-				"failed to parse SettingmentRequest: %v",
+				"failed to parse SettingRequest: %v",
 				err,
 			),
 		)
 		return
 	}
-	defer falconReq.Close()
+	defer rawReq.Close()
+
+	falconReq, err := falconcore.SettingRequestFromFalcon(
+		rawReq,
+	)
+	if err != nil {
+		h.logger.Error(
+			SettingCommandHandlerName,
+			fmt.Sprintf(
+				"failed to convert SettingRequest: %v",
+				err,
+			),
+		)
+		return
+	}
 
 	falconResp, err := h.router.Handle(
 		falconReq,
@@ -265,14 +278,26 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		h.logger.Error(SettingCommandHandlerName, fmt.Sprintf("failed to build new falcon response %v", err))
 		return
 	}
-	defer falconResp.Close()
 
-	respJSON, err := falconResp.ToJSON()
+	rawResp, err := falconResp.NewFalconSettingResponse()
 	if err != nil {
 		h.logger.Error(
 			SettingCommandHandlerName,
 			fmt.Sprintf(
-				"failed to encode SettingmentResponse: %v",
+				"failed to build falcon response: %v",
+				err,
+			),
+		)
+		return
+	}
+	defer rawResp.Close()
+
+	respJSON, err := rawResp.ToJSON()
+	if err != nil {
+		h.logger.Error(
+			SettingCommandHandlerName,
+			fmt.Sprintf(
+				"failed to encode SettingResponse: %v",
 				err,
 			),
 		)

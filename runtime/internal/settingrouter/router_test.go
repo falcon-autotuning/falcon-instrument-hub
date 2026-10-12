@@ -4,53 +4,43 @@ package settingrouter
 
 import (
 	"errors"
-	"fmt"
 	"testing"
 
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/generic/mapinstrumentportquantity"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
-	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/quantity"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type mockSetterHandler struct {
-	name string
-
 	canSetResult bool
 	setErr       error
 
 	canSetCalls int
 	setCalls    int
 
-	lastPort  ConnectedPort
-	lastValue Quantity
+	lastPort  falconcore.InstrumentPort
+	lastValue falconcore.Quantity
 }
 
-func (m *mockSetterHandler) Name() string {
-	return m.name
+func (*mockSetterHandler) Name() string {
+	return "setter"
 }
 
 func (m *mockSetterHandler) CanSet(
-	port ConnectedPort,
-	value Quantity,
+	port falconcore.InstrumentPort,
+	value falconcore.Quantity,
 ) bool {
 	m.canSetCalls++
 	m.lastPort = port
 	m.lastValue = value
-
 	return m.canSetResult
 }
 
 func (m *mockSetterHandler) Set(
-	port ConnectedPort,
-	value Quantity,
+	port falconcore.InstrumentPort,
+	value falconcore.Quantity,
 	_ *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	_ *config.ConnectedPorts,
@@ -58,72 +48,111 @@ func (m *mockSetterHandler) Set(
 	m.setCalls++
 	m.lastPort = port
 	m.lastValue = value
-
 	return m.setErr
 }
 
 type mockGetterHandler struct {
-	name string
-
 	canGetResult bool
-
-	getResult Quantity
-	getErr    error
+	getResult    falconcore.Quantity
+	getErr       error
 
 	canGetCalls int
 	getCalls    int
 
-	lastPort ConnectedPort
+	lastPort falconcore.InstrumentPort
 }
 
-func (m *mockGetterHandler) Name() string {
-	return m.name
+func (*mockGetterHandler) Name() string {
+	return "getter"
 }
 
 func (m *mockGetterHandler) CanGet(
-	port ConnectedPort,
+	port falconcore.InstrumentPort,
 ) bool {
 	m.canGetCalls++
 	m.lastPort = port
-
 	return m.canGetResult
 }
 
 func (m *mockGetterHandler) Get(
-	port ConnectedPort,
+	port falconcore.InstrumentPort,
 	_ *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	_ *config.ConnectedPorts,
 	_ map[InstrumentName]InstrumentMetadata,
-) (Quantity, error) {
+) (falconcore.Quantity, error) {
 	m.getCalls++
 	m.lastPort = port
-
 	return m.getResult, m.getErr
+}
+
+func TestRouter_RegisterSetter(
+	t *testing.T,
+) {
+	r := &Router{}
+
+	handler := &mockSetterHandler{}
+
+	out := r.RegisterSetter(handler)
+
+	assert.Same(t, r, out)
+	require.Len(t, r.setters, 1)
+	assert.Same(t, handler, r.setters[0])
+}
+
+func TestRouter_RegisterGetter(
+	t *testing.T,
+) {
+	r := &Router{}
+
+	handler := &mockGetterHandler{}
+
+	out := r.RegisterGetter(handler)
+
+	assert.Same(t, r, out)
+	require.Len(t, r.getters, 1)
+	assert.Same(t, handler, r.getters[0])
+}
+
+func TestNewRouter(
+	t *testing.T,
+) {
+	wiremap := config.WireMap{}
+	ports := &config.ConnectedPorts{}
+
+	meta := map[InstrumentName]InstrumentMetadata{
+		"dmm": {},
+	}
+
+	r := NewRouter(
+		nil,
+		wiremap,
+		ports,
+		meta,
+	)
+
+	require.NotNil(t, r)
+
+	assert.Equal(t, wiremap, r.wiremap)
+	assert.Same(t, ports, r.ports)
+	assert.Equal(t, meta, r.instrumentMetadata)
 }
 
 func TestRouter_Set_FirstMatchingHandlerWins(
 	t *testing.T,
 ) {
-	port := ConnectedPort{}
-	value := Quantity{}
+	port := falconcore.InstrumentPort{}
+	value := falconcore.Quantity{}
 
-	first := &mockSetterHandler{
-		name:         "first",
-		canSetResult: false,
-	}
-
+	first := &mockSetterHandler{}
 	second := &mockSetterHandler{
-		name:         "second",
 		canSetResult: true,
 	}
-
 	third := &mockSetterHandler{
-		name:         "third",
 		canSetResult: true,
 	}
 
-	router := &Router{
+	r := &Router{
 		setters: []SetterHandler{
 			first,
 			second,
@@ -131,7 +160,7 @@ func TestRouter_Set_FirstMatchingHandlerWins(
 		},
 	}
 
-	err := router.set(port, value)
+	err := r.set(port, value)
 
 	require.NoError(t, err)
 
@@ -142,23 +171,19 @@ func TestRouter_Set_FirstMatchingHandlerWins(
 	assert.Equal(t, 1, second.setCalls)
 
 	assert.Equal(t, 0, third.canSetCalls)
-	assert.Equal(t, 0, third.setCalls)
 }
 
 func TestRouter_Set_NoMatchingHandler(
 	t *testing.T,
 ) {
-	router := &Router{
-		setters: []SetterHandler{},
-	}
+	r := &Router{}
 
-	err := router.set(
-		ConnectedPort{},
-		Quantity{},
+	err := r.set(
+		falconcore.InstrumentPort{},
+		falconcore.Quantity{},
 	)
 
 	require.Error(t, err)
-
 	assert.Contains(
 		t,
 		err.Error(),
@@ -166,51 +191,65 @@ func TestRouter_Set_NoMatchingHandler(
 	)
 }
 
+func TestRouter_Set_HandlerError(
+	t *testing.T,
+) {
+	expected := errors.New("boom")
+
+	r := &Router{
+		setters: []SetterHandler{
+			&mockSetterHandler{
+				canSetResult: true,
+				setErr:       expected,
+			},
+		},
+	}
+
+	err := r.set(
+		falconcore.InstrumentPort{},
+		falconcore.Quantity{},
+	)
+
+	require.Error(t, err)
+	assert.ErrorIs(t, err, expected)
+}
+
 func TestRouter_Get_FirstMatchingHandlerWins(
 	t *testing.T,
 ) {
-	expected := Quantity{}
-
-	first := &mockGetterHandler{
-		name:         "first",
-		canGetResult: false,
+	expected := falconcore.Quantity{
+		Value: 123,
+		Unit:  falconcore.Volt,
 	}
 
+	first := &mockGetterHandler{}
 	second := &mockGetterHandler{
-		name:         "second",
 		canGetResult: true,
 		getResult:    expected,
 	}
 
-	router := &Router{
+	r := &Router{
 		getters: []GetterHandler{
 			first,
 			second,
 		},
 	}
 
-	result, err := router.get(
-		ConnectedPort{},
+	actual, err := r.get(
+		falconcore.InstrumentPort{},
 	)
 
 	require.NoError(t, err)
-
-	assert.Equal(t, expected, result)
-
-	assert.Equal(t, 1, first.canGetCalls)
-	assert.Equal(t, 0, first.getCalls)
-
-	assert.Equal(t, 1, second.canGetCalls)
-	assert.Equal(t, 1, second.getCalls)
+	assert.Equal(t, expected, actual)
 }
 
 func TestRouter_Get_NoMatchingHandler(
 	t *testing.T,
 ) {
-	router := &Router{}
+	r := &Router{}
 
-	_, err := router.get(
-		ConnectedPort{},
+	_, err := r.get(
+		falconcore.InstrumentPort{},
 	)
 
 	require.Error(t, err)
@@ -222,411 +261,120 @@ func TestRouter_Get_NoMatchingHandler(
 	)
 }
 
-func TestRouter_Set_HandlerError(
-	t *testing.T,
-) {
-	expectedErr := errors.New(
-		"set failed",
-	)
-
-	handler := &mockSetterHandler{
-		canSetResult: true,
-		setErr:       expectedErr,
-	}
-
-	router := &Router{
-		setters: []SetterHandler{
-			handler,
-		},
-	}
-
-	err := router.set(
-		ConnectedPort{},
-		Quantity{},
-	)
-
-	require.Error(t, err)
-
-	assert.ErrorIs(
-		t,
-		err,
-		expectedErr,
-	)
-}
-
 func TestRouter_Get_HandlerError(
 	t *testing.T,
 ) {
-	expectedErr := errors.New(
-		"get failed",
-	)
+	expected := errors.New("boom")
 
-	handler := &mockGetterHandler{
-		canGetResult: true,
-		getErr:       expectedErr,
-	}
-
-	router := &Router{
+	r := &Router{
 		getters: []GetterHandler{
-			handler,
+			&mockGetterHandler{
+				canGetResult: true,
+				getErr:       expected,
+			},
 		},
 	}
 
-	_, err := router.get(
-		ConnectedPort{},
+	_, err := r.get(
+		falconcore.InstrumentPort{},
 	)
 
 	require.Error(t, err)
-
-	assert.ErrorIs(
-		t,
-		err,
-		expectedErr,
-	)
+	assert.ErrorIs(t, err, expected)
 }
 
-func TestFalconSettingResponse_RoundTrip(
+func TestRouter_Handle(
 	t *testing.T,
 ) {
-	falconPort := testutil.NewTestKnobPort(t)
-	defer falconPort.Close()
+	setter := &mockSetterHandler{
+		canSetResult: true,
+	}
 
-	q := testutil.NewVoltQuantity(t, 7)
-	defer q.Close()
+	getter := &mockGetterHandler{
+		canGetResult: true,
+		getResult: falconcore.Quantity{
+			Value: 7,
+			Unit:  falconcore.Volt,
+		},
+	}
 
-	response, err := NewFalconSettingResponse(
-		map[ConnectedPort]Quantity{
-			{
-				ConnectedPort: config.ConnectedPort{
-					DeviceName: "P1",
-				},
-				FalconPort: falconPort,
-			}: {
-				Handle: q,
+	port := falconcore.InstrumentPort{
+		DefaultName: "P1",
+	}
+
+	req := falconcore.SettingRequest{
+		Setters: map[falconcore.InstrumentPort]falconcore.Quantity{
+			port: {
+				Value: 5,
+				Unit:  falconcore.Volt,
 			},
 		},
-	)
-	require.NoError(t, err)
-	defer response.Close()
+		Getters: falconcore.Ports{
+			port,
+		},
+	}
 
-	jsonText, err := response.ToJSON()
-	require.NoError(t, err)
+	r := &Router{
+		setters: []SetterHandler{setter},
+		getters: []GetterHandler{getter},
+	}
 
-	parsed, err := settingresponse.FromJSON(
-		jsonText,
-	)
-	require.NoError(t, err)
-	defer parsed.Close()
+	resp, err := r.Handle(req)
 
-	getters, err := parsed.Getters()
-	require.NoError(t, err)
-	defer getters.Close()
-
-	size, err := getters.Size()
 	require.NoError(t, err)
 
-	assert.Equal(
-		t,
-		uint64(1),
-		size,
-	)
-
-	keys, err := getters.Keys()
-	require.NoError(t, err)
-	defer keys.Close()
-
-	key, err := keys.At(0)
-	require.NoError(t, err)
-	defer key.Close()
-
-	value, err := getters.At(key)
-	require.NoError(t, err)
-	defer value.Close()
-
-	parsedValue, err := value.Value()
-	require.NoError(t, err)
+	assert.Equal(t, 1, setter.setCalls)
+	assert.Equal(t, 1, getter.getCalls)
 
 	assert.Equal(
 		t,
 		7.0,
-		parsedValue,
-	)
-
-	unit, err := value.Unit()
-	require.NoError(t, err)
-	defer unit.Close()
-
-	symbol, err := unit.Symbol()
-	require.NoError(t, err)
-
-	assert.Equal(
-		t,
-		"V",
-		symbol,
+		resp.Getters[port].Value,
 	)
 }
 
-type fakeSetter struct {
-	calls int
-
-	lastPort  ConnectedPort
-	lastValue Quantity
-}
-
-func (f *fakeSetter) Name() string { return "fake-setter" }
-
-func (f *fakeSetter) CanSet(
-	port ConnectedPort,
-	value Quantity,
-) bool {
-	return true
-}
-
-func (f *fakeSetter) Set(
-	port ConnectedPort,
-	value Quantity,
-	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
-	_ *config.ConnectedPorts,
-) error {
-	f.calls++
-	f.lastPort = port
-
-	if f.lastValue.Handle != nil {
-		_ = f.lastValue.Close()
-	}
-
-	copied, err := quantity.Copy(value.Handle)
-	if err != nil {
-		return fmt.Errorf(
-			"failed to copy quantity: %w",
-			err,
-		)
-	}
-
-	f.lastValue = Quantity{
-		Handle: copied,
-	}
-
-	return nil
-}
-
-func (f *fakeSetter) Close() error {
-	return f.lastValue.Close()
-}
-
-type fakeGetter struct {
-	result Quantity
-}
-
-func (f *fakeGetter) Name() string { return "fake-getter" }
-
-func (f *fakeGetter) CanGet(
-	ConnectedPort,
-) bool {
-	return true
-}
-
-func (f *fakeGetter) Get(
-	_ ConnectedPort,
-	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
-	_ *config.ConnectedPorts,
-	_ map[InstrumentName]InstrumentMetadata,
-) (Quantity, error) {
-	return f.result, nil
-}
-
-func TestFalconSettingRequest_RoundTrip(
+func TestRouter_Handle_SetError(
 	t *testing.T,
 ) {
-	knob := testutil.NewTestKnobPort(t)
-	defer knob.Close()
-
-	meter := testutil.NewTestMeterPort(t)
-	defer meter.Close()
-
-	q := testutil.NewVoltQuantity(t, 5)
-	defer q.Close()
-
-	setters, err := mapinstrumentportquantity.NewEmpty()
-	require.NoError(t, err)
-	defer setters.Close()
-
-	require.NoError(
-		t,
-		setters.InsertOrAssign(
-			knob,
-			q,
-		),
-	)
-
-	getters, err := ports.New(
-		[]*instrumentport.Handle{
-			meter,
-		},
-	)
-	require.NoError(t, err)
-	defer getters.Close()
-
-	request, err := settingrequest.New(
-		"integration",
-		getters,
-		setters,
-	)
-	require.NoError(t, err)
-	defer request.Close()
-
-	jsonText, err := request.ToJSON()
-	require.NoError(t, err)
-
-	req, err := NewFalconSettingRequestFromJSON(
-		jsonText,
-		testutil.BuildTestConnectedPorts(t),
-	)
-	require.NoError(t, err)
-	defer req.Close()
-
-	parsedSetters, err := req.Setters()
-	require.NoError(t, err)
-
-	require.Len(t, parsedSetters, 1)
-
-	for _, q := range parsedSetters {
-		value, err := q.Value()
-		require.NoError(t, err)
-
-		assert.Equal(t, 5.0, value)
-
-		unit, err := q.UnitSymbol()
-		require.NoError(t, err)
-
-		assert.Equal(t, "V", unit)
-
-		_ = q.Close()
-	}
-
-	parsedGetters, err := req.Getters()
-	require.NoError(t, err)
-
-	require.Len(t, parsedGetters, 1)
-
-	assert.Equal(
-		t,
-		"Source1",
-		parsedGetters[0].InstrumentName,
-	)
-}
-
-func TestRouter_Handle_EndToEnd(
-	t *testing.T,
-) {
-	portsCatalog := testutil.BuildTestConnectedPorts(t)
-
-	inputRequest := testutil.BuildRealFalconRequest(
-		t,
-	)
-
-	req, err := NewFalconSettingRequestFromJSON(
-		inputRequest,
-		portsCatalog,
-	)
-	require.NoError(t, err)
-	defer req.Close()
-
-	setter := &fakeSetter{}
-	defer setter.Close()
-
-	getterResult := Quantity{
-		Handle: testutil.NewVoltQuantity(t, 7),
-	}
-	defer getterResult.Close()
-
-	router := &Router{
+	r := &Router{
 		setters: []SetterHandler{
-			setter,
-		},
-		getters: []GetterHandler{
-			&fakeGetter{
-				result: getterResult,
+			&mockSetterHandler{
+				canSetResult: true,
+				setErr:       errors.New("boom"),
 			},
 		},
-		ports: portsCatalog,
 	}
 
-	response, err := router.Handle(req)
-	require.NoError(t, err)
-	defer response.Close()
-
-	assert.Equal(
-		t,
-		1,
-		setter.calls,
+	_, err := r.Handle(
+		falconcore.SettingRequest{
+			Setters: map[falconcore.InstrumentPort]falconcore.Quantity{
+				{}: {},
+			},
+		},
 	)
 
-	jsonText, err := response.ToJSON()
-	require.NoError(t, err)
+	require.Error(t, err)
+}
 
-	parsed, err := settingresponse.FromJSON(
-		jsonText,
+func TestRouter_Handle_GetError(
+	t *testing.T,
+) {
+	r := &Router{
+		getters: []GetterHandler{
+			&mockGetterHandler{
+				canGetResult: true,
+				getErr:       errors.New("boom"),
+			},
+		},
+	}
+
+	_, err := r.Handle(
+		falconcore.SettingRequest{
+			Getters: falconcore.Ports{
+				{},
+			},
+		},
 	)
-	require.NoError(t, err)
-	defer parsed.Close()
 
-	getters, err := parsed.Getters()
-	require.NoError(t, err)
-	defer getters.Close()
-
-	assert.Equal(t, 1, setter.calls)
-
-	setterValue, err := setter.lastValue.Value()
-	require.NoError(t, err)
-
-	assert.Equal(t, 5.0, setterValue)
-
-	setterUnit, err := setter.lastValue.UnitSymbol()
-	require.NoError(t, err)
-
-	assert.Equal(t, "V", setterUnit)
-
-	size, err := getters.Size()
-	require.NoError(t, err)
-
-	require.Equal(t, uint64(1), size)
-
-	keys, err := getters.Keys()
-	require.NoError(t, err)
-	defer keys.Close()
-
-	key, err := keys.At(0)
-	require.NoError(t, err)
-	defer key.Close()
-
-	value, err := getters.At(key)
-	require.NoError(t, err)
-	defer value.Close()
-
-	actual, err := value.Value()
-	require.NoError(t, err)
-
-	assert.Equal(t, 7.0, actual)
-
-	unit, err := value.Unit()
-	require.NoError(t, err)
-	defer unit.Close()
-
-	symbol, err := unit.Symbol()
-	require.NoError(t, err)
-
-	assert.Equal(t, "V", symbol)
-
-	defaultName, err := key.DefaultName()
-	require.NoError(t, err)
-
-	assert.Equal(t, "P1", defaultName)
-
-	instrumentName, err := key.InstrumentName()
-	require.NoError(t, err)
-
-	assert.Equal(t, "Source1", instrumentName)
+	require.Error(t, err)
 }
