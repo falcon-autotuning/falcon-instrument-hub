@@ -1,15 +1,13 @@
-package devicestate
+package falconcore
 
 import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/quantity"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
-
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 type Quantity struct {
-	Value float64
-	Unit  falconcore.Unit
+	Value float64 `json:"value"`
+	Unit  Unit    `json:"unit"`
 }
 
 func (q Quantity) NewFalconQuantity() (*quantity.Handle, error) {
@@ -39,7 +37,7 @@ func QuantityFromFalcon(
 	if err != nil {
 		return Quantity{}, err
 	}
-	unit, err := falconcore.SymbolFromFalcon(unitHandle)
+	unit, err := SymbolFromFalcon(unitHandle)
 	if err != nil {
 		return Quantity{}, err
 	}

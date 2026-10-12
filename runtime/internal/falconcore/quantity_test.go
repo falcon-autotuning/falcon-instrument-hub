@@ -1,4 +1,4 @@
-package devicestate
+package falconcore
 
 import (
 	"errors"
@@ -7,8 +7,6 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 type fakeQuantityReader struct {
@@ -40,7 +38,7 @@ func TestQuantityFromFalcon_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, 123.45, q.Value)
-	assert.Equal(t, falconcore.Volt, q.Unit)
+	assert.Equal(t, Volt, q.Unit)
 }
 
 func TestQuantityFromFalcon_ValueError(t *testing.T) {
@@ -71,7 +69,7 @@ func TestQuantityFromFalcon_UnitError(t *testing.T) {
 func TestQuantity_NewFalconQuantity(t *testing.T) {
 	raw := Quantity{
 		Value: 5.5,
-		Unit:  falconcore.Volt,
+		Unit:  Volt,
 	}
 
 	handle, err := raw.NewFalconQuantity()
@@ -96,7 +94,7 @@ func TestQuantity_NewFalconQuantity(t *testing.T) {
 func TestQuantity_NewFalconQuantity_InvalidUnit(t *testing.T) {
 	raw := Quantity{
 		Value: 1.0,
-		Unit:  falconcore.Unit(999999),
+		Unit:  Unit(999999),
 	}
 
 	handle, err := raw.NewFalconQuantity()
@@ -108,7 +106,7 @@ func TestQuantity_NewFalconQuantity_InvalidUnit(t *testing.T) {
 func TestQuantity_RoundTrip(t *testing.T) {
 	original := Quantity{
 		Value: 42.0,
-		Unit:  falconcore.Volt,
+		Unit:  Volt,
 	}
 
 	handle, err := original.NewFalconQuantity()

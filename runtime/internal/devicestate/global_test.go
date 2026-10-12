@@ -12,13 +12,13 @@ func TestStartup(t *testing.T) {
 	globalManager = nil
 	defer Close()
 
-	initial := DeviceVoltageStates{
+	initial := falconcore.DeviceVoltageStates{
 		"P1": {
 			Connection: falconcore.Connection{
 				Name: "P1",
 				Type: falconcore.PlungerGate,
 			},
-			Quantity: Quantity{
+			Quantity: falconcore.Quantity{
 				Value: 1.23,
 				Unit:  falconcore.Volt,
 			},
@@ -39,13 +39,13 @@ func TestStartup_CopiesInput(t *testing.T) {
 	globalManager = nil
 	defer Close()
 
-	initial := DeviceVoltageStates{
+	initial := falconcore.DeviceVoltageStates{
 		"P1": {
 			Connection: falconcore.Connection{
 				Name: "P1",
 				Type: falconcore.PlungerGate,
 			},
-			Quantity: Quantity{
+			Quantity: falconcore.Quantity{
 				Value: 1,
 				Unit:  falconcore.Volt,
 			},
@@ -54,12 +54,12 @@ func TestStartup_CopiesInput(t *testing.T) {
 
 	require.NoError(t, Startup(initial))
 
-	initial["P2"] = DeviceVoltageState{
+	initial["P2"] = falconcore.DeviceVoltageState{
 		Connection: falconcore.Connection{
 			Name: "P2",
 			Type: falconcore.BarrierGate,
 		},
-		Quantity: Quantity{
+		Quantity: falconcore.Quantity{
 			Value: 2,
 			Unit:  falconcore.Volt,
 		},
@@ -79,10 +79,10 @@ func TestStartup_AlreadyInitialized(t *testing.T) {
 
 	require.NoError(
 		t,
-		Startup(DeviceVoltageStates{}),
+		Startup(falconcore.DeviceVoltageStates{}),
 	)
 
-	err := Startup(DeviceVoltageStates{})
+	err := Startup(falconcore.DeviceVoltageStates{})
 
 	require.Error(t, err)
 	assert.Equal(
@@ -98,7 +98,7 @@ func TestManager(t *testing.T) {
 
 	require.NoError(
 		t,
-		Startup(DeviceVoltageStates{}),
+		Startup(falconcore.DeviceVoltageStates{}),
 	)
 
 	manager := Manager()
@@ -121,13 +121,13 @@ func TestClose(t *testing.T) {
 	require.NoError(
 		t,
 		Startup(
-			DeviceVoltageStates{
+			falconcore.DeviceVoltageStates{
 				"P1": {
 					Connection: falconcore.Connection{
 						Name: "P1",
 						Type: falconcore.PlungerGate,
 					},
-					Quantity: Quantity{
+					Quantity: falconcore.Quantity{
 						Value: 1,
 						Unit:  falconcore.Volt,
 					},
@@ -157,13 +157,13 @@ func TestClose_ClearsManagerState(t *testing.T) {
 	require.NoError(
 		t,
 		Startup(
-			DeviceVoltageStates{
+			falconcore.DeviceVoltageStates{
 				"P1": {
 					Connection: falconcore.Connection{
 						Name: "P1",
 						Type: falconcore.PlungerGate,
 					},
-					Quantity: Quantity{
+					Quantity: falconcore.Quantity{
 						Value: 1,
 						Unit:  falconcore.Volt,
 					},

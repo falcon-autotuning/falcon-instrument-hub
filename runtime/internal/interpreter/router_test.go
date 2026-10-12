@@ -59,7 +59,7 @@ func (m *mockHandler) Handle(
 	if m.updatePort {
 		_ = tracker.UpdatePort(
 			"P1",
-			devicestate.Quantity{},
+			falconcore.Quantity{},
 		)
 	}
 
@@ -72,7 +72,7 @@ func setupDeviceState(t *testing.T) {
 	devicestate.Close()
 
 	err := devicestate.Startup(
-		devicestate.DeviceVoltageStates{
+		falconcore.DeviceVoltageStates{
 			"P1": {
 				Connection: falconcore.Connection{
 					Name: "P1",
@@ -273,7 +273,7 @@ func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
 	devicestate.Close()
 
 	err := devicestate.Startup(
-		devicestate.DeviceVoltageStates{
+		falconcore.DeviceVoltageStates{
 			"P1": {
 				Connection: falconcore.Connection{
 					Name: "P1",
@@ -315,7 +315,7 @@ func TestRouter_Handle_NoStateUpdate(t *testing.T) {
 	devicestate.Close()
 
 	err := devicestate.Startup(
-		devicestate.DeviceVoltageStates{
+		falconcore.DeviceVoltageStates{
 			"P1": {
 				Connection: falconcore.Connection{
 					Name: "P1",
@@ -358,7 +358,7 @@ func TestTrackedStateUpdater_UpdatePort(t *testing.T) {
 	devicestate.Close()
 
 	err := devicestate.Startup(
-		devicestate.DeviceVoltageStates{
+		falconcore.DeviceVoltageStates{
 			"P1": {
 				Connection: falconcore.Connection{
 					Name: "P1",
@@ -376,7 +376,7 @@ func TestTrackedStateUpdater_UpdatePort(t *testing.T) {
 
 	err = tracker.UpdatePort(
 		"P1",
-		devicestate.Quantity{
+		falconcore.Quantity{
 			Value: 1,
 		},
 	)

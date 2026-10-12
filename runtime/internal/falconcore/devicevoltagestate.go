@@ -1,14 +1,13 @@
-package devicestate
+package falconcore
 
 import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/voltage-states/devicevoltagestate"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 type DeviceVoltageState struct {
 	Quantity
-	Connection falconcore.Connection
+	Connection Connection
 }
 
 func (d DeviceVoltageState) NewFalconDeviceVoltageState() (*devicevoltagestate.Handle, error) {
@@ -51,7 +50,7 @@ func DeviceVoltageStateFromFalcon(d DeviceVoltageStateReader) (DeviceVoltageStat
 	if err != nil {
 		return DeviceVoltageState{}, err
 	}
-	realconn, err := falconcore.ConnectionFromFalcon(connection)
+	realconn, err := ConnectionFromFalcon(connection)
 	if err != nil {
 		return DeviceVoltageState{}, err
 	}

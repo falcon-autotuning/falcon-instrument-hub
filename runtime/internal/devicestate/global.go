@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"maps"
 	"sync"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
 var (
@@ -11,7 +13,7 @@ var (
 	globalMu      sync.RWMutex
 )
 
-func Startup(initial DeviceVoltageStates) error {
+func Startup(initial falconcore.DeviceVoltageStates) error {
 	globalMu.Lock()
 	defer globalMu.Unlock()
 
@@ -19,7 +21,7 @@ func Startup(initial DeviceVoltageStates) error {
 		return fmt.Errorf("device state manager already initialized")
 	}
 
-	state := make(DeviceVoltageStates, len(initial))
+	state := make(falconcore.DeviceVoltageStates, len(initial))
 
 	maps.Copy(state, initial)
 

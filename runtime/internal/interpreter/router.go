@@ -2,6 +2,7 @@
 
 package interpreter
 
+// TODO: Unique ID gen system
 import (
 	"fmt"
 
@@ -15,7 +16,7 @@ import (
 type StateUpdater interface {
 	UpdatePort(
 		port falconcore.ConnectionName,
-		value devicestate.Quantity,
+		value falconcore.Quantity,
 	) error
 }
 
@@ -26,7 +27,7 @@ type trackedStateUpdater struct {
 
 func (t *trackedStateUpdater) UpdatePort(
 	port falconcore.ConnectionName,
-	value devicestate.Quantity,
+	value falconcore.Quantity,
 ) error {
 	t.updates++
 	return t.manager.UpdatePort(port, value)

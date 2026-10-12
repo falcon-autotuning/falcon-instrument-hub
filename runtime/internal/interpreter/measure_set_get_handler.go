@@ -21,6 +21,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/measurementresult"
@@ -544,13 +545,14 @@ func measureGetSetValue(
 		return 0, fmt.Errorf("create raw measurement context: %w", err)
 	}
 	defer context.Close()
-	if err := measurementdb.Save(measurementdb.Record{
-		MeasurementID:   result.ID,
-		MeasurementName: measureGetSetHandlerName,
-		Getter:          string(getter.PortName),
-		Raw:             samples,
-		Unit:            measured.Unit,
-	}, context); err != nil {
+	// TODO: Fix populating the measurement database
+	if _, err := measurementdb.Insert(measurementdb.InsertEntry{
+		CoreEntry: measurementdb.CoreEntry{
+			MeasurementID:   result.ID,
+			MeasurementName: measureGetSetHandlerName,
+		},
+		Shape: []int{1, len(samples)},
+	}, falconcore.DatabaseEntry{}); err != nil {
 		return 0, fmt.Errorf("store set/get measurement: %w", err)
 	}
 	return converted, nil

@@ -1,9 +1,8 @@
-package devicestate
+package falconcore
 
 import (
 	"testing"
 
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -30,13 +29,13 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_Single(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: falconcore.Connection{
+			Connection: Connection{
 				Name: "P1",
-				Type: falconcore.PlungerGate,
+				Type: PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1.5,
-				Unit:  falconcore.Volt,
+				Unit:  Volt,
 			},
 		},
 	}
@@ -58,13 +57,13 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidConnection(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: falconcore.Connection{
+			Connection: Connection{
 				Name: "P1",
-				Type: falconcore.ConnectionType(999),
+				Type: ConnectionType(999),
 			},
 			Quantity: Quantity{
 				Value: 1,
-				Unit:  falconcore.Volt,
+				Unit:  Volt,
 			},
 		},
 	}
@@ -80,13 +79,13 @@ func TestDeviceVoltageStates_NewFalconDeviceVoltageStates_InvalidUnit(
 ) {
 	states := DeviceVoltageStates{
 		"P1": {
-			Connection: falconcore.Connection{
+			Connection: Connection{
 				Name: "P1",
-				Type: falconcore.PlungerGate,
+				Type: PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1,
-				Unit:  falconcore.Unit(999),
+				Unit:  Unit(999),
 			},
 		},
 	}
@@ -113,23 +112,23 @@ func TestDeviceVoltageStates_RoundTrip(
 ) {
 	original := DeviceVoltageStates{
 		"P1": {
-			Connection: falconcore.Connection{
+			Connection: Connection{
 				Name: "P1",
-				Type: falconcore.PlungerGate,
+				Type: PlungerGate,
 			},
 			Quantity: Quantity{
 				Value: 1.25,
-				Unit:  falconcore.Volt,
+				Unit:  Volt,
 			},
 		},
 		"B1": {
-			Connection: falconcore.Connection{
+			Connection: Connection{
 				Name: "B1",
-				Type: falconcore.BarrierGate,
+				Type: BarrierGate,
 			},
 			Quantity: Quantity{
 				Value: 500,
-				Unit:  falconcore.Millivolt,
+				Unit:  Millivolt,
 			},
 		},
 	}

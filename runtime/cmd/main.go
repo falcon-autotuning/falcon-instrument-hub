@@ -295,7 +295,7 @@ func (deps RuntimeDependencies) NewRuntime(
 	return services, nil
 }
 
-func quantityFromConfig(v config.VoltageState) devicestate.Quantity {
+func quantityFromConfig(v config.VoltageState) falconcore.Quantity {
 	value := v.Voltage
 
 	switch v.Unit {
@@ -312,7 +312,7 @@ func quantityFromConfig(v config.VoltageState) devicestate.Quantity {
 		// unreachable if config validation is correct
 	}
 
-	return devicestate.Quantity{
+	return falconcore.Quantity{
 		Value: value,
 		Unit:  falconcore.Volt,
 	}
@@ -321,13 +321,13 @@ func quantityFromConfig(v config.VoltageState) devicestate.Quantity {
 func buildInitialDeviceVoltageState(
 	wmap config.WireMap,
 	states config.VoltageStates,
-) devicestate.DeviceVoltageStates {
-	outs := make(devicestate.DeviceVoltageStates, len(wmap))
+) falconcore.DeviceVoltageStates {
+	outs := make(falconcore.DeviceVoltageStates, len(wmap))
 
 	for _, entry := range wmap {
-		outs[entry.Gate.Name] = devicestate.DeviceVoltageState{
+		outs[entry.Gate.Name] = falconcore.DeviceVoltageState{
 			Connection: entry.Gate,
-			Quantity: devicestate.Quantity{
+			Quantity: falconcore.Quantity{
 				Value: 0,
 				Unit:  falconcore.Volt,
 			},
@@ -446,7 +446,8 @@ func NewRunHub(
 		// For now, a run is one hub session. An experiment ID can replace
 		// this without changing the catalog or HDF5 record format.
 		runID := rand.Text()
-		if err := measurementdb.Initialize(filepath.Join(cfg.RuntimePaths.Data, MeasurementsDB), runID); err != nil {
+		ownerName := "FIxME" // FIX: Check database integration and properly pipe owner from config
+		if err := measurementdb.Startup(filepath.Join(cfg.RuntimePaths.Data, MeasurementsDB), runID, ownerName); err != nil {
 			return fmt.Errorf("initialize measurement database: %w", err)
 		}
 		defer func() {
