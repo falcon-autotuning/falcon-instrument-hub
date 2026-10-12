@@ -48,6 +48,7 @@ func addIOPort(
 	channelGroup string,
 	channel int,
 	io IoType,
+	ioConfig IoConfig,
 	context string,
 ) error {
 	if channelGroup != "" {
@@ -87,9 +88,19 @@ func addIOPort(
 
 		return fmt.Errorf("%s IO %q: %w", context, id, err)
 	}
-	unit, err := falconcore.SymbolToUnit(io.Unit)
+	transformedUnit := ioConfig.TransformedUnit
+	if transformedUnit == "" {
+		transformedUnit = io.Unit
+	}
+
+	unit, err := falconcore.SymbolToUnit(transformedUnit)
 	if err != nil {
-		return err
+		return fmt.Errorf(
+			"IO %q unit %q: %w",
+			io.Name,
+			transformedUnit,
+			err,
+		)
 	}
 
 	return addPort(
@@ -103,7 +114,7 @@ func addIOPort(
 			Role:           portType,
 			Access:         portAccess,
 			Characteristic: instrumentcharacteristic.InstrumentCharacteristicNone,
-			Unit:           unit, // FIX: This unit needs to come from the io_config in the ConfigFile since the ISS is upholding this
+			Unit:           unit,
 			Description:    io.Description,
 		},
 	)
@@ -358,7 +369,7 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 			)
 		}
 		api, err := ParseInstrumentAPI(
-			filepath.Join(filepath.Dir(instrument.ConfigPath), config.API_ref),
+			filepath.Join(filepath.Dir(instrument.ConfigPath), config.APIref),
 		)
 		if err != nil {
 			return nil, fmt.Errorf(
@@ -406,6 +417,7 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 						group.Name,
 						channel,
 						io,
+						config.IOconfig[io.Name],
 						fmt.Sprintf(
 							"instrument %q channel group %q",
 							config.Name,
@@ -443,6 +455,7 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 				"",
 				0,
 				io,
+				config.IOconfig[io.Name],
 				fmt.Sprintf("instrument %q global IO", config.Name),
 			); err != nil {
 				return nil, err

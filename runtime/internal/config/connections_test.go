@@ -475,7 +475,7 @@ api_ref: api.yaml
 	require.NoError(t, err)
 
 	assert.Equal(t, "Scope1", cfg.Name)
-	assert.Equal(t, "api.yaml", cfg.API_ref)
+	assert.Equal(t, "api.yaml", cfg.APIref)
 }
 
 func newTestUnit(t *testing.T) *symbolunit.Handle {
@@ -769,6 +769,9 @@ func TestAddIOPort(t *testing.T) {
 			Role:   "output",
 			Unit:   "V",
 		},
+		IoConfig{
+			TransformedUnit: "V",
+		},
 		"context",
 	)
 
@@ -789,6 +792,9 @@ func TestAddIOPort_NoName(t *testing.T) {
 		"",
 		0,
 		IoType{},
+		IoConfig{
+			TransformedUnit: "V",
+		},
 		"context",
 	)
 
@@ -806,6 +812,9 @@ func TestAddIOPort_InvalidRole(t *testing.T) {
 		IoType{
 			Name: "foo",
 			Role: "garbage",
+		},
+		IoConfig{
+			TransformedUnit: "V",
 		},
 		"context",
 	)

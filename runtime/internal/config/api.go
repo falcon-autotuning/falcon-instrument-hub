@@ -7,10 +7,17 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type IoConfig struct {
+	TransformedUnit string  `yaml:"transformed-unit"`
+	Offset          float64 `yaml:"offset"`
+	Scale           float64 `yaml:"scale"`
+}
+
 // InstrumentConfigFile represents the top-level structure of an instrument Configuration YAML file.
 type InstrumentConfigFile struct {
-	Name    string `yaml:"name"`
-	API_ref string `yaml:"api_ref"`
+	Name     string              `yaml:"name"`
+	APIref   string              `yaml:"api_ref"`
+	IOconfig map[string]IoConfig `yaml:"io_config"`
 }
 
 func ParseInstrumentConfig(path string) (*InstrumentConfigFile, error) {
@@ -27,7 +34,7 @@ func ParseInstrumentConfig(path string) (*InstrumentConfigFile, error) {
 	if config.Name == "" {
 		return nil, fmt.Errorf("instrument config file %s missing instrument name", path)
 	}
-	if config.API_ref == "" {
+	if config.APIref == "" {
 		return nil, fmt.Errorf("instrument config file %s missing instrument API reference", path)
 	}
 	return &config, nil

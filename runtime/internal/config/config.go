@@ -448,7 +448,7 @@ func (i *InstrumentConfig) Resolve() error {
 	}
 
 	api, err := ParseInstrumentAPI(
-		path.Join(path.Dir(i.ConfigPath), instrumentConfig.API_ref),
+		path.Join(path.Dir(i.ConfigPath), instrumentConfig.APIref),
 	)
 	if err != nil {
 		return err
