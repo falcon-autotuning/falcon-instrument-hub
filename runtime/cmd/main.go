@@ -191,10 +191,6 @@ func (r Runtime) startInstruments() error {
 	return nil
 }
 
-const (
-	MeasurementsDB = "measurements.sqlite"
-)
-
 func BuildInstrumentMetadata(
 	cfg *config.HubConfig,
 ) map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata {
