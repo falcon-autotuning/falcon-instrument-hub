@@ -16,6 +16,7 @@ var defaultHost = instrumentserver.DefaultISSHost
 type ISSClient interface {
 	StartInstrument(string, string) error
 	StopInstrument(string) error
+	InstrumentStatus(string) (*instrumentserver.InstrumentStats, error)
 	ListInstruments() ([]string, error)
 	DaemonStatus() (bool, error)
 	StopDaemon() error

@@ -152,7 +152,10 @@ type FakeISSClient struct {
 	closed           bool
 	stopDaemonCalled bool
 	closeCalled      bool
-	status           bool // can set what shoudl happen
+	status           bool
+
+	instrumentStatuses  map[string]*instrumentserver.InstrumentStats
+	instrumentStatusErr error
 
 	startDaemonError     error
 	stopDaemonError      error
@@ -194,6 +197,25 @@ func (f *FakeISSClient) StopInstrument(name string) error {
 	return fmt.Errorf("instrument %s not found", name)
 }
 
+func (f *FakeISSClient) InstrumentStatus(
+	name string,
+) (*instrumentserver.InstrumentStats, error) {
+	if f.instrumentStatusErr != nil {
+		return nil, f.instrumentStatusErr
+	}
+
+	if f.instrumentStatuses == nil {
+		return nil, fmt.Errorf("instrument %s not found", name)
+	}
+
+	stats, ok := f.instrumentStatuses[name]
+	if !ok {
+		return nil, fmt.Errorf("instrument %s not found", name)
+	}
+
+	return stats, nil
+}
+
 func (f *FakeISSClient) ListInstruments() ([]string, error) {
 	return f.started, f.listError
 }
@@ -226,67 +248,6 @@ func (f *FakeISSClient) Measure(
 
 func (f *FakeISSClient) ReadBuffer(bufferID string) ([]float64, error) {
 	return nil, f.readError
-}
-
-func TestStartInstruments(t *testing.T) {
-	client := &FakeISSClient{}
-
-	runtime := Runtime{
-		cfg: &config.HubConfig{
-			InstrumentServer: config.InstrumentServerConfig{
-				Instruments: []config.InstrumentConfig{
-					{
-						ConfigPath: "a.yaml",
-						PluginPath: "a.so",
-					},
-					{
-						ConfigPath: "b.yaml",
-						PluginPath: "b.so",
-					},
-				},
-			},
-		},
-		issClient: client,
-	}
-
-	err := runtime.startInstruments()
-
-	require.NoError(t, err)
-
-	assert.Equal(
-		t,
-		[]string{
-			"a.yaml:a.so",
-			"b.yaml:b.so",
-		},
-		client.started,
-	)
-}
-
-func TestFailStartInstruments(t *testing.T) {
-	client := &FakeISSClient{startInstrumentError: fmt.Errorf("Broken start")}
-
-	runtime := Runtime{
-		cfg: &config.HubConfig{
-			InstrumentServer: config.InstrumentServerConfig{
-				Instruments: []config.InstrumentConfig{
-					{
-						ConfigPath: "a.yaml",
-						PluginPath: "a.so",
-					},
-					{
-						ConfigPath: "b.yaml",
-						PluginPath: "b.so",
-					},
-				},
-			},
-		},
-		issClient: client,
-	}
-
-	err := runtime.startInstruments()
-
-	require.Error(t, err)
 }
 
 func TestStopInstruments(t *testing.T) {
@@ -391,6 +352,9 @@ func TestClose_ShutsDownServices(t *testing.T) {
 	runtime := Runtime{
 		handlerManager: handler,
 		natsManager:    nats,
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{AutoStart: true},
+		},
 	}
 
 	runtime.Close()
@@ -410,6 +374,10 @@ func TestClose_ShutsDownISS(t *testing.T) {
 	runtime := Runtime{
 		issClient:  client,
 		issProcess: &os.Process{Pid: 1234},
+		ownsISS:    true,
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{AutoStart: true},
+		},
 	}
 
 	runtime.Close()
@@ -419,6 +387,39 @@ func TestClose_ShutsDownISS(t *testing.T) {
 
 	assert.Empty(
 		t,
+		client.started,
+	)
+}
+
+func TestClose_DoesNotShutDownISS(t *testing.T) {
+	client := &FakeISSClient{
+		started: []string{
+			"awg",
+			"scope",
+		},
+	}
+
+	runtime := Runtime{
+		issClient:  client,
+		issProcess: &os.Process{Pid: 1234},
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				AutoStart: false,
+			},
+		},
+	}
+
+	runtime.Close()
+
+	assert.False(t, client.stopDaemonCalled)
+
+	// Client connection should still be cleaned up.
+	assert.True(t, client.closeCalled)
+
+	// Instruments should not be touched.
+	assert.Equal(
+		t,
+		[]string{"awg", "scope"},
 		client.started,
 	)
 }
@@ -666,4 +667,104 @@ func TestStartISSDaemon(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, proc)
+}
+
+func TestReconcileInstruments_AlreadyRunning(t *testing.T) {
+	client := &FakeISSClient{
+		instrumentStatuses: map[string]*instrumentserver.InstrumentStats{
+			"dmm": {
+				CommandsSent:      100,
+				CommandsCompleted: 99,
+			},
+		},
+	}
+
+	runtime := Runtime{
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				Instruments: []config.InstrumentConfig{
+					{
+						ConfigPath: "dmm",
+						PluginPath: "dmm.so",
+						ConfigFile: &config.InstrumentConfigFile{
+							Name: "dmm",
+						},
+					},
+				},
+			},
+		},
+		issClient: client,
+	}
+
+	err := runtime.reconcileInstruments()
+
+	require.NoError(t, err)
+
+	// Should not attempt to start an instrument
+	// that is already running.
+	assert.Empty(t, client.started)
+}
+
+func TestReconcileInstruments_MissingInstrument(t *testing.T) {
+	client := &FakeISSClient{
+		instrumentStatuses: map[string]*instrumentserver.InstrumentStats{},
+	}
+
+	runtime := Runtime{
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				Instruments: []config.InstrumentConfig{
+					{
+						ConfigPath: "dmm",
+						PluginPath: "dmm.so",
+						ConfigFile: &config.InstrumentConfigFile{
+							Name: "dmm",
+						},
+					},
+				},
+			},
+		},
+		issClient: client,
+	}
+
+	err := runtime.reconcileInstruments()
+
+	require.NoError(t, err)
+
+	assert.Equal(
+		t,
+		[]string{
+			"dmm:dmm.so",
+		},
+		client.started,
+	)
+}
+
+func TestReconcileInstruments_StartFailure(t *testing.T) {
+	client := &FakeISSClient{
+		instrumentStatuses:   map[string]*instrumentserver.InstrumentStats{},
+		startInstrumentError: fmt.Errorf("start failed"),
+	}
+
+	runtime := Runtime{
+		cfg: &config.HubConfig{
+			InstrumentServer: config.InstrumentServerConfig{
+				Instruments: []config.InstrumentConfig{
+					{
+						ConfigPath: "dmm",
+						PluginPath: "dmm.so",
+						ConfigFile: &config.InstrumentConfigFile{
+							Name: "dmm",
+						},
+					},
+				},
+			},
+		},
+		issClient: client,
+	}
+
+	err := runtime.reconcileInstruments()
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "start failed")
 }

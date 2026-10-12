@@ -10,6 +10,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/nats-io/nats.go"
@@ -415,6 +416,192 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 		},
 		tracker,
 	)
+
+	runtime.Close()
+}
+
+func TestNewRuntime_AttachedDaemon_StartsMissingInstrument(
+	t *testing.T,
+) {
+	client := &FakeISSClient{
+		// ISS daemon already exists.
+		status: true,
+
+		// No instruments currently running.
+		instrumentStatuses: map[string]*instrumentserver.InstrumentStats{},
+	}
+
+	handler := &FakeHandlerManager{}
+
+	cfg := &config.HubConfig{
+		RuntimePaths: config.RuntimePaths{
+			Logs:      t.TempDir(),
+			DataCache: t.TempDir(),
+		},
+
+		InstrumentServer: config.InstrumentServerConfig{
+			AutoStart: false,
+
+			Instruments: []config.InstrumentConfig{
+				{
+					ConfigPath: "dmm",
+					PluginPath: "dmm.so",
+					ConfigFile: &config.InstrumentConfigFile{
+						Name: "dmm",
+					},
+				},
+			},
+		},
+	}
+
+	deps := RuntimeDependencies{
+		newISSClient: func(
+			host string,
+			port int,
+			binary string,
+		) ISSClient {
+			return client
+		},
+
+		newNATSManager: func(
+			string,
+		) (NATSManager, error) {
+			return &FakeNATSManager{}, nil
+		},
+
+		newLogger: func(
+			string,
+		) (*logging.Logger, error) {
+			return logging.NewLogger(
+				t.TempDir(),
+			)
+		},
+
+		configProvider: fakeConfigProvider{},
+
+		newHandlerManager: func(
+			deviceConfigJSON string,
+			wiremap config.WireMap,
+			ports *config.ConnectedPorts,
+			measurementScriptsPath string,
+			logger *logging.Logger,
+			nc *nats.Conn,
+			dispatcher measure.MeasurementClient,
+			instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+		) HandlerManager {
+			return handler
+		},
+	}
+
+	runtime, err := deps.NewRuntime(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+
+	assert.False(t, runtime.ownsISS)
+
+	assert.Equal(
+		t,
+		[]string{
+			"dmm:dmm.so",
+		},
+		client.started,
+	)
+
+	assert.True(t, handler.coreStarted)
+	assert.True(t, handler.statusStarted)
+
+	runtime.Close()
+}
+
+func TestNewRuntime_AttachedDaemon_DoesNotRestartRunningInstrument(
+	t *testing.T,
+) {
+	client := &FakeISSClient{
+		// Existing ISS daemon is already alive.
+		status: true,
+
+		// Instrument is already running.
+		instrumentStatuses: map[string]*instrumentserver.InstrumentStats{
+			"dmm": {},
+		},
+	}
+
+	handler := &FakeHandlerManager{}
+
+	cfg := &config.HubConfig{
+		RuntimePaths: config.RuntimePaths{
+			Logs:      t.TempDir(),
+			DataCache: t.TempDir(),
+		},
+
+		InstrumentServer: config.InstrumentServerConfig{
+			AutoStart: false,
+
+			Instruments: []config.InstrumentConfig{
+				{
+					ConfigPath: "dmm",
+					PluginPath: "dmm.so",
+					ConfigFile: &config.InstrumentConfigFile{
+						Name: "dmm",
+					},
+				},
+			},
+		},
+	}
+
+	deps := RuntimeDependencies{
+		newISSClient: func(
+			host string,
+			port int,
+			binary string,
+		) ISSClient {
+			return client
+		},
+
+		newNATSManager: func(
+			string,
+		) (NATSManager, error) {
+			return &FakeNATSManager{}, nil
+		},
+
+		newLogger: func(
+			string,
+		) (*logging.Logger, error) {
+			return logging.NewLogger(
+				t.TempDir(),
+			)
+		},
+
+		configProvider: fakeConfigProvider{},
+
+		newHandlerManager: func(
+			deviceConfigJSON string,
+			wiremap config.WireMap,
+			ports *config.ConnectedPorts,
+			measurementScriptsPath string,
+			logger *logging.Logger,
+			nc *nats.Conn,
+			dispatcher measure.MeasurementClient,
+			instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+		) HandlerManager {
+			return handler
+		},
+	}
+
+	runtime, err := deps.NewRuntime(cfg)
+
+	require.NoError(t, err)
+	require.NotNil(t, runtime)
+
+	// We attached to an existing daemon.
+	assert.False(t, runtime.ownsISS)
+
+	// Instrument was already running, so no start should occur.
+	assert.Empty(t, client.started)
+
+	assert.True(t, handler.coreStarted)
+	assert.True(t, handler.statusStarted)
 
 	runtime.Close()
 }

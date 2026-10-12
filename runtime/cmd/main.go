@@ -55,6 +55,24 @@ func (deps RuntimeDependencies) waitForISSDaemonReady(cfg config.InstrumentServe
 	return nil, fmt.Errorf("instrument-script-server daemon on %s:%d did not become ready within %s: %w", defaultHost, cfg.RPCPort, timeout, lastErr)
 }
 
+func (deps RuntimeDependencies) tryAttachISSDaemon(
+	cfg config.InstrumentServerConfig,
+) (ISSClient, bool) {
+	client := deps.newISSClient(
+		defaultHost,
+		cfg.RPCPort,
+		cfg.ISSBinary,
+	)
+
+	status, err := client.DaemonStatus()
+	if err != nil || !status {
+		_ = client.Close()
+		return nil, false
+	}
+
+	return client, true
+}
+
 func stopISSDaemonViaCLI(cfg config.InstrumentServerConfig) {
 	cmd := execCommand(cfg.ISSBinary, "daemon", "stop")
 	cmd.Stdout = os.Stdout
@@ -144,17 +162,11 @@ type Runtime struct {
 	handlerManager HandlerManager
 	issProcess     *os.Process
 	issClient      ISSClient
+	ownsISS        bool
 }
 
 func (r *Runtime) startISSDaemon() (*os.Process, error) {
-	// TODO: See if we can attach to already running daemon
-	// Stop any stale daemon from a previous run before starting fresh.
 	instrumentServerConfig := r.cfg.InstrumentServer
-	stopISSDaemonViaCLI(instrumentServerConfig)
-	if !waitForISSDaemonStopped(instrumentServerConfig, 5*time.Second) {
-		return nil, fmt.Errorf("instrument-script-server did not release port %d after stop", r.cfg.InstrumentServer.RPCPort)
-	}
-
 	cmd := execCommand(instrumentServerConfig.ISSBinary, "daemon", "start")
 	env := os.Environ()
 	cmd.Env = env
@@ -181,13 +193,58 @@ func (r *Runtime) startISSDaemon() (*os.Process, error) {
 	return cmd.Process, nil
 }
 
-func (r Runtime) startInstruments() error {
-	for _, instrument := range r.cfg.InstrumentServer.Instruments {
-		if err := r.issClient.StartInstrument(instrument.ConfigPath, instrument.PluginPath); err != nil {
-			return fmt.Errorf("failed to start instrument at from %s via ISS RPC: %w", instrument.ConfigPath, err)
-		}
-		log.Printf("started instrument at: %s", instrument.ConfigPath)
+func instrumentName(
+	instrument config.InstrumentConfig,
+) (string, error) {
+	if instrument.ConfigFile == nil {
+		return "", fmt.Errorf(
+			"instrument config missing ConfigFile",
+		)
 	}
+
+	if instrument.ConfigFile.Name == "" {
+		return "", fmt.Errorf(
+			"instrument config missing Name",
+		)
+	}
+
+	return instrument.ConfigFile.Name, nil
+}
+
+func (r Runtime) reconcileInstruments() error {
+	for _, instrument := range r.cfg.InstrumentServer.Instruments {
+
+		name, err := instrumentName(instrument)
+		if err != nil {
+			return err
+		}
+
+		_, err = r.issClient.InstrumentStatus(name)
+		if err == nil {
+			log.Printf(
+				"instrument already running: %s",
+				name,
+			)
+			continue
+		}
+
+		log.Printf(
+			"instrument %s not running, starting",
+			name,
+		)
+
+		if err := r.issClient.StartInstrument(
+			instrument.ConfigPath,
+			instrument.PluginPath,
+		); err != nil {
+			return fmt.Errorf(
+				"start instrument %s: %w",
+				name,
+				err,
+			)
+		}
+	}
+
 	return nil
 }
 
@@ -220,29 +277,59 @@ func (deps RuntimeDependencies) NewRuntime(
 		cfg: cfg,
 	}
 
-	// Production supplies newISSClient. Tests may omit it when exercising an
-	// unrelated startup failure before handler construction.
 	if deps.newISSClient != nil {
-		if cfg.InstrumentServer.AutoStart {
-			proc, err := services.startISSDaemon()
-			if err != nil {
-				stopISSDaemonViaCLI(cfg.InstrumentServer)
-				return nil, fmt.Errorf("could not start instrument-script-server: %w", err)
-			}
-			services.issProcess = proc
-			if proc != nil {
-				log.Printf("instrument-script-server daemon started (pid=%d)", proc.Pid)
-			}
-		}
+		if client, ok := deps.tryAttachISSDaemon(
+			cfg.InstrumentServer,
+		); ok {
 
-		client, err := deps.waitForISSDaemonReady(cfg.InstrumentServer, 10*time.Second)
-		if err != nil {
-			if services.issProcess != nil {
-				stopISSDaemonViaCLI(cfg.InstrumentServer)
+			services.issClient = client
+			services.ownsISS = false
+
+			log.Printf(
+				"attached to existing instrument-script-server daemon",
+			)
+
+		} else {
+
+			if cfg.InstrumentServer.AutoStart {
+				proc, err := services.startISSDaemon()
+				if err != nil {
+					return nil, fmt.Errorf(
+						"could not start instrument-script-server: %w",
+						err,
+					)
+				}
+
+				services.issProcess = proc
+				services.ownsISS = true
+
+				if proc != nil {
+					log.Printf(
+						"instrument-script-server daemon started (pid=%d)",
+						proc.Pid,
+					)
+				}
 			}
-			return services, fmt.Errorf("could not connect to instrument-script-server: %w", err)
+
+			client, err := deps.waitForISSDaemonReady(
+				cfg.InstrumentServer,
+				10*time.Second,
+			)
+			if err != nil {
+				if services.ownsISS {
+					stopISSDaemonViaCLI(
+						cfg.InstrumentServer,
+					)
+				}
+
+				return services, fmt.Errorf(
+					"could not connect to instrument-script-server: %w",
+					err,
+				)
+			}
+
+			services.issClient = client
 		}
-		services.issClient = client
 	}
 
 	natsManager, err := deps.newNATSManager(cfg.NATSURL)
@@ -282,10 +369,11 @@ func (deps RuntimeDependencies) NewRuntime(
 	if err := handlerManager.StartCoreHandlers(); err != nil {
 		return services, fmt.Errorf("failed to start handlers: %w", err)
 	}
-	if cfg.InstrumentServer.AutoStart && services.issProcess != nil {
-		if err := services.startInstruments(); err != nil {
-			return services, fmt.Errorf("failed to start instruments: %w", err)
-		}
+	if err := services.reconcileInstruments(); err != nil {
+		return services, fmt.Errorf(
+			"reconcile instruments: %w",
+			err,
+		)
 	}
 	if handlerManager != nil {
 		if err := handlerManager.StartStatus(); err != nil {
@@ -377,11 +465,13 @@ func (r *Runtime) Close() {
 	if r.natsManager != nil {
 		r.natsManager.Close()
 	}
-	if r.issProcess != nil {
-		log.Println("stopping instrument-script-server daemon...")
-		r.stopInstruments()
-		if err := r.issClient.StopDaemon(); err != nil {
-			log.Printf("warning: instrument-script-server daemon stop returned: %v", err)
+	if r.ownsISS {
+		if r.issProcess != nil {
+			log.Println("stopping instrument-script-server daemon...")
+			r.stopInstruments()
+			if err := r.issClient.StopDaemon(); err != nil {
+				log.Printf("warning: instrument-script-server daemon stop returned: %v", err)
+			}
 		}
 	}
 	if r.issClient != nil {
