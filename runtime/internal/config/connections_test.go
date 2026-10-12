@@ -1370,3 +1370,73 @@ api_ref: %s
 		"analog2_waveform",
 	)
 }
+
+func TestBuildPortLibrary_UsesTransformedUnit(
+	t *testing.T,
+) {
+	tmpDir := t.TempDir()
+
+	apiPath := filepath.Join(tmpDir, "api.yaml")
+	cfgPath := filepath.Join(tmpDir, "instrument.yaml")
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			apiPath,
+			[]byte(`
+api_version: 1.0.0
+
+instrument:
+  vendor: Mock
+  model: 1
+  identifier: Mock1
+
+protocol:
+  type: VISA
+
+io:
+  - name: voltage
+    role: output
+    unit: V
+`),
+			0o600,
+		),
+	)
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			cfgPath,
+			[]byte(fmt.Sprintf(`
+name: Source1
+api_ref: %s
+
+io_config:
+  voltage:
+    transformed-unit: mV
+`, filepath.Base(apiPath))),
+			0o600,
+		),
+	)
+
+	lib, err := BuildPortLibrary(
+		[]InstrumentConfig{
+			{
+				ConfigPath:     cfgPath,
+				InstrumentType: instrument.DcVoltageSource,
+			},
+		},
+	)
+
+	require.NoError(t, err)
+
+	port, ok := lib["Source1.voltage"]
+	require.True(t, ok)
+
+	// API unit is V, but config overrides to mV.
+	assert.Equal(
+		t,
+		falconcore.Millivolt,
+		port.Unit,
+	)
+}
