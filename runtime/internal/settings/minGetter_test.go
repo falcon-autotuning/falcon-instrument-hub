@@ -127,7 +127,6 @@ func TestMinCharacteristicGetter_Get_Success(t *testing.T) {
 	q, err := g.Get(
 		port,
 		nil,
-		nil,
 		ports,
 		metadata,
 	)
@@ -149,7 +148,6 @@ func TestMinCharacteristicGetter_Get_Error(t *testing.T) {
 
 	_, err := g.Get(
 		testLimitPort(),
-		nil,
 		nil,
 		nil,
 		testLimitMetadata(),

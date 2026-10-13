@@ -73,7 +73,6 @@ func TestMaxCharacteristicGetter_Get_Success(t *testing.T) {
 	q, err := g.Get(
 		testLimitPort(),
 		nil,
-		nil,
 		testLimitPorts(),
 		testLimitMetadata(),
 	)
@@ -95,7 +94,6 @@ func TestMaxCharacteristicGetter_Get_Error(t *testing.T) {
 
 	_, err := g.Get(
 		testLimitPort(),
-		nil,
 		nil,
 		&config.ConnectedPorts{},
 		testLimitMetadata(),

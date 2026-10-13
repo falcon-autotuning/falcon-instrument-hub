@@ -60,7 +60,6 @@ func (g *MaxCharacteristicGetter) CanGet(
 func (g *MaxCharacteristicGetter) Get(
 	port falconcore.InstrumentPort,
 	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
 	ports *config.ConnectedPorts,
 	metadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) (falconcore.Quantity, error) {

@@ -46,7 +46,6 @@ type GetterHandler interface {
 	Get(
 		port falconcore.InstrumentPort,
 		dispatcher *dispatcher.MeasurementDispatcher,
-		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
 		instrumentMetadata map[InstrumentName]InstrumentMetadata,
 	) (falconcore.Quantity, error)
@@ -82,7 +81,6 @@ type SetterHandler interface {
 		port falconcore.InstrumentPort,
 		value falconcore.Quantity,
 		dispatcher *dispatcher.MeasurementDispatcher,
-		wiremap config.WireMap,
 		ports *config.ConnectedPorts,
 	) error
 }
@@ -111,7 +109,6 @@ type Router struct {
 
 	scriptDir string
 
-	wiremap            config.WireMap
 	ports              *config.ConnectedPorts
 	instrumentMetadata map[InstrumentName]InstrumentMetadata
 }
@@ -145,7 +142,7 @@ func (r *Router) RegisterGetter(
 }
 
 // NewRouter constructs a Router with the supplied measurement dispatcher,
-// wiremap, and connected-port catalog.
+// and connected-port catalog.
 //
 // This is the central registration point for all setting handlers.
 //
@@ -165,7 +162,6 @@ func (r *Router) RegisterGetter(
 // or SetterHandler implementation and be registered below.
 func NewRouter(
 	dispatcher *dispatcher.MeasurementDispatcher,
-	wiremap config.WireMap,
 	ports *config.ConnectedPorts,
 	instrumentMetadata map[InstrumentName]InstrumentMetadata,
 ) *Router {
@@ -176,7 +172,6 @@ func NewRouter(
 	}
 	r := &Router{
 		dispatcher:         dispatcher,
-		wiremap:            wiremap,
 		ports:              ports,
 		instrumentMetadata: instrumentMetadata,
 		scriptDir:          scriptDir,
@@ -205,7 +200,6 @@ func (r *Router) set(
 				port,
 				value,
 				r.dispatcher,
-				r.wiremap,
 				r.ports,
 			)
 		}
@@ -231,7 +225,6 @@ func (r *Router) get(
 			return handler.Get(
 				port,
 				r.dispatcher,
-				r.wiremap,
 				r.ports,
 				r.instrumentMetadata,
 			)

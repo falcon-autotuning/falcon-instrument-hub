@@ -19,25 +19,43 @@ func matchesPort(
 		cfg.Unit == port.Unit
 }
 
+func ResolvePort(
+	port falconcore.InstrumentPort,
+	ports *config.ConnectedPorts,
+) (*config.ConnectedPort, bool) {
+	if ports == nil {
+		return nil, false
+	}
+
+	defaultConn := falconcore.Connection{}
+
+	for i := range ports.AllConnections {
+		p := &ports.AllConnections[i]
+
+		if !matchesPort(*p, port) {
+			continue
+		}
+
+		if port.PseudoName == defaultConn {
+			return p, true
+		}
+
+		if p.Handle == port.PseudoName {
+			return p, true
+		}
+	}
+
+	return nil, false
+}
+
 func PortExists(
 	port falconcore.InstrumentPort,
 	ports *config.ConnectedPorts,
 ) bool {
-	if ports == nil {
-		return false
-	}
+	_, ok := ResolvePort(
+		port,
+		ports,
+	)
 
-	defaultConn := falconcore.Connection{}
-	for _, p := range ports.AllConnections {
-		if !matchesPort(p, port) {
-			continue
-		}
-		if port.PseudoName == defaultConn {
-			return true
-		}
-
-		return p.Handle == port.PseudoName
-	}
-
-	return false
+	return ok
 }

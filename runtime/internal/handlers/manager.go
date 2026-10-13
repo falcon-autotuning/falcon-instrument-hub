@@ -71,7 +71,6 @@ func NewManager(
 		manager,
 		measurementScriptsPath,
 		dispatcher,
-		wiremap,
 		ports,
 		instrumentMetadata,
 	)

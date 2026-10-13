@@ -73,7 +73,6 @@ type Handler struct {
 	js           nats.JetStreamContext
 	subscription *nats.Subscription
 	busyManager  BusyManager
-	wiremap      config.WireMap
 	ports        *config.ConnectedPorts
 	dispatcher   dispatcher.MeasurementDispatcher
 	router       SettingRouter
@@ -83,14 +82,12 @@ func newSettingCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
 	router SettingRouter,
-	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 	dispatcher dispatcher.MeasurementDispatcher,
 ) *Handler {
 	return &Handler{
 		logger:      logger,
 		busyManager: busyManager,
-		wiremap:     wireMap,
 		ports:       ports,
 		router:      router,
 		dispatcher:  dispatcher,
@@ -103,7 +100,6 @@ func NewSettingCommandHandler(
 	busyManager BusyManager,
 	scriptsPath string,
 	issClient SettingClient,
-	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 	instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) *Handler {
@@ -119,7 +115,6 @@ func NewSettingCommandHandler(
 
 	router := settingrouter.NewRouter(
 		measurementDispatcher,
-		wireMap,
 		ports,
 		instrumentMetadata,
 	)
@@ -130,7 +125,6 @@ func NewSettingCommandHandler(
 		logger,
 		busyManager,
 		router,
-		wireMap,
 		ports,
 		*measurementDispatcher,
 	)

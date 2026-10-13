@@ -274,7 +274,6 @@ func TestNewSettingCommandHandler(
 		&mockBusyManager{},
 		&mockRouter{},
 		nil,
-		nil,
 		dispatcher.MeasurementDispatcher{},
 	)
 
@@ -352,7 +351,6 @@ func TestHandler_ReceivesSettingCommand(
 		testutil.TestLogger(t),
 		&mockBusyManager{},
 		router,
-		nil,
 		portsCatalog,
 		dispatcher.MeasurementDispatcher{},
 	)
@@ -465,7 +463,6 @@ func (r *recordingSetter) Set(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
 	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
 	_ *config.ConnectedPorts,
 ) error {
 	r.calls++
@@ -495,7 +492,6 @@ func (r *recordingGetter) CanGet(
 func (r *recordingGetter) Get(
 	falconcore.InstrumentPort,
 	*dispatcher.MeasurementDispatcher,
-	config.WireMap,
 	*config.ConnectedPorts,
 	map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) (falconcore.Quantity, error) {
@@ -525,7 +521,6 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 
 	router := settingrouter.NewRouter(
 		nil,
-		nil,
 		portsCatalog,
 		nil,
 	)
@@ -544,7 +539,6 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 		testutil.TestLogger(t),
 		busy,
 		router,
-		nil,
 		portsCatalog,
 		dispatcher.MeasurementDispatcher{},
 	)

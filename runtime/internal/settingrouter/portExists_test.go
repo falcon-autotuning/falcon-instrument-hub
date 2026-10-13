@@ -13,6 +13,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testInstrumentPort() falconcore.InstrumentPort {
@@ -157,33 +158,17 @@ func TestMatchesPort_FalseUnit(t *testing.T) {
 	)
 }
 
-func TestPortExists_NilPorts(t *testing.T) {
+func TestPortExists_NotFound(t *testing.T) {
 	assert.False(
 		t,
 		PortExists(
 			testInstrumentPort(),
-			nil,
+			&config.ConnectedPorts{},
 		),
 	)
 }
 
-func TestPortExists_NoMatches(t *testing.T) {
-	port := testInstrumentPort()
-
-	ports := &config.ConnectedPorts{
-		AllConnections: []config.ConnectedPort{},
-	}
-
-	assert.False(
-		t,
-		PortExists(
-			port,
-			ports,
-		),
-	)
-}
-
-func TestPortExists_MatchingPort_NoPseudoName(t *testing.T) {
+func TestPortExists_UsesResolvePort(t *testing.T) {
 	port := testInstrumentPort()
 
 	ports := &config.ConnectedPorts{
@@ -201,7 +186,55 @@ func TestPortExists_MatchingPort_NoPseudoName(t *testing.T) {
 	)
 }
 
-func TestPortExists_PseudoNameMatch(t *testing.T) {
+func TestResolvePort_NilPorts(t *testing.T) {
+	port := testInstrumentPort()
+
+	actual, ok := ResolvePort(
+		port,
+		nil,
+	)
+
+	assert.False(t, ok)
+	assert.Nil(t, actual)
+}
+
+func TestResolvePort_NoMatches(t *testing.T) {
+	port := testInstrumentPort()
+
+	actual, ok := ResolvePort(
+		port,
+		&config.ConnectedPorts{},
+	)
+
+	assert.False(t, ok)
+	assert.Nil(t, actual)
+}
+
+func TestResolvePort_Match_NoPseudoName(t *testing.T) {
+	port := testInstrumentPort()
+
+	expected := testConnectedPort()
+
+	actual, ok := ResolvePort(
+		port,
+		&config.ConnectedPorts{
+			AllConnections: []config.ConnectedPort{
+				expected,
+			},
+		},
+	)
+
+	require.True(t, ok)
+	require.NotNil(t, actual)
+
+	assert.Equal(
+		t,
+		expected.InstrumentName,
+		actual.InstrumentName,
+	)
+}
+
+func TestResolvePort_Match_PseudoName(t *testing.T) {
 	conn := falconcore.Connection{
 		Name: "P1",
 	}
@@ -209,25 +242,29 @@ func TestPortExists_PseudoNameMatch(t *testing.T) {
 	port := testInstrumentPort()
 	port.PseudoName = conn
 
-	cfg := testConnectedPort()
-	cfg.Handle = conn
+	expected := testConnectedPort()
+	expected.Handle = conn
 
-	ports := &config.ConnectedPorts{
-		AllConnections: []config.ConnectedPort{
-			cfg,
+	actual, ok := ResolvePort(
+		port,
+		&config.ConnectedPorts{
+			AllConnections: []config.ConnectedPort{
+				expected,
+			},
 		},
-	}
+	)
 
-	assert.True(
+	require.True(t, ok)
+	require.NotNil(t, actual)
+
+	assert.Equal(
 		t,
-		PortExists(
-			port,
-			ports,
-		),
+		conn,
+		actual.Handle,
 	)
 }
 
-func TestPortExists_PseudoNameMismatch(t *testing.T) {
+func TestResolvePort_PseudoNameMismatch(t *testing.T) {
 	conn := falconcore.Connection{
 		Name: "P1",
 	}
@@ -240,17 +277,15 @@ func TestPortExists_PseudoNameMismatch(t *testing.T) {
 		Name: "Different",
 	}
 
-	ports := &config.ConnectedPorts{
-		AllConnections: []config.ConnectedPort{
-			cfg,
+	actual, ok := ResolvePort(
+		port,
+		&config.ConnectedPorts{
+			AllConnections: []config.ConnectedPort{
+				cfg,
+			},
 		},
-	}
-
-	assert.False(
-		t,
-		PortExists(
-			port,
-			ports,
-		),
 	)
+
+	assert.False(t, ok)
+	assert.Nil(t, actual)
 }

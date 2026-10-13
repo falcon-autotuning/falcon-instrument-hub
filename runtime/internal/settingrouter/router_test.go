@@ -47,7 +47,6 @@ func (m *mockSetterHandler) Set(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
 	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
 	_ *config.ConnectedPorts,
 ) error {
 	m.setCalls++
@@ -88,7 +87,6 @@ func (m *mockGetterHandler) CanGet(
 func (m *mockGetterHandler) Get(
 	port falconcore.InstrumentPort,
 	_ *dispatcher.MeasurementDispatcher,
-	_ config.WireMap,
 	_ *config.ConnectedPorts,
 	_ map[InstrumentName]InstrumentMetadata,
 ) (falconcore.Quantity, error) {
@@ -128,7 +126,6 @@ func TestRouter_RegisterGetter(
 func TestNewRouter(
 	t *testing.T,
 ) {
-	wiremap := config.WireMap{}
 	ports := &config.ConnectedPorts{}
 
 	meta := map[InstrumentName]InstrumentMetadata{
@@ -137,14 +134,12 @@ func TestNewRouter(
 
 	r := NewRouter(
 		nil,
-		wiremap,
 		ports,
 		meta,
 	)
 
 	require.NotNil(t, r)
 
-	assert.Equal(t, wiremap, r.wiremap)
 	assert.Same(t, ports, r.ports)
 	assert.Equal(t, meta, r.instrumentMetadata)
 }
