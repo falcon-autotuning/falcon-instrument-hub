@@ -31,6 +31,7 @@ func (*mockSetterHandler) Name() string {
 func (m *mockSetterHandler) CanSet(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
+	_ *config.ConnectedPorts,
 ) bool {
 	m.canSetCalls++
 	m.lastPort = port
@@ -68,6 +69,8 @@ func (*mockGetterHandler) Name() string {
 
 func (m *mockGetterHandler) CanGet(
 	port falconcore.InstrumentPort,
+	_ map[InstrumentName]InstrumentMetadata,
+	_ *config.ConnectedPorts,
 ) bool {
 	m.canGetCalls++
 	m.lastPort = port
@@ -160,7 +163,11 @@ func TestRouter_Set_FirstMatchingHandlerWins(
 		},
 	}
 
-	err := r.set(port, value)
+	err := r.set(
+		port,
+		value,
+		&config.ConnectedPorts{},
+	)
 
 	require.NoError(t, err)
 
@@ -181,6 +188,7 @@ func TestRouter_Set_NoMatchingHandler(
 	err := r.set(
 		falconcore.InstrumentPort{},
 		falconcore.Quantity{},
+		&config.ConnectedPorts{},
 	)
 
 	require.Error(t, err)
@@ -208,6 +216,7 @@ func TestRouter_Set_HandlerError(
 	err := r.set(
 		falconcore.InstrumentPort{},
 		falconcore.Quantity{},
+		&config.ConnectedPorts{},
 	)
 
 	require.Error(t, err)
@@ -229,6 +238,7 @@ func TestRouter_Get_FirstMatchingHandlerWins(
 	}
 
 	r := &Router{
+		ports: &config.ConnectedPorts{},
 		getters: []GetterHandler{
 			first,
 			second,
@@ -237,6 +247,7 @@ func TestRouter_Get_FirstMatchingHandlerWins(
 
 	actual, err := r.get(
 		falconcore.InstrumentPort{},
+		&config.ConnectedPorts{},
 	)
 
 	require.NoError(t, err)
@@ -250,6 +261,7 @@ func TestRouter_Get_NoMatchingHandler(
 
 	_, err := r.get(
 		falconcore.InstrumentPort{},
+		&config.ConnectedPorts{},
 	)
 
 	require.Error(t, err)
@@ -277,6 +289,7 @@ func TestRouter_Get_HandlerError(
 
 	_, err := r.get(
 		falconcore.InstrumentPort{},
+		&config.ConnectedPorts{},
 	)
 
 	require.Error(t, err)
@@ -297,6 +310,7 @@ func TestRouter_Handle(
 			Unit:  falconcore.Volt,
 		},
 	}
+	ports := &config.ConnectedPorts{}
 
 	port := falconcore.InstrumentPort{
 		DefaultName: "P1",
@@ -315,6 +329,7 @@ func TestRouter_Handle(
 	}
 
 	r := &Router{
+		ports:   ports,
 		setters: []SetterHandler{setter},
 		getters: []GetterHandler{getter},
 	}

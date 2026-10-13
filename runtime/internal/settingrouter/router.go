@@ -1,5 +1,3 @@
-//go:build cgo
-
 package settingrouter
 
 import (
@@ -40,6 +38,8 @@ type GetterHandler interface {
 
 	CanGet(
 		port falconcore.InstrumentPort,
+		metadata map[InstrumentName]InstrumentMetadata,
+		ports *config.ConnectedPorts,
 	) bool
 
 	Get(
@@ -73,6 +73,7 @@ type SetterHandler interface {
 	CanSet(
 		port falconcore.InstrumentPort,
 		value falconcore.Quantity,
+		ports *config.ConnectedPorts,
 	) bool
 
 	Set(
@@ -186,9 +187,10 @@ func NewRouter(
 func (r *Router) set(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
+	ports *config.ConnectedPorts,
 ) error {
 	for _, handler := range r.setters {
-		if handler.CanSet(port, value) {
+		if handler.CanSet(port, value, ports) {
 			return handler.Set(
 				port,
 				value,
@@ -212,9 +214,10 @@ func (r *Router) set(
 // handler can service the request.
 func (r *Router) get(
 	port falconcore.InstrumentPort,
+	ports *config.ConnectedPorts,
 ) (falconcore.Quantity, error) {
 	for _, handler := range r.getters {
-		if handler.CanGet(port) {
+		if handler.CanGet(port, r.instrumentMetadata, ports) {
 			return handler.Get(
 				port,
 				r.dispatcher,
@@ -248,7 +251,7 @@ func (r *Router) Handle(
 	req falconcore.SettingRequest,
 ) (falconcore.SettingResponse, error) {
 	for port, value := range req.Setters {
-		if err := r.set(port, value); err != nil {
+		if err := r.set(port, value, r.ports); err != nil {
 			return falconcore.SettingResponse{}, err
 		}
 	}
@@ -258,7 +261,7 @@ func (r *Router) Handle(
 		),
 	}
 	for _, port := range req.Getters {
-		value, err := r.get(port)
+		value, err := r.get(port, r.ports)
 		if err != nil {
 			return out, err
 		}
