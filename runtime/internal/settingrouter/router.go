@@ -8,6 +8,19 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 )
 
+type (
+	MeasurementRequest = dispatcher.MeasurementRequest
+	MeasurementResult  = dispatcher.MeasurementResult
+)
+
+type MeasurementRunner interface {
+	RunAll(
+		[]MeasurementRequest,
+	) []MeasurementResult
+}
+
+var _ MeasurementRunner = (*dispatcher.MeasurementDispatcher)(nil)
+
 // InstrumentName is the name of each instrument
 type InstrumentName string
 
@@ -45,7 +58,7 @@ type GetterHandler interface {
 
 	Get(
 		port falconcore.InstrumentPort,
-		dispatcher *dispatcher.MeasurementDispatcher,
+		dispatcher MeasurementRunner,
 		ports *config.ConnectedPorts,
 		instrumentMetadata map[InstrumentName]InstrumentMetadata,
 	) (falconcore.Quantity, error)
@@ -80,7 +93,7 @@ type SetterHandler interface {
 	Set(
 		port falconcore.InstrumentPort,
 		value falconcore.Quantity,
-		dispatcher *dispatcher.MeasurementDispatcher,
+		dispatcher MeasurementRunner,
 		ports *config.ConnectedPorts,
 	) error
 }
@@ -102,7 +115,7 @@ type SetterHandler interface {
 // Individual operations are delegated to registered SetterHandler and
 // GetterHandler implementations.
 type Router struct {
-	dispatcher *dispatcher.MeasurementDispatcher
+	dispatcher MeasurementRunner
 
 	setters []SetterHandler
 	getters []GetterHandler

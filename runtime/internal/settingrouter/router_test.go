@@ -46,7 +46,7 @@ func (m *mockSetterHandler) CanSet(
 func (m *mockSetterHandler) Set(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
-	_ *dispatcher.MeasurementDispatcher,
+	_ MeasurementRunner,
 	_ *config.ConnectedPorts,
 ) error {
 	m.setCalls++
@@ -86,7 +86,7 @@ func (m *mockGetterHandler) CanGet(
 
 func (m *mockGetterHandler) Get(
 	port falconcore.InstrumentPort,
-	_ *dispatcher.MeasurementDispatcher,
+	_ MeasurementRunner,
 	_ *config.ConnectedPorts,
 	_ map[InstrumentName]InstrumentMetadata,
 ) (falconcore.Quantity, error) {

@@ -2,7 +2,6 @@ package settings
 
 import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 
@@ -59,7 +58,7 @@ func (g *MinCharacteristicGetter) CanGet(
 
 func (g *MinCharacteristicGetter) Get(
 	port falconcore.InstrumentPort,
-	_ *dispatcher.MeasurementDispatcher,
+	_ settingrouter.MeasurementRunner,
 	ports *config.ConnectedPorts,
 	metadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) (falconcore.Quantity, error) {
