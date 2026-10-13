@@ -227,7 +227,7 @@ func TestDecodeSingleInt_WrongUnit(
 func TestCharacteristicDefinitions_Valid(
 	t *testing.T,
 ) {
-	for characteristic, def := range characteristicDefinitions {
+	for characteristic, def := range getterCharacteristicDefinitions {
 
 		assert.Equal(
 			t,
@@ -256,7 +256,7 @@ func TestCharacteristicDefinitions_Valid(
 func TestCharacteristicDefinitions_NumberOfSamplesUsesIntDecoder(
 	t *testing.T,
 ) {
-	def := characteristicDefinitions[instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples]
+	def := getterCharacteristicDefinitions[instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples]
 
 	q, err := def.Decode(
 		measurementResult(
@@ -276,7 +276,7 @@ func TestCharacteristicDefinitions_NotEmpty(
 ) {
 	assert.NotZero(
 		t,
-		len(characteristicDefinitions),
+		len(getterCharacteristicDefinitions),
 	)
 }
 

@@ -27,7 +27,7 @@ func (g *MeasurementCharacteristicGetter) Name() string {
 func lookupDefinition(
 	characteristic instrumentcharacteristic.InstrumentCharacteristic,
 ) (*CharacteristicDefinition, bool) {
-	def, ok := characteristicDefinitions[characteristic]
+	def, ok := getterCharacteristicDefinitions[characteristic]
 
 	if !ok {
 		return nil, false
