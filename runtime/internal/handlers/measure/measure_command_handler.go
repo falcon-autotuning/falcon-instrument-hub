@@ -175,7 +175,7 @@ func NewMeasureCommandHandler(
 		bufferManager,
 		scriptsPath,
 	)
-
+	// TODO: Make the router adaptively load scripts depending on what is supplied
 	router := &routerAdapter{
 		router: interpreter.NewRouter(
 			dispatcher,

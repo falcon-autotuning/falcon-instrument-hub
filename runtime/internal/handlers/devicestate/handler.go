@@ -124,6 +124,7 @@ func (h *Handler) parseRequest(
 
 // sendDeviceStateResponse sends the device config in cereal JSON format so that
 // C++ Config::from_json_string can parse it directly.
+// TODO: this should use the voltagestateresponse, not raw states
 func (h *Handler) sendDeviceStateResponse() error {
 	states, err := devicestate.Manager().Snapshot().NewFalconDeviceVoltageStates()
 	if err != nil {

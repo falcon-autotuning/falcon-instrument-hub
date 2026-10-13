@@ -572,6 +572,7 @@ type ConnectedPort struct {
 func ConnectWireMap(wiremap WireMap, lib PortLibrary) ([]ConnectedPort, error) {
 	var connected []ConnectedPort
 	var errs []string
+	// TODO: DOes this handle all Ports? Some are associated with Connection{}
 
 	for _, wEntry := range wiremap {
 		instrumentName := wEntry.Instrument.Name
