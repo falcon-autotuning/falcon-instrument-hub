@@ -17,6 +17,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settings"
 )
 
 const (
@@ -119,7 +120,19 @@ func NewSettingCommandHandler(
 		instrumentMetadata,
 	)
 
-	// TODO: register all the settings
+	router.
+		RegisterGetter(
+			settings.NewMinCharacteristicGetter(),
+		).
+		RegisterGetter(
+			settings.NewMaxCharacteristicGetter(),
+		).
+		RegisterGetter(
+			settings.NewMeasurementCharacteristicGetter(),
+		).
+		RegisterSetter(
+			settings.NewMeasurementCharacteristicSetter(),
+		)
 
 	return newSettingCommandHandler(
 		logger,

@@ -190,11 +190,6 @@ func NewRouter(
 		scriptDir:          scriptDir,
 	}
 
-	// Production handler registrations go here.
-	//
-	// r.RegisterSetter(NewVoltageSetter())
-	// r.RegisterGetter(NewVoltageGetter())
-
 	return r
 }
 
