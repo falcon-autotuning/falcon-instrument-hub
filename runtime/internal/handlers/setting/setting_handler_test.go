@@ -443,6 +443,8 @@ func TestHandler_ReceivesSettingCommand(
 type recordingSetter struct {
 	calls int
 
+	lastPorts *config.ConnectedPorts
+
 	lastPort  falconcore.InstrumentPort
 	lastValue falconcore.Quantity
 }
@@ -450,9 +452,11 @@ type recordingSetter struct {
 func (r *recordingSetter) Name() string { return "test" }
 
 func (r *recordingSetter) CanSet(
-	falconcore.InstrumentPort,
-	falconcore.Quantity,
+	port falconcore.InstrumentPort,
+	value falconcore.Quantity,
+	ports *config.ConnectedPorts,
 ) bool {
+	r.lastPorts = ports
 	return true
 }
 
@@ -471,13 +475,18 @@ func (r *recordingSetter) Set(
 
 type recordingGetter struct {
 	result falconcore.Quantity
+
+	lastPorts *config.ConnectedPorts
 }
 
 func (r *recordingGetter) Name() string { return "test" }
 
 func (r *recordingGetter) CanGet(
-	falconcore.InstrumentPort,
+	_ falconcore.InstrumentPort,
+	_ map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+	ports *config.ConnectedPorts,
 ) bool {
+	r.lastPorts = ports
 	return true
 }
 

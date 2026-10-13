@@ -124,6 +124,8 @@ func NewSettingCommandHandler(
 		instrumentMetadata,
 	)
 
+	// TODO: register all the settings
+
 	return newSettingCommandHandler(
 		logger,
 		busyManager,
