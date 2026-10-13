@@ -462,7 +462,7 @@ func (r *recordingSetter) CanSet(
 func (r *recordingSetter) Set(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
-	_ *dispatcher.MeasurementDispatcher,
+	_ settingrouter.MeasurementRunner,
 	_ *config.ConnectedPorts,
 ) error {
 	r.calls++
@@ -491,7 +491,7 @@ func (r *recordingGetter) CanGet(
 
 func (r *recordingGetter) Get(
 	falconcore.InstrumentPort,
-	*dispatcher.MeasurementDispatcher,
+	settingrouter.MeasurementRunner,
 	*config.ConnectedPorts,
 	map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 ) (falconcore.Quantity, error) {
