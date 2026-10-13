@@ -84,6 +84,7 @@ func TestMinCharacteristicGetter_CanGet_True(t *testing.T) {
 			port,
 			metadata,
 			ports,
+			"",
 		),
 	)
 }
@@ -97,6 +98,7 @@ func TestMinCharacteristicGetter_CanGet_False(t *testing.T) {
 			testLimitPort(),
 			testLimitMetadata(),
 			nil,
+			"",
 		),
 	)
 }

@@ -455,6 +455,7 @@ func (r *recordingSetter) CanSet(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
 	ports *config.ConnectedPorts,
+	script string,
 ) bool {
 	r.lastPorts = ports
 	return true
@@ -485,6 +486,7 @@ func (r *recordingGetter) CanGet(
 	_ falconcore.InstrumentPort,
 	_ map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 	ports *config.ConnectedPorts,
+	script string,
 ) bool {
 	r.lastPorts = ports
 	return true

@@ -48,6 +48,7 @@ func TestMaxCharacteristicGetter_CanGet_True(t *testing.T) {
 			testLimitPort(),
 			testLimitMetadata(),
 			testLimitPorts(),
+			"",
 		),
 	)
 }
@@ -61,6 +62,7 @@ func TestMaxCharacteristicGetter_CanGet_False(t *testing.T) {
 			testLimitPort(),
 			testLimitMetadata(),
 			&config.ConnectedPorts{},
+			"",
 		),
 	)
 }

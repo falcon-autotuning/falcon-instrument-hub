@@ -174,6 +174,19 @@ test-database: build
 		-tags cgo,falcon_core \
 		./internal/measurementdb
 
+test-dispatcher: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/dispatcher
+
+test-settings: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/settings
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
 	cmake --install $(CMAKE_BUILD_DIR)

@@ -20,8 +20,9 @@ type mockSetterHandler struct {
 	canSetCalls int
 	setCalls    int
 
-	lastPort  falconcore.InstrumentPort
-	lastValue falconcore.Quantity
+	lastPort      falconcore.InstrumentPort
+	lastValue     falconcore.Quantity
+	lastScriptDir string
 }
 
 func (*mockSetterHandler) Name() string {
@@ -32,10 +33,13 @@ func (m *mockSetterHandler) CanSet(
 	port falconcore.InstrumentPort,
 	value falconcore.Quantity,
 	_ *config.ConnectedPorts,
+	scriptDir string,
 ) bool {
 	m.canSetCalls++
 	m.lastPort = port
 	m.lastValue = value
+	m.lastScriptDir = scriptDir
+
 	return m.canSetResult
 }
 
@@ -60,7 +64,8 @@ type mockGetterHandler struct {
 	canGetCalls int
 	getCalls    int
 
-	lastPort falconcore.InstrumentPort
+	lastPort      falconcore.InstrumentPort
+	lastScriptDir string
 }
 
 func (*mockGetterHandler) Name() string {
@@ -71,9 +76,12 @@ func (m *mockGetterHandler) CanGet(
 	port falconcore.InstrumentPort,
 	_ map[InstrumentName]InstrumentMetadata,
 	_ *config.ConnectedPorts,
+	scriptDir string,
 ) bool {
 	m.canGetCalls++
 	m.lastPort = port
+	m.lastScriptDir = scriptDir
+
 	return m.canGetResult
 }
 
@@ -161,6 +169,11 @@ func TestRouter_Set_FirstMatchingHandlerWins(
 			second,
 			third,
 		},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	err := r.set(
@@ -183,7 +196,13 @@ func TestRouter_Set_FirstMatchingHandlerWins(
 func TestRouter_Set_NoMatchingHandler(
 	t *testing.T,
 ) {
-	r := &Router{}
+	r := &Router{
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
+	}
 
 	err := r.set(
 		falconcore.InstrumentPort{},
@@ -211,6 +230,11 @@ func TestRouter_Set_HandlerError(
 				setErr:       expected,
 			},
 		},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	err := r.set(
@@ -243,6 +267,11 @@ func TestRouter_Get_FirstMatchingHandlerWins(
 			first,
 			second,
 		},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	actual, err := r.get(
@@ -257,7 +286,13 @@ func TestRouter_Get_FirstMatchingHandlerWins(
 func TestRouter_Get_NoMatchingHandler(
 	t *testing.T,
 ) {
-	r := &Router{}
+	r := &Router{
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
+	}
 
 	_, err := r.get(
 		falconcore.InstrumentPort{},
@@ -285,6 +320,12 @@ func TestRouter_Get_HandlerError(
 				getErr:       expected,
 			},
 		},
+
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	_, err := r.get(
@@ -332,6 +373,11 @@ func TestRouter_Handle(
 		ports:   ports,
 		setters: []SetterHandler{setter},
 		getters: []GetterHandler{getter},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	resp, err := r.Handle(req)
@@ -358,6 +404,12 @@ func TestRouter_Handle_SetError(
 				setErr:       errors.New("boom"),
 			},
 		},
+
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	_, err := r.Handle(
@@ -381,6 +433,12 @@ func TestRouter_Handle_GetError(
 				getErr:       errors.New("boom"),
 			},
 		},
+
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
 	}
 
 	_, err := r.Handle(
@@ -392,4 +450,71 @@ func TestRouter_Handle_GetError(
 	)
 
 	require.Error(t, err)
+}
+
+func TestRouter_Set_PassesScriptDir(
+	t *testing.T,
+) {
+	handler := &mockSetterHandler{
+		canSetResult: true,
+	}
+
+	r := &Router{
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/custom/scripts",
+		),
+		setters: []SetterHandler{
+			handler,
+		},
+		scriptDir: "/custom/scripts",
+	}
+
+	err := r.set(
+		falconcore.InstrumentPort{},
+		falconcore.Quantity{},
+		&config.ConnectedPorts{},
+	)
+
+	require.NoError(t, err)
+
+	assert.Equal(
+		t,
+		"/custom/scripts",
+		handler.lastScriptDir,
+	)
+}
+
+func TestRouter_Get_PassesScriptDir(
+	t *testing.T,
+) {
+	handler := &mockGetterHandler{
+		canGetResult: true,
+	}
+
+	r := &Router{
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/custom/scripts",
+		),
+		getters: []GetterHandler{
+			handler,
+		},
+		scriptDir: "/custom/scripts",
+	}
+
+	_, err := r.get(
+		falconcore.InstrumentPort{},
+		&config.ConnectedPorts{},
+	)
+
+	require.NoError(t, err)
+
+	assert.Equal(
+		t,
+		"/custom/scripts",
+		handler.lastScriptDir,
+	)
 }

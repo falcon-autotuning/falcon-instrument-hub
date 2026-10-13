@@ -45,6 +45,7 @@ func (g *MinCharacteristicGetter) CanGet(
 	port falconcore.InstrumentPort,
 	metadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
 	ports *config.ConnectedPorts,
+	scriptDir string,
 ) bool {
 	_, err := resolveLimitCharacteristic(
 		port,

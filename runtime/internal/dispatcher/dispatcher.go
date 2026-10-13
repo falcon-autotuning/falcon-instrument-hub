@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -95,10 +96,12 @@ func (d *scriptDispatcher) RunMeasurement(
 	scriptName string,
 	variables []instrumentserver.MeasureVariable,
 ) ([]instrumentserver.CallResult, error) {
-	scriptPath := filepath.Join(
-		d.scriptsPath,
-		scriptName+".lua",
+	scriptPath, err := d.ScriptPath(
+		scriptName,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to run measurement: %w", err)
+	}
 
 	returns, err := d.client.Measure(
 		scriptPath,
@@ -198,6 +201,39 @@ func NewMeasurementDispatcher(
 		buffers:     buffers,
 		scriptsPath: scriptsPath,
 	}
+}
+
+func (d *MeasurementDispatcher) ScriptsPath() string {
+	return d.scriptsPath
+}
+
+func (d *scriptDispatcher) ScriptPath(
+	scriptName string,
+) (string, error) {
+	if d.scriptsPath == "" {
+		return "", fmt.Errorf(
+			"scripts path is not configured",
+		)
+	}
+
+	path := filepath.Join(
+		d.scriptsPath,
+		scriptName+".lua",
+	)
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+
+	if info.IsDir() {
+		return "", fmt.Errorf(
+			"%s is a directory",
+			path,
+		)
+	}
+
+	return path, nil
 }
 
 // ConsumeMeasurementSamples reads and releases a buffer already claimed by

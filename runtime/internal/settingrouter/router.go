@@ -40,6 +40,7 @@ type GetterHandler interface {
 		port falconcore.InstrumentPort,
 		metadata map[InstrumentName]InstrumentMetadata,
 		ports *config.ConnectedPorts,
+		scriptDir string,
 	) bool
 
 	Get(
@@ -74,6 +75,7 @@ type SetterHandler interface {
 		port falconcore.InstrumentPort,
 		value falconcore.Quantity,
 		ports *config.ConnectedPorts,
+		scriptDir string,
 	) bool
 
 	Set(
@@ -106,6 +108,8 @@ type Router struct {
 
 	setters []SetterHandler
 	getters []GetterHandler
+
+	scriptDir string
 
 	wiremap            config.WireMap
 	ports              *config.ConnectedPorts
@@ -165,11 +169,17 @@ func NewRouter(
 	ports *config.ConnectedPorts,
 	instrumentMetadata map[InstrumentName]InstrumentMetadata,
 ) *Router {
+	scriptDir := ""
+
+	if dispatcher != nil {
+		scriptDir = dispatcher.ScriptsPath()
+	}
 	r := &Router{
 		dispatcher:         dispatcher,
 		wiremap:            wiremap,
 		ports:              ports,
 		instrumentMetadata: instrumentMetadata,
+		scriptDir:          scriptDir,
 	}
 
 	// Production handler registrations go here.
@@ -190,7 +200,7 @@ func (r *Router) set(
 	ports *config.ConnectedPorts,
 ) error {
 	for _, handler := range r.setters {
-		if handler.CanSet(port, value, ports) {
+		if handler.CanSet(port, value, ports, r.scriptDir) {
 			return handler.Set(
 				port,
 				value,
@@ -217,7 +227,7 @@ func (r *Router) get(
 	ports *config.ConnectedPorts,
 ) (falconcore.Quantity, error) {
 	for _, handler := range r.getters {
-		if handler.CanGet(port, r.instrumentMetadata, ports) {
+		if handler.CanGet(port, r.instrumentMetadata, ports, r.scriptDir) {
 			return handler.Get(
 				port,
 				r.dispatcher,

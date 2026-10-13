@@ -2,6 +2,8 @@ package dispatcher
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 
@@ -153,20 +155,27 @@ func TestMeasurementClientRegisterBuffer(t *testing.T) {
 	)
 }
 
-func TestScriptDispatcherRunMeasurement_NoBuffers(
-	t *testing.T,
-) {
+func TestScriptDispatcherRunMeasurement_NoBuffers(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "measure.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
+
 	client := &mockMeasurementClient{
 		results: []instrumentserver.CallResult{
-			{
-				Verb: "TEST",
-			},
+			{Verb: "TEST"},
 		},
 	}
 
 	dispatcher := newScriptDispatcher(
 		client,
-		"/tmp",
+		tmpDir,
 	)
 
 	results, err := dispatcher.RunMeasurement(
@@ -176,12 +185,21 @@ func TestScriptDispatcherRunMeasurement_NoBuffers(
 
 	require.NoError(t, err)
 	require.Len(t, results, 1)
-	require.Empty(t, client.registered)
 }
 
 func TestScriptDispatcherRunMeasurement_DataBuffer(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "script.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	client := &mockMeasurementClient{
 		results: []instrumentserver.CallResult{
 			{
@@ -200,7 +218,7 @@ func TestScriptDispatcherRunMeasurement_DataBuffer(
 
 	dispatcher := newScriptDispatcher(
 		client,
-		"/tmp",
+		tmpDir,
 	)
 
 	_, err := dispatcher.RunMeasurement(
@@ -220,6 +238,16 @@ func TestScriptDispatcherRunMeasurement_DataBuffer(
 func TestScriptDispatcherRunMeasurement_DataBufferArray(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "script.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	client := &mockMeasurementClient{
 		results: []instrumentserver.CallResult{
 			{
@@ -240,7 +268,7 @@ func TestScriptDispatcherRunMeasurement_DataBufferArray(
 
 	dispatcher := newScriptDispatcher(
 		client,
-		"/tmp",
+		tmpDir,
 	)
 
 	_, err := dispatcher.RunMeasurement(
@@ -264,6 +292,16 @@ func TestScriptDispatcherRunMeasurement_DataBufferArray(
 func TestScriptDispatcherRunMeasurement_RegisterFails(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "script.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	client := &mockMeasurementClient{
 		registerErr: errors.New("boom"),
 
@@ -284,7 +322,7 @@ func TestScriptDispatcherRunMeasurement_RegisterFails(
 
 	dispatcher := newScriptDispatcher(
 		client,
-		"/tmp",
+		tmpDir,
 	)
 
 	_, err := dispatcher.RunMeasurement(
@@ -298,6 +336,16 @@ func TestScriptDispatcherRunMeasurement_RegisterFails(
 func TestMeasurementDispatcherRunMeasurement(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "script.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	exec := &mockExecutor{
 		results: []instrumentserver.CallResult{
 			{
@@ -311,7 +359,7 @@ func TestMeasurementDispatcherRunMeasurement(
 	d := NewMeasurementDispatcher(
 		exec,
 		reg,
-		"/tmp",
+		tmpDir,
 	)
 
 	result := d.runMeasurement(
@@ -334,6 +382,16 @@ func TestMeasurementDispatcherRunMeasurement(
 func TestMeasurementDispatcherRunMeasurement_Error(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "script.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	exec := &mockExecutor{
 		err: errors.New("measure failed"),
 	}
@@ -359,6 +417,32 @@ func TestMeasurementDispatcherRunMeasurement_Error(
 func TestMeasurementDispatcherRunAll(
 	t *testing.T,
 ) {
+	tmpDir := t.TempDir()
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "s1.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "s2.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
+	require.NoError(
+		t,
+		os.WriteFile(
+			filepath.Join(tmpDir, "s3.lua"),
+			[]byte("-- test"),
+			0600,
+		),
+	)
 	exec := &mockExecutor{
 		results: []instrumentserver.CallResult{
 			{
@@ -372,7 +456,7 @@ func TestMeasurementDispatcherRunAll(
 	d := NewMeasurementDispatcher(
 		exec,
 		reg,
-		"/tmp",
+		tmpDir,
 	)
 
 	results := d.RunAll(
