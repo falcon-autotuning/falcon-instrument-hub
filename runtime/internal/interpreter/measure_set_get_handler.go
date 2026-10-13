@@ -24,7 +24,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/measurementresult"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/commands"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 )
 
@@ -41,12 +41,19 @@ type measureGetSetHandler struct{}
 func (*measureGetSetHandler) Name() string { return measureGetSetHandlerName }
 
 type measureGetSetRequest struct {
-	setter  *instrumentport.Handle
-	getter  *instrumentport.Handle
+	*measureVoltageWaveformRequest
 	voltage float64
 }
 
-func (r *measureGetSetRequest) Close() {
+// measureVoltageWaveformRequest owns the ports and voltage setpoints shared by
+// scalar and sequential 1D measurements. Setpoints are converted to volts.
+type measureVoltageWaveformRequest struct {
+	setter   *instrumentport.Handle
+	getter   *instrumentport.Handle
+	voltages []float64
+}
+
+func (r *measureVoltageWaveformRequest) Close() {
 	if r == nil {
 		return
 	}
@@ -63,11 +70,30 @@ func (r *measureGetSetRequest) Close() {
 func parseMeasureGetSetRequest(
 	req *FalconMeasurementRequest,
 ) (*measureGetSetRequest, error) {
+	parsed, err := parseVoltageWaveformRequest(req)
+	if err != nil || parsed == nil {
+		return nil, err
+	}
+	if len(parsed.voltages) != 1 {
+		parsed.Close()
+		return nil, nil
+	}
+	return &measureGetSetRequest{
+		measureVoltageWaveformRequest: parsed,
+		voltage:                       parsed.voltages[0],
+	}, nil
+}
+
+// parseVoltageWaveformRequest validates one identity-transformed voltage
+// waveform and one voltage getter, without restricting the setpoint count.
+func parseVoltageWaveformRequest(
+	req *FalconMeasurementRequest,
+) (*measureVoltageWaveformRequest, error) {
 	if req == nil || req.Handle() == nil {
 		return nil, fmt.Errorf("request is nil")
 	}
 
-	candidate := &measureGetSetRequest{}
+	candidate := &measureVoltageWaveformRequest{}
 	success := false
 	defer func() {
 		if !success {
@@ -285,28 +311,46 @@ func parseMeasureGetSetRequest(
 		return nil, fmt.Errorf("read waveform setpoint array: %w", err)
 	}
 	defer setpoints.Close()
+	dimension, err := setpoints.Dimension()
+	if err != nil {
+		return nil, fmt.Errorf("read waveform dimension: %w", err)
+	}
+	if dimension != 1 {
+		return nil, nil
+	}
 	values, err := setpoints.Data()
 	if err != nil {
 		return nil, fmt.Errorf("read waveform setpoints: %w", err)
 	}
-	if len(values) != 1 {
+	if len(values) == 0 {
 		return nil, nil
 	}
-	if math.IsNaN(values[0]) || math.IsInf(values[0], 0) {
-		return nil, fmt.Errorf("waveform setpoint is not finite")
-	}
-
-	candidate.voltage, err = setterUnits.ConvertValueTo(values[0], volts)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"convert waveform setpoint to volts: %w",
-			err,
+	candidate.voltages = make([]float64, len(values))
+	for i, value := range values {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			return nil, fmt.Errorf(
+				"waveform setpoint %d is not finite",
+				i,
+			)
+		}
+		candidate.voltages[i], err = setterUnits.ConvertValueTo(
+			value,
+			volts,
 		)
-	}
-	if math.IsNaN(candidate.voltage) || math.IsInf(candidate.voltage, 0) {
-		return nil, fmt.Errorf(
-			"converted voltage setpoint is not finite",
-		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"convert waveform setpoint %d to volts: %w",
+				i,
+				err,
+			)
+		}
+		if math.IsNaN(candidate.voltages[i]) ||
+			math.IsInf(candidate.voltages[i], 0) {
+			return nil, fmt.Errorf(
+				"converted voltage setpoint %d is not finite",
+				i,
+			)
+		}
 	}
 	success = true
 	return candidate, nil
@@ -462,12 +506,21 @@ func measureGetSetValue(
 			string(raw),
 		)
 		if err != nil {
-			return 0, fmt.Errorf("consume measurement buffer %q: %w", raw, err)
+			return 0, fmt.Errorf(
+				"consume measurement buffer %q: %w",
+				raw,
+				err,
+			)
 		}
 		// A single sample needs no sampling settings. A bin of multiple
-		// samples requires the getter's sample_rate and API bins settings.
+		// samples requires the getter's sample_rate and API bins
+		// settings.
 		if len(samples) > 1 {
-			if err := measurementresult.Validate(measured.Value, getter, connected); err != nil {
+			if err := commands.Validate(
+				measured.Value,
+				getter,
+				connected,
+			); err != nil {
 				return 0, err
 			}
 		}
@@ -484,7 +537,10 @@ func measureGetSetValue(
 	var value float64
 	for i, sample := range samples {
 		if math.IsNaN(sample) || math.IsInf(sample, 0) {
-			return 0, fmt.Errorf("measurement sample %d is not finite", i)
+			return 0, fmt.Errorf(
+				"measurement sample %d is not finite",
+				i,
+			)
 		}
 		// Divide before summing to avoid overflowing a large raw sum.
 		value += sample / float64(len(samples))
@@ -533,14 +589,21 @@ func measureGetSetValue(
 	// Preserve raw samples in their ISS unit; the average is only returned.
 	connection, err := getterPort.PseudoName()
 	if err != nil {
-		return 0, fmt.Errorf("read getter connection for storage: %w", err)
+		return 0, fmt.Errorf(
+			"read getter connection for storage: %w",
+			err,
+		)
 	}
 	defer connection.Close()
 	instrumentType, err := getterPort.InstrumentType()
 	if err != nil {
 		return 0, err
 	}
-	context, err := acquisitioncontext.New(connection, instrumentType, resultUnits)
+	context, err := acquisitioncontext.New(
+		connection,
+		instrumentType,
+		resultUnits,
+	)
 	if err != nil {
 		return 0, fmt.Errorf("create raw measurement context: %w", err)
 	}
@@ -562,6 +625,17 @@ func newMeasureGetSetResponse(
 	value float64,
 	getter *instrumentport.Handle,
 ) (*FalconMeasurementResponse, error) {
+	return newVoltageArrayResponse([]float64{value}, getter)
+}
+
+// newVoltageArrayResponse preserves one returned value per sweep setpoint.
+func newVoltageArrayResponse(
+	values []float64,
+	getter *instrumentport.Handle,
+) (*FalconMeasurementResponse, error) {
+	if len(values) == 0 {
+		return nil, fmt.Errorf("measurement response is empty")
+	}
 	context, err := acquisitioncontext.NewFromPort(getter)
 	if err != nil {
 		return nil, fmt.Errorf(
@@ -570,17 +644,20 @@ func newMeasureGetSetResponse(
 		)
 	}
 	defer context.Close()
-	data, err := farraydouble.FromData([]float64{value}, []uint64{1})
+	data, err := farraydouble.FromData(
+		values,
+		[]uint64{uint64(len(values))},
+	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"create scalar measurement data: %w",
+			"create measurement data: %w",
 			err,
 		)
 	}
 	defer data.Close()
 	array, err := labelledmeasuredarray.FromFArray(data, context)
 	if err != nil {
-		return nil, fmt.Errorf("label scalar measurement data: %w", err)
+		return nil, fmt.Errorf("label measurement data: %w", err)
 	}
 	defer array.Close()
 	list, err := listlabelledmeasuredarray.New(
@@ -588,7 +665,7 @@ func newMeasureGetSetResponse(
 	)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"create scalar measurement array list: %w",
+			"create measurement array list: %w",
 			err,
 		)
 	}
@@ -596,7 +673,7 @@ func newMeasureGetSetResponse(
 	arrays, err := labelledarrayslabelledmeasuredarray.NewFromList(list)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"create labelled scalar measurement arrays: %w",
+			"create labelled measurement arrays: %w",
 			err,
 		)
 	}
@@ -604,7 +681,7 @@ func newMeasureGetSetResponse(
 	response, err := measurementresponse.New(arrays)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"create measure_get_set MeasurementResponse: %w",
+			"create MeasurementResponse: %w",
 			err,
 		)
 	}
@@ -616,12 +693,23 @@ func (*measureGetSetHandler) Handle(
 	measurementDispatcher *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	connected *config.ConnectedPorts,
+	tracker StateUpdater,
+	recorder MeasurementRecorder,
 ) (*FalconMeasurementResponse, error) {
 	parsed, err := parseMeasureGetSetRequest(req)
 	if err != nil {
 		return nil, err
 	}
+	if parsed == nil {
+		return nil, fmt.Errorf(
+			"request does not match %s",
+			measureGetSetHandlerName,
+		)
+	}
 	defer parsed.Close()
+	if tracker == nil {
+		return nil, fmt.Errorf("state updater is nil")
+	}
 	if measurementDispatcher == nil {
 		return nil, fmt.Errorf("measurement dispatcher is nil")
 	}
@@ -728,6 +816,12 @@ func (*measureGetSetHandler) Handle(
 	)
 	if err != nil {
 		return nil, err
+	}
+	if err := tracker.UpdatePort(setter.DeviceName, falconcore.Quantity{
+		Value: parsed.voltage,
+		Unit:  falconcore.Volt,
+	}); err != nil {
+		return nil, fmt.Errorf("update setter state: %w", err)
 	}
 	return newMeasureGetSetResponse(value, parsed.getter)
 }

@@ -8,28 +8,45 @@ import (
 	"strings"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter/measurementresult"
 )
 
 const measure1DBufferedName = "measure_1D_buffered"
 
 type measure1DBufferedHandler struct{}
 
+var _ MeasurementHandler = (*measure1DBufferedHandler)(nil)
+
 func (*measure1DBufferedHandler) Name() string { return measure1DBufferedName }
+
+func parseMeasure1DRequest(
+	req *FalconMeasurementRequest,
+) (*measureVoltageWaveformRequest, error) {
+	parsed, err := parseVoltageWaveformRequest(req)
+	if err != nil || parsed == nil {
+		return nil, err
+	}
+	if len(parsed.voltages) < 2 {
+		parsed.Close()
+		return nil, nil
+	}
+	return parsed, nil
+}
 
 func (*measure1DBufferedHandler) CanHandle(
 	req *FalconMeasurementRequest,
 ) (bool, error) {
-	parsed, err := parseMeasureGetSetRequest(req)
+	parsed, err := parseMeasure1DRequest(req)
 	if err != nil || parsed == nil {
 		return false, err
 	}
 	defer parsed.Close()
-	return len(parsed.voltages) > 1, nil
+	return true, nil
 }
 
 func sweepSampleRate(req *FalconMeasurementRequest, count int) (int64, error) {
@@ -66,48 +83,47 @@ func sweepResultValue(
 	d *dispatcher.MeasurementDispatcher,
 	measurementID string,
 	returned instrumentserver.ReturnValue,
-	getter config.ConnectedPort,
 	getterPort *instrumentport.Handle,
-	connected *config.ConnectedPorts,
 ) (float64, error) {
-	if err := measurementresult.Validate(
-		returned.Value,
-		getter,
-		connected,
-	); err != nil {
-		return 0, err
-	}
 	if returned.Name != "stream" {
 		return 0, fmt.Errorf(
 			"stream output is %q, want stream",
 			returned.Name,
 		)
 	}
-	bufferID, ok := returned.Value.Value.(instrumentserver.DataBuffer)
-	if !ok || bufferID == "" {
-		return 0, fmt.Errorf("stream output is not a DataBuffer")
-	}
-	buffer, err := d.ConsumeMeasurementBuffer(
-		measurementID,
-		string(bufferID),
-	)
-	if err != nil {
-		return 0, fmt.Errorf("consume stream buffer: %w", err)
-	}
-	if buffer.Metadata.InstrumentName != getter.InstrumentName {
-		return 0, fmt.Errorf(
-			"stream buffer belongs to instrument %q, want %q",
-			buffer.Metadata.InstrumentName,
-			getter.InstrumentName,
+	var value float64
+	switch raw := returned.Value.Value.(type) {
+	case float64:
+		value = raw
+	case int64:
+		value = float64(raw)
+	case instrumentserver.DataBuffer:
+		if raw == "" {
+			return 0, fmt.Errorf(
+				"stream output has an empty DataBuffer ID",
+			)
+		}
+		// RunAll already claimed this buffer. Consumption checks
+		// measurement
+		// ownership, copies the samples, and releases the buffer.
+		samples, err := d.ConsumeMeasurementSamples(
+			measurementID,
+			string(raw),
 		)
+		if err != nil {
+			return 0, fmt.Errorf("consume stream buffer: %w", err)
+		}
+		if len(samples) != 1 {
+			return 0, fmt.Errorf(
+				"sequential sweep buffer contains %d samples, want 1; a full sweep buffer needs the separate single-get handler",
+				len(samples),
+			)
+		}
+		// A single sample does not require sample-rate/bin validation.
+		value = samples[0]
+	default:
+		return 0, fmt.Errorf("unsupported sweep value type %T", raw)
 	}
-	if len(buffer.Values) != 1 {
-		return 0, fmt.Errorf(
-			"stream buffer contains %d samples, want 1",
-			len(buffer.Values),
-		)
-	}
-	value := buffer.Values[0]
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return 0, fmt.Errorf("stream sample is not finite")
 	}
@@ -154,18 +170,23 @@ func (*measure1DBufferedHandler) Handle(
 	measurementDispatcher *dispatcher.MeasurementDispatcher,
 	_ config.WireMap,
 	connected *config.ConnectedPorts,
+	tracker StateUpdater,
+	recorder MeasurementRecorder,
 ) (*FalconMeasurementResponse, error) {
-	parsed, err := parseMeasureGetSetRequest(req)
+	parsed, err := parseMeasure1DRequest(req)
 	if err != nil {
 		return nil, err
 	}
-	if parsed == nil || len(parsed.voltages) < 2 {
+	if parsed == nil {
 		return nil, fmt.Errorf(
 			"request does not match %s",
 			measure1DBufferedName,
 		)
 	}
 	defer parsed.Close()
+	if tracker == nil {
+		return nil, fmt.Errorf("state updater is nil")
+	}
 	if measurementDispatcher == nil || connected == nil {
 		return nil, fmt.Errorf(
 			"sweep dispatcher or connected ports are nil",
@@ -246,6 +267,9 @@ func (*measure1DBufferedHandler) Handle(
 			},
 		}},
 	)
+	for _, result := range results {
+		defer measurementDispatcher.ReleaseMeasurementBuffers(result.ID)
+	}
 	if len(results) != 1 {
 		return nil, fmt.Errorf(
 			"sweep returned %d measurement results, want 1",
@@ -253,7 +277,6 @@ func (*measure1DBufferedHandler) Handle(
 		)
 	}
 	result := results[0]
-	defer measurementDispatcher.ReleaseMeasurementBuffers(result.ID)
 	if result.Err != nil {
 		return nil, result.Err
 	}
@@ -303,13 +326,17 @@ func (*measure1DBufferedHandler) Handle(
 			measurementDispatcher,
 			result.ID,
 			stream.Return[0],
-			getter,
 			parsed.getter,
-			connected,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("sweep point %d: %w", i, err)
 		}
 	}
-	return newMeasureGetSetResponse(values, parsed.getter)
+	if err := tracker.UpdatePort(setter.DeviceName, falconcore.Quantity{
+		Value: parsed.voltages[len(parsed.voltages)-1],
+		Unit:  falconcore.Volt,
+	}); err != nil {
+		return nil, fmt.Errorf("update sweep setter state: %w", err)
+	}
+	return newVoltageArrayResponse(values, parsed.getter)
 }

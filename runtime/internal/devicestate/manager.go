@@ -21,7 +21,10 @@ func (m *DeviceStateManager) UpdatePort(
 	defer m.mu.Unlock()
 	old := m.state[port]
 	connection := old.Connection
-	new := falconcore.DeviceVoltageState{Quantity: value, Connection: connection}
+	new := falconcore.DeviceVoltageState{
+		Quantity:   value,
+		Connection: connection,
+	}
 	m.state[port] = new
 	return nil
 }
@@ -40,7 +43,10 @@ func (m *DeviceStateManager) Snapshot() falconcore.DeviceVoltageStates {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
-	result := make(map[falconcore.ConnectionName]falconcore.DeviceVoltageState, len(m.state))
+	result := make(
+		map[falconcore.ConnectionName]falconcore.DeviceVoltageState,
+		len(m.state),
+	)
 
 	maps.Copy(result, m.state)
 

@@ -86,7 +86,7 @@ var _ StateUpdater = (*trackedStateUpdater)(nil)
 //   - constructing the final response
 //   - storing the data in the falconcore database
 //
-// Every handler is evaluated. Exactly one handler must claim the request.
+// The first matching handler is selected; register specific workflows first.
 //
 // Measurement handlers are intentionally decoupled from the router and may
 // live in any package that can import the interpreter package.
@@ -122,7 +122,7 @@ type MeasurementHandler interface {
 //   - handlers are registered during construction
 //   - no runtime plugin mechanism exists
 //
-// All handlers are checked before one is selected.
+// Handlers are checked in registration order until one matches.
 type Router struct {
 	dispatcher *dispatcher.MeasurementDispatcher
 
@@ -163,8 +163,12 @@ func NewRouter(
 		wiremap:    wiremap,
 		ports:      ports,
 		handlers: []MeasurementHandler{
-			&measureGetSetHandler{},
+			// The scalar handler has a broad structural match, so try the
+			// multi-point waveform handler first.
 			&measure1DBufferedHandler{},
+			&measureGetSetHandler{},
+			// The single-get buffer handler remains unregistered until its
+			// hardware sequence and request-selection rule are defined.
 		},
 	}
 }

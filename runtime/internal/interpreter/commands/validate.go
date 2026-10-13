@@ -1,7 +1,7 @@
 //go:build cgo
 
-// Package measurementresult provides shared checks for ISS measurement returns.
-package measurementresult
+// Package commands provides shared checks for ISS measurement returns.
+package commands
 
 import (
 	"fmt"
