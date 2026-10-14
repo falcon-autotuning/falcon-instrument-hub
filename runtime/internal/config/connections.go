@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/access"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
@@ -569,38 +568,48 @@ type ConnectedPort struct {
 //
 // For each wiremap entry, every port library entry whose Identifier and
 // ChannelName match produces a ConnectedPort with that device gate.
-func ConnectWireMap(wiremap WireMap, lib PortLibrary) ([]ConnectedPort, error) {
+func ConnectWireMap(
+	wiremap WireMap,
+	lib PortLibrary,
+) ([]ConnectedPort, error) {
 	var connected []ConnectedPort
-	var errs []string
-	// TODO: DOes this handle all Ports? Some are associated with Connection{}
+
+	added := make(map[PortName]struct{}) // PortName is unique
 
 	for _, wEntry := range wiremap {
 		instrumentName := wEntry.Instrument.Name
-		channelName := wEntry.Instrument.ChannelGroup
+		channelGroup := wEntry.Instrument.ChannelGroup
 		channel := wEntry.Instrument.Channel
-		handle := wEntry.Gate
 
-		// Find all port library entries matching this instrument + channel.
 		for portName, entry := range lib {
 			if entry.InstrumentName == instrumentName &&
-				entry.ChannelGroup == channelName &&
-				channel == entry.Channel {
+				entry.ChannelGroup == channelGroup &&
+				entry.Channel == channel {
+
 				connected = append(connected, ConnectedPort{
 					PortEntry:  entry,
 					PortName:   portName,
 					DeviceName: wEntry.PhysicalDeviceName,
-					Handle:     handle,
+					Handle:     wEntry.Gate,
 				})
+
+				added[portName] = struct{}{}
 			}
 		}
 	}
 
-	if len(errs) > 0 {
-		return connected, fmt.Errorf(
-			"wiremap connection errors: %s",
-			strings.Join(errs, "; "),
-		)
+	// Add any ports that were not associated with a wiremap entry.
+	for portName, entry := range lib {
+		if _, ok := added[portName]; ok {
+			continue
+		}
+
+		connected = append(connected, ConnectedPort{
+			PortEntry: entry,
+			PortName:  portName,
+		})
 	}
+
 	return connected, nil
 }
 

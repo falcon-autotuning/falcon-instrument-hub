@@ -126,7 +126,16 @@ func TestConnectWireMapNoMatches(t *testing.T) {
 	connected, err := ConnectWireMap(wireMap, lib)
 
 	require.NoError(t, err)
-	require.Empty(t, connected)
+	require.Len(t, connected, 1)
+
+	require.Equal(t, ConnectedPort{
+		PortEntry: PortEntry{
+			InstrumentName: "OtherInstrument",
+			ChannelGroup:   "analog",
+			Channel:        1,
+		},
+		PortName: "other",
+	}, connected[0])
 }
 
 func TestNewConnectedPortsFromConnections(t *testing.T) {
