@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
@@ -75,7 +76,7 @@ func sweepSampleRate(req *FalconMeasurementRequest, count int) (int64, error) {
 		return 0, fmt.Errorf("read time-domain units: %w", err)
 	}
 	defer units.Close()
-	seconds, err := SymbolUnitFromString("s")
+	seconds, err := symbolunit.NewSecond()
 	if err != nil {
 		return 0, err
 	}
@@ -157,7 +158,8 @@ func sweepResultValue(
 		return 0, fmt.Errorf("stream sample is not finite")
 	}
 
-	resultUnits, err := SymbolUnitFromString(returned.Unit)
+	// convert srting symbol unit
+	resultUnits, err := falconcore.SymbolToUnit(returned.Unit)
 	if err != nil {
 		return 0, fmt.Errorf(
 			"read stream unit %q: %w",
@@ -165,13 +167,22 @@ func sweepResultValue(
 			err,
 		)
 	}
-	defer resultUnits.Close()
+	// convert unit to symbolunit
+	resultSymbolUnits, err := resultUnits.NewSymbolUnit()
+	if err != nil {
+		return 0, fmt.Errorf(
+			"read stream unit %q: %w",
+			returned.Unit,
+			err,
+		)
+	}
+	defer resultSymbolUnits.Close()
 	getterUnits, err := getterPort.Units()
 	if err != nil {
 		return 0, fmt.Errorf("read getter units: %w", err)
 	}
 	defer getterUnits.Close()
-	compatible, err := resultUnits.IsCompatibleWith(getterUnits)
+	compatible, err := resultSymbolUnits.IsCompatibleWith(getterUnits)
 	if err != nil {
 		return 0, fmt.Errorf("compare stream and getter units: %w", err)
 	}
@@ -181,7 +192,7 @@ func sweepResultValue(
 			returned.Unit,
 		)
 	}
-	converted, err := resultUnits.ConvertValueTo(value, getterUnits)
+	converted, err := resultSymbolUnits.ConvertValueTo(value, getterUnits)
 	if err != nil {
 		return 0, fmt.Errorf(
 			"convert stream sample to getter units: %w",

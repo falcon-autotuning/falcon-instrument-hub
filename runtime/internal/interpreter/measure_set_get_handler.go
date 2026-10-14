@@ -137,17 +137,34 @@ func measureGetSetValue(
 	if math.IsNaN(value) || math.IsInf(value, 0) {
 		return 0, fmt.Errorf("datapoint must be finite")
 	}
-	units, err := SymbolUnitFromString(measured.Unit)
+	// convert srting symbol unit
+	units, err := falconcore.SymbolToUnit(measured.Unit)
+	if err != nil {
+		return 0, fmt.Errorf(
+			"read stream unit %q: %w",
+			measured.Unit,
+			err,
+		)
+	}
+	// convert unit to symbolunit
+	symbolUnits, err := units.NewSymbolUnit()
+	if err != nil {
+		return 0, fmt.Errorf(
+			"read stream unit %q: %w",
+			measured.Unit,
+			err,
+		)
+	}
 	if err != nil {
 		return 0, err
 	}
-	defer units.Close()
+	defer symbolUnits.Close()
 	getterUnits, err := getter.Units()
 	if err != nil {
 		return 0, err
 	}
 	defer getterUnits.Close()
-	compatible, err := units.IsCompatibleWith(getterUnits)
+	compatible, err := symbolUnits.IsCompatibleWith(getterUnits)
 	if err != nil {
 		return 0, err
 	}
@@ -157,7 +174,7 @@ func measureGetSetValue(
 			measured.Unit,
 		)
 	}
-	value, err = units.ConvertValueTo(value, getterUnits)
+	value, err = symbolUnits.ConvertValueTo(value, getterUnits)
 	if err != nil {
 		return 0, err
 	}

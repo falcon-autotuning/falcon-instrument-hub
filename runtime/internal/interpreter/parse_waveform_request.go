@@ -17,6 +17,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledarrayslabelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/arrays/labelledmeasuredarray"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axesinstrumentport"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 )
 
 // measureVoltageWaveformRequest owns the ports and voltage setpoints shared by
@@ -130,7 +131,8 @@ func parseVoltageWaveformRequest(
 		return nil, fmt.Errorf("read getter units: %w", err)
 	}
 	defer getterUnits.Close()
-	volts, err := SymbolUnitFromString("V")
+
+	volts, err := symbolunit.NewVolt()
 	if err != nil {
 		return nil, fmt.Errorf("create voltage unit: %w", err)
 	}

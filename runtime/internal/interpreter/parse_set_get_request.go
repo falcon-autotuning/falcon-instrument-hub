@@ -11,6 +11,7 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/port-transforms/porttransform"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/discrete-spaces/discretespace"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
 )
 
 // measureGetSetRequest owns the ports for one DC measurement. voltages[i] is
@@ -79,7 +80,7 @@ func fixedSourceVoltage(
 		return 0, false, err
 	}
 	defer units.Close()
-	volts, err := SymbolUnitFromString("V")
+	volts, err := symbolunit.NewVolt()
 	if err != nil {
 		return 0, false, err
 	}
@@ -128,7 +129,7 @@ func isSetGetVoltagePort(
 		return false, err
 	}
 	defer units.Close()
-	volts, err := SymbolUnitFromString("V")
+	volts, err := symbolunit.NewVolt()
 	if err != nil {
 		return false, err
 	}
