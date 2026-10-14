@@ -1,0 +1,700 @@
+api_version: "1.0.0"
+instrument:
+  vendor: Quantum Machines
+  model: Q302 QDAC
+  identifier: QDAC
+  description: QDAC 1 with 24 channels
+protocol:
+  type: "VISA"
+channel_groups:
+  - name: source
+    description: "Voltage source outputs"
+    channel_parameter:
+      name: channel
+      type: int 
+      min: 1
+      max: 24
+      description: "Instrument i/o ports"
+    io_types:
+      - suffix: fine_voltage
+        type: float
+        min: -1.1111
+        max: 1.1111
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output
+        unit: "V"
+        description: "the small range output voltage of a channel"
+      - suffix: coarse_voltage
+        type: float
+        min: -10.0
+        max: 10.0
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output 
+        unit: "V"
+        description: "the large range output voltage of a channel"
+      - suffix: raw_voltage
+        type: int
+        min: -524288
+        max: 524287
+        role: setting
+        description: "the raw output voltage of the channel, to be converted to V with the given mode"
+      - suffix: coarse_current 
+        type: float
+        min: -75
+        max: 75
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.0001
+        role: output
+        unit: "uA"
+        description: "the large range current sensing of a channel"
+      - suffix: fine_current
+        type: float
+        min: -0.75
+        max: 0.75
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision:
+          resolution: 0.000001
+        role: output
+        unit: "uA"
+      - suffix: raw_current
+        type: int
+        min: -8388608
+        max: 8388607
+        role: setting
+        description: "raw 24 bit representation of current, to be converted into uA depending on them mode"
+      - suffix: current_mode
+        type: int
+        min: 0
+        max: 1
+        role: setting
+        description: "the current mode. 0=low, 1=high. When voltage is low, current can only be low"
+      - suffix: voltage_mode
+        type: int
+        min: 0
+        max: 1
+        role: setting
+        description: "the voltage mode. 1=low, 0=high"
+      - suffix: generator_num
+        type: int
+        min: 0
+        max: 10
+        role: setting
+        description: "inidicates which generator outputs to this channel. 0=DC, 1-8 predefined, 9= awg, 10=pulse train"
+      - suffix: amplitude_fine
+        type: float
+        min: -1.1111
+        max: 1.1111
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output
+        unit: "V"
+        description: "amplitude for waveform generator and scaling factor for awg in fine voltage mode"
+      - suffix: amplitude_coarse
+        type: float
+        min: -10.0
+        max: 10.0
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output
+        unit: "V"
+        description: "amplitude for waveform generator and scaling factor for awg in coarse voltage mode"
+      - suffix: offset_fine
+        type: float
+        min: -1.1111
+        max: 1.1111
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output
+        unit: "V"
+        description: "offset for waveform generator and scaling factor for awg in fine voltage mode"
+      - suffix: offset_coarse
+        type: float
+        min: -10.0
+        max: 10.0
+        format:
+          notation: fixed
+          decimal_places: 6
+        precision: 
+          resolution: 0.000001
+        role: output
+        unit: "V"
+        description: "offset for waveform generator and scaling factor for awg in coarse voltage mode" 
+  - name: generator
+    description: "Predefined waveform generators"
+    channel_parameter:
+        name: number
+        type: int
+        min: 1
+        max: 8
+        description: "Individual generators"
+    io_types:
+      - suffix: waveform
+        type: int
+        min: 1
+        max: 4
+        role: setting
+        description: "Determines which predetermined waveform this should output. 1=sine, 2=square, 3=triangle/ramp, 4=staircase"
+      - suffix: period #outputs a fractional value but only accurate as an integer I believe
+        type: float
+        min: 1.0
+        max: 8000.0 #Could be larger but irrelevant
+        format:
+          notation: fixed
+          decimal_places: 2
+        precision:
+          resolution: 1
+        role: setting
+        unit: "ms"
+      - suffix: step_length
+        type: int
+        min: 1
+        max: 268435455
+        role: setting
+        unit: "ms"
+        description: "Period of waveforms 1,2,3 in ms. Step length for waveform 4"
+      - suffix: num_steps
+        type: int
+        min: 1
+        max: 268435455
+        role: setting
+        description: "The number of steps for waveform 4"
+      - suffix: duty_cycle
+        type: int
+        min: 0
+        max: 100
+        role: setting
+        description: "The duty cycle for waveforms 2 and 3. For 3, 0 is falling ramp, 100 is rising ramp"
+      - suffix: repetitions
+        type: int
+        min: -1
+        max: 268435455
+        role: setting
+        description: "Number of repitiions for the waveform generator. -1 is endless, 0 stops the generator"
+      - suffix: repetitions_remaining
+        type: int
+        min: -1
+        max: 268435455
+        role: setting
+        description: "Number of repetitions remaining for the waveform generator. -1 is endless, 0 is stopped"
+      
+      - suffix: generator_trigger
+        type: int
+        min: 0
+        max: 10
+        role: setting
+        description: "Determines which trigger is used to start the generator. 0 is immediate/no trigger"
+  - name: sync_out
+    description: "Output of sync clocks"
+    channel_parameter:
+        name: port
+        type: int
+        min: 1
+        max: 2
+        description: "sync ports on front panel"
+    io_types:
+      - suffix: tied_generator
+        type: int
+        min: 0
+        max: 10
+        role: setting
+        description: "Determines which function generator used to control the timing of the pulses"
+      - suffix: delay
+        type: int
+        min: 0
+        max: 268435455
+        role: setting
+        unit: "ms"
+        description: "Determines delay between pulses and start of generator"
+      - suffix: pulse_length
+        type: int
+        min: 0
+        max: 8000
+        role: setting
+        unit: "ms"
+        description: "The length of the pulse in ms"
+  - name: trigger
+    description: "Numbered triggers for the function generators"
+    channel_parameter:
+        name: trig_num
+        type: int
+        min: 1
+        max: 10
+        role: setting
+        description: "The trigger number"
+    io_types:
+      - suffix: sync_bool
+        type: int
+        min: 0
+        max: 1
+        role: setting
+        description: "If true, will trigger when syncB port recieves a pulse"
+io:
+  - name: channel_number
+    type: int
+    min: 0
+    max: 24
+    role: setting
+    description: "channel number variable. 0 means none"
+  - name: low_time
+    type: int
+    min: 0
+    max: 2147483647
+    role: setting
+    unit: "ms"
+    description: "low time in milliseconds"
+  - name: high_time
+    type: int
+    min: 0
+    max: 2147483647
+    role: setting
+    unit: "ms"
+    description: "high time in milliseconds"
+  - name: low_val
+    type: float
+    min: -10.0
+    max: 10.0
+    format:
+      notation: fixed
+      decimal_places: 6
+    precision: 
+      resolution: 0.000001
+    role: output
+    unit: "V"
+    description: "low voltage in V before offset and amplitude"
+  - name: high_val
+    type: float
+    min: -10.0
+    max: 10.0
+    format:
+      notation: fixed
+      decimal_places: 6
+    precision: 
+      resolution: 0.000001
+    role: output
+    unit: "V"
+    description: "high voltage in V before offset and amplitude"
+  - name: pulse_count
+    type: int
+    min: -1
+    max: 268435455
+    role: setting
+    description: "number of pulses. -1 is indefinite"
+  - name: pulse_train_trigger
+    type: int
+    min: 0
+    max: 10
+    role: setting
+    description: "the trigger number associated with the pulse train"
+  - name: awg_repetitions
+    type: int
+    min: -1
+    max: 2147483647
+    role: setting
+    description: "number of repetitions to execute the awg function. -1 is indefinite"
+  - name: awg_trigger
+    type: int
+    min: 0
+    max: 10
+    role: setting
+    description: "trigger number to execute awg. 0 is immediate"
+  - name: use_external_clock
+    type: int
+    min: 0
+    max: 1
+    role: setting
+    description: "True if want to use external clock to sync qdacs"
+  - name: use_synca_out
+    type: int
+    min: 0
+    max: 1
+    role: setting
+    description: "True if want to output sync A pulses"
+  - name: use_syncb_out
+    type: int
+    min: 0
+    max: 1
+    role: setting
+    description: "True if want to output sync B pulses"
+  - name: output_string
+    type: string
+    role: setting
+    description: "Just a string the qdac can output to"
+  - name: baudrate
+    type: int
+    role: setting
+    min: 2
+    max: 14
+    description: "Sets the baudrate. See command for conversion details. 14 (921600) is experimental."
+      
+commands:
+  GET_RAW_CURRENT:
+    template: 'adc {source}'
+    description: "Gets the raw value for the current in a given channels, to be converted into proper units"
+    channel_group: source
+    parameters: []
+    outputs: [raw_current]
+
+  GET_CURRENT_LOW:
+    template: 'get {source}'
+    description: "Gets the current of a given channel in uA in low current range"
+    channel_group: source
+    parameters: []
+    outputs: [fine_current]
+
+  GET_CURRENT_HIGH:
+    template: 'get {source}'
+    description: "Gets the current of a given channel in uA in high current range"
+    channel_group: source
+    parameters: []
+    outputs: [coarse_current]
+  
+  GET_VOLTAGE_RAW:
+    template: 'dac {source}'
+    description: "Gets the raw value of the output voltage. Converts to V depending on the mode"
+    channel_group: source
+    parameters: []
+    outputs: [raw_voltage]
+
+  GET_VOLTAGE_LOW:
+    template: 'set {source}'
+    description: "Gets the voltage value of a channel in low V range mode"
+    channel_group: source
+    parameters: []
+    outputs: [fine_voltage]
+
+  GET_VOLTAGE_HIGH:
+    template: 'set {source}'
+    description: "Gets the voltage value of a channel in high V range mode"
+    channel_group: source
+    parameters: []
+    outputs: [coarse_voltage]
+
+  SET_VOLTAGE_RAW:
+    template: 'dac {source} {raw_voltage}'
+    description: "Sets the voltage value of a channel in raw 20 bit signed int"
+    channel_group: source
+    parameters: 
+      - io: raw_voltage
+    outputs: []
+
+  SET_VOLTAGE_LOW:
+    template: 'set {source} {fine_voltage}'
+    description: "Sets the voltage value of a channel in low V mode"
+    channel_group: source
+    parameters:
+      - io: fine_voltage
+    outputs: []
+  
+  SET_VOLTAGE_HIGH:
+    template: 'set {source} {coarse_voltage}'
+    description: "Sets the voltage value of a channel in high V mode"
+    channel_group: source
+    parameters:
+      - io: coarse_voltage
+    outputs: []
+
+  #SET_AWG_DATA:
+  #    template: 'awg 0 1 {data}'
+  #    description: "Sends sample point data for the awg at 1 ms time resolution. Sends up to 64 per command, up to 125 times for 8000 per waveform"
+  #    channel_group:
+
+  
+  GET_CALIBRATION_CHANNEL:
+    template: 'cal'
+    description: "Gets the channel number whose output is routed to calibration connector"
+    parameters: []
+    outputs: [channel_number]
+
+  SET_CALIBRATION_CHANNEL:
+    template: 'cal {channel_number}'
+    description: "Sets the assigned channel to route its output to the calibration connector"
+    parameters:
+      - io: channel_number
+    outputs: []
+
+  GET_CURRENT_MODE:
+    template: 'cur {source}'
+    description: "Gets the current range for chosen channel"
+    channel_group: source
+    parameters: []
+    outputs: [current_mode]
+
+  SET_CURRENT_MODE:
+    template: 'cur {source} {current_mode}'
+    description: "Sets the current range for chosen channel. 0=low, 1=high. When voltage_mode=0, must be 0"
+    channel_group: source
+    parameters:
+      - io: current_mode
+    outputs: []
+
+  GET_EXTERNAL_CLOCK:
+    template: 'extclk'
+    description: "Queries if currently using clock from sync-A input"
+    parameters: []
+    outputs: [use_external_clock]
+
+  SET_EXTERNAL_CLOCK:
+    template: 'extclk {use_external_clock}'
+    description: "Sets if using clock from sync-A input"
+    parameters:
+      - io: use_external_clock
+    outputs: []
+
+  #Not sure how to handle indeterminate number of responses. Assuming you can extract just the first output?
+  GET_GENERATOR_WAVEFORM:
+    template: 'fun {generator}'
+    description: "Gets the type of waveform set on specified function generator"
+    channel_group: generator
+    parameters: []
+    outputs: [waveform]
+
+  GET_SINE_INFO:
+    template: 'fun {generator}'
+    description: "Gets the info about specified function generator number, assuming its set to waveform 1"
+    channel_group: generator
+    parameters: []
+    outputs: [waveform, period, repetitions, repetitions_remaining, generator_trigger]
+
+  GET_SQUARE_INFO:
+    template: 'fun {generator}'
+    description: "Gets the info about specified function generator number, assuming its set to waveform 2"
+    channel_group: generator
+    parameters: []
+    outputs: [waveform, period, duty_cycle, repetitions, repetitions_remaining, generator_trigger]
+  
+  GET_TRIANGLE_INFO:
+    template: 'fun {generator}'
+    description: "Gets the info about specified function generator number, assuming its set to waveform 3"
+    channel_group: generator
+    parameters: []
+    outputs: [waveform, period, duty_cycle, repetitions, repetitions_remaining, generator_trigger]
+
+  GET_STAIR_INFO:
+    template: 'fun {generator}'
+    description: "Gets the info about specified function generator number, assuming its set to waveform 4"
+    channel_group: generator
+    parameters: []
+    outputs: [waveform, step_length, num_steps, repetitions, generator_trigger]
+
+  #Don't know if correct syntax
+  SET_SINE:
+    template: 'fun {generator} 1 {period} {repetitions} {generator_trigger}'
+    description: "Sets designated function generator to sine"
+    channel_group: generator
+    parameters: 
+      - io: period
+      - io: repetitions
+      - io: generator_trigger
+    outputs: []
+
+  SET_SQUARE:
+    template: 'fun {generator} 2 {period} {duty_cycle} {repetitions} {generator_trigger}'
+    description: "Sets designated function generator to square"
+    channel_group: generator
+    parameters: 
+      - io: period
+      - io: duty_cycle
+      - io: repetitions
+      - io: generator_trigger
+    outputs: []
+
+  SET_TRIANGLE:
+    template: 'fun {generator} 3 {period} {duty_cycle} {repetitions} {generator_trigger}'
+    description: "Sets designated function generator to triangle"
+    channel_group: generator
+    parameters: 
+      - io: period
+      - io: duty_cycle
+      - io: repetitions
+      - io: generator_trigger
+    outputs: []
+
+  SET_STAIR:
+    template: 'fun {generator} 4 {step_length} {num_steps} {repetitions} {generator_trigger}'
+    description: "Sets designated function generator to square"
+    channel_group: generator
+    parameters: 
+      - io: step_length
+      - io: num_steps
+      - io: repetitions
+      - io: generator_trigger
+    outputs: []
+
+  GET_PULSE_TRAIN_INFO:
+    template: 'pul'
+    description: "Gets information on pulse train generator"
+    parameters: []
+    outputs: [low_time, low_val, high_time, high_val, pulse_count, pulse_train_trigger]
+
+  SET_PULSE_TRAIN:
+    template: 'pul {low_time} {high_time} {low_val} {high_val} {pulse_count} {pulse_train_trigger}'
+    description: "Sets up pulse train"
+    parameters:
+      - io: low_time
+      - io: high_time
+      - io: low_val
+      - io: high_val
+      - io: pulse_count
+      - io: pulse_train_trigger
+    outputs: []
+  
+  #Don't know how to effectively communicate newline for ssy
+  GET_SSY:
+    template: 'ssy {generator}'
+    description: "Sends the number of the source at the start of the next period"
+    channel_group: generator
+    parameters: []
+    outputs: [output_string]
+  
+  GET_STATUS:
+    template: 'status'
+    description: "outputs firmware version and settings for each channel"
+    parameters: []
+    outputs: [output_string]
+
+  GET_SYNC_INFO:
+    template: 'syn {sync_out}'
+    description: "Outputs the function generator, delay, and pulse length tied to the sync pulse"
+    channel_group: sync_out
+    parameters: []
+    outputs: [tied_generator, delay, pulse_length]
+
+  SET_SYNC:
+    template: 'syn {sync_out} {tied_generator} {delay} {pulse_length}'
+    description: "Sets up the sync out on the front panel"
+    channel_group: sync_out
+    parameters:
+      - io: tied_generator
+      - io: delay
+      - io: pulse_length
+    outputs: []
+
+  GET_SYNCA_OUT:
+    template: 'synA'
+    description: 'Returns whether or not the sync A output is running'
+    parameters: []
+    outputs: [use_synca_out]
+  
+  SET_SYNCA_OUT:
+    template: 'synA {use_synca_out}'
+    description: 'Configures sync A output'
+    parameters:
+      - io: use_synca_out
+    outputs: []
+
+  GET_SYNCB_OUT:
+    template: 'synB'
+    description: 'Returns whether or not the sync B output is running'
+    parameters: []
+    outputs: [use_syncb_out]
+  
+  SET_SYNCB_OUT:
+    template: 'synB {use_syncb_out}'
+    description: 'Configures sync B output'
+    parameters:
+      - io: use_syncb_out
+    outputs: []
+
+  TRIGGER:
+    template: 'trig {trigger}'
+    description: 'Executes generates tied to a specific trigger'
+    channel_group: trigger
+    parameters: []
+    outputs: []
+
+  TRIGGER_QUERY:
+    template: 'trig'
+    description: "Shows what trigger is connected to syncB port in the format of 'SynB-in connected to trigger: X'"
+    parameters: []
+    outputs: [output_string]
+
+  TRIGGER_SYNC:
+    template: 'trig {trigger} {sync_bool}'
+    description: 'Executes generators tied to specified trigger. If 1, will instead fire next time there is an input on sync B input. 0 disconnects the current trigger tied to sync B'
+    channel_group: trigger
+    parameters:
+      - io: sync_bool
+    outputs: [output_string]
+
+  GET_VERSION:
+    template: 'version'
+    description: 'Gets firmware version'
+    parameters: []
+    outputs: [output_string]
+
+  GET_VOLTAGE_MODE:
+    template: 'vol {source}'
+    description: 'Gets voltage range for channel. 0=high, 1=low (opposite of current...)'
+    channel_group: source
+    parameters: []
+    outputs: [voltage_mode]
+
+  SET_VOLTAGE_MODE:
+    template: 'vol {source} {voltage_mode}'
+    description: 'Sets voltage mode. ONLY ADVISABLE WHEN NOT CONNECTED TO EXPERIMENT/NONZERO VOLTAGE'
+    channel_group: source
+    parameters: 
+      - io: voltage_mode
+    outputs: []
+
+  GET_WAVEFORM_INFO_HIGH:
+    template: 'wav {source}'
+    description: 'Gets generator, amplitude, and offset for channel in high V range'  
+    channel_group: source
+    parameters: []
+    outputs: [generator_num, amplitude_coarse, offset_coarse]
+  
+  GET_WAVEFORM_INFO_LOW:
+    template: 'wav {source}'
+    description: 'Gets generator, amplitude, and offset for channel in low V range'
+    channel_group: source
+    parameters: []
+    outputs: [generator_num, amplitude_fine, offset_fine]
+
+  SET_WAVEFORM_HIGH:
+    template: 'wav {source} {generator_num} {amplitude_coarse} {offset_coarse}'
+    description: 'Connects specified generator to specified channel for high V range'
+    channel_group: source
+    parameters:
+      - io: generator_num
+      - io: amplitude_coarse
+      - io: offset_coarse
+    outputs: []
+
+  SET_WAVEFORM_LOW:
+    template: 'wav {source} {generator_num} {amplitude_fine} {offset_fine}'
+    description: 'Connects specified generator to specified channel for low V range'
+    channel_group: source
+    parameters:
+      - io: generator_num
+      - io: amplitude_fine
+      - io: offset_fine
+    outputs: []
+  SET_BAUDRATE:
+    template: 'brt {baudrate}'
+    description: 'Sets the baudrate. 2: 600, 3: 1200, 4: 2400, 5: 4800, 6: 9600, 7: 14400, 8: 19200, 9: 38400, 10: 57600, 11: 115200, 12: 230400, 13: 460800, 14: 921600'
+    parameters:
+      - io: baudrate
+    outputs: []

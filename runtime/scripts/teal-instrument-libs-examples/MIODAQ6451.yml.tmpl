@@ -1,0 +1,97 @@
+api_version: 1.0.0
+instrument:
+  vendor: National Instruments
+  model: mioDAQ USB-6451
+  identifier: MIODAQ6451
+  description: "NI mioDAQ USB-6451 Multifunction DAQ (Simultaneous/Multiplexed AI, AO, DIO)"
+protocol:
+  type: "Custom"
+  name: "NIDAQmx"
+io:
+  - name: output_exists
+    type: bool
+    role: setting
+    description: flag set internally indicating successful output
+  - name: sample_rate
+    type: float
+    role: setting
+    min: 1 
+    max: 1000000
+    unit: Hz
+    description: the internal sample rate of the mioDAQ
+  - name: num_points
+    type: int
+    role: setting
+    min: 1
+    max: 8000 #Sort of arbitrary number, hopefully is high enough for any single scan 
+    description: the number of points to sample
+  - name: timeout
+    type: int
+    default: 5000
+    unit: "ms"
+    role: setting
+
+channel_groups:
+  - name: ai
+    description: "Analog input channels (0 to 15)"
+    channel_parameter:
+      type: int
+      min: 0
+      max: 3
+      description: "Analog input channel index"
+    io_types:
+      - suffix: voltage
+        type: buffer
+        element_type: float
+        role: input
+        unit: V
+        description: "Measured voltage time trace"
+
+commands:
+  CONFIGURE_MEASUREMENT:
+    description: "Configure DAQ acquisition sample rate and points count"
+    parameters:
+      - io: sample_rate
+      - io: num_points
+    outputs: []
+
+  GET_SAMPLE_RATE:
+    description: "Gets the sample rate of the mioDAQ"
+    parameters: []
+    outputs:
+      - sample_rate
+
+  GET_NUM_POINTS:
+    description: "Gets the number of points"
+    parameters: []
+    outputs:
+      - num_points
+
+  ARM_EXT_TRIGGER:
+    description: "Awaits digital trigger on trigger port"
+    parameters:
+      - io: timeout
+    outputs: []
+
+  FIRE_TRIGGER:
+    description: "Manually fires trigger to collect data"
+    parameters: []
+    outputs: []
+
+  SEND_TEST_TRIGGER:
+    description: "Second DIO port for firing a digital trigger to prompt data collection. Will send 8 pulses in 1/4 of the num_points expected"
+    parameters: []
+    outputs: []
+
+  CHECK_BUFFERED_TRACES_EXIST:
+    description: "Checks that the instrument buffers contain data"
+    parameters: []
+    outputs:
+      - output_exists
+
+  READ_TRACE:
+    description: "Find collected trace at buffer_id and channel"
+    channel_group: ai
+    parameters: []
+    outputs:
+      - voltage

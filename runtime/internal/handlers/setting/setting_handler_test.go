@@ -5,7 +5,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
@@ -13,9 +18,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
-	"github.com/nats-io/nats.go"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestSettingResponseSubject(t *testing.T) {

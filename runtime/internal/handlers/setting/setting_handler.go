@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
@@ -22,8 +23,9 @@ import (
 
 const (
 	SettingCommandHandlerName = "SETTING_COMMAND_HANDLER"
-	// INSTRUMENTHUB.SETTING_COMMAND is the subject published by falcon-comms
-	// RoutineComms on the controller side (routine_comms.cpp make_measure_command_subject).
+	// INSTRUMENTHUB.SETTING_COMMAND is the subject published by
+	// falcon-comms RoutineComms on the controller side (routine_comms.cpp
+	// make_measure_command_subject).
 	SettingCommandSubject = "INSTRUMENTHUB.SETTING_COMMAND"
 	// FALCON.SETTING_RESPONSE.<timestamp> is subscribed to by falcon-comms
 	// RoutineComms on the controller side.
@@ -158,7 +160,10 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 		MaxAge:   60 * time.Second,
 	})
 	if addErr != nil && addErr != nats.ErrStreamNameAlreadyInUse {
-		return fmt.Errorf("failed to ensure FALCON_MEASURE stream: %w", addErr)
+		return fmt.Errorf(
+			"failed to ensure FALCON_MEASURE stream: %w",
+			addErr,
+		)
 	}
 
 	h.subscription, err = nc.Subscribe(
@@ -195,7 +200,10 @@ func (h *Handler) Unsubscribe() error {
 	return nil
 }
 
-func (h *Handler) publishSettingmentResponse(cmd api.SettingCommand, responseSubject, respJSON string) bool {
+func (h *Handler) publishSettingmentResponse(
+	cmd api.SettingCommand,
+	responseSubject, respJSON string,
+) bool {
 	measureResp := api.SettingResponse{
 		Response:  respJSON,
 		Timestamp: cmd.Timestamp,
@@ -203,20 +211,44 @@ func (h *Handler) publishSettingmentResponse(cmd api.SettingCommand, responseSub
 	}
 	respData, err := json.Marshal(measureResp)
 	if err != nil {
-		h.logger.Error(SettingCommandHandlerName,
-			fmt.Sprintf("failed to marshal SettingResponse: %v", err))
+		h.logger.Error(
+			SettingCommandHandlerName,
+			fmt.Sprintf(
+				"failed to marshal SettingResponse: %v",
+				err,
+			),
+		)
 		return false
 	}
 
-	h.logger.Info(SettingCommandHandlerName,
-		fmt.Sprintf("Publishing %s: subject=%s bytes=%d", SettingResponseName, responseSubject, len(respData)))
+	h.logger.Info(
+		SettingCommandHandlerName,
+		fmt.Sprintf(
+			"Publishing %s: subject=%s bytes=%d",
+			SettingResponseName,
+			responseSubject,
+			len(respData),
+		),
+	)
 	if err := h.nc.Publish(responseSubject, respData); err != nil {
-		h.logger.Error(SettingCommandHandlerName,
-			fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
+		h.logger.Error(
+			SettingCommandHandlerName,
+			fmt.Sprintf(
+				"failed to publish %s: %v",
+				responseSubject,
+				err,
+			),
+		)
 		return false
 	}
-	h.logger.Info(SettingCommandHandlerName,
-		fmt.Sprintf("Published %s: subject=%s ", SettingResponseName, responseSubject))
+	h.logger.Info(
+		SettingCommandHandlerName,
+		fmt.Sprintf(
+			"Published %s: subject=%s ",
+			SettingResponseName,
+			responseSubject,
+		),
+	)
 	return true
 }
 
@@ -284,7 +316,13 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		falconReq,
 	)
 	if err != nil {
-		h.logger.Error(SettingCommandHandlerName, fmt.Sprintf("failed to build new falcon response %v", err))
+		h.logger.Error(
+			SettingCommandHandlerName,
+			fmt.Sprintf(
+				"failed to build new falcon response %v",
+				err,
+			),
+		)
 		return
 	}
 

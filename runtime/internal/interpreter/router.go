@@ -12,7 +12,8 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 )
 
-// MeasurementRecorder represents the mandatory database upload required by every measurment workflow.
+// MeasurementRecorder represents the mandatory database upload required by
+// every measurment workflow.
 type MeasurementRecorder interface {
 	Insert(
 		insert measurementdb.InsertEntry,
@@ -48,7 +49,8 @@ func (t *trackedMeasurementRecorder) Writes() int {
 
 var _ MeasurementRecorder = (*trackedMeasurementRecorder)(nil)
 
-// StateUpdater represents the mandatory state update required by every measurment workflow.
+// StateUpdater represents the mandatory state update required by every
+// measurment workflow.
 type StateUpdater interface {
 	UpdatePort(
 		port falconcore.ConnectionName,
@@ -163,12 +165,14 @@ func NewRouter(
 		wiremap:    wiremap,
 		ports:      ports,
 		handlers: []MeasurementHandler{
-			// The scalar handler has a broad structural match, so try the
+			// The scalar handler has a broad structural match, so
+			// try the
 			// multi-point waveform handler first.
 			&measure1DBufferedHandler{},
 			&measureGetSetHandler{},
-			// The single-get buffer handler remains unregistered until its
-			// hardware sequence and request-selection rule are defined.
+			// The single-get buffer handler remains unregistered
+			// until its hardware sequence and request-selection
+			// rule are defined.
 		},
 	}
 }

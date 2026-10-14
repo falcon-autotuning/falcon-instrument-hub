@@ -6,6 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/access"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
@@ -14,9 +17,8 @@ import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/device-structures/connection"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/physics/units/symbolunit"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestPortEntryRoleHelpers(t *testing.T) {
