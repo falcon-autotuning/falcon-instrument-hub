@@ -165,9 +165,8 @@ func NewRouter(
 		wiremap:    wiremap,
 		ports:      ports,
 		handlers: []MeasurementHandler{
-			// The scalar handler has a broad structural match, so
-			// try the
-			// multi-point waveform handler first.
+			// The sweep handler declines fixed-voltage domains, which are
+			// handled by the DC set/get workflow below.
 			&measure1DBufferedHandler{},
 			&measureGetSetHandler{},
 			// The single-get buffer handler remains unregistered

@@ -5,6 +5,9 @@ import "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/math/axesin
 type AxesInt []int
 
 func (a AxesInt) NewFalconAxesInt() (*axesint.Handle, error) {
+	if len(a) == 0 {
+		return axesint.NewEmpty()
+	}
 	var inner []int32
 	for _, number := range a {
 		inner = append(inner, int32(number))

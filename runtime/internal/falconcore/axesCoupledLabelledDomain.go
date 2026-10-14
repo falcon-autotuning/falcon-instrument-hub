@@ -8,6 +8,9 @@ import (
 type AxesCoupledLabelledDomain []CoupledLabelledDomain
 
 func (a AxesCoupledLabelledDomain) NewFalconAxesCoupledLabelledDomain() (*axescoupledlabelleddomain.Handle, error) {
+	if len(a) == 0 {
+		return axescoupledlabelleddomain.NewEmpty()
+	}
 	out := make([]*coupledlabelleddomain.Handle, 0, len(a))
 	for _, dom := range a {
 		realdom, err := dom.NewFalconCoupledLabelledDomain()

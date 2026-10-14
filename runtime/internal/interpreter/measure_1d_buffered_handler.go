@@ -64,6 +64,33 @@ func sweepSampleRate(req *FalconMeasurementRequest, count int) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("read sweep duration: %w", err)
 	}
+	// Rates are in Hz, so convert the labelled interval to seconds first.
+	clock, err := timeDomain.Port()
+	if err != nil {
+		return 0, fmt.Errorf("read time-domain port: %w", err)
+	}
+	defer clock.Close()
+	units, err := clock.Units()
+	if err != nil {
+		return 0, fmt.Errorf("read time-domain units: %w", err)
+	}
+	defer units.Close()
+	seconds, err := SymbolUnitFromString("s")
+	if err != nil {
+		return 0, err
+	}
+	defer seconds.Close()
+	compatible, err := units.IsCompatibleWith(seconds)
+	if err != nil {
+		return 0, err
+	}
+	if !compatible {
+		return 0, fmt.Errorf("time-domain units must be compatible with seconds")
+	}
+	duration, err = units.ConvertValueTo(duration, seconds)
+	if err != nil {
+		return 0, fmt.Errorf("convert duration to seconds: %w", err)
+	}
 	if duration <= 0 || math.IsNaN(duration) || math.IsInf(duration, 0) {
 		return 0, fmt.Errorf(
 			"sweep duration must be finite and positive",

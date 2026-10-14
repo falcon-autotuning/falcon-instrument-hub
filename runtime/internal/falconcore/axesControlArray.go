@@ -8,6 +8,9 @@ import (
 type AxesControlArray []ControlArray
 
 func (a AxesControlArray) NewFalconAxesControlArray() (*axescontrolarray.Handle, error) {
+	if len(a) == 0 {
+		return axescontrolarray.NewEmpty()
+	}
 	out := make([]*controlarray.Handle, 0, len(a))
 	for _, arr := range a {
 		realarr, err := arr.NewFalconControlArray()

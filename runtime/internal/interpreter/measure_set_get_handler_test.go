@@ -3,6 +3,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -50,58 +51,54 @@ func mustCreateTestHandle[T testFalconHandle](
 
 func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 	t.Helper()
+	return newSetGetMeasurementRequest(t, []float64{0.25}, []int{1})
+}
 
+// Each voltage sets P1, P2, ... once; getterChannels selects O1, O2, ... .
+func newSetGetMeasurementRequest(t *testing.T, voltages []float64, getterChannels []int) *FalconMeasurementRequest {
+	t.Helper()
 	volts := mustCreateTestHandle(t, symbolunit.NewVolt)
-	p1 := mustCreateTestHandle(t, func() (*connection.Handle, error) {
-		return connection.NewPlungerGate("P1")
-	})
-	setter := mustCreateTestHandle(
-		t,
-		func() (*instrumentport.Handle, error) {
-			return instrumentport.NewKnob(
-				"P1",
-				"Source1",
-				p1,
-				instrument.DcVoltageSource,
-				volts,
-				"mock P1 setter",
-			)
-		},
-	)
-	o1 := mustCreateTestHandle(t, func() (*connection.Handle, error) {
-		return connection.NewOhmic("O1")
-	})
-	getter := mustCreateTestHandle(
-		t,
-		func() (*instrumentport.Handle, error) {
-			return instrumentport.NewMeter(
-				"O1",
-				"Meter1",
-				o1,
-				instrument.Voltmeter,
-				volts,
-				"mock O1 getter",
-			)
-		},
-	)
-
+	var domains []*labelleddomain.Handle
+	var identities []*porttransform.Handle
+	var directions []*pairstringbool.Handle
+	for i, voltage := range voltages {
+		name := fmt.Sprintf("P%d", i+1)
+		conn := mustCreateTestHandle(t, func() (*connection.Handle, error) {
+			return connection.NewPlungerGate(name)
+		})
+		setter := mustCreateTestHandle(t, func() (*instrumentport.Handle, error) {
+			return instrumentport.NewKnob(name, "Source1", conn, instrument.DcVoltageSource, volts, "test source")
+		})
+		domains = append(domains, mustCreateTestHandle(t, func() (*labelleddomain.Handle, error) {
+			return labelleddomain.NewFromPort(voltage, voltage, setter, true, true)
+		}))
+		identities = append(identities, mustCreateTestHandle(t, func() (*porttransform.Handle, error) {
+			return porttransform.NewIdentityTransform(setter)
+		}))
+		directions = append(directions, mustCreateTestHandle(t, func() (*pairstringbool.Handle, error) {
+			return pairstringbool.New(name, true)
+		}))
+	}
+	var meterPorts []*instrumentport.Handle
+	for _, channel := range getterChannels {
+		name := fmt.Sprintf("O%d", channel)
+		conn := mustCreateTestHandle(t, func() (*connection.Handle, error) {
+			return connection.NewOhmic(name)
+		})
+		meterPorts = append(meterPorts, mustCreateTestHandle(t, func() (*instrumentport.Handle, error) {
+			return instrumentport.NewMeter(name, "Meter1", conn, instrument.Voltmeter, volts, "test meter")
+		}))
+	}
+	// The native library requires two control coordinates. Both map to the
+	// same fixed voltage above: this describes a DC setting, not a sweep.
 	setterDomain := mustCreateTestHandle(t, func() (*domain.Handle, error) {
 		return domain.New(0, 1, true, true)
 	})
-	labelledSetterDomain := mustCreateTestHandle(
-		t,
-		func() (*labelleddomain.Handle, error) {
-			return labelleddomain.NewFromPortAndDomain(
-				setter,
-				setterDomain,
-			)
-		},
-	)
 	coupledDomain := mustCreateTestHandle(
 		t,
 		func() (*coupledlabelleddomain.Handle, error) {
 			return coupledlabelleddomain.New(
-				[]*labelleddomain.Handle{labelledSetterDomain},
+				domains,
 			)
 		},
 	)
@@ -114,17 +111,11 @@ func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 		},
 	)
 
-	increasingPair := mustCreateTestHandle(
-		t,
-		func() (*pairstringbool.Handle, error) {
-			return pairstringbool.New("P1", true)
-		},
-	)
 	increasing := mustCreateTestHandle(
 		t,
 		func() (*mapstringbool.Handle, error) {
 			return mapstringbool.New(
-				[]*pairstringbool.Handle{increasingPair},
+				directions,
 			)
 		},
 	)
@@ -158,17 +149,11 @@ func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 		return discretespace.New(unitSpace, domainAxes, increasingAxes)
 	})
 
-	identity := mustCreateTestHandle(
-		t,
-		func() (*porttransform.Handle, error) {
-			return porttransform.NewIdentityTransform(setter)
-		},
-	)
 	transforms := mustCreateTestHandle(
 		t,
 		func() (*listporttransform.Handle, error) {
 			return listporttransform.New(
-				[]*porttransform.Handle{identity},
+				identities,
 			)
 		},
 	)
@@ -185,7 +170,7 @@ func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 		},
 	)
 	getters := mustCreateTestHandle(t, func() (*ports.Handle, error) {
-		return ports.New([]*instrumentport.Handle{getter})
+		return ports.New(meterPorts)
 	})
 	meterTransforms := mustCreateTestHandle(
 		t,
@@ -208,7 +193,7 @@ func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 		t,
 		func() (*measurementrequest.Handle, error) {
 			return measurementrequest.New(
-				"set P1 and measure O1",
+				"set voltages and read meters",
 				waveforms,
 				getters,
 				meterTransforms,
