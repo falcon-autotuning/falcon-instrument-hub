@@ -104,7 +104,7 @@ test-state-handler: build
 		-v \
 		-coverprofile=coverage.out \
 		-tags cgo,falcon_core \
-		./internal/handlers/device_config
+		./internal/handlers/devicestate
 
 test-interpreter: build
 	cd runtime && $(GO_ENV) go test \

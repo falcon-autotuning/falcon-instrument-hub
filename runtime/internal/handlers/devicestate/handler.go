@@ -10,6 +10,7 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
@@ -124,13 +125,14 @@ func (h *Handler) parseRequest(
 
 // sendDeviceStateResponse sends the device config in cereal JSON format so that
 // C++ Config::from_json_string can parse it directly.
-// TODO: this should use the voltagestateresponse, not raw states
 func (h *Handler) sendDeviceStateResponse() error {
-	states, err := devicestate.Manager().Snapshot().NewFalconDeviceVoltageStates()
+	states := devicestate.Manager().Snapshot()
+	resp, err := falconcore.VoltageStatesResponse{Message: "The voltage response", States: states}.NewFalconVoltageStateResponse()
 	if err != nil {
 		return err
 	}
-	jsonStates, err := states.ToJSON()
+
+	jsonStates, err := resp.ToJSON()
 	if err != nil {
 		return err
 	}
