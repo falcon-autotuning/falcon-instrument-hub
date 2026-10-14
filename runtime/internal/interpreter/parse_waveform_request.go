@@ -60,7 +60,8 @@ func parseVoltageWaveformRequest(
 	}
 
 	candidate := &measureVoltageWaveformRequest{}
-	// Release any ports acquired before a failed check. On success, ownership
+	// Release any ports acquired before a failed check. On success,
+	// ownership
 	// passes to the caller instead.
 	success := false
 	defer func() {
@@ -222,7 +223,8 @@ func parseVoltageWaveformRequest(
 		return nil, nil
 	}
 
-	// These handlers use projected voltages directly, so they cannot apply a
+	// These handlers use projected voltages directly, so they cannot apply
+	// a
 	// waveform transform that changes the requested source values.
 	transforms, err := waveform.Transforms()
 	if err != nil {
@@ -255,7 +257,8 @@ func parseVoltageWaveformRequest(
 	}
 
 	// A fixed source needs only its domain value. This also lets the 1D
-	// handler decline DC requests without trying to project a constant array.
+	// handler decline DC requests without trying to project a constant
+	// array.
 	fixed, isFixed, err := fixedSourceVoltage(space, candidate.setter)
 	if err != nil {
 		return nil, err
@@ -266,7 +269,8 @@ func parseVoltageWaveformRequest(
 		return candidate, nil
 	}
 
-	// Project the waveform onto its source port to obtain actual setpoints in
+	// Project the waveform onto its source port to obtain actual setpoints
+	// in
 	// that port's units. Convert them to volts before passing them to Lua.
 	axes, err := axesinstrumentport.New(
 		[]*instrumentport.Handle{candidate.setter},

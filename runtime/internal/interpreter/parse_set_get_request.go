@@ -14,14 +14,16 @@ import (
 )
 
 // measureGetSetRequest owns the ports for one DC measurement. voltages[i] is
-// the fixed source voltage in volts for setters[i]; getters retain request order.
+// the fixed source voltage in volts for setters[i]; getters retain request
+// order.
 type measureGetSetRequest struct {
 	setters  []*instrumentport.Handle
 	getters  []*instrumentport.Handle
 	voltages []float64
 }
 
-// Close releases the parsed ports. It returns nothing and accepts a nil receiver.
+// Close releases the parsed ports. It returns nothing and accepts a nil
+// receiver.
 func (r *measureGetSetRequest) Close() {
 	if r == nil {
 		return
@@ -31,11 +33,16 @@ func (r *measureGetSetRequest) Close() {
 	}
 }
 
-// fixedSourceVoltage reads a knob's domain without constructing a control array.
+// fixedSourceVoltage reads a knob's domain without constructing a control
+// array.
 // Equal, included bounds mean a fixed DC voltage, even if the normalized grid
 // contains several coordinates. The returned voltage is in V. A varying domain
-// returns (0, false, nil); malformed domains or conversion failures return errors.
-func fixedSourceVoltage(space *discretespace.Handle, port *instrumentport.Handle) (float64, bool, error) {
+// returns (0, false, nil); malformed domains or conversion failures return
+// errors.
+func fixedSourceVoltage(
+	space *discretespace.Handle,
+	port *instrumentport.Handle,
+) (float64, bool, error) {
 	domain, err := space.GetDomain(port)
 	if err != nil {
 		return 0, false, err
@@ -49,8 +56,11 @@ func fixedSourceVoltage(space *discretespace.Handle, port *instrumentport.Handle
 	if err != nil {
 		return 0, false, err
 	}
-	if math.IsNaN(low) || math.IsInf(low, 0) || math.IsNaN(high) || math.IsInf(high, 0) {
-		return 0, false, fmt.Errorf("source domain bounds must be finite")
+	if math.IsNaN(low) || math.IsInf(low, 0) || math.IsNaN(high) ||
+		math.IsInf(high, 0) {
+		return 0, false, fmt.Errorf(
+			"source domain bounds must be finite",
+		)
 	}
 	if low != high {
 		return 0, false, nil
@@ -60,7 +70,9 @@ func fixedSourceVoltage(space *discretespace.Handle, port *instrumentport.Handle
 		return 0, false, err
 	}
 	if empty {
-		return 0, false, fmt.Errorf("fixed source domain must include its voltage")
+		return 0, false, fmt.Errorf(
+			"fixed source domain must include its voltage",
+		)
 	}
 	units, err := port.Units()
 	if err != nil {
@@ -84,8 +96,12 @@ func fixedSourceVoltage(space *discretespace.Handle, port *instrumentport.Handle
 
 // isSetGetVoltagePort checks the command capabilities supported by this script.
 // setter selects a writable DC source; otherwise port must be a readable
-// voltmeter. Both need voltage-compatible units. Unsupported ports return false.
-func isSetGetVoltagePort(port *instrumentport.Handle, setter bool) (bool, error) {
+// voltmeter. Both need voltage-compatible units. Unsupported ports return
+// false.
+func isSetGetVoltagePort(
+	port *instrumentport.Handle,
+	setter bool,
+) (bool, error) {
 	portAccess, err := port.Access()
 	if err != nil {
 		return false, err
@@ -97,10 +113,12 @@ func isSetGetVoltagePort(port *instrumentport.Handle, setter bool) (bool, error)
 	var roleOK bool
 	if setter {
 		roleOK, err = port.IsKnob()
-		roleOK = roleOK && kind == instrument.DcVoltageSource && (portAccess == access.Write || portAccess == access.Readwrite)
+		roleOK = roleOK && kind == instrument.DcVoltageSource &&
+			(portAccess == access.Write || portAccess == access.Readwrite)
 	} else {
 		roleOK, err = port.IsMeter()
-		roleOK = roleOK && kind == instrument.Voltmeter && (portAccess == access.Read || portAccess == access.Readwrite)
+		roleOK = roleOK && kind == instrument.Voltmeter &&
+			(portAccess == access.Read || portAccess == access.Readwrite)
 	}
 	if err != nil || !roleOK {
 		return false, err
@@ -123,7 +141,9 @@ func isSetGetVoltagePort(port *instrumentport.Handle, setter bool) (bool, error)
 // are not supported. It only inspects req; it does not contact instruments.
 // It returns (nil, nil) for an unsupported request, or an error for unreadable
 // or malformed data. The caller must Close a successfully returned request.
-func parseMeasureGetSetRequest(req *FalconMeasurementRequest) (*measureGetSetRequest, error) {
+func parseMeasureGetSetRequest(
+	req *FalconMeasurementRequest,
+) (*measureGetSetRequest, error) {
 	if req == nil || req.Handle() == nil {
 		return nil, fmt.Errorf("request is nil")
 	}

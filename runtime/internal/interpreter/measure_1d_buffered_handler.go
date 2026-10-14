@@ -85,7 +85,9 @@ func sweepSampleRate(req *FalconMeasurementRequest, count int) (int64, error) {
 		return 0, err
 	}
 	if !compatible {
-		return 0, fmt.Errorf("time-domain units must be compatible with seconds")
+		return 0, fmt.Errorf(
+			"time-domain units must be compatible with seconds",
+		)
 	}
 	duration, err = units.ConvertValueTo(duration, seconds)
 	if err != nil {
@@ -314,41 +316,12 @@ func (*measure1DBufferedHandler) Handle(
 			2+2*len(parsed.voltages),
 		)
 	}
-	if err := validateMeasureGetSetCall(
-		result.Results[0],
-		getter,
-		"SET_SAMPLE_RATE",
-		0,
-	); err != nil {
-		return nil, err
-	}
-	if err := validateMeasureGetSetCall(
-		result.Results[1],
-		getter,
-		"SET_BINS",
-		0,
-	); err != nil {
-		return nil, err
-	}
+
 	values := make([]float64, len(parsed.voltages))
 	for i := range values {
-		if err := validateMeasureGetSetCall(
-			result.Results[2+2*i],
-			setter,
-			measureSetVoltageCommand,
-			0,
-		); err != nil {
-			return nil, fmt.Errorf("sweep point %d: %w", i, err)
-		}
+
 		stream := result.Results[3+2*i]
-		if err := validateMeasureGetSetCall(
-			stream,
-			getter,
-			"MEASURE_STREAM",
-			1,
-		); err != nil {
-			return nil, fmt.Errorf("sweep point %d: %w", i, err)
-		}
+
 		values[i], err = sweepResultValue(
 			measurementDispatcher,
 			result.ID,

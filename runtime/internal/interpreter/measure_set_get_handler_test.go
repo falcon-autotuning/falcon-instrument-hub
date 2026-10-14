@@ -55,7 +55,11 @@ func newP1O1MeasurementRequest(t *testing.T) *FalconMeasurementRequest {
 }
 
 // Each voltage sets P1, P2, ... once; getterChannels selects O1, O2, ... .
-func newSetGetMeasurementRequest(t *testing.T, voltages []float64, getterChannels []int) *FalconMeasurementRequest {
+func newSetGetMeasurementRequest(
+	t *testing.T,
+	voltages []float64,
+	getterChannels []int,
+) *FalconMeasurementRequest {
 	t.Helper()
 	volts := mustCreateTestHandle(t, symbolunit.NewVolt)
 	var domains []*labelleddomain.Handle
@@ -63,31 +67,86 @@ func newSetGetMeasurementRequest(t *testing.T, voltages []float64, getterChannel
 	var directions []*pairstringbool.Handle
 	for i, voltage := range voltages {
 		name := fmt.Sprintf("P%d", i+1)
-		conn := mustCreateTestHandle(t, func() (*connection.Handle, error) {
-			return connection.NewPlungerGate(name)
-		})
-		setter := mustCreateTestHandle(t, func() (*instrumentport.Handle, error) {
-			return instrumentport.NewKnob(name, "Source1", conn, instrument.DcVoltageSource, volts, "test source")
-		})
-		domains = append(domains, mustCreateTestHandle(t, func() (*labelleddomain.Handle, error) {
-			return labelleddomain.NewFromPort(voltage, voltage, setter, true, true)
-		}))
-		identities = append(identities, mustCreateTestHandle(t, func() (*porttransform.Handle, error) {
-			return porttransform.NewIdentityTransform(setter)
-		}))
-		directions = append(directions, mustCreateTestHandle(t, func() (*pairstringbool.Handle, error) {
-			return pairstringbool.New(name, true)
-		}))
+		conn := mustCreateTestHandle(
+			t,
+			func() (*connection.Handle, error) {
+				return connection.NewPlungerGate(name)
+			},
+		)
+		setter := mustCreateTestHandle(
+			t,
+			func() (*instrumentport.Handle, error) {
+				return instrumentport.NewKnob(
+					name,
+					"Source1",
+					conn,
+					instrument.DcVoltageSource,
+					volts,
+					"test source",
+				)
+			},
+		)
+		domains = append(
+			domains,
+			mustCreateTestHandle(
+				t,
+				func() (*labelleddomain.Handle, error) {
+					return labelleddomain.NewFromPort(
+						voltage,
+						voltage,
+						setter,
+						true,
+						true,
+					)
+				},
+			),
+		)
+		identities = append(
+			identities,
+			mustCreateTestHandle(
+				t,
+				func() (*porttransform.Handle, error) {
+					return porttransform.NewIdentityTransform(
+						setter,
+					)
+				},
+			),
+		)
+		directions = append(
+			directions,
+			mustCreateTestHandle(
+				t,
+				func() (*pairstringbool.Handle, error) {
+					return pairstringbool.New(name, true)
+				},
+			),
+		)
 	}
 	var meterPorts []*instrumentport.Handle
 	for _, channel := range getterChannels {
 		name := fmt.Sprintf("O%d", channel)
-		conn := mustCreateTestHandle(t, func() (*connection.Handle, error) {
-			return connection.NewOhmic(name)
-		})
-		meterPorts = append(meterPorts, mustCreateTestHandle(t, func() (*instrumentport.Handle, error) {
-			return instrumentport.NewMeter(name, "Meter1", conn, instrument.Voltmeter, volts, "test meter")
-		}))
+		conn := mustCreateTestHandle(
+			t,
+			func() (*connection.Handle, error) {
+				return connection.NewOhmic(name)
+			},
+		)
+		meterPorts = append(
+			meterPorts,
+			mustCreateTestHandle(
+				t,
+				func() (*instrumentport.Handle, error) {
+					return instrumentport.NewMeter(
+						name,
+						"Meter1",
+						conn,
+						instrument.Voltmeter,
+						volts,
+						"test meter",
+					)
+				},
+			),
+		)
 	}
 	// The native library requires two control coordinates. Both map to the
 	// same fixed voltage above: this describes a DC setting, not a sweep.
