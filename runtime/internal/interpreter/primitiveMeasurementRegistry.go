@@ -23,7 +23,7 @@ type (
 		Choice    Dimensionality
 	}
 	PrimitiveMeasurementOutput struct {
-		Setters []map[Target]RawData
+		Setters map[Target]RawData
 	}
 )
 
