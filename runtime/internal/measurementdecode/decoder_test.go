@@ -10,6 +10,8 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type bufferConsumer map[string][]float64
@@ -214,4 +216,115 @@ func TestDecodeConvertsReturnUnits(t *testing.T) {
 	if got[0].Data[0] != 0.25 {
 		t.Fatalf("converted value = %v V, want 0.25 V", got[0].Data[0])
 	}
+}
+
+func TestDecodeMultipleTargetsRemainSeparated(
+	t *testing.T,
+) {
+	target1 := Target{
+		Instrument: "Meter1",
+		Group:      "analog",
+		Channel:    1,
+	}
+
+	target2 := Target{
+		Instrument: "Meter2",
+		Group:      "analog",
+		Channel:    2,
+	}
+
+	call := func(
+		target Target,
+		buffer string,
+	) instrumentserver.CallResult {
+		return instrumentserver.CallResult{
+			Instrument: target.Instrument,
+			Group:      target.Group,
+			Channel:    int64(target.Channel),
+			Verb:       "MEASURE_STREAM",
+			Return: []instrumentserver.ReturnValue{
+				{
+					Name: "voltage",
+					Unit: "V",
+					Value: instrumentserver.VariableValue{
+						Value: instrumentserver.DataBuffer(
+							buffer,
+						),
+					},
+				},
+			},
+		}
+	}
+
+	result := dispatcher.MeasurementResult{
+		ID: "measurement-1",
+		Results: []instrumentserver.CallResult{
+			call(target1, "a1"),
+			call(target2, "b1"),
+			call(target1, "a2"),
+			call(target2, "b2"),
+		},
+	}
+
+	buffers := bufferConsumer{
+		"a1": {1.0},
+		"a2": {2.0},
+
+		"b1": {10.0},
+		"b2": {20.0},
+	}
+
+	series, err := Decode(
+		buffers,
+		result,
+		[]SeriesSpec{
+			{
+				Target:     target1,
+				Verb:       "MEASURE_STREAM",
+				ReturnName: "voltage",
+				Unit:       falconcore.Volt,
+				Shape:      []int{2},
+			},
+			{
+				Target:     target2,
+				Verb:       "MEASURE_STREAM",
+				ReturnName: "voltage",
+				Unit:       falconcore.Volt,
+				Shape:      []int{2},
+			},
+		},
+	)
+	require.NoError(t, err)
+
+	require.Len(t, series, 2)
+	assert.Equal(
+		t,
+		target1,
+		series[0].Target,
+	)
+	assert.Equal(
+		t,
+		[]float64{1.0, 2.0},
+		series[0].Data,
+	)
+	assert.Equal(
+		t,
+		[]int{2},
+		series[0].Shape,
+	)
+	assert.Equal(
+		t,
+		target2,
+		series[1].Target,
+	)
+	assert.Equal(
+		t,
+		[]float64{10.0, 20.0},
+		series[1].Data,
+	)
+	assert.Equal(
+		t,
+		[]int{2},
+		series[1].Shape,
+	)
 }
