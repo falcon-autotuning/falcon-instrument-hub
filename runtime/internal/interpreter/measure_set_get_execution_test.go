@@ -156,10 +156,6 @@ func runSetGetCase(
 	server.wantVariables = []instrumentserver.MeasureVariable{
 		variable("getters", getters),
 		variable("numPoints", int64(1)),
-		variable(
-			"sampleRate",
-			int64(1),
-		),
 		variable("setVoltages", instrumentserver.DoubleArray(voltages)),
 		variable("setters", setters),
 	}

@@ -236,10 +236,7 @@ func (*measureGetSetHandler) Handle(
 	if err != nil {
 		return nil, fmt.Errorf("resolve getters: %w", err)
 	}
-	sampleRate, err := sweepSampleRate(req, 1)
-	if err != nil {
-		return nil, err
-	}
+
 	requestJSON, err := req.ToJSON()
 	if err != nil {
 		return nil, err
@@ -259,10 +256,6 @@ func (*measureGetSetHandler) Handle(
 					getterTargets,
 				),
 				variable("numPoints", int64(1)),
-				variable(
-					"sampleRate",
-					sampleRate,
-				),
 				variable(
 					"setVoltages",
 					instrumentserver.DoubleArray(

@@ -18,6 +18,10 @@ archive live results to the viewer's JSON dataset format. Annotations describe
 targets, not a generic extensible argument binding system. See
 [Hub Runtime](server-interpreter.md) for the implementation and limits.
 
+The [Lua Measurement Result Decoder](LUA_MEASUREMENT_RESULT_DECODER.md)
+documents how handlers can normalize scalar and buffered ISS results into
+declared measurement shapes.
+
 ## Build and Test
 
 From the repository root:
