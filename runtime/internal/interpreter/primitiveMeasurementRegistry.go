@@ -1,6 +1,9 @@
 package interpreter
 
-import "github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
+import (
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
+)
 
 type Dimensionality uint8
 
@@ -24,10 +27,24 @@ type (
 	}
 )
 
-type PrimitiveMeasurement struct{}
+type PrimitiveEncoder func(
+	input PrimitiveMeasurementInput,
+) ([]instrumentserver.MeasureVariable, error)
+
+type PrimitiveDecoder func(
+	output []float64,
+) (PrimitiveMeasurementOutput, error)
+
+type PrimitiveMeasurement struct {
+	script  string
+	encoder PrimitiveEncoder
+	decoder PrimitiveDecoder
+}
 
 type internalRegistry map[Dimensionality]PrimitiveMeasurement
 
 func AddDimensionality(measurement PrimitiveMeasurement) error
 
 func AvailableDimensions() ([]Dimensionality, error)
+
+func Run(input PrimitiveMeasurementInput) (PrimitiveMeasurementOutput, error)
