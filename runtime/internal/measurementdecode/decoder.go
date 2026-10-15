@@ -11,6 +11,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 )
 
 // BufferConsumer reads and releases a DataBuffer owned by one measurement.
@@ -21,13 +22,7 @@ type BufferConsumer interface {
 		bufferID string,
 	) ([]float64, error)
 }
-
-// Target identifies the instrument channel whose calls belong to a series.
-type Target struct {
-	Instrument string
-	Group      string
-	Channel    int64
-}
+type Target instrumenttarget.Target
 
 // SeriesSpec describes how to find and shape one getter's results.
 //
@@ -167,7 +162,7 @@ func decodeSeries(
 func matches(call instrumentserver.CallResult, spec SeriesSpec) bool {
 	return call.Instrument == spec.Target.Instrument &&
 		call.Group == spec.Target.Group &&
-		call.Channel == spec.Target.Channel &&
+		int(call.Channel) == spec.Target.Channel &&
 		call.Verb == spec.Verb
 }
 

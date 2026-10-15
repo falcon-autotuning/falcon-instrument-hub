@@ -37,7 +37,7 @@ func TestDecodeSupportedLayouts(t *testing.T) {
 		return instrumentserver.CallResult{
 			Instrument: target.Instrument,
 			Group:      target.Group,
-			Channel:    target.Channel,
+			Channel:    int64(target.Channel),
 			Verb:       "MEASURE_STREAM",
 			Return: []instrumentserver.ReturnValue{
 				{
@@ -150,7 +150,7 @@ func TestDecodeRejectsSampleCountThatDoesNotMatchShape(t *testing.T) {
 		Results: []instrumentserver.CallResult{{
 			Instrument: target.Instrument,
 			Group:      target.Group,
-			Channel:    target.Channel,
+			Channel:    int64(target.Channel),
 			Verb:       "MEASURE_STREAM",
 			Return: []instrumentserver.ReturnValue{{
 				Name: "voltage",
@@ -187,7 +187,7 @@ func TestDecodeConvertsReturnUnits(t *testing.T) {
 		Results: []instrumentserver.CallResult{{
 			Instrument: target.Instrument,
 			Group:      target.Group,
-			Channel:    target.Channel,
+			Channel:    int64(target.Channel),
 			Verb:       "GET_DATAPOINT",
 			Return: []instrumentserver.ReturnValue{
 				{
