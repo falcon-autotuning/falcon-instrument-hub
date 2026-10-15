@@ -17,6 +17,7 @@ type (
 	Target  instrumenttarget.Target
 	RawData []float64
 	Input   struct {
+		Axis  uint8
 		Start float64
 		Stop  *float64 // nil means "not provided"
 		Num   *int     // nil means "not provided"
