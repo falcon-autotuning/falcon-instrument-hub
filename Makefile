@@ -187,6 +187,13 @@ test-settings: build
 		-coverprofile=coverage.out \
 		-tags cgo,falcon_core \
 		./internal/settings
+
+test-measurementdecode: build
+	cd runtime && $(GO_ENV) go test \
+		-v \
+		-coverprofile=coverage.out \
+		-tags cgo,falcon_core \
+		./internal/measurementdecode
 install: build
 	install -m 0755 runtime/bin/instrument-hub $(CMAKE_BUILD_DIR)/instrument-hub
 	cmake --install $(CMAKE_BUILD_DIR)
