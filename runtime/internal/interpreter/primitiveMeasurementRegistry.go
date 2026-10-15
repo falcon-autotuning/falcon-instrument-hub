@@ -14,11 +14,16 @@ const (
 )
 
 type (
-	Target                    instrumenttarget.Target
-	RawData                   []float64
+	Target  instrumenttarget.Target
+	RawData []float64
+	Input   struct {
+		Start float64
+		Stop  *float64 // nil means "not provided"
+		Num   *int     // nil means "not provided"
+	}
 	PrimitiveMeasurementInput struct {
-		Setters   []Target
-		Getters   map[Target]RawData
+		Setters   map[Target]Input
+		Getters   []Target
 		NumPoints int64
 		Choice    Dimensionality
 	}
