@@ -192,7 +192,6 @@ var getterCharacteristicDefinitions = map[instrumentcharacteristic.InstrumentCha
 		Decode:         decodeSingleFloat,
 	},
 
-	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicSourceCurrent: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceCurrent,
 		Script:         "get_source_current.lua",
