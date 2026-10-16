@@ -166,14 +166,23 @@ func (h *CartesianMeasurementHandler) Handle(
 		dispatcher,
 	)
 	if err != nil {
-		return MeasurementResponse{}, fmt.Errorf("build measurement registry: %w", err)
+		return MeasurementResponse{}, fmt.Errorf(
+			"build measurement registry: %w",
+			err,
+		)
 	}
 	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
-	numberOfPoints := 0
+	numberOfPoints := 1
+	// TODO: query number of points from getters settings, if available. If
+	// not, default to 1. numberOfPoints, err :=
+	// h.readSharedNumberOfSamples(req.Getters, ports)
+	if err != nil {
+		return MeasurementResponse{}, err
+	}
 	var output PrimitiveMeasurementOutput
 	output, err = plan.Execute(
 		executor, &numberOfPoints,
