@@ -16,44 +16,84 @@ func variablesByName(vars []instrumentserver.MeasureVariable) map[string]any {
 	return out
 }
 
-func TestEncodeGetSetPairsTargetsWithVoltages(t *testing.T) {
-	first := Target{Instrument: "Source", Group: "analog", Channel: 1}
-	second := Target{Instrument: "Source", Group: "analog", Channel: 2}
-	getter := Target{Instrument: "Meter", Group: "analog", Channel: 4}
-	vars, err := encodeGetSet(PrimitiveMeasurementInput{
-		Choice: Dim0,
-		Setters: map[Target]Input{
-			second: {Start: 2},
-			first:  {Start: 1},
+func TestEncodeGetSetPairsTargetsWithVoltages(
+	t *testing.T,
+) {
+	first := Target{
+		Instrument: "Source",
+		Group:      "analog",
+		Channel:    1,
+	}
+	second := Target{
+		Instrument: "Source",
+		Group:      "analog",
+		Channel:    2,
+	}
+	getter := Target{
+		Instrument: "Meter",
+		Group:      "analog",
+		Channel:    4,
+	}
+	vars, err := encodeGetSet(
+		PrimitiveMeasurementInput{
+			Choice: Dim0,
+			Setters: map[Target]Input{
+				second: {Start: 2},
+				first:  {Start: 1},
+			},
+			Getters: []Target{
+				getter,
+			},
 		},
-		Getters: []Target{getter},
-	}, 3)
+		3,
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	got := variablesByName(vars)
 	if len(got) != 3 {
 		t.Fatalf("schema variables = %v", got)
 	}
 	setters := got["setters"].(instrumentserver.InstrumentTargetArray)
-	voltages := got["setVoltages"].(instrumentserver.MixedMap)
+	voltages := got["setVoltages"].(instrumentserver.DoubleArray)
+	if len(setters) != 2 {
+		t.Fatalf("setters = %v", setters)
+	}
+	if len(voltages) != 2 {
+		t.Fatalf(
+			"voltages = %v",
+			voltages,
+		)
+	}
+
 	for i, target := range []Target{first, second} {
 		encoded, err := serializedTarget(target)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if setters[i] != encoded ||
-			voltages[encoded].Value != float64(i+1) {
+		if setters[i] != encoded {
 			t.Fatalf(
-				"setter %d = %q, voltage = %v",
+				"setter %d = %q want %q",
 				i,
 				setters[i],
-				voltages[encoded].Value,
+				encoded,
+			)
+		}
+		if voltages[i] != float64(i+1) {
+			t.Fatalf(
+				"voltage %d = %v want %v",
+				i,
+				voltages[i],
+				float64(i+1),
 			)
 		}
 	}
 	if len(got["getters"].(instrumentserver.InstrumentTargetArray)) != 1 {
-		t.Fatalf("getters = %v", got["getters"])
+		t.Fatalf(
+			"getters = %v",
+			got["getters"],
+		)
 	}
 }
 

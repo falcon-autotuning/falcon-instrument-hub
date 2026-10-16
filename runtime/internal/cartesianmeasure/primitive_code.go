@@ -160,8 +160,8 @@ func encodeGetSet(
 	if err != nil {
 		return nil, err
 	}
-	voltages := make(instrumentserver.MixedMap, len(targets))
-	for i, target := range targets {
+	voltages := make(instrumentserver.DoubleArray, 0, len(targets))
+	for _, target := range targets {
 		value := input.Setters[target].Start
 		if math.IsNaN(value) || math.IsInf(value, 0) {
 			return nil, fmt.Errorf(
@@ -169,9 +169,7 @@ func encodeGetSet(
 				target,
 			)
 		}
-		voltages[setters[i]] = instrumentserver.VariableValue{
-			Value: value,
-		}
+		voltages = append(voltages, value)
 	}
 	return []instrumentserver.MeasureVariable{
 		variable("setVoltages", voltages),
