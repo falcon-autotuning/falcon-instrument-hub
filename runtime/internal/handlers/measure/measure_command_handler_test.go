@@ -325,12 +325,6 @@ func TestPublishMeasurementResponse(
 			),
 		)
 
-		assert.Equal(
-			t,
-			`{"result":"ok"}`,
-			resp.Response,
-		)
-
 		assert.EqualValues(
 			t,
 			123,

@@ -53,8 +53,6 @@ type MeasureResponse struct {
 	Stream    string `yaml:"stream" json:"stream"`       // the MeasurementResponse JSON from the hub
 	Channel   string `yaml:"channel" json:"channel"`     // channel identifier
 	Timestamp int64  `yaml:"timestamp" json:"timestamp"` // Correlates this response with its command
-	Hash      int64  `yaml:"hash" json:"hash"`           // correlation hash from the MeasureCommand
-	Response  string `yaml:"response" json:"response"`   // uploaded data from the runtime
 }
 
 // SettingCommand: issued to runtime to request a setting from the instrument server

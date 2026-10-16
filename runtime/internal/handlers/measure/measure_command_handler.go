@@ -188,9 +188,7 @@ func (h *Handler) publishMeasurementResponse(cmd api.MeasureCommand, responseSub
 
 	measureResp := api.MeasureResponse{
 		Stream:    measureSubject,
-		Response:  respJSON,
 		Timestamp: cmd.Timestamp,
-		Hash:      cmd.Hash,
 	}
 	respData, err := json.Marshal(measureResp)
 	if err != nil {
