@@ -321,13 +321,14 @@ func (h *CartesianMeasurementHandler) BuildDatabaseEntry(
 	for i, v := range shape {
 		dbShape[i] = int(v)
 	}
+	meta := buildMetadata(voltages)
 
 	return falconcore.DatabaseEntry{
 		Shape:        dbShape,
 		UnitDomain:   unitDomain,
 		DomainLabels: waveform.Space.Axes,
 		Ranges:       ranges,
-		Metadata:     falconcore.Metadata{},
+		Metadata:     meta,
 		Title:        h.Name(),
 		Id:           generateID(measurementID),
 		Timestamp:    int(time.Now().Unix()),
