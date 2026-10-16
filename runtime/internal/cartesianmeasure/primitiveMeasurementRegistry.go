@@ -47,14 +47,13 @@ type (
 
 type PrimitiveEncoder func(
 	input PrimitiveMeasurementInput,
-	numberOfPoints int,
 ) ([]instrumentserver.MeasureVariable, error)
 
 type PrimitiveDecoder func(
 	consumer BufferConsumer,
 	result DispatchResult,
 	input PrimitiveMeasurementInput,
-	numberOfPoints int,
+	numberOfPoints NumberOfPoints,
 ) (PrimitiveMeasurementOutput, error)
 
 type PrimitiveMeasurement struct {
@@ -87,10 +86,7 @@ var primitiveMeasurements = map[Dimensionality]PrimitiveMeasurement{
 type Executor interface {
 	Run(
 		input PrimitiveMeasurementInput,
-		// A nil numberOfPoints uses one sample per position. Resolve
-		// and cache the instrument setting before calling Run when more
-		// are required.
-		numberOfPoints *int,
+		numberOfPoints NumberOfPoints,
 	) (PrimitiveMeasurementOutput, error)
 }
 
@@ -160,7 +156,7 @@ func buildMeasurementRegistry(
 // the dispatcher supports measurement buffer cleanup.
 func (r *measurementRegistry) Run(
 	input PrimitiveMeasurementInput,
-	numberOfPoints *int,
+	numberOfPoints NumberOfPoints,
 ) (PrimitiveMeasurementOutput, error) {
 	measurement, ok := r.measurements[input.Choice]
 	if !ok {
@@ -169,17 +165,15 @@ func (r *measurementRegistry) Run(
 			input.Choice,
 		)
 	}
-	points := 1
-	if numberOfPoints != nil {
-		points = *numberOfPoints
-	}
-	if points <= 0 {
-		return PrimitiveMeasurementOutput{}, fmt.Errorf(
-			"number of points must be positive, got %d", points,
-		)
+	for _, target := range input.Getters {
+		if numberOfPoints[target] <= 0 {
+			return PrimitiveMeasurementOutput{}, fmt.Errorf(
+				"number of points must be positive, got %d", numberOfPoints[target],
+			)
+		}
 	}
 
-	variables, err := measurement.encoder(input, points)
+	variables, err := measurement.encoder(input)
 	if err != nil {
 		return PrimitiveMeasurementOutput{}, fmt.Errorf(
 			"encode dimension %d: %w", input.Choice, err,
@@ -207,7 +201,7 @@ func (r *measurementRegistry) Run(
 	}
 
 	consumer, _ := r.dispatcher.(BufferConsumer)
-	output, err := measurement.decoder(consumer, result, input, points)
+	output, err := measurement.decoder(consumer, result, input, numberOfPoints)
 	if err != nil {
 		return PrimitiveMeasurementOutput{}, fmt.Errorf(
 			"decode dimension %d: %w", input.Choice, err,

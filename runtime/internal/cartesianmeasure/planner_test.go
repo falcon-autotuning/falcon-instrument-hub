@@ -41,7 +41,8 @@ func targetC() Target {
 }
 
 type mockExecutor struct {
-	inputs []PrimitiveMeasurementInput
+	inputs         []PrimitiveMeasurementInput
+	numberOfPoints []NumberOfPoints
 
 	output PrimitiveMeasurementOutput
 	err    error
@@ -49,11 +50,12 @@ type mockExecutor struct {
 
 func (m *mockExecutor) Run(
 	input PrimitiveMeasurementInput,
-	numberOfPoints *int,
+	numberOfPoints NumberOfPoints,
 ) (PrimitiveMeasurementOutput, error) {
-	m.inputs = append(
-		m.inputs,
-		input,
+	m.inputs = append(m.inputs, input)
+	m.numberOfPoints = append(
+		m.numberOfPoints,
+		numberOfPoints,
 	)
 
 	return m.output, m.err
@@ -84,7 +86,7 @@ func TestNativePlan_Execute(t *testing.T) {
 		Input: input,
 	}
 
-	out, err := plan.Execute(exec, nil)
+	out, err := plan.Execute(exec, NumberOfPoints{})
 
 	require.NoError(t, err)
 
@@ -107,7 +109,7 @@ func TestNativePlan_Execute_Error(t *testing.T) {
 		},
 	}
 
-	_, err := plan.Execute(exec, nil)
+	_, err := plan.Execute(exec, NumberOfPoints{})
 
 	require.Error(t, err)
 	assert.ErrorIs(t, err, expectedErr)
@@ -559,7 +561,7 @@ func TestNestedPlan_Execute(
 		},
 	}
 
-	out, err := plan.Execute(exec, nil)
+	out, err := plan.Execute(exec, NumberOfPoints{})
 
 	require.NoError(t, err)
 
@@ -587,7 +589,7 @@ func TestNestedPlan_Execute_Error(
 		err: expected,
 	}
 
-	_, err := plan.Execute(exec, nil)
+	_, err := plan.Execute(exec, NumberOfPoints{})
 
 	require.Error(t, err)
 

@@ -1,11 +1,12 @@
 package cartesianmeasure
 
 import (
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type registryTestRunner struct {
@@ -48,45 +49,67 @@ func TestBuildMeasurementRegistryRegistersSchemaCodecs(t *testing.T) {
 }
 
 func TestMeasurementRegistryRunsSelectedPrimitive(t *testing.T) {
-	target := Target{Instrument: "Meter1", Group: "analog", Channel: 2}
-	runner := &registryTestRunner{
-		results: []DispatchResult{{ID: "measurement-1"}},
+	target := Target{
+		Instrument: "Meter1",
+		Group:      "analog",
+		Channel:    2,
 	}
+
+	runner := &registryTestRunner{
+		results: []DispatchResult{
+			{
+				ID: "measurement-1",
+			},
+		},
+	}
+
 	definitions := map[Dimensionality]PrimitiveMeasurement{
 		Dim0: {
 			script: "measure_get_set",
-			encoder: func(input PrimitiveMeasurementInput, points int) ([]instrumentserver.MeasureVariable, error) {
-				if points != 3 {
-					t.Fatalf(
-						"encoded point count = %d, want 3",
-						points,
-					)
-				}
+
+			encoder: func(
+				input PrimitiveMeasurementInput,
+			) ([]instrumentserver.MeasureVariable, error) {
 				return []instrumentserver.MeasureVariable{
 					{
-						Name: "numPoints",
+						Name: "dummy",
 						Value: instrumentserver.VariableValue{
-							Value: int64(points),
+							Value: int64(1),
 						},
 					},
 				}, nil
 			},
+
 			decoder: func(
 				consumer BufferConsumer,
 				result DispatchResult,
 				input PrimitiveMeasurementInput,
-				points int,
-			) (PrimitiveMeasurementOutput, error) {
-				if consumer != nil ||
-					result.ID != "measurement-1" ||
-					points != 3 {
+				numberOfPoints NumberOfPoints,
+			) (
+				PrimitiveMeasurementOutput,
+				error,
+			) {
+				if consumer != nil {
 					t.Fatalf(
-						"unexpected decoder inputs: consumer=%v result=%v points=%d",
+						"unexpected consumer: %v",
 						consumer,
-						result,
-						points,
 					)
 				}
+
+				if result.ID != "measurement-1" {
+					t.Fatalf(
+						"result id = %q",
+						result.ID,
+					)
+				}
+
+				if numberOfPoints[target] != 3 {
+					t.Fatalf(
+						"points = %d, want 3",
+						numberOfPoints[target],
+					)
+				}
+
 				return PrimitiveMeasurementOutput{
 					Getters: map[Target]RawData{
 						target: {0.1, 0.2, 0.3},
@@ -95,33 +118,151 @@ func TestMeasurementRegistryRunsSelectedPrimitive(t *testing.T) {
 			},
 		},
 	}
+
 	executor, err := buildMeasurementRegistry(
 		[]Dimensionality{Dim0},
 		runner,
 		definitions,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	points := 3
+	require.NoError(t, err)
+
 	output, err := executor.Run(
-		PrimitiveMeasurementInput{Choice: Dim0},
-		&points,
+		PrimitiveMeasurementInput{
+			Choice: Dim0,
+			Getters: []Target{
+				target,
+			},
+		},
+		NumberOfPoints{
+			target: 3,
+		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got := output.Getters[target]; !reflect.DeepEqual(
-		got,
+	require.NoError(t, err)
+
+	assert.Equal(
+		t,
 		RawData{0.1, 0.2, 0.3},
-	) {
-		t.Fatalf("readings = %v", got)
+		output.Getters[target],
+	)
+
+	require.Len(
+		t,
+		runner.requests,
+		1,
+	)
+
+	assert.Equal(
+		t,
+		"measure_get_set",
+		runner.requests[0].Script,
+	)
+
+	assert.Equal(
+		t,
+		[]string{"measurement-1"},
+		runner.released,
+	)
+}
+
+func TestBuildMeasurementRegistry_NilDispatcher(
+	t *testing.T,
+) {
+	_, err := BuildMeasurementRegistry(
+		[]Dimensionality{Dim0},
+		nil,
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"dispatcher is nil",
+	)
+}
+
+func TestBuildMeasurementRegistry_NoDimensions(
+	t *testing.T,
+) {
+	_, err := BuildMeasurementRegistry(
+		nil,
+		&registryTestRunner{},
+	)
+
+	require.Error(t, err)
+}
+
+func TestBuildMeasurementRegistry_DuplicateDimension(
+	t *testing.T,
+) {
+	_, err := BuildMeasurementRegistry(
+		[]Dimensionality{
+			Dim0,
+			Dim0,
+		},
+		&registryTestRunner{},
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"repeated",
+	)
+}
+
+func TestMeasurementRegistry_RejectsZeroPoints(
+	t *testing.T,
+) {
+	target := Target{
+		Instrument: "Meter",
+		Group:      "analog",
+		Channel:    1,
 	}
-	if len(runner.requests) != 1 ||
-		runner.requests[0].Script != "measure_get_set" {
-		t.Fatalf("dispatched requests = %v", runner.requests)
-	}
-	if !reflect.DeepEqual(runner.released, []string{"measurement-1"}) {
-		t.Fatalf("released buffers = %v", runner.released)
-	}
+
+	executor, err := buildMeasurementRegistry(
+		[]Dimensionality{Dim0},
+		&registryTestRunner{},
+		map[Dimensionality]PrimitiveMeasurement{
+			Dim0: {
+				script: "x",
+				encoder: func(
+					PrimitiveMeasurementInput,
+				) ([]instrumentserver.MeasureVariable, error) {
+					return nil, nil
+				},
+				decoder: func(
+					BufferConsumer,
+					DispatchResult,
+					PrimitiveMeasurementInput,
+					NumberOfPoints,
+				) (
+					PrimitiveMeasurementOutput,
+					error,
+				) {
+					return PrimitiveMeasurementOutput{}, nil
+				},
+			},
+		},
+	)
+
+	require.NoError(t, err)
+
+	_, err = executor.Run(
+		PrimitiveMeasurementInput{
+			Choice: Dim0,
+			Getters: []Target{
+				target,
+			},
+		},
+		NumberOfPoints{
+			target: 0,
+		},
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"must be positive",
+	)
 }

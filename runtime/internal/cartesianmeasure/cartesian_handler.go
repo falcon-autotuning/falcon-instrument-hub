@@ -138,6 +138,16 @@ func averageData(
 	return out, nil
 }
 
+type NumberOfPoints map[Target]int
+
+func NewNumberOfPoints(set []Target) NumberOfPoints {
+	out := make(map[Target]int, len(set))
+	for _, target := range set {
+		out[target] = 0
+	}
+	return out
+}
+
 func (h *CartesianMeasurementHandler) Handle(
 	req MeasurementRequest,
 	dispatcher MeasurementRunner,
@@ -176,16 +186,32 @@ func (h *CartesianMeasurementHandler) Handle(
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
-	numberOfPoints := 1
-	// TODO: query number of points from getters settings, if available. If
-	// not, default to 1. numberOfPoints, err :=
-	// h.readSharedNumberOfSamples(req.Getters, ports)
+
+	getters, getterPorts, err := buildGetters(
+		req.Getters,
+		ports,
+	)
+	numberOfPoints := NewNumberOfPoints(getters)
+	onlyDim0 := len(availableDimensions) > 0
+	for _, dim := range availableDimensions {
+		if dim != Dim0 {
+			onlyDim0 = false
+			break
+		}
+	}
+
+	if !onlyDim0 {
+		numberOfPoints, err = h.readNumberOfPoints(getters, getterPorts, ports)
+		if err != nil {
+			return MeasurementResponse{}, err
+		}
+	}
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
 	var output PrimitiveMeasurementOutput
 	output, err = plan.Execute(
-		executor, &numberOfPoints,
+		executor, numberOfPoints,
 	)
 	if err != nil {
 		return MeasurementResponse{}, err
@@ -200,18 +226,19 @@ func (h *CartesianMeasurementHandler) Handle(
 		tracker.UpdatePort(port.PseudoName.Name, value)
 	}
 
-	_, getterPorts, err := buildGetters(
-		req.Getters,
-		ports,
-	)
-	if numberOfPoints > 0 {
-		for target, rawdata := range output.Getters {
+	for target, rawdata := range output.Getters {
+		if numberOfPoints[target] == 0 {
+			h.logger.Warn(
+				h.Name(),
+				"The numberOfPoints was not set and thus no averaging occured",
+			)
+		} else {
 			// NOTE: This averaging is currently ignoring the
 			// PortTransform which allows for proper averaging
 			// specification via analytic functions
 			averaged, err := averageData(
 				rawdata,
-				numberOfPoints,
+				numberOfPoints[target],
 			)
 			if err != nil {
 				return MeasurementResponse{}, fmt.Errorf(
@@ -223,11 +250,6 @@ func (h *CartesianMeasurementHandler) Handle(
 
 			output.Getters[target] = averaged
 		}
-	} else {
-		h.logger.Warn(
-			h.Name(),
-			"The numberOfPoints was not set and thus no averaging occured",
-		)
 	}
 
 	// generate MeasurementID

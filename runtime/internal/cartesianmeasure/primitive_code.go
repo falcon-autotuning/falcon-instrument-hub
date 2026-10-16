@@ -120,7 +120,6 @@ func axisCounts(input PrimitiveMeasurementInput) ([]int, error) {
 
 func validateEncoder(
 	input PrimitiveMeasurementInput,
-	points int,
 	dim Dimensionality,
 ) (instrumentserver.InstrumentTargetArray, []Target, instrumentserver.InstrumentTargetArray, []int, error) {
 	if input.Choice != dim {
@@ -128,11 +127,6 @@ func validateEncoder(
 			"encoder for dimension %d received dimension %d",
 			dim,
 			input.Choice,
-		)
-	}
-	if points <= 0 {
-		return nil, nil, nil, nil, fmt.Errorf(
-			"number of samples must be positive",
 		)
 	}
 	getters, err := getterArray(input.Getters)
@@ -151,11 +145,9 @@ func validateEncoder(
 // the handler and are deliberately not added to the schema's script arguments.
 func encodeGetSet(
 	input PrimitiveMeasurementInput,
-	points int,
 ) ([]instrumentserver.MeasureVariable, error) {
 	getters, targets, setters, _, err := validateEncoder(
 		input,
-		points,
 		Dim0,
 	)
 	if err != nil {
@@ -196,11 +188,9 @@ func domainValue(start, stop float64) (string, error) {
 
 func encode1DBuffered(
 	input PrimitiveMeasurementInput,
-	points int,
 ) ([]instrumentserver.MeasureVariable, error) {
 	getters, targets, setters, counts, err := validateEncoder(
 		input,
-		points,
 		Dim1,
 	)
 	if err != nil {
@@ -229,11 +219,9 @@ func encode1DBuffered(
 
 func encode2DBuffered(
 	input PrimitiveMeasurementInput,
-	points int,
 ) ([]instrumentserver.MeasureVariable, error) {
 	getters, targets, setters, counts, err := validateEncoder(
 		input,
-		points,
 		Dim2,
 	)
 	if err != nil {
@@ -281,18 +269,19 @@ func decodePrimitive(
 	consumer BufferConsumer,
 	result DispatchResult,
 	input PrimitiveMeasurementInput,
-	points int,
+	points NumberOfPoints,
 ) (PrimitiveMeasurementOutput, error) {
-	if points <= 0 {
-		return PrimitiveMeasurementOutput{}, fmt.Errorf(
-			"number of samples must be positive",
-		)
+	for _, target := range input.Getters {
+		if points[target] <= 0 {
+			return PrimitiveMeasurementOutput{}, fmt.Errorf(
+				"number of samples must be positive",
+			)
+		}
 	}
 	counts, err := axisCounts(input)
 	if err != nil {
 		return PrimitiveMeasurementOutput{}, err
 	}
-	shape := append(counts, points)
 	specs := make(
 		[]TargetSeriesSpec,
 		0,
@@ -304,6 +293,12 @@ func decodePrimitive(
 		)
 	}
 	for _, getter := range input.Getters {
+		// points defaults to 0 to indicate not read from the server
+		numPoints := points[getter]
+		if points[getter] == 0 {
+			numPoints = 1
+		}
+		shape := append(counts, numPoints)
 		unit, ok := input.GetterUnits[getter]
 		if !ok {
 			return PrimitiveMeasurementOutput{}, fmt.Errorf(

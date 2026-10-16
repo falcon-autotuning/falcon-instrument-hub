@@ -15,7 +15,7 @@ type Shape []int64
 type Plan interface {
 	Execute(
 		executor Executor,
-		numberOfPoints *int,
+		numberOfPoints NumberOfPoints,
 	) (PrimitiveMeasurementOutput, error)
 
 	Shape() Shape
@@ -32,7 +32,7 @@ type NativePlan struct {
 
 func (p *NativePlan) Execute(
 	executor Executor,
-	numberOfPoints *int,
+	numberOfPoints NumberOfPoints,
 ) (
 	PrimitiveMeasurementOutput,
 	error,
@@ -87,7 +87,7 @@ func (p *NestedPlan) Shape() Shape {
 
 func (p *NestedPlan) Execute(
 	executor Executor,
-	numberOfPoints *int,
+	numberOfPoints NumberOfPoints,
 ) (
 	PrimitiveMeasurementOutput,
 	error,

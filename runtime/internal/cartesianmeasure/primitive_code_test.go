@@ -6,6 +6,8 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func variablesByName(vars []instrumentserver.MeasureVariable) map[string]any {
@@ -45,7 +47,6 @@ func TestEncodeGetSetPairsTargetsWithVoltages(
 				getter,
 			},
 		},
-		3,
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -111,7 +112,7 @@ func TestEncodeBufferedSchemas(t *testing.T) {
 		},
 		Getters: []Target{getter},
 	}
-	vars, err := encode2DBuffered(input, 2)
+	vars, err := encode2DBuffered(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +128,7 @@ func TestEncodeBufferedSchemas(t *testing.T) {
 	}
 	input.Choice = Dim1
 	delete(input.Setters, y)
-	vars, err = encode1DBuffered(input, 2)
+	vars, err = encode1DBuffered(input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,7 +182,10 @@ func TestDecodePrimitiveUsesTargetAndShape(t *testing.T) {
 		}},
 	}
 	buffers := codecBuffers{"buffer-1": {1, 2, 3, 4, 5, 6}}
-	out, err := decodePrimitive(buffers, result, input, 2)
+	out, err := decodePrimitive(buffers, result, input,
+		NumberOfPoints{
+			getter: 2,
+		})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -189,7 +193,10 @@ func TestDecodePrimitiveUsesTargetAndShape(t *testing.T) {
 		t.Fatalf("decoded getter = %v", out.Getters[getter])
 	}
 	delete(buffers, "buffer-1")
-	if _, err := decodePrimitive(buffers, result, input, 2); err == nil {
+	if _, err := decodePrimitive(buffers, result, input,
+		NumberOfPoints{
+			getter: 2,
+		}); err == nil {
 		t.Fatal("expected a shape error for missing samples")
 	}
 }
@@ -215,9 +222,15 @@ func TestDecodePrimitiveZeroAndTwoDimensions(t *testing.T) {
 	}
 	out, err := decodePrimitive(
 		nil,
-		DispatchResult{Results: []instrumentserver.CallResult{call}},
+		DispatchResult{
+			Results: []instrumentserver.CallResult{
+				call,
+			},
+		},
 		zero,
-		1,
+		NumberOfPoints{
+			getter: 1,
+		},
 	)
 	if err != nil || !reflect.DeepEqual(out.Getters[getter], RawData{7}) {
 		t.Fatalf("0D output = %v, error = %v", out, err)
@@ -243,14 +256,145 @@ func TestDecodePrimitiveZeroAndTwoDimensions(t *testing.T) {
 	out, err = decodePrimitive(
 		codecBuffers{"buffer-2d": values},
 		DispatchResult{
-			ID:      "measurement-2",
-			Results: []instrumentserver.CallResult{call},
+			ID: "measurement-2",
+			Results: []instrumentserver.CallResult{
+				call,
+			},
 		},
 		two,
-		2,
+		NumberOfPoints{
+			getter: 2,
+		},
 	)
 	if err != nil ||
 		!reflect.DeepEqual([]float64(out.Getters[getter]), values) {
 		t.Fatalf("2D output = %v, error = %v", out, err)
 	}
+}
+
+func TestDecodePrimitive_RejectsZeroPoints(
+	t *testing.T,
+) {
+	getter := Target{
+		Instrument: "Meter",
+		Group:      "analog",
+		Channel:    1,
+	}
+
+	_, err := decodePrimitive(
+		nil,
+		DispatchResult{},
+		PrimitiveMeasurementInput{
+			Choice: Dim0,
+			Getters: []Target{
+				getter,
+			},
+			GetterUnits: map[Target]falconcore.Unit{
+				getter: falconcore.Nanoampere,
+			},
+		},
+		NumberOfPoints{
+			getter: 0,
+		},
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"number of samples must be positive",
+	)
+}
+
+func TestDecodePrimitive_MissingGetterUnit(
+	t *testing.T,
+) {
+	getter := Target{
+		Instrument: "Meter",
+		Group:      "analog",
+		Channel:    1,
+	}
+
+	_, err := decodePrimitive(
+		nil,
+		DispatchResult{},
+		PrimitiveMeasurementInput{
+			Choice: Dim0,
+			Getters: []Target{
+				getter,
+			},
+		},
+		NumberOfPoints{
+			getter: 1,
+		},
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"has no unit",
+	)
+}
+
+func TestDecodePrimitive_NoGetters(
+	t *testing.T,
+) {
+	_, err := decodePrimitive(
+		nil,
+		DispatchResult{},
+		PrimitiveMeasurementInput{
+			Choice:      Dim0,
+			GetterUnits: map[Target]falconcore.Unit{},
+		},
+		NumberOfPoints{},
+	)
+
+	require.Error(t, err)
+	assert.Contains(
+		t,
+		err.Error(),
+		"measurement has no getters",
+	)
+}
+
+func TestDecodePrimitive_InvalidAxisCounts(
+	t *testing.T,
+) {
+	getter := Target{
+		Instrument: "Meter",
+		Group:      "analog",
+		Channel:    1,
+	}
+
+	stop := 1.0
+
+	_, err := decodePrimitive(
+		nil,
+		DispatchResult{},
+		PrimitiveMeasurementInput{
+			Choice: Dim1,
+			Getters: []Target{
+				getter,
+			},
+			GetterUnits: map[Target]falconcore.Unit{
+				getter: falconcore.Nanoampere,
+			},
+			Setters: map[Target]Input{
+				{
+					Instrument: "Source",
+					Group:      "analog",
+					Channel:    1,
+				}: {
+					Axis: 0,
+					Stop: &stop,
+				},
+			},
+		},
+		NumberOfPoints{
+			getter: 1,
+		},
+	)
+
+	require.Error(t, err)
 }
