@@ -7,11 +7,17 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 )
 
 type CartesianMeasurementHandler struct {
 	settings SettingsReader
+	logger   *logging.Logger
+}
+
+func (h *CartesianMeasurementHandler) Name() string {
+	return "CartCartesianMeasurementHandler"
 }
 
 func (h *CartesianMeasurementHandler) CanHandle(
@@ -176,7 +182,7 @@ func (h *CartesianMeasurementHandler) Handle(
 			output.Getters[target] = averaged
 		}
 	} else {
-		// TODO: send warning message about no averaging
+		h.logger.Warn(h.Name(), "The numberOfPoints was not set and thus no averaging occured")
 	}
 	// TODO: ship to database
 	// TODO: convert averaged outputs to measurement response
