@@ -17,9 +17,6 @@ import (
 
 const (
 	testConnectionName = "P1"
-	testInstrumentName = "Source1"
-	testChannelGroup   = "analog"
-	testChannel        = 1
 )
 
 func testPort() falconcore.InstrumentPort {
@@ -264,13 +261,13 @@ func TestBuildRanges(
 	assert.Equal(
 		t,
 		[]float64{1, 2, 3, 4},
-		ranges[0].MeasuredArray.Data,
+		ranges[0].Data,
 	)
 
 	assert.Equal(
 		t,
 		[]int{4},
-		ranges[0].MeasuredArray.Shape,
+		ranges[0].Shape,
 	)
 }
 
