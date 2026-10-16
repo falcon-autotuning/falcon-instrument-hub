@@ -1,4 +1,4 @@
-package interpreter
+package cartesianmeasure
 
 import (
 	"fmt"
@@ -332,4 +332,19 @@ func (h *CartesianMeasurementHandler) BuildDatabaseEntry(
 		Id:           generateID(measurementID),
 		Timestamp:    int(time.Now().Unix()),
 	}, nil
+}
+
+func BuildMeasurementResponse(
+	ranges falconcore.LabelledMeasuredArrays,
+	measurementID string,
+) MeasurementResponse {
+	message := fmt.Sprintf(
+		"Measurement %s completed successfully",
+		measurementID,
+	)
+
+	return MeasurementResponse{
+		Arrays:  ranges,
+		Message: message,
+	}
 }

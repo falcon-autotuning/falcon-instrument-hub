@@ -1,4 +1,4 @@
-package interpreter
+package cartesianmeasure
 
 import (
 	"fmt"

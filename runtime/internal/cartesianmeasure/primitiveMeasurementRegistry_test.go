@@ -1,6 +1,4 @@
-//go:build cgo
-
-package interpreter
+package cartesianmeasure
 
 import (
 	"reflect"

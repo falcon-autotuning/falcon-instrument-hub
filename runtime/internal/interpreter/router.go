@@ -10,6 +10,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 )
 
 // MeasurementRecorder represents the mandatory database upload required by
@@ -139,6 +140,14 @@ type MeasurementHandler interface {
 	) (MeasurementResponse, error)
 }
 
+type SettingsReader interface {
+	Handle(
+		falconcore.SettingRequest,
+	) (falconcore.SettingResponse, error)
+}
+
+var _ SettingsReader = (*settingrouter.Router)(nil)
+
 // Router dispatches Falcon measurement requests to the appropriate
 // measurement handler.
 //
@@ -157,6 +166,20 @@ type Router struct {
 	scriptDir string
 	ports     *config.ConnectedPorts
 	settings  SettingsReader
+}
+
+// RegisterGetter adds a measurement handler to the router.
+//
+// Handlers are evaluated in registration order.
+func (r *Router) RegisterHandle(
+	handler MeasurementHandler,
+) *Router {
+	r.handlers = append(
+		r.handlers,
+		handler,
+	)
+
+	return r
 }
 
 // NewRouter constructs a router using the supplied dispatcher.

@@ -1,4 +1,4 @@
-package interpreter
+package cartesianmeasure
 
 import (
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"

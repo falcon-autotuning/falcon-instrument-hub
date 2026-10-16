@@ -1,11 +1,17 @@
-package interpreter
+package cartesianmeasure
 
 import (
 	"fmt"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdecode"
+)
+
+type (
+	DispatchRequest = dispatcher.MeasurementRequest
+	DispatchResult  = dispatcher.MeasurementResult
 )
 
 type Dimensionality uint8

@@ -10,6 +10,7 @@ import (
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementrequest"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/cartesianmeasure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
@@ -106,12 +107,12 @@ func NewMeasureCommandHandler(
 	writeGuard *settingguard.Guard,
 	settings interpreter.SettingsReader,
 ) *Handler {
-	// TODO: Make the router adaptively load scripts depending on what is supplied
 	router := interpreter.NewRouter(
 		dispatcher,
 		ports,
 		settings,
 	)
+	router.RegisterHandle(cartesianmeasure.NewCartesianMeasurementHandler(settings, logger))
 
 	return newMeasureCommandHandler(
 		logger,

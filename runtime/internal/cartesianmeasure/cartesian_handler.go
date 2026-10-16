@@ -1,4 +1,4 @@
-package interpreter
+package cartesianmeasure
 
 import (
 	"fmt"
@@ -9,13 +9,32 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
+)
+
+type (
+	MeasurementRequest  = interpreter.MeasurementRequest
+	MeasurementResponse = interpreter.MeasurementResponse
+	MeasurementRunner   = interpreter.MeasurementRunner
+	MeasurementRecorder = interpreter.MeasurementRecorder
+	StateUpdater        = interpreter.StateUpdater
 )
 
 type CartesianMeasurementHandler struct {
 	settings SettingsReader
 	logger   *logging.Logger
+}
+
+func NewCartesianMeasurementHandler(
+	settings SettingsReader,
+	logger *logging.Logger,
+) *CartesianMeasurementHandler {
+	return &CartesianMeasurementHandler{
+		settings: settings,
+		logger:   logger,
+	}
 }
 
 func (h *CartesianMeasurementHandler) Name() string {
@@ -219,7 +238,6 @@ func (h *CartesianMeasurementHandler) Handle(
 		h.logger.Error(h.Name(), "database insertion failed")
 		return MeasurementResponse{}, err
 	}
-	// TODO: convert averaged outputs to measurement response
 
-	return MeasurementResponse{}, nil
+	return BuildMeasurementResponse(databaseEntry.Ranges, id), nil
 }
