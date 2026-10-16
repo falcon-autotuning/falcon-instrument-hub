@@ -3,20 +3,14 @@ package measurementdb
 import (
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func resetGlobal() {
-	globalMu.Lock()
-	defer globalMu.Unlock()
-
-	if globalManager != nil {
-		_ = globalManager.Close()
-	}
-
-	globalManager = nil
+	_ = Close()
 }
 
 func TestStartup_Success(
@@ -320,4 +314,128 @@ func TestStartup_RegistersGlobalManager(
 		"owner",
 		manager.ownerName,
 	)
+}
+
+func TestInsertAsync_NotStarted(
+	t *testing.T,
+) {
+	resetGlobal()
+	defer resetGlobal()
+
+	err := InsertAsync(
+		InsertEntry{},
+		testDatabaseEntry(),
+	)
+
+	require.Error(t, err)
+}
+
+func TestInsertAsync_Started(
+	t *testing.T,
+) {
+	resetGlobal()
+	defer resetGlobal()
+
+	root := t.TempDir()
+
+	require.NoError(
+		t,
+		Startup(
+			filepath.Join(root, "catalog.sqlite"),
+			filepath.Join(root, "hdf5"),
+			"owner",
+		),
+	)
+
+	err := InsertAsync(
+		InsertEntry{
+			CoreEntry: CoreEntry{
+				RunID:           "run1",
+				MeasurementID:   "m1",
+				MeasurementName: "test",
+			},
+			Shape: []int{2},
+		},
+		testDatabaseEntry(),
+	)
+
+	require.NoError(t, err)
+
+	require.Eventually(
+		t,
+		func() bool {
+			results, err := Search(
+				SearchQuery{
+					CoreEntry: CoreEntry{
+						MeasurementID: "m1",
+					},
+				},
+			)
+
+			return err == nil &&
+				len(results) == 1
+		},
+		time.Second,
+		10*time.Millisecond,
+	)
+}
+
+func TestClose_DrainsQueue(
+	t *testing.T,
+) {
+	resetGlobal()
+	defer resetGlobal()
+
+	root := t.TempDir()
+
+	require.NoError(
+		t,
+		Startup(
+			filepath.Join(root, "catalog.sqlite"),
+			filepath.Join(root, "hdf5"),
+			"owner",
+		),
+	)
+
+	require.NoError(
+		t,
+		InsertAsync(
+			InsertEntry{
+				CoreEntry: CoreEntry{
+					RunID:           "run1",
+					MeasurementID:   "m1",
+					MeasurementName: "test",
+				},
+				Shape: []int{2},
+			},
+			testDatabaseEntry(),
+		),
+	)
+
+	require.NoError(
+		t,
+		Close(),
+	)
+
+	resetGlobal()
+
+	require.NoError(
+		t,
+		Startup(
+			filepath.Join(root, "catalog.sqlite"),
+			filepath.Join(root, "hdf5"),
+			"owner",
+		),
+	)
+
+	results, err := Search(
+		SearchQuery{
+			CoreEntry: CoreEntry{
+				MeasurementID: "m1",
+			},
+		},
+	)
+
+	require.NoError(t, err)
+	require.Len(t, results, 1)
 }

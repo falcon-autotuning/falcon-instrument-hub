@@ -76,7 +76,7 @@ func (m *mockHandler) Handle(
 	}
 
 	if m.writeDB {
-		_, err := recorder.Insert(
+		if err := recorder.Insert(
 			measurementdb.InsertEntry{
 				CoreEntry: measurementdb.CoreEntry{
 					RunID:           "run-1",
@@ -84,9 +84,8 @@ func (m *mockHandler) Handle(
 				},
 			},
 			measurementdb.DatabaseEntry{},
-		)
-		if err != nil {
-			panic(err)
+		); err != nil {
+			return MeasurementResponse{}, err
 		}
 	}
 
@@ -94,23 +93,6 @@ func (m *mockHandler) Handle(
 }
 
 var _ MeasurementHandler = (*mockHandler)(nil)
-
-func stubMeasurementInsert(t *testing.T) {
-	t.Helper()
-
-	old := measurementInsert
-
-	measurementInsert = func(
-		measurementdb.InsertEntry,
-		measurementdb.DatabaseEntry,
-	) (measurementdb.CatalogEntry, error) {
-		return measurementdb.CatalogEntry{}, nil
-	}
-
-	t.Cleanup(func() {
-		measurementInsert = old
-	})
-}
 
 func setupDeviceState(t *testing.T) {
 	t.Helper()
@@ -158,7 +140,6 @@ func setupDependencies(t *testing.T) {
 }
 
 func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
-	stubMeasurementInsert(t)
 	setupDependencies(t)
 
 	req := MeasurementRequest{}
@@ -208,7 +189,6 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 }
 
 func TestRouter_Handle_FirstMatchWins(t *testing.T) {
-	stubMeasurementInsert(t)
 	setupDependencies(t)
 
 	first := &mockHandler{
@@ -334,7 +314,6 @@ func TestRouter_Handle_NoMatchingHandlers(t *testing.T) {
 }
 
 func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
-	stubMeasurementInsert(t)
 	setupDependencies(t)
 
 	resp := MeasurementResponse{}
@@ -362,7 +341,6 @@ func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
 }
 
 func TestRouter_Handle_NoStateUpdate(t *testing.T) {
-	stubMeasurementInsert(t)
 	setupDependencies(t)
 
 	handler := &mockHandler{
@@ -504,22 +482,21 @@ func TestRouter_Handle_NoDatabaseWrite(t *testing.T) {
 func TestTrackedMeasurementRecorder_Insert(
 	t *testing.T,
 ) {
-	old := measurementInsert
+	old := insertAsync
 	defer func() {
-		measurementInsert = old
+		insertAsync = old
 	}()
 
-	measurementInsert = func(
+	insertAsync = func(
 		measurementdb.InsertEntry,
 		measurementdb.DatabaseEntry,
-	) (measurementdb.CatalogEntry, error) {
-		return measurementdb.CatalogEntry{}, nil
+	) error {
+		return nil
 	}
-	setupMeasurementDB(t)
 
 	recorder := &trackedMeasurementRecorder{}
 
-	_, err := recorder.Insert(
+	err := recorder.Insert(
 		measurementdb.InsertEntry{
 			CoreEntry: measurementdb.CoreEntry{
 				RunID:           "run-1",
@@ -537,23 +514,24 @@ func TestTrackedMeasurementRecorder_Insert(
 func TestTrackedMeasurementRecorder_InsertError(
 	t *testing.T,
 ) {
-	old := measurementInsert
-	defer func() {
-		measurementInsert = old
-	}()
+	old := insertAsync
 
-	measurementInsert = func(
+	insertAsync = func(
 		measurementdb.InsertEntry,
 		measurementdb.DatabaseEntry,
-	) (measurementdb.CatalogEntry, error) {
-		return measurementdb.CatalogEntry{},
-			errors.New("insert failed")
+	) error {
+		return errors.New("insert failed")
 	}
+
+	defer func() {
+		insertAsync = old
+	}()
+
 	setupMeasurementDB(t)
 
 	recorder := &trackedMeasurementRecorder{}
 
-	_, err := recorder.Insert(
+	err := recorder.Insert(
 		measurementdb.InsertEntry{},
 		measurementdb.DatabaseEntry{},
 	)
@@ -589,5 +567,48 @@ func TestRouter_Handle_CanHandleErrorIncludesHandlerName(
 		t,
 		err.Error(),
 		`test-handler`,
+	)
+}
+
+func TestRouter_Handle_DatabaseWriteError(
+	t *testing.T,
+) {
+	setupDependencies(t)
+
+	old := insertAsync
+	defer func() {
+		insertAsync = old
+	}()
+
+	insertAsync = func(
+		measurementdb.InsertEntry,
+		measurementdb.DatabaseEntry,
+	) error {
+		return errors.New("queue full")
+	}
+
+	handler := &mockHandler{
+		name:            "handler",
+		canHandleResult: true,
+		updatePort:      true,
+		writeDB:         true,
+	}
+
+	router := &Router{
+		handlers: []MeasurementHandler{
+			handler,
+		},
+	}
+
+	_, err := router.Handle(
+		MeasurementRequest{},
+	)
+
+	require.Error(t, err)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"queue full",
 	)
 }

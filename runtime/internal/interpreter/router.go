@@ -18,7 +18,7 @@ type MeasurementRecorder interface {
 	Insert(
 		insert measurementdb.InsertEntry,
 		entry measurementdb.DatabaseEntry,
-	) (measurementdb.CatalogEntry, error)
+	) error
 
 	Writes() int
 }
@@ -27,20 +27,23 @@ type trackedMeasurementRecorder struct {
 	writes int
 }
 
-var measurementInsert = measurementdb.Insert
+var insertAsync = measurementdb.InsertAsync
 
 func (t *trackedMeasurementRecorder) Insert(
 	insert measurementdb.InsertEntry,
 	entry measurementdb.DatabaseEntry,
-) (measurementdb.CatalogEntry, error) {
-	out, err := measurementInsert(insert, entry)
+) error {
+	err := insertAsync(
+		insert,
+		entry,
+	)
 	if err != nil {
-		return measurementdb.CatalogEntry{}, err
+		return err
 	}
 
 	t.writes++
 
-	return out, nil
+	return nil
 }
 
 func (t *trackedMeasurementRecorder) Writes() int {

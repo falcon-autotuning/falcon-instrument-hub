@@ -6,9 +6,17 @@ import (
 	"sync"
 )
 
+type queuedInsert struct {
+	insert InsertEntry
+	entry  DatabaseEntry
+}
+
 var (
 	globalMu      sync.RWMutex
 	globalManager *Manager
+
+	insertQueue chan queuedInsert
+	wg          sync.WaitGroup
 )
 
 func Startup(
@@ -42,6 +50,25 @@ func Startup(
 
 	globalManager = manager
 
+	insertQueue = make(
+		chan queuedInsert,
+		100,
+	)
+
+	wg.Go(func() {
+		for item := range insertQueue {
+			if _, err := globalManager.Insert(
+				item.insert,
+				item.entry,
+			); err != nil {
+				log.Printf(
+					"measurement insert failed: %v",
+					err,
+				)
+			}
+		}
+	})
+
 	if !report.Healthy() {
 		log.Printf(
 			"measurement database inconsistencies found: "+
@@ -63,9 +90,10 @@ func Close() error {
 		return nil
 	}
 
+	close(insertQueue)
+	wg.Wait()
 	err := globalManager.Close()
 	globalManager = nil
-
 	return err
 }
 
@@ -112,4 +140,27 @@ func Validate() (*ValidationReport, error) {
 	}
 
 	return manager.Validate()
+}
+
+func InsertAsync(
+	insert InsertEntry,
+	entry DatabaseEntry,
+) error {
+	_, err := Instance()
+	if err != nil {
+		return err
+	}
+
+	select {
+	case insertQueue <- queuedInsert{
+		insert: insert,
+		entry:  entry,
+	}:
+		return nil
+
+	default:
+		return fmt.Errorf(
+			"measurement write queue full",
+		)
+	}
 }
