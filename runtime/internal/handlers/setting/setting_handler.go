@@ -4,22 +4,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingrequest"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/settings"
 )
 
 const (
@@ -74,100 +68,28 @@ type SettingClient interface {
 type Handler struct {
 	logger       *logging.Logger
 	nc           *nats.Conn
-	js           nats.JetStreamContext
 	subscription *nats.Subscription
 	busyManager  BusyManager
-	ports        *config.ConnectedPorts
-	dispatcher   dispatcher.MeasurementDispatcher
 	router       SettingRouter
-}
-
-func newSettingCommandHandler(
-	logger *logging.Logger,
-	busyManager BusyManager,
-	router SettingRouter,
-	ports *config.ConnectedPorts,
-	dispatcher dispatcher.MeasurementDispatcher,
-) *Handler {
-	return &Handler{
-		logger:      logger,
-		busyManager: busyManager,
-		ports:       ports,
-		router:      router,
-		dispatcher:  dispatcher,
-	}
 }
 
 // NewSettingCommandHandler creates a new handler
 func NewSettingCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
-	scriptsPath string,
-	issClient SettingClient,
-	ports *config.ConnectedPorts,
-	instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
-	writeGuard *settingguard.Guard,
+	router SettingRouter,
 ) *Handler {
-	bufferManager := databuffer.NewDataBufferManager(
-		issClient,
-	)
-
-	measurementDispatcher := dispatcher.NewMeasurementDispatcher(
-		issClient,
-		bufferManager,
-		scriptsPath,
-	)
-
-	router := settingrouter.NewRouter(
-		measurementDispatcher,
-		ports,
-		instrumentMetadata,
-		writeGuard,
-	)
-
-	router.
-		RegisterGetter(
-			settings.NewMinCharacteristicGetter(),
-		).
-		RegisterGetter(
-			settings.NewMaxCharacteristicGetter(),
-		).
-		RegisterGetter(
-			settings.NewMeasurementCharacteristicGetter(),
-		).
-		RegisterSetter(
-			settings.NewMeasurementCharacteristicSetter(),
-		)
-
-	return newSettingCommandHandler(
-		logger,
-		busyManager,
-		router,
-		ports,
-		*measurementDispatcher,
-	)
+	return &Handler{
+		logger:      logger,
+		busyManager: busyManager,
+		router:      router,
+	}
 }
 
 // Subscribe starts listening for MEASURE_COMMAND requests
 func (h *Handler) Subscribe(nc *nats.Conn) error {
 	h.nc = nc
 	var err error
-
-	h.js, err = nc.JetStream()
-	if err != nil {
-		return fmt.Errorf("failed to create JetStream context: %w", err)
-	}
-	_, addErr := h.js.AddStream(&nats.StreamConfig{
-		Name:     "FALCON_MEASURE",
-		Subjects: []string{"FALCON.MEASURE_DATA.*"},
-		MaxAge:   60 * time.Second,
-	})
-	if addErr != nil && addErr != nats.ErrStreamNameAlreadyInUse {
-		return fmt.Errorf(
-			"failed to ensure FALCON_MEASURE stream: %w",
-			addErr,
-		)
-	}
 
 	h.subscription, err = nc.Subscribe(
 		SettingCommandSubject,

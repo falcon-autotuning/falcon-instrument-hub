@@ -151,6 +151,7 @@ type Router struct {
 
 	scriptDir string
 	ports     *config.ConnectedPorts
+	settings  SettingsReader
 }
 
 // NewRouter constructs a router using the supplied dispatcher.
@@ -177,11 +178,13 @@ type Router struct {
 func NewRouter(
 	dispatcher MeasurementRunner,
 	ports *config.ConnectedPorts,
+	settings SettingsReader,
 ) *Router {
 	return &Router{
 		dispatcher: dispatcher,
 		ports:      ports,
 		handlers:   []MeasurementHandler{},
+		settings:   settings,
 	}
 }
 

@@ -12,7 +12,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
@@ -102,24 +101,16 @@ func newMeasureCommandHandler(
 func NewMeasureCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
-	scriptsPath string,
-	issClient MeasurementClient,
+	dispatcher interpreter.MeasurementRunner,
 	ports *config.ConnectedPorts,
 	writeGuard *settingguard.Guard,
+	settings interpreter.SettingsReader,
 ) *Handler {
-	bufferManager := databuffer.NewDataBufferManager(
-		issClient,
-	)
-
-	dispatcher := dispatcher.NewMeasurementDispatcher(
-		issClient,
-		bufferManager,
-		scriptsPath,
-	)
 	// TODO: Make the router adaptively load scripts depending on what is supplied
 	router := interpreter.NewRouter(
 		dispatcher,
 		ports,
+		settings,
 	)
 
 	return newMeasureCommandHandler(
@@ -292,7 +283,6 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		)
 		return
 	}
-	h.writeGuard.UnlockWrites()
 	falResp, err := resp.NewFalconMeasurementResponse()
 	if err != nil {
 

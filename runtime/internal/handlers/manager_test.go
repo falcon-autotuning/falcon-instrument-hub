@@ -127,3 +127,35 @@ func TestManagerStartCoreHandlers(t *testing.T) {
 
 	require.NoError(t, manager.Stop())
 }
+
+func TestNewManager_CreatesHandlers(
+	t *testing.T,
+) {
+	server := runNATSServer(t)
+	defer server.Shutdown()
+
+	nc, err := nats.Connect(server.ClientURL())
+	require.NoError(t, err)
+	defer nc.Close()
+
+	logger, err := logging.NewLogger(t.TempDir())
+	require.NoError(t, err)
+	defer logger.Close()
+
+	manager := NewManager(
+		"{}",
+		nil,
+		&config.ConnectedPorts{},
+		t.TempDir(),
+		logger,
+		nc,
+		&mockMeasurementClient{},
+		nil,
+	)
+
+	require.NotNil(t, manager)
+	require.NotNil(t, manager.measureCommandHandler)
+	require.NotNil(t, manager.settingCommandHandler)
+	require.NotNil(t, manager.deviceConfigHandler)
+	require.NotNil(t, manager.portRequestHandler)
+}

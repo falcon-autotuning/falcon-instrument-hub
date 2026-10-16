@@ -1,19 +1,47 @@
 package interpreter
 
-import "github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+import (
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
+)
 
 type CartesianMeasurementHandler struct {
-	executor Executor
+	settings SettingsReader
 }
 
 func (h *CartesianMeasurementHandler) CanHandle(
 	req MeasurementRequest,
 	ports *config.ConnectedPorts,
 	scriptDir string,
-) (bool, error)
+) (bool, error) {
+	if len(req.Waveforms) < 1 {
+		return false, nil
+	}
+	// check that the ports in the req	are in the ports
+	for _, getter := range req.Getters {
+		if !settingrouter.PortExists(getter, ports) {
+			return false, nil
+		}
+	}
+	for _, axis := range req.Waveforms[0].Space.Axes {
+		for _, domain := range axis {
+			if !settingrouter.PortExists(domain.InstrumentPort, ports) {
+				return false, nil
+			}
+		}
+	}
+	return true, nil
+}
 
-// TODO: check that the ports in the req	are in the ports
-// return parseDimensionality(req) != Dim0, nil
+type DeviceStateReader interface {
+	ReadSourceVoltages(
+		ports *config.ConnectedPorts,
+	) (
+		map[falconcore.InstrumentPort]falconcore.Quantity,
+		error,
+	)
+}
 
 func (h *CartesianMeasurementHandler) Handle(
 	req MeasurementRequest,
@@ -26,7 +54,7 @@ func (h *CartesianMeasurementHandler) Handle(
 	// TODO: buildup the availableDimensions by checking script names
 	var err error
 	var executor Executor
-	executor, err = BuildMeasurementRegistry(availableDimensions, dispatcher)
+	// executor, err = BuildMeasurementRegistry(availableDimensions, dispatcher)
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {
 		return MeasurementResponse{}, err
@@ -38,16 +66,16 @@ func (h *CartesianMeasurementHandler) Handle(
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
-
+	var voltages map[falconcore.InstrumentPort]falconcore.Quantity
+	voltages, err = h.readSourceVoltages(ports)
+	_ = voltages
+	if err != nil {
+		return MeasurementResponse{}, err
+	}
 	// TODO: update the state
 	// TODO: perform averaging
 	// TODO: ship to database on go routine
+	// TODO: convert averaged outputs to measurement response
 
-	// 	return primitiveOutputToResponse(
-	// 		req,
-	// 		output,
-	// 		tracker,
-	// 		recorder,
-	// 	)
 	return MeasurementResponse{}, nil
 }

@@ -5,20 +5,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nats-io/nats.go"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/settingresponse"
-
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
+	"github.com/nats-io/nats.go"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func testGuard() *settingguard.Guard {
@@ -175,11 +172,6 @@ func TestSubscribeAndUnsubscribe(
 		handler.subscription,
 	)
 
-	assert.NotNil(
-		t,
-		handler.js,
-	)
-
 	require.NoError(
 		t,
 		handler.Unsubscribe(),
@@ -276,21 +268,19 @@ func TestPublishSettingResponse(
 func TestNewSettingCommandHandler(
 	t *testing.T,
 ) {
-	handler := newSettingCommandHandler(
+	router := &settingrouter.Router{}
+
+	handler := NewSettingCommandHandler(
 		testutil.TestLogger(t),
 		&mockBusyManager{},
-		&mockRouter{},
-		nil,
-		dispatcher.MeasurementDispatcher{},
+		router,
 	)
 
-	require.NotNil(
+	require.NotNil(t, handler)
+	require.NotNil(t, handler.router)
+	assert.Same(
 		t,
-		handler,
-	)
-
-	require.NotNil(
-		t,
+		router,
 		handler.router,
 	)
 }
@@ -346,20 +336,16 @@ func TestHandler_ReceivesSettingCommand(
 		resp: buildMockResponse(),
 	}
 
-	portsCatalog := testutil.BuildTestConnectedPorts(t)
-
 	cmd := api.SettingCommand{
 		Request:   testutil.BuildRealFalconRequest(t),
 		Timestamp: 999,
 		Hash:      123,
 	}
 
-	handler := newSettingCommandHandler(
+	handler := NewSettingCommandHandler(
 		testutil.TestLogger(t),
 		&mockBusyManager{},
 		router,
-		portsCatalog,
-		dispatcher.MeasurementDispatcher{},
 	)
 
 	require.NoError(
@@ -543,12 +529,10 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 
 	busy := &mockBusyManager{}
 
-	handler := newSettingCommandHandler(
+	handler := NewSettingCommandHandler(
 		testutil.TestLogger(t),
 		busy,
 		router,
-		portsCatalog,
-		dispatcher.MeasurementDispatcher{},
 	)
 
 	require.NoError(

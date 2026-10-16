@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
-
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 )
 
 // TODO: ensure full coverage tests
@@ -444,4 +444,37 @@ func TestHandleMessage_ReleasesWriteLockOnFailure(
 		t,
 		guard.WritesLocked(),
 	)
+}
+
+type mockMeasurementRunner struct{}
+
+func (m *mockMeasurementRunner) RunAll(
+	_ []interpreter.DispatchRequest,
+) []interpreter.DispatchResult {
+	return nil
+}
+
+type mockSettingsReader struct{}
+
+func (m *mockSettingsReader) Handle(
+	req falconcore.SettingRequest,
+) (falconcore.SettingResponse, error) {
+	return falconcore.SettingResponse{}, nil
+}
+
+func TestNewMeasureCommandHandler(
+	t *testing.T,
+) {
+	handler := NewMeasureCommandHandler(
+		testLogger(t),
+		&mockBusyManager{},
+		&mockMeasurementRunner{},
+		nil,
+		&settingguard.Guard{},
+		&mockSettingsReader{},
+	)
+
+	require.NotNil(t, handler)
+	require.NotNil(t, handler.router)
+	require.NotNil(t, handler.writeGuard)
 }

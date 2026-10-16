@@ -5,12 +5,15 @@ import (
 	"slices"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
+	dispatcherpkg "github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	setting "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/setting"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/settings"
 	"github.com/nats-io/nats.go"
 )
 
@@ -63,22 +66,48 @@ func NewManager(
 	// This is to allow measurements to query settings without fear of overwriting
 	// If falcon became multi process this would need to change
 	guard := settingguard.Guard{}
+	bufferManager := databuffer.NewDataBufferManager(
+		dispatcher,
+	)
+
+	measurementDispatcher := dispatcherpkg.NewMeasurementDispatcher(
+		dispatcher,
+		bufferManager,
+		measurementScriptsPath,
+	)
+
+	settingRouter := settingrouter.NewRouter(
+		measurementDispatcher,
+		ports,
+		instrumentMetadata,
+		&guard,
+	)
+
+	settingRouter.
+		RegisterGetter(
+			settings.NewMinCharacteristicGetter(),
+		).
+		RegisterGetter(
+			settings.NewMaxCharacteristicGetter(),
+		).
+		RegisterGetter(
+			settings.NewMeasurementCharacteristicGetter(),
+		).
+		RegisterSetter(
+			settings.NewMeasurementCharacteristicSetter(),
+		)
 	manager.measureCommandHandler = measure.NewMeasureCommandHandler(
 		logger,
 		manager,
-		measurementScriptsPath,
-		dispatcher,
+		measurementDispatcher,
 		ports,
 		&guard,
+		settingRouter,
 	)
 	manager.settingCommandHandler = setting.NewSettingCommandHandler(
 		logger,
 		manager,
-		measurementScriptsPath,
-		dispatcher,
-		ports,
-		instrumentMetadata,
-		&guard,
+		settingRouter,
 	)
 
 	return manager
