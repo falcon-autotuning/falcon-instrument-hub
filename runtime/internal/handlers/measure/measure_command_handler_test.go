@@ -18,8 +18,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
 
-// TODO: ensure full coverage tests
-
 type mockBusyManager struct {
 	calls []bool
 }

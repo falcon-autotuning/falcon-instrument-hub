@@ -1,6 +1,7 @@
 package interpreter
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -66,6 +67,47 @@ var scriptDefinitions = []ScriptDefinition{
 	},
 }
 
+func averageData(
+	data []float64,
+	points int,
+) ([]float64, error) {
+	if points <= 0 {
+		return nil, fmt.Errorf(
+			"invalid averaging count %d",
+			points,
+		)
+	}
+
+	if len(data)%points != 0 {
+		return nil, fmt.Errorf(
+			"sample count %d is not divisible by averaging count %d",
+			len(data),
+			points,
+		)
+	}
+
+	out := make(
+		[]float64,
+		0,
+		len(data)/points,
+	)
+
+	for i := 0; i < len(data); i += points {
+		var sum float64
+
+		for j := range points {
+			sum += data[i+j]
+		}
+
+		out = append(
+			out,
+			sum/float64(points),
+		)
+	}
+
+	return out, nil
+}
+
 func (h *CartesianMeasurementHandler) Handle(
 	req MeasurementRequest,
 	dispatcher MeasurementRunner,
@@ -94,9 +136,10 @@ func (h *CartesianMeasurementHandler) Handle(
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
-	var numberOfPoints *int = nil
-	_, err = plan.Execute(
-		executor, numberOfPoints,
+	numberOfPoints := 0
+	var output PrimitiveMeasurementOutput
+	output, err = plan.Execute(
+		executor, &numberOfPoints,
 	)
 	if err != nil {
 		return MeasurementResponse{}, err
@@ -111,8 +154,27 @@ func (h *CartesianMeasurementHandler) Handle(
 		tracker.UpdatePort(port.PseudoName.Name, value)
 	}
 
-	if numberOfPoints != nil {
-		// TODO: perform averaging
+	_, getterPorts, err := buildGetters(
+		req.Getters,
+		ports,
+	)
+	if numberOfPoints > 0 {
+		for target, rawdata := range output.Getters {
+			// NOTE: This averaging is currently ignoring the PortTransform which allows for proper averaging specification via analytic functions
+			averaged, err := averageData(
+				rawdata,
+				numberOfPoints,
+			)
+			if err != nil {
+				return MeasurementResponse{}, fmt.Errorf(
+					"failed to average getter %q: %w",
+					getterPorts[target].DefaultName,
+					err,
+				)
+			}
+
+			output.Getters[target] = averaged
+		}
 	} else {
 		// TODO: send warning message about no averaging
 	}

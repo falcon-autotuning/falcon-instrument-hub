@@ -174,16 +174,37 @@ func convertToTarget(
 func buildGetters(
 	getters falconcore.Ports,
 	ports *config.ConnectedPorts,
-) ([]Target, error) {
-	out := make([]Target, 0, len(getters))
+) (
+	[]Target,
+	map[Target]falconcore.InstrumentPort,
+	error,
+) {
+	targets := make(
+		[]Target,
+		0,
+		len(getters),
+	)
+
+	portMap := make(
+		map[Target]falconcore.InstrumentPort,
+		len(getters),
+	)
 	for _, port := range getters {
-		target, err := convertToTarget(port, ports)
+		target, err := convertToTarget(
+			port,
+			ports,
+		)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
-		out = append(out, target)
+		targets = append(
+			targets,
+			target,
+		)
+		portMap[target] = port
 	}
-	return out, nil
+
+	return targets, portMap, nil
 }
 
 func inputFromDomain(
@@ -301,7 +322,7 @@ func buildPrimitiveInput(
 	fixed FixedAxes,
 	ports *config.ConnectedPorts,
 ) (PrimitiveMeasurementInput, error) {
-	getterTargets, err := buildGetters(
+	getterTargets, _, err := buildGetters(
 		getters,
 		ports,
 	)
