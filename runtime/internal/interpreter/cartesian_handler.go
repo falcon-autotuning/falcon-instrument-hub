@@ -5,11 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
-	"github.com/google/uuid"
 )
 
 type CartesianMeasurementHandler struct {
@@ -37,7 +38,10 @@ func (h *CartesianMeasurementHandler) CanHandle(
 	}
 	for _, axis := range req.Waveforms[0].Space.Axes {
 		for _, domain := range axis {
-			if !settingrouter.PortExists(domain.InstrumentPort, ports) {
+			if !settingrouter.PortExists(
+				domain.InstrumentPort,
+				ports,
+			) {
 				return false, nil
 			}
 		}
@@ -138,7 +142,10 @@ func (h *CartesianMeasurementHandler) Handle(
 	}
 	var err error
 	var executor Executor
-	// executor, err = BuildMeasurementRegistry(availableDimensions, dispatcher)
+	// executor, err = BuildMeasurementRegistry(
+	// 	availableDimensions,
+	// 	dispatcher,
+	// )
 	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {
@@ -168,7 +175,9 @@ func (h *CartesianMeasurementHandler) Handle(
 	)
 	if numberOfPoints > 0 {
 		for target, rawdata := range output.Getters {
-			// NOTE: This averaging is currently ignoring the PortTransform which allows for proper averaging specification via analytic functions
+			// NOTE: This averaging is currently ignoring the
+			// PortTransform which allows for proper averaging
+			// specification via analytic functions
 			averaged, err := averageData(
 				rawdata,
 				numberOfPoints,
@@ -184,7 +193,10 @@ func (h *CartesianMeasurementHandler) Handle(
 			output.Getters[target] = averaged
 		}
 	} else {
-		h.logger.Warn(h.Name(), "The numberOfPoints was not set and thus no averaging occured")
+		h.logger.Warn(
+			h.Name(),
+			"The numberOfPoints was not set and thus no averaging occured",
+		)
 	}
 
 	// generate MeasurementID

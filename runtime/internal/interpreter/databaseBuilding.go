@@ -3,6 +3,7 @@ package interpreter
 import (
 	"fmt"
 	"hash/fnv"
+	"strconv"
 	"time"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
@@ -168,8 +169,10 @@ func (h *CartesianMeasurementHandler) BuildInsertEntry(
 
 	return measurementdb.InsertEntry{
 		CoreEntry: measurementdb.CoreEntry{
-			RunID:           measurementID,
-			MeasurementID:   string(generateID(measurementID)),
+			RunID: measurementID,
+			MeasurementID: strconv.Itoa(
+				generateID(measurementID),
+			),
 			MeasurementName: h.Name(),
 		},
 		Setters: setters,
@@ -253,10 +256,20 @@ func buildMetadata(
 	)
 
 	for port, value := range voltages {
+		unitsymbol, err := value.Unit.NewSymbolUnit()
+		if err != nil {
+			return falconcore.Metadata{}
+		}
+
+		unit, err := unitsymbol.Symbol()
+		if err != nil {
+			return falconcore.Metadata{}
+		}
+
 		out["voltage."+string(port.PseudoName.Name)] = fmt.Sprintf(
 			"%g %s",
 			value.Value,
-			value.Unit,
+			unit,
 		)
 	}
 
