@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentdomain"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 )
@@ -178,22 +179,19 @@ func encodeGetSet(
 	}, nil
 }
 
-func domainValue(start, stop float64) (instrumentserver.VariableValue, error) {
+func domainValue(start, stop float64) (string, error) {
 	if math.IsNaN(start) || math.IsInf(start, 0) || math.IsNaN(stop) ||
 		math.IsInf(stop, 0) {
-		return instrumentserver.VariableValue{}, fmt.Errorf(
+		return "", fmt.Errorf(
 			"domain contains a non-finite voltage",
 		)
 	}
-	if start > stop {
-		return instrumentserver.VariableValue{}, fmt.Errorf(
-			"descending sweep cannot be represented by schema min/max",
-		)
+	domain := instrumentdomain.Domain{Min: start, Max: stop}
+	serializedDomain, err := domain.Serialize()
+	if err != nil {
+		return "", err
 	}
-	return instrumentserver.VariableValue{Value: instrumentserver.MixedMap{
-		"min": {Value: start},
-		"max": {Value: stop},
-	}}, nil
+	return serializedDomain, nil
 }
 
 func encode1DBuffered(
@@ -208,8 +206,8 @@ func encode1DBuffered(
 	if err != nil {
 		return nil, err
 	}
-	domains := make(instrumentserver.MixedMap, len(targets))
-	for i, target := range targets {
+	domains := make(instrumentserver.InstrumentDomainArray, len(targets))
+	for _, target := range targets {
 		setter := input.Setters[target]
 		stop := setter.Start
 		if setter.Stop != nil {
@@ -219,7 +217,7 @@ func encode1DBuffered(
 		if err != nil {
 			return nil, fmt.Errorf("setter %+v: %w", target, err)
 		}
-		domains[setters[i]] = value
+		domains = append(domains, value)
 	}
 	return []instrumentserver.MeasureVariable{
 		variable("setVoltageDomains", domains),
@@ -241,8 +239,8 @@ func encode2DBuffered(
 	if err != nil {
 		return nil, err
 	}
-	xDomains := make(instrumentserver.MixedMap)
-	yDomains := make(instrumentserver.MixedMap)
+	xDomains := make(instrumentserver.InstrumentDomainArray, 0)
+	yDomains := make(instrumentserver.InstrumentDomainArray, 0)
 	xTargets := make(instrumentserver.InstrumentTargetArray, 0)
 	yTargets := make(instrumentserver.InstrumentTargetArray, 0)
 	for i, target := range targets {
@@ -260,10 +258,10 @@ func encode2DBuffered(
 		switch setter.Axis {
 		case 0:
 			xTargets = append(xTargets, setters[i])
-			xDomains[setters[i]] = value
+			xDomains = append(xDomains, value)
 		case 1:
 			yTargets = append(yTargets, setters[i])
-			yDomains[setters[i]] = value
+			yDomains = append(yDomains, value)
 		}
 	}
 	return []instrumentserver.MeasureVariable{

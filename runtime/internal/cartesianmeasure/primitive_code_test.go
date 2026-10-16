@@ -119,9 +119,9 @@ func TestEncodeBufferedSchemas(t *testing.T) {
 	if got["numXSteps"] != int64(3) || got["numYSteps"] != int64(4) {
 		t.Fatalf("step counts = %v", got)
 	}
-	if len(got["setXVoltageDomains"].(instrumentserver.MixedMap)) != 1 ||
+	if len(got["setXVoltageDomains"].(instrumentserver.InstrumentDomainArray)) != 1 ||
 		len(
-			got["setYVoltageDomains"].(instrumentserver.MixedMap),
+			got["setYVoltageDomains"].(instrumentserver.InstrumentDomainArray),
 		) != 1 {
 		t.Fatalf("axis domains = %v", got)
 	}
