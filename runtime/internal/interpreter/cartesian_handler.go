@@ -9,6 +9,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
+	"github.com/google/uuid"
 )
 
 type CartesianMeasurementHandler struct {
@@ -138,6 +139,7 @@ func (h *CartesianMeasurementHandler) Handle(
 	var err error
 	var executor Executor
 	// executor, err = BuildMeasurementRegistry(availableDimensions, dispatcher)
+	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {
 		return MeasurementResponse{}, err
@@ -184,7 +186,27 @@ func (h *CartesianMeasurementHandler) Handle(
 	} else {
 		h.logger.Warn(h.Name(), "The numberOfPoints was not set and thus no averaging occured")
 	}
-	// TODO: ship to database
+
+	// generate MeasurementID
+	id := uuid.NewString()
+	insertEntry, err := h.BuildInsertEntry(
+		&req,
+		ports,
+		plan.Shape(),
+		id,
+	)
+	databaseEntry, err := h.BuildDatabaseEntry(
+		&req,
+		output,
+		plan.Shape(),
+		ports,
+		voltages,
+		id,
+	)
+	if err := recorder.Insert(insertEntry, databaseEntry); err != nil {
+		h.logger.Error(h.Name(), "database insertion failed")
+		return MeasurementResponse{}, err
+	}
 	// TODO: convert averaged outputs to measurement response
 
 	return MeasurementResponse{}, nil
