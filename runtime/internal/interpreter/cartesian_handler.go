@@ -142,10 +142,10 @@ func (h *CartesianMeasurementHandler) Handle(
 	}
 	var err error
 	var executor Executor
-	// executor, err = BuildMeasurementRegistry(
-	// 	availableDimensions,
-	// 	dispatcher,
-	// )
+	executor, err = BuildMeasurementRegistry(
+		availableDimensions,
+		dispatcher,
+	)
 	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {
