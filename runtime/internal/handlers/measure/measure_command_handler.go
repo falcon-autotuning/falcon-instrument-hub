@@ -9,6 +9,7 @@ import (
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementrequest"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/cartesianmeasure"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
@@ -22,8 +23,9 @@ import (
 
 const (
 	MeasureCommandHandlerName = "MEASURE_COMMAND_HANDLER"
-	// INSTRUMENTHUB.MEASURE_COMMAND is the subject published by falcon-comms
-	// RoutineComms on the controller side (routine_comms.cpp make_measure_command_subject).
+	// INSTRUMENTHUB.MEASURE_COMMAND is the subject published by
+	// falcon-comms RoutineComms on the controller side (routine_comms.cpp
+	// make_measure_command_subject).
 	MeasureCommandSubject = "INSTRUMENTHUB.MEASURE_COMMAND"
 	// FALCON.MEASURE_RESPONSE.<timestamp> is subscribed to by falcon-comms
 	// RoutineComms on the controller side.
@@ -112,7 +114,12 @@ func NewMeasureCommandHandler(
 		ports,
 		settings,
 	)
-	router.RegisterHandle(cartesianmeasure.NewCartesianMeasurementHandler(settings, logger))
+	router.RegisterHandle(
+		cartesianmeasure.NewCartesianMeasurementHandler(
+			settings,
+			logger,
+		),
+	)
 
 	return newMeasureCommandHandler(
 		logger,
@@ -138,7 +145,10 @@ func (h *Handler) Subscribe(nc *nats.Conn) error {
 		MaxAge:   60 * time.Second,
 	})
 	if addErr != nil && addErr != nats.ErrStreamNameAlreadyInUse {
-		return fmt.Errorf("failed to ensure FALCON_MEASURE stream: %w", addErr)
+		return fmt.Errorf(
+			"failed to ensure FALCON_MEASURE stream: %w",
+			addErr,
+		)
 	}
 
 	h.subscription, err = nc.Subscribe(
@@ -175,17 +185,43 @@ func (h *Handler) Unsubscribe() error {
 	return nil
 }
 
-func (h *Handler) publishMeasurementResponse(cmd api.MeasureCommand, responseSubject, respJSON string) bool {
-	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(cmd.Timestamp, 10)
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing measurement data: subject=%s bytes=%d", measureSubject, len(respJSON)))
-	if _, err := h.js.Publish(measureSubject, []byte(respJSON)); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to publish measurement to JetStream subject %s: %v", measureSubject, err))
+func (h *Handler) publishMeasurementResponse(
+	cmd api.MeasureCommand,
+	responseSubject, respJSON string,
+) bool {
+	measureSubject := "FALCON.MEASURE_DATA." + strconv.FormatInt(
+		cmd.Timestamp,
+		10,
+	)
+	h.logger.Info(
+		MeasureCommandHandlerName,
+		fmt.Sprintf(
+			"Publishing measurement data: subject=%s bytes=%d",
+			measureSubject,
+			len(respJSON),
+		),
+	)
+	if _, err := h.js.Publish(
+		measureSubject,
+		[]byte(respJSON),
+	); err != nil {
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			fmt.Sprintf(
+				"failed to publish measurement to JetStream subject %s: %v",
+				measureSubject,
+				err,
+			),
+		)
 		return false
 	}
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Published measurement data: subject=%s", measureSubject))
+	h.logger.Info(
+		MeasureCommandHandlerName,
+		fmt.Sprintf(
+			"Published measurement data: subject=%s",
+			measureSubject,
+		),
+	)
 
 	measureResp := api.MeasureResponse{
 		Stream:    measureSubject,
@@ -193,20 +229,46 @@ func (h *Handler) publishMeasurementResponse(cmd api.MeasureCommand, responseSub
 	}
 	respData, err := json.Marshal(measureResp)
 	if err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to marshal MeasureResponse: %v", err))
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			fmt.Sprintf(
+				"failed to marshal MeasureResponse: %v",
+				err,
+			),
+		)
 		return false
 	}
 
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Publishing %s: subject=%s stream=%s bytes=%d", MeasureResponseName, responseSubject, measureSubject, len(respData)))
+	h.logger.Info(
+		MeasureCommandHandlerName,
+		fmt.Sprintf(
+			"Publishing %s: subject=%s stream=%s bytes=%d",
+			MeasureResponseName,
+			responseSubject,
+			measureSubject,
+			len(respData),
+		),
+	)
 	if err := h.nc.Publish(responseSubject, respData); err != nil {
-		h.logger.Error(MeasureCommandHandlerName,
-			fmt.Sprintf("failed to publish %s: %v", responseSubject, err))
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			fmt.Sprintf(
+				"failed to publish %s: %v",
+				responseSubject,
+				err,
+			),
+		)
 		return false
 	}
-	h.logger.Info(MeasureCommandHandlerName,
-		fmt.Sprintf("Published %s: subject=%s stream=%s", MeasureResponseName, responseSubject, measureSubject))
+	h.logger.Info(
+		MeasureCommandHandlerName,
+		fmt.Sprintf(
+			"Published %s: subject=%s stream=%s",
+			MeasureResponseName,
+			responseSubject,
+			measureSubject,
+		),
+	)
 	return true
 }
 

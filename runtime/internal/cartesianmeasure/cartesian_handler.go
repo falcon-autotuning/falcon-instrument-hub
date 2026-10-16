@@ -165,6 +165,9 @@ func (h *CartesianMeasurementHandler) Handle(
 		availableDimensions,
 		dispatcher,
 	)
+	if err != nil {
+		return MeasurementResponse{}, fmt.Errorf("build measurement registry: %w", err)
+	}
 	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
 	plan, err := BuildPlan(req, ports, availableDimensions)
 	if err != nil {

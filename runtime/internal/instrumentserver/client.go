@@ -190,7 +190,8 @@ func (c *ScriptServerClient) ListInstruments() ([]string, error) {
 
 			return append(
 				[]string{},
-				resp.GetInstrumentName()...), nil
+				resp.GetInstrumentName()...,
+			), nil
 		},
 	)
 }
@@ -446,9 +447,9 @@ type (
 	CallStackArray        []string
 	InstrumentTargetArray []string
 	InstrumentDomainArray []string
+	MixedMap              map[string]VariableValue
 	// MixedArray      []VariableValue  NOTE: Eventually revist ISS if
-	// MixedArray is necessary MixedMap        map[string]VariableValue
-	// NOTE: Eventually revist ISS if MixedMap is necessary
+	// MixedArray is necessary.
 )
 
 // Type represents a string taken from the LuaTypes.
@@ -533,6 +534,10 @@ func (v VariableValue) LuaType() LuaType {
 
 	case InstrumentTargetArray:
 		return LuaType(daemonv1.LuaTypes_LUA_TYPES_TARGET_ARRAY)
+	case MixedMap:
+		// The protobuf has a mixed-map value but no corresponding LuaTypes
+		// enum. ISS decodes the map from the value when the type is unspecified.
+		return LuaType(daemonv1.LuaTypes_LUA_TYPES_UNSPECIFIED)
 
 	//  NOTE: Eventually revist ISS if MixedArray is necessary
 	// case MixedArray:
@@ -685,6 +690,20 @@ func toGrpcVariableValue(v VariableValue) (*daemonv1.VariableValue, error) {
 				},
 			},
 		}, nil
+	case MixedMap:
+		values := make(map[string]*daemonv1.VariableValue, len(value))
+		for key, item := range value {
+			encoded, err := toGrpcVariableValue(item)
+			if err != nil {
+				return nil, fmt.Errorf("map key %q: %w", key, err)
+			}
+			values[key] = encoded
+		}
+		return &daemonv1.VariableValue{
+			Value: &daemonv1.VariableValue_MMap{
+				MMap: &daemonv1.MixedMap{Values: values},
+			},
+		}, nil
 	case InstrumentDomainArray:
 		return &daemonv1.VariableValue{
 			Value: &daemonv1.VariableValue_DnArray{
@@ -772,6 +791,12 @@ func fromGrpcVariableValue(value *daemonv1.VariableValue) VariableValue {
 				append([]string{}, v.DnArray.GetValues()...),
 			),
 		}
+	case *daemonv1.VariableValue_MMap:
+		values := make(MixedMap, len(v.MMap.GetValues()))
+		for key, item := range v.MMap.GetValues() {
+			values[key] = fromGrpcVariableValue(item)
+		}
+		return VariableValue{Value: values}
 
 	default:
 		panic(fmt.Sprintf(
@@ -873,8 +898,9 @@ func measureJobResultToCallResults(
 			}
 
 			value := fromGrpcVariableValue(param.GetValue())
-			// A single buffer ID uses the string wire representation; retain
-			// its declared type for buffer registration and handler validation.
+			// A single buffer ID uses the string wire
+			// representation; retain its declared type for buffer
+			// registration and handler validation.
 			if param.GetType() == daemonv1.LuaTypes_LUA_TYPES_DATA_BUFFER {
 				if id, ok := value.Value.(string); ok {
 					value.Value = DataBuffer(id)

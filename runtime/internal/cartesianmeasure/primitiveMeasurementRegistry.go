@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdecode"
@@ -34,7 +35,11 @@ type (
 	PrimitiveMeasurementInput struct {
 		Setters map[Target]Input
 		Getters []Target
-		Choice  Dimensionality
+		// GetterUnits is keyed by the same physical targets as Getters.
+		// The decoder converts ISS return values into these Falcon port
+		// units.
+		GetterUnits map[Target]falconcore.Unit
+		Choice      Dimensionality
 	}
 	PrimitiveMeasurementOutput struct {
 		Getters map[Target]RawData
@@ -62,19 +67,30 @@ type PrimitiveMeasurement struct {
 // Add script-specific encoders and decoders here as their Lua contracts are
 // finalized. The names must match the script files searched by the dispatcher.
 // A definition without both hooks is rejected by BuildMeasurementRegistry.
-// TODO: The current example file is measure_set_get.lua, while the Cartesian
-// handler and measurement schema use measure_get_set; align those names first.
 var primitiveMeasurements = map[Dimensionality]PrimitiveMeasurement{
-	Dim0: {script: "measure_get_set"},
-	Dim1: {script: "measure_1D_buffered"},
-	Dim2: {script: "measure_2D_buffered"},
+	Dim0: {
+		script:  "measure_get_set",
+		encoder: encodeGetSet,
+		decoder: decodePrimitive,
+	},
+	Dim1: {
+		script:  "measure_1D_buffered",
+		encoder: encode1DBuffered,
+		decoder: decodePrimitive,
+	},
+	Dim2: {
+		script:  "measure_2D_buffered",
+		encoder: encode2DBuffered,
+		decoder: decodePrimitive,
+	},
 }
 
 type Executor interface {
 	Run(
 		input PrimitiveMeasurementInput,
-		// A nil numberOfPoints uses one sample per position. Resolve and cache
-		// the instrument setting before calling Run when more are required.
+		// A nil numberOfPoints uses one sample per position. Resolve
+		// and cache the instrument setting before calling Run when more
+		// are required.
 		numberOfPoints *int,
 	) (PrimitiveMeasurementOutput, error)
 }
@@ -112,14 +128,24 @@ func buildMeasurementRegistry(
 	selected := make(map[Dimensionality]PrimitiveMeasurement, len(dims))
 	for _, dim := range dims {
 		if _, duplicate := selected[dim]; duplicate {
-			return nil, fmt.Errorf("measurement dimension %d is repeated", dim)
+			return nil, fmt.Errorf(
+				"measurement dimension %d is repeated",
+				dim,
+			)
 		}
 		measurement, registered := definitions[dim]
 		if !registered {
-			return nil, fmt.Errorf("measurement dimension %d is not registered", dim)
+			return nil, fmt.Errorf(
+				"measurement dimension %d is not registered",
+				dim,
+			)
 		}
-		if measurement.script == "" || measurement.encoder == nil || measurement.decoder == nil {
-			return nil, fmt.Errorf("measurement dimension %d has no complete script, encoder, and decoder", dim)
+		if measurement.script == "" || measurement.encoder == nil ||
+			measurement.decoder == nil {
+			return nil, fmt.Errorf(
+				"measurement dimension %d has no complete script, encoder, and decoder",
+				dim,
+			)
 		}
 		selected[dim] = measurement
 	}
@@ -140,7 +166,8 @@ func (r *measurementRegistry) Run(
 	measurement, ok := r.measurements[input.Choice]
 	if !ok {
 		return PrimitiveMeasurementOutput{}, fmt.Errorf(
-			"measurement dimension %d is not available", input.Choice,
+			"measurement dimension %d is not available",
+			input.Choice,
 		)
 	}
 	points := 1
@@ -170,7 +197,9 @@ func (r *measurementRegistry) Run(
 	}
 	if len(results) != 1 {
 		return PrimitiveMeasurementOutput{}, fmt.Errorf(
-			"script %q returned %d jobs, want 1", measurement.script, len(results),
+			"script %q returned %d jobs, want 1",
+			measurement.script,
+			len(results),
 		)
 	}
 	result := results[0]

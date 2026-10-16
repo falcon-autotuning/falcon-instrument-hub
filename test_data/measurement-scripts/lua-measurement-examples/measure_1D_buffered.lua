@@ -7,13 +7,10 @@ local multimeter = require("multimeter")
 
 local function Measure1DBuffered(
    ctx,
-   sampleRate,
-   setters,
    setVoltageDomains,
-   bufferedGetters,
-   numPoints,
+   getters,
    numSteps,
-   bufferedSetters)
+   setters)
 
    for _, setter in ipairs(setters) do
       source:setVoltage(
@@ -31,20 +28,14 @@ local function Measure1DBuffered(
 
    end
 
-   start, stop := setVoltageDomains, 1.0
-   steps := 5
+   -- start, stop := setVoltageDomains, 1.0
+   -- steps := 5
+   -- for i := 0; i < steps; i++ {
+   --    v := start + float64(i)*(stop-start)/float64(steps-1)
+   --    fmt.Println(v) // 0, 0.25, 0.5, 0.75, 1
+   -- }
 
-   for i := 0; i < steps; i++ {
-      v := start + float64(i)*(stop-start)/float64(steps-1)
-      fmt.Println(v) // 0, 0.25, 0.5, 0.75, 1
-   }
-
-   for _, getter in ipairs(bufferedGetters) do
-      multimeter:setSampleRate(getter.id, getter.channel, sampleRate)
-      multimeter:setBins(getter.id, getter.channel, numPoints)
-   end
-
-   for _, getter in ipairs(bufferedGetters) do
+   for _, getter in ipairs(getters) do
       multimeter:measureStream(getter.id, getter.channel)
    end
 

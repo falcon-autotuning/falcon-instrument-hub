@@ -28,13 +28,23 @@ func (r *registryTestRunner) ReleaseMeasurementBuffers(id string) {
 	r.released = append(r.released, id)
 }
 
-func TestBuildMeasurementRegistryRejectsUnimplementedDimension(t *testing.T) {
+func TestBuildMeasurementRegistryRejectsUnknownDimension(t *testing.T) {
 	_, err := BuildMeasurementRegistry(
-		[]Dimensionality{Dim0},
+		[]Dimensionality{3},
 		&registryTestRunner{},
 	)
-	if err == nil || !strings.Contains(err.Error(), "no complete script") {
-		t.Fatalf("expected incomplete registration error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "not registered") {
+		t.Fatalf("expected unknown dimension error, got %v", err)
+	}
+}
+
+func TestBuildMeasurementRegistryRegistersSchemaCodecs(t *testing.T) {
+	_, err := BuildMeasurementRegistry(
+		[]Dimensionality{Dim0, Dim1, Dim2},
+		&registryTestRunner{},
+	)
+	if err != nil {
+		t.Fatalf("register schema codecs: %v", err)
 	}
 }
 

@@ -24,6 +24,35 @@ func TestLoadMeasurementTimeout_ValidEnv(t *testing.T) {
 	}
 }
 
+func TestBuildMeasureJobRequestNestedMap(t *testing.T) {
+	req, err := buildMeasureJobRequest("measure_get_set.lua", []MeasureVariable{{
+		Name: "setVoltages",
+		Value: VariableValue{Value: MixedMap{
+			"Source/analog/1": {Value: 1.25},
+		}},
+	}, {
+		Name: "setVoltageDomains",
+		Value: VariableValue{Value: MixedMap{
+			"Source/analog/1": {Value: MixedMap{
+				"min": {Value: 0.0},
+				"max": {Value: 1.0},
+			}},
+		}},
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if req.Globals.Map["setVoltages"].GetMMap().GetValues()["Source/analog/1"].GetD() != 1.25 {
+		t.Fatalf("voltage map = %v", req.Globals.Map["setVoltages"])
+	}
+	if req.Globals.Map["setVoltageDomains"].GetMMap().GetValues()["Source/analog/1"].GetMMap().GetValues()["max"].GetD() != 1 {
+		t.Fatalf("nested domain = %v", req.Globals.Map["setVoltageDomains"])
+	}
+	if req.TypeManifest.Parameters[0].Type != daemonv1.LuaTypes_LUA_TYPES_UNSPECIFIED {
+		t.Fatalf("map manifest type = %v", req.TypeManifest.Parameters[0].Type)
+	}
+}
+
 func TestCurrentMeasurementTimeout(t *testing.T) {
 	old := baseMeasurementTimeout
 	baseMeasurementTimeout = 10 * time.Second

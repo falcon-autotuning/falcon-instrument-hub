@@ -26,7 +26,6 @@ local multimeter = require("multimeter")
 local function Measure_Get_Set(
    ctx,
    getters,
-   numPoints,
    sampleRate,
    setVoltages,
    setters)
@@ -48,12 +47,6 @@ local function Measure_Get_Set(
          getter:get_channel_group(),
          getter:get_channel(),
          sampleRate
-      )
-      multimeter:setBins(
-         getter:get_instrument_name(),
-         getter:get_channel_group(),
-         getter:get_channel(),
-         numPoints
       )
    end
    for _, getter in ipairs(getters) do

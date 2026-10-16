@@ -237,7 +237,12 @@ func (r *Router) get(
 	ports *config.ConnectedPorts,
 ) (falconcore.Quantity, error) {
 	for _, handler := range r.getters {
-		if handler.CanGet(port, r.instrumentMetadata, ports, r.scriptDir) {
+		if handler.CanGet(
+			port,
+			r.instrumentMetadata,
+			ports,
+			r.scriptDir,
+		) {
 			return handler.Get(
 				port,
 				r.dispatcher,

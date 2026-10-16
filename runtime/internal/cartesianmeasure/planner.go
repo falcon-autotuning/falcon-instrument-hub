@@ -43,19 +43,15 @@ func (p *NativePlan) Execute(
 func (p *NativePlan) Shape() Shape {
 	var out Shape
 
-	seen := make(map[uint8]bool)
+	counts := make(map[uint8]int)
 	for _, setter := range p.Input.Setters {
 		if setter.Num == nil {
 			continue
 		}
-		if seen[setter.Axis] {
-			continue
-		}
-		out = append(
-			out,
-			int64(*setter.Num),
-		)
-		seen[setter.Axis] = true
+		counts[setter.Axis] = *setter.Num
+	}
+	for axis := uint8(0); axis < uint8(len(counts)); axis++ {
+		out = append(out, int64(counts[axis]))
 	}
 
 	return out
@@ -322,7 +318,7 @@ func buildPrimitiveInput(
 	fixed FixedAxes,
 	ports *config.ConnectedPorts,
 ) (PrimitiveMeasurementInput, error) {
-	getterTargets, _, err := buildGetters(
+	getterTargets, getterPorts, err := buildGetters(
 		getters,
 		ports,
 	)
@@ -355,10 +351,15 @@ func buildPrimitiveInput(
 		}
 	}
 
+	getterUnits := make(map[Target]falconcore.Unit, len(getterPorts))
+	for target, port := range getterPorts {
+		getterUnits[target] = port.Unit
+	}
 	return PrimitiveMeasurementInput{
-		Setters: setterTargets,
-		Getters: getterTargets,
-		Choice:  dim,
+		Setters:     setterTargets,
+		Getters:     getterTargets,
+		GetterUnits: getterUnits,
+		Choice:      dim,
 	}, nil
 }
 
