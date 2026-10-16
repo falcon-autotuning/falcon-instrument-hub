@@ -72,7 +72,9 @@ func (h *CartesianMeasurementHandler) Handle(
 	if err != nil {
 		return MeasurementResponse{}, err
 	}
-	// TODO: update the state
+	for port, value := range voltages {
+		tracker.UpdatePort(port.PseudoName.Name, value)
+	}
 	// TODO: perform averaging
 	// TODO: ship to database on go routine
 	// TODO: convert averaged outputs to measurement response
