@@ -15,10 +15,15 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/testutil"
 )
+
+func testGuard() *settingguard.Guard {
+	return &settingguard.Guard{}
+}
 
 func TestSettingResponseSubject(t *testing.T) {
 	assert.Equal(
@@ -525,6 +530,7 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 		nil,
 		portsCatalog,
 		nil,
+		testGuard(),
 	)
 
 	router.RegisterSetter(setter)
@@ -730,5 +736,44 @@ func TestHandler_ReceivesSettingCommand_EndToEnd(
 		t,
 		"Source1",
 		instrumentName,
+	)
+}
+
+func TestHandler_SettingsLocked(
+	t *testing.T,
+) {
+	guard := testGuard()
+
+	guard.LockWrites()
+	defer guard.UnlockWrites()
+
+	router := settingrouter.NewRouter(
+		nil,
+		&config.ConnectedPorts{},
+		nil,
+		guard,
+	)
+
+	router.RegisterSetter(
+		&recordingSetter{},
+	)
+
+	req := falconcore.SettingRequest{
+		Setters: map[falconcore.InstrumentPort]falconcore.Quantity{
+			{}: {
+				Value: 1,
+				Unit:  falconcore.Volt,
+			},
+		},
+	}
+
+	_, err := router.Handle(req)
+
+	require.Error(t, err)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"writes are currently locked",
 	)
 }

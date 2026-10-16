@@ -14,6 +14,8 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
+
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 )
 
 // TODO: ensure full coverage tests
@@ -57,6 +59,7 @@ func newTestHandler(
 		logger:      logger,
 		busyManager: busy,
 		router:      router,
+		writeGuard:  &settingguard.Guard{},
 	}
 }
 
@@ -175,6 +178,7 @@ func TestNewMeasureCommandHandler_NilMetadata(
 		&mockBusyManager{},
 		&mockRouter{},
 		nil,
+		&settingguard.Guard{},
 	)
 
 	require.NotNil(t, handler)
@@ -235,6 +239,7 @@ func TestSubscribeAndUnsubscribe(
 		&mockBusyManager{},
 		&mockRouter{},
 		nil,
+		&settingguard.Guard{},
 	)
 
 	require.NoError(
@@ -369,4 +374,74 @@ func TestHandleMessage_BusyStateResetOnParseFailure(
 
 	assert.True(t, busy.calls[0])
 	assert.False(t, busy.calls[1])
+}
+
+func TestHandleMessage_ReleasesWriteLockOnSuccess(
+	t *testing.T,
+) {
+	guard := &settingguard.Guard{}
+
+	router := &mockRouter{
+		resp: interpreter.MeasurementResponse{},
+	}
+
+	handler := &Handler{
+		logger:      testLogger(t),
+		busyManager: &mockBusyManager{},
+		router:      router,
+		writeGuard:  guard,
+	}
+
+	cmd := api.MeasureCommand{
+		Request: "{}",
+	}
+
+	data, err := json.Marshal(cmd)
+	require.NoError(t, err)
+
+	handler.handleMessage(
+		&nats.Msg{
+			Data: data,
+		},
+	)
+
+	assert.False(
+		t,
+		guard.WritesLocked(),
+	)
+}
+
+func TestHandleMessage_ReleasesWriteLockOnFailure(
+	t *testing.T,
+) {
+	guard := &settingguard.Guard{}
+
+	router := &mockRouter{
+		err: errors.New("boom"),
+	}
+
+	handler := &Handler{
+		logger:      testLogger(t),
+		busyManager: &mockBusyManager{},
+		router:      router,
+		writeGuard:  guard,
+	}
+
+	cmd := api.MeasureCommand{
+		Request: "{}",
+	}
+
+	data, err := json.Marshal(cmd)
+	require.NoError(t, err)
+
+	handler.handleMessage(
+		&nats.Msg{
+			Data: data,
+		},
+	)
+
+	assert.False(
+		t,
+		guard.WritesLocked(),
+	)
 }

@@ -8,6 +8,7 @@ import (
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	setting "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/setting"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
 	"github.com/nats-io/nats.go"
@@ -58,12 +59,17 @@ func NewManager(
 		),
 		statusHandler: NewStatusHandler(logger),
 	}
+	// NOTE: This settingguard is used to block writes when measurements are occuring.
+	// This is to allow measurements to query settings without fear of overwriting
+	// If falcon became multi process this would need to change
+	guard := settingguard.Guard{}
 	manager.measureCommandHandler = measure.NewMeasureCommandHandler(
 		logger,
 		manager,
 		measurementScriptsPath,
 		dispatcher,
 		ports,
+		&guard,
 	)
 	manager.settingCommandHandler = setting.NewSettingCommandHandler(
 		logger,
@@ -72,6 +78,7 @@ func NewManager(
 		dispatcher,
 		ports,
 		instrumentMetadata,
+		&guard,
 	)
 
 	return manager

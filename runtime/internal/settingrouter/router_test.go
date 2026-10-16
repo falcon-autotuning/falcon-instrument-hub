@@ -123,6 +123,14 @@ func TestRouter_RegisterGetter(
 	assert.Same(t, handler, r.getters[0])
 }
 
+type mockWriteGuard struct {
+	locked bool
+}
+
+func (m *mockWriteGuard) WritesLocked() bool {
+	return m.locked
+}
+
 func TestNewRouter(
 	t *testing.T,
 ) {
@@ -132,16 +140,20 @@ func TestNewRouter(
 		"dmm": {},
 	}
 
+	guard := &mockWriteGuard{}
+
 	r := NewRouter(
 		nil,
 		ports,
 		meta,
+		guard,
 	)
 
 	require.NotNil(t, r)
 
 	assert.Same(t, ports, r.ports)
 	assert.Equal(t, meta, r.instrumentMetadata)
+	assert.Same(t, guard, r.guard)
 }
 
 func TestRouter_Set_FirstMatchingHandlerWins(
@@ -511,5 +523,109 @@ func TestRouter_Get_PassesScriptDir(
 		t,
 		"/custom/scripts",
 		handler.lastScriptDir,
+	)
+}
+
+func TestRouter_Handle_WritesLocked(
+	t *testing.T,
+) {
+	setter := &mockSetterHandler{
+		canSetResult: true,
+	}
+
+	port := falconcore.InstrumentPort{
+		DefaultName: "P1",
+	}
+
+	r := &Router{
+		guard: &mockWriteGuard{
+			locked: true,
+		},
+		setters: []SetterHandler{
+			setter,
+		},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
+	}
+
+	_, err := r.Handle(
+		falconcore.SettingRequest{
+			Setters: map[falconcore.InstrumentPort]falconcore.Quantity{
+				port: {
+					Value: 1,
+					Unit:  falconcore.Volt,
+				},
+			},
+		},
+	)
+
+	require.Error(t, err)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		"currently locked",
+	)
+
+	assert.Equal(
+		t,
+		0,
+		setter.setCalls,
+	)
+}
+
+func TestRouter_Handle_GettersAllowedWhenLocked(
+	t *testing.T,
+) {
+	port := falconcore.InstrumentPort{
+		DefaultName: "P1",
+	}
+
+	getter := &mockGetterHandler{
+		canGetResult: true,
+		getResult: falconcore.Quantity{
+			Value: 123,
+			Unit:  falconcore.Volt,
+		},
+	}
+
+	r := &Router{
+		guard: &mockWriteGuard{
+			locked: true,
+		},
+		getters: []GetterHandler{
+			getter,
+		},
+		ports: &config.ConnectedPorts{},
+		dispatcher: dispatcher.NewMeasurementDispatcher(
+			nil,
+			nil,
+			"/tmp/scripts",
+		),
+	}
+
+	resp, err := r.Handle(
+		falconcore.SettingRequest{
+			Getters: falconcore.Ports{
+				port,
+			},
+		},
+	)
+
+	require.NoError(t, err)
+
+	assert.Equal(
+		t,
+		1,
+		getter.getCalls,
+	)
+
+	assert.Equal(
+		t,
+		123.0,
+		resp.Getters[port].Value,
 	)
 }

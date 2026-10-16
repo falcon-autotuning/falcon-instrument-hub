@@ -14,6 +14,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -78,6 +79,7 @@ type Handler struct {
 	busyManager  BusyManager
 	ports        *config.ConnectedPorts
 	router       MeasurementRouter
+	writeGuard   *settingguard.Guard
 }
 
 func newMeasureCommandHandler(
@@ -85,12 +87,14 @@ func newMeasureCommandHandler(
 	busyManager BusyManager,
 	router MeasurementRouter,
 	ports *config.ConnectedPorts,
+	writeGuard *settingguard.Guard,
 ) *Handler {
 	return &Handler{
 		logger:      logger,
 		busyManager: busyManager,
 		ports:       ports,
 		router:      router,
+		writeGuard:  writeGuard,
 	}
 }
 
@@ -101,6 +105,7 @@ func NewMeasureCommandHandler(
 	scriptsPath string,
 	issClient MeasurementClient,
 	ports *config.ConnectedPorts,
+	writeGuard *settingguard.Guard,
 ) *Handler {
 	bufferManager := databuffer.NewDataBufferManager(
 		issClient,
@@ -122,6 +127,7 @@ func NewMeasureCommandHandler(
 		busyManager,
 		router,
 		ports,
+		writeGuard,
 	)
 }
 
@@ -271,7 +277,8 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		)
 		return
 	}
-	// TODO: lockdown writes to settings
+	h.writeGuard.LockWrites()
+	defer h.writeGuard.UnlockWrites()
 	resp, err := h.router.Handle(
 		goReq,
 	)
@@ -285,7 +292,7 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		)
 		return
 	}
-	// TODO: unlock writes to settings
+	h.writeGuard.UnlockWrites()
 	falResp, err := resp.NewFalconMeasurementResponse()
 	if err != nil {
 

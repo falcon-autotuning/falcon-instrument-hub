@@ -30,6 +30,11 @@ type InstrumentMetadata struct {
 	API             *config.InstrumentAPI
 }
 
+// Allows disabling writes
+type WriteGuard interface {
+	WritesLocked() bool
+}
+
 // GetterHandler retrieves the current value of a single connected port.
 //
 // Getter handlers are responsible for:
@@ -124,6 +129,7 @@ type Router struct {
 
 	ports              *config.ConnectedPorts
 	instrumentMetadata map[InstrumentName]InstrumentMetadata
+	guard              WriteGuard
 }
 
 // RegisterSetter adds a setter handler to the router.
@@ -177,6 +183,7 @@ func NewRouter(
 	dispatcher *dispatcher.MeasurementDispatcher,
 	ports *config.ConnectedPorts,
 	instrumentMetadata map[InstrumentName]InstrumentMetadata,
+	guard WriteGuard,
 ) *Router {
 	scriptDir := ""
 
@@ -188,6 +195,7 @@ func NewRouter(
 		ports:              ports,
 		instrumentMetadata: instrumentMetadata,
 		scriptDir:          scriptDir,
+		guard:              guard,
 	}
 
 	return r
@@ -261,6 +269,12 @@ func (r *Router) get(
 func (r *Router) Handle(
 	req falconcore.SettingRequest,
 ) (falconcore.SettingResponse, error) {
+	if len(req.Setters) > 0 &&
+		r.guard != nil &&
+		r.guard.WritesLocked() {
+		return falconcore.SettingResponse{},
+			fmt.Errorf("settings writes are currently locked")
+	}
 	for port, value := range req.Setters {
 		if err := r.set(port, value, r.ports); err != nil {
 			return falconcore.SettingResponse{}, err

@@ -15,6 +15,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
@@ -105,6 +106,7 @@ func NewSettingCommandHandler(
 	issClient SettingClient,
 	ports *config.ConnectedPorts,
 	instrumentMetadata map[settingrouter.InstrumentName]settingrouter.InstrumentMetadata,
+	writeGuard *settingguard.Guard,
 ) *Handler {
 	bufferManager := databuffer.NewDataBufferManager(
 		issClient,
@@ -120,6 +122,7 @@ func NewSettingCommandHandler(
 		measurementDispatcher,
 		ports,
 		instrumentMetadata,
+		writeGuard,
 	)
 
 	router.
