@@ -66,13 +66,13 @@ func mergePrimitiveMeasurementOutputs(
 	total PrimitiveMeasurementOutput,
 	newData PrimitiveMeasurementOutput,
 ) PrimitiveMeasurementOutput {
-	if total.Setters == nil {
-		total.Setters = make(map[Target]RawData)
+	if total.Getters == nil {
+		total.Getters = make(map[Target]RawData)
 	}
 
-	for key, value := range newData.Setters {
-		total.Setters[key] = append(
-			total.Setters[key],
+	for key, value := range newData.Getters {
+		total.Getters[key] = append(
+			total.Getters[key],
 			value...,
 		)
 	}

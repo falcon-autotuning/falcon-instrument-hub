@@ -71,7 +71,7 @@ func TestNativePlan_Execute(t *testing.T) {
 	}
 
 	expected := PrimitiveMeasurementOutput{
-		Setters: map[Target]RawData{
+		Getters: map[Target]RawData{
 			targetA(): {1, 2, 3},
 		},
 	}
@@ -180,14 +180,14 @@ func TestMergePrimitiveMeasurementOutputs_Empty(t *testing.T) {
 		PrimitiveMeasurementOutput{},
 	)
 
-	assert.Empty(t, out.Setters)
+	assert.Empty(t, out.Getters)
 }
 
 func TestMergePrimitiveMeasurementOutputs_NewKey(t *testing.T) {
 	total := PrimitiveMeasurementOutput{}
 
 	update := PrimitiveMeasurementOutput{
-		Setters: map[Target]RawData{
+		Getters: map[Target]RawData{
 			targetA(): {1, 2, 3},
 		},
 	}
@@ -200,19 +200,19 @@ func TestMergePrimitiveMeasurementOutputs_NewKey(t *testing.T) {
 	assert.Equal(
 		t,
 		RawData{1, 2, 3},
-		out.Setters[targetA()],
+		out.Getters[targetA()],
 	)
 }
 
 func TestMergePrimitiveMeasurementOutputs_Appends(t *testing.T) {
 	total := PrimitiveMeasurementOutput{
-		Setters: map[Target]RawData{
+		Getters: map[Target]RawData{
 			targetA(): {1, 2},
 		},
 	}
 
 	update := PrimitiveMeasurementOutput{
-		Setters: map[Target]RawData{
+		Getters: map[Target]RawData{
 			targetA(): {3, 4},
 		},
 	}
@@ -225,7 +225,7 @@ func TestMergePrimitiveMeasurementOutputs_Appends(t *testing.T) {
 	assert.Equal(
 		t,
 		RawData{1, 2, 3, 4},
-		out.Setters[targetA()],
+		out.Getters[targetA()],
 	)
 }
 
@@ -553,7 +553,7 @@ func TestNestedPlan_Execute(
 
 	exec := &mockExecutor{
 		output: PrimitiveMeasurementOutput{
-			Setters: map[Target]RawData{
+			Getters: map[Target]RawData{
 				targetA(): {1},
 			},
 		},
@@ -566,7 +566,7 @@ func TestNestedPlan_Execute(
 	assert.Equal(
 		t,
 		RawData{1, 1},
-		out.Setters[targetA()],
+		out.Getters[targetA()],
 	)
 }
 
