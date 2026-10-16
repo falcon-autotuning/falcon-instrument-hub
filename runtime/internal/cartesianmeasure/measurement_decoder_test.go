@@ -1,6 +1,6 @@
 //go:build cgo
 
-package measurementdecode
+package cartesianmeasure
 
 import (
 	"fmt"

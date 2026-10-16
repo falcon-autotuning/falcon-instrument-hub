@@ -7,7 +7,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdecode"
 )
 
 type (
@@ -52,7 +51,7 @@ type PrimitiveEncoder func(
 ) ([]instrumentserver.MeasureVariable, error)
 
 type PrimitiveDecoder func(
-	consumer measurementdecode.BufferConsumer,
+	consumer BufferConsumer,
 	result DispatchResult,
 	input PrimitiveMeasurementInput,
 	numberOfPoints int,
@@ -207,7 +206,7 @@ func (r *measurementRegistry) Run(
 		return PrimitiveMeasurementOutput{}, result.Err
 	}
 
-	consumer, _ := r.dispatcher.(measurementdecode.BufferConsumer)
+	consumer, _ := r.dispatcher.(BufferConsumer)
 	output, err := measurement.decoder(consumer, result, input, points)
 	if err != nil {
 		return PrimitiveMeasurementOutput{}, fmt.Errorf(

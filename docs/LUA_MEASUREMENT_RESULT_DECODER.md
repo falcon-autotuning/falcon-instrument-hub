@@ -8,7 +8,7 @@ shared-memory `DataBuffer`. The measurement handlers currently contain their
 own code for finding those returns, consuming buffers, checking units, and
 constructing arrays.
 
-The decoder in `runtime/internal/measurementdecode` provides one small layer
+The decoder in `runtime/internal/cartesianmeasure` provides one small layer
 for those shared operations. It does not parse Falcon requests, decide which
 Lua script to run, update instrument state, or construct the final Falcon
 response. Those remain handler responsibilities.
@@ -63,7 +63,7 @@ yet consumed when an error occurs are also released.
 A fixed set/get measurement taking one sample per getter declares:
 
 ```go
-measurementdecode.SeriesSpec{
+cartesianmeasure.SeriesSpec{
     Target:     getterTarget,
     Verb:       "GET_DATAPOINT",
     ReturnName: "voltage",

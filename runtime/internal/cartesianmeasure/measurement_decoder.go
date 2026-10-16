@@ -1,8 +1,6 @@
 //go:build cgo
 
-// Package measurementdecode turns ISS instrument-call returns into logical
-// numeric measurement arrays.
-package measurementdecode
+package cartesianmeasure
 
 import (
 	"fmt"
@@ -11,7 +9,6 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
 )
 
 // BufferConsumer reads and releases a DataBuffer owned by one measurement.
@@ -22,7 +19,6 @@ type BufferConsumer interface {
 		bufferID string,
 	) ([]float64, error)
 }
-type Target instrumenttarget.Target
 
 // SeriesSpec describes how to find and shape one getter's results.
 //

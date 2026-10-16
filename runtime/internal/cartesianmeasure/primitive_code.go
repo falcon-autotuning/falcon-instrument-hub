@@ -7,7 +7,6 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumenttarget"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdecode"
 )
 
 func variable(name string, value any) instrumentserver.MeasureVariable {
@@ -283,7 +282,7 @@ func encode2DBuffered(
 // decodePrimitive expects contiguous samples per waveform position. The ISS
 // script must emit positions in the same axis order as the planner's shape.
 func decodePrimitive(
-	consumer measurementdecode.BufferConsumer,
+	consumer BufferConsumer,
 	result DispatchResult,
 	input PrimitiveMeasurementInput,
 	points int,
@@ -299,7 +298,7 @@ func decodePrimitive(
 	}
 	shape := append(counts, points)
 	specs := make(
-		[]measurementdecode.TargetSeriesSpec,
+		[]TargetSeriesSpec,
 		0,
 		len(input.Getters),
 	)
@@ -316,14 +315,14 @@ func decodePrimitive(
 				getter,
 			)
 		}
-		specs = append(specs, measurementdecode.TargetSeriesSpec{
-			Target:      measurementdecode.Target(getter),
+		specs = append(specs, TargetSeriesSpec{
+			Target:      getter,
 			Unit:        unit,
 			Shape:       shape,
 			BuffersOnly: input.Choice != Dim0,
 		})
 	}
-	series, err := measurementdecode.DecodeTargets(consumer, result, specs)
+	series, err := DecodeTargets(consumer, result, specs)
 	if err != nil {
 		return PrimitiveMeasurementOutput{}, err
 	}

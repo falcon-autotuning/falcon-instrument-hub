@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdecode"
 )
 
 type registryTestRunner struct {
@@ -73,7 +72,7 @@ func TestMeasurementRegistryRunsSelectedPrimitive(t *testing.T) {
 				}, nil
 			},
 			decoder: func(
-				consumer measurementdecode.BufferConsumer,
+				consumer BufferConsumer,
 				result DispatchResult,
 				input PrimitiveMeasurementInput,
 				points int,
