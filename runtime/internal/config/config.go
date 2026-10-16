@@ -530,6 +530,13 @@ type RuntimePaths struct {
 	DataCache string
 }
 
+type NatsConfig struct {
+	// The host address for the nats server. Default is localhost
+	Host string `yaml:"host" json:"host"`
+	// The port for the nats server. Default is whatever is available
+	Port int `yaml:"port" json:"port"`
+}
+
 type HubConfig struct {
 	// Logical to physical connection mappings
 	Wiremap []WiremapEntry `yaml:"wiremap" json:"wiremap"`
@@ -538,7 +545,7 @@ type HubConfig struct {
 	// Initial Voltage state to allow for connecting to running devices without shocking. defaults to 0V
 	InitialDeviceVoltageState VoltageStates `yaml:"initial-voltage-state" json:"initial-voltage-state"`
 	// NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222
-	NATSURL string `yaml:"nats-url" json:"nats-url"`
+	Nats NatsConfig `yaml:"nats" json:"nats"`
 	// Database configuration information
 	Database DatabaseConfig `yaml:"database" json:"database"`
 	// Global Path for location of all logging to be deposited

@@ -19,7 +19,7 @@ import (
 )
 
 type DependencySpy struct {
-	natsURL string
+	natsConfig config.NatsConfig
 
 	measurementBaseDir string
 	measurementDBPath  string
@@ -77,7 +77,7 @@ func TestRuntime_PassesCorrectMeasurementPaths(t *testing.T) {
 	}
 
 	deps := RuntimeDependencies{
-		newNATSManager: func(url string) (NATSManager, error) {
+		newNATSManager: func(conf *config.NatsConfig) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},
 
@@ -118,7 +118,10 @@ func TestRuntime_PassesCorrectNATSURL(t *testing.T) {
 	spy := &DependencySpy{}
 
 	cfg := &config.HubConfig{
-		NATSURL: "nats://localhost:4222",
+		Nats: config.NatsConfig{
+			Host: "127.0.0.1",
+			Port: 4222,
+		},
 
 		InstrumentServer: config.InstrumentServerConfig{
 			AutoStart: true,
@@ -127,9 +130,9 @@ func TestRuntime_PassesCorrectNATSURL(t *testing.T) {
 
 	deps := RuntimeDependencies{
 		newNATSManager: func(
-			url string,
+			conf *config.NatsConfig,
 		) (NATSManager, error) {
-			spy.natsURL = url
+			spy.natsConfig = *conf
 
 			return nil, fmt.Errorf("stop here")
 		},
@@ -139,8 +142,8 @@ func TestRuntime_PassesCorrectNATSURL(t *testing.T) {
 
 	assert.Equal(
 		t,
-		"nats://localhost:4222",
-		spy.natsURL,
+		"127.0.0.1",
+		spy.natsConfig.Host,
 	)
 }
 
@@ -159,7 +162,7 @@ func TestRuntime_PassesCorrectLoggerPath(t *testing.T) {
 
 	deps := RuntimeDependencies{
 		newNATSManager: func(
-			string,
+			*config.NatsConfig,
 		) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},
@@ -346,7 +349,10 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 	handler := &FakeHandlerManager{}
 
 	cfg := &config.HubConfig{
-		NATSURL: "nats://localhost:4222",
+		Nats: config.NatsConfig{
+			Host: "127.0.0.1",
+			Port: 4222,
+		},
 
 		Database: config.DatabaseConfig{
 			LocalDatabase: t.TempDir(),
@@ -365,7 +371,7 @@ func TestNewRuntime_HappyPath(t *testing.T) {
 
 	deps := RuntimeDependencies{
 		newNATSManager: func(
-			url string,
+			conf *config.NatsConfig,
 		) (NATSManager, error) {
 			tracker = append(tracker, "nats")
 			return &FakeNATSManager{}, nil
@@ -464,7 +470,7 @@ func TestNewRuntime_AttachedDaemon_StartsMissingInstrument(
 		},
 
 		newNATSManager: func(
-			string,
+			*config.NatsConfig,
 		) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},
@@ -560,7 +566,7 @@ func TestNewRuntime_AttachedDaemon_DoesNotRestartRunningInstrument(
 		},
 
 		newNATSManager: func(
-			string,
+			*config.NatsConfig,
 		) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},

@@ -432,7 +432,7 @@ func TestNewRuntime_NATSFailure(t *testing.T) {
 	}
 
 	deps := RuntimeDependencies{
-		newNATSManager: func(string) (NATSManager, error) {
+		newNATSManager: func(conf *config.NatsConfig) (NATSManager, error) {
 			return nil, fmt.Errorf("broken nats")
 		},
 	}
@@ -455,7 +455,7 @@ func TestNewRuntime_LoggerFailure(t *testing.T) {
 	}
 
 	deps := RuntimeDependencies{
-		newNATSManager: func(string) (NATSManager, error) {
+		newNATSManager: func(conf *config.NatsConfig) (NATSManager, error) {
 			return &FakeNATSManager{}, nil
 		},
 		newLogger: func(

@@ -752,7 +752,8 @@ wiremap:
       channel_group: analog
       index: 1
 quantum-dot-config: %s
-nats-url: %s
+nats: 
+  host: %s
 database:
   local-database: %s
   owner: %s 
@@ -818,7 +819,7 @@ instrument-server:
 		entry.Instrument.Channel,
 	)
 	assert.Equal(t, quantumDotConfig, cfg.QuantumDotConfig)
-	assert.Equal(t, natsURL, cfg.NATSURL)
+	assert.Equal(t, natsURL, cfg.Nats.Host)
 	assert.Equal(
 		t,
 		localDatabase,

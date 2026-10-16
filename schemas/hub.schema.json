@@ -55,8 +55,8 @@
           "$ref": "#/$defs/VoltageStates",
           "description": "Initial Voltage state to allow for connecting to running devices without shocking. defaults to 0V"
         },
-        "nats-url": {
-          "type": "string",
+        "nats": {
+          "$ref": "#/$defs/NatsConfig",
           "description": "NATSURL for establishing communications i.e. nats://derek:pass@localhost:4222"
         },
         "database": {
@@ -82,7 +82,7 @@
         "wiremap",
         "quantum-dot-config",
         "initial-voltage-state",
-        "nats-url",
+        "nats",
         "database",
         "working-directory",
         "user-measurement-luas",
@@ -158,6 +158,24 @@
         "rpc-port",
         "autostart",
         "instruments"
+      ]
+    },
+    "NatsConfig": {
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "The host address for the nats server. Default is localhost"
+        },
+        "port": {
+          "type": "integer",
+          "description": "The port for the nats server. Default is whatever is available"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object",
+      "required": [
+        "host",
+        "port"
       ]
     },
     "VoltageState": {

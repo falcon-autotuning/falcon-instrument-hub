@@ -332,7 +332,7 @@ func (deps RuntimeDependencies) NewRuntime(
 		}
 	}
 
-	natsManager, err := deps.newNATSManager(cfg.NATSURL)
+	natsManager, err := deps.newNATSManager(&cfg.Nats)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup nats: %w", err)
 	}

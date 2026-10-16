@@ -100,7 +100,7 @@ type RuntimeDependencies struct {
 	) HandlerManager
 
 	newNATSManager func(
-		url string,
+		conf *config.NatsConfig,
 	) (NATSManager, error)
 
 	newLogger func(
@@ -146,9 +146,9 @@ var ProductionDependancies = RuntimeDependencies{
 		)
 	},
 	newNATSManager: func(
-		url string,
+		conf *config.NatsConfig,
 	) (NATSManager, error) {
-		return networking.NewNATSManager(url)
+		return networking.NewNATSManager(conf)
 	},
 	newLogger: func(
 		outputPath string,

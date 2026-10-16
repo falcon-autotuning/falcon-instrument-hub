@@ -64,7 +64,10 @@ func NewManager(
 	}
 	// NOTE: This settingguard is used to block writes when measurements are occuring.
 	// This is to allow measurements to query settings without fear of overwriting
-	// If falcon became multi process this would need to change
+	// If falcon became multi process this would need to change.
+	// A multiprocess falcon would need to safeguard any nearby gates that could affect the measurement.
+	// This would update the measurementRequest to not assume all unmentioned gates are fixed.
+	// You would need to mutex lock gates, and extend this settingguard to operate on the individual gate basis
 	guard := settingguard.Guard{}
 	bufferManager := databuffer.NewDataBufferManager(
 		dispatcher,

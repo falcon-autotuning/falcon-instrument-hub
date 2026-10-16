@@ -3,9 +3,11 @@ package networking
 import (
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"time"
 
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/nats-io/nats.go"
 )
@@ -18,27 +20,23 @@ type NATSManager struct {
 }
 
 // NewNATSManager creates a new NATS manager
-func NewNATSManager(natsURL string) (*NATSManager, error) {
+func NewNATSManager(conf *config.NatsConfig) (*NATSManager, error) {
 	var conn *nats.Conn
 	var natsServer *server.Server
 	var finalNatsURL string
 	var err error
+	if conf.Host == "" {
+		conf.Host = "127.0.0.1"
+	}
+	if conf.Port == 0 {
+		conf.Port = findAvailablePort()
+	}
 
-	if natsURL != "" {
-		// Connect to external NATS server
-		log.Printf("Connecting to external NATS server: %s", natsURL)
-		conn, err = nats.Connect(natsURL)
-		if err != nil {
-			return nil, fmt.Errorf("failed to connect to NATS server: %w", err)
-		}
-		finalNatsURL = natsURL
-	} else {
-		// Start embedded NATS server
-		log.Printf("Starting embedded NATS server...")
-		natsServer, conn, finalNatsURL, err = startEmbeddedNATS()
-		if err != nil {
-			return nil, fmt.Errorf("failed to start embedded NATS server: %w", err)
-		}
+	// Start embedded NATS server
+	log.Printf("Starting embedded NATS server...")
+	natsServer, conn, finalNatsURL, err = startEmbeddedNATS(conf.Host, conf.Port)
+	if err != nil {
+		return nil, fmt.Errorf("failed to start embedded NATS server: %w", err)
 	}
 
 	return &NATSManager{
@@ -76,16 +74,17 @@ func (nm *NATSManager) Close() {
 }
 
 // startEmbeddedNATS starts an embedded NATS server
-func startEmbeddedNATS() (*server.Server, *nats.Conn, string, error) {
-	// Find an available port
-	port := findAvailablePort()
-
+func startEmbeddedNATS(host string, port int) (*server.Server, *nats.Conn, string, error) {
+	storeDir, err := os.MkdirTemp("", "nats-*")
+	if err != nil {
+		return nil, nil, "", err
+	}
 	// Configure embedded NATS server with JetStream enabled
 	opts := &server.Options{
-		Host:      "127.0.0.1",
+		Host:      host,
 		Port:      port,
 		JetStream: true,
-		StoreDir:  os.TempDir(),
+		StoreDir:  storeDir,
 	}
 
 	// Start the server
@@ -103,14 +102,14 @@ func startEmbeddedNATS() (*server.Server, *nats.Conn, string, error) {
 	}
 
 	// Connect to the embedded server
-	natsURL := fmt.Sprintf("nats://127.0.0.1:%d", port)
+	natsURL := fmt.Sprintf("nats://%s:%d", host, port)
 	natsConn, err := nats.Connect(natsURL)
 	if err != nil {
 		natsServer.Shutdown()
 		return nil, nil, "", fmt.Errorf("failed to connect to embedded NATS server: %w", err)
 	}
 
-	log.Printf("Embedded NATS server started on port %d", port)
+	log.Printf("Embedded NATS server started at host:%s on port:%d", host, port)
 	return natsServer, natsConn, natsURL, nil
 }
 
@@ -134,17 +133,15 @@ func findAvailablePort() int {
 
 // isPortAvailable checks if a port is available
 func isPortAvailable(port int) bool {
-	// Simple check - try to create a test server
-	opts := &server.Options{
-		Host: "127.0.0.1",
-		Port: port,
-	}
-	testServer, err := server.NewServer(opts)
+	ln, err := net.Listen(
+		"tcp",
+		fmt.Sprintf("127.0.0.1:%d", port),
+	)
 	if err != nil {
 		return false
 	}
-	defer testServer.Shutdown()
 
-	// If we can create it, the port is likely available
+	_ = ln.Close()
+
 	return true
 }
