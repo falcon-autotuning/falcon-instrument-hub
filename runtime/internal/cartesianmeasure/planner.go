@@ -388,13 +388,6 @@ func BuildPlan(
 	ports *config.ConnectedPorts,
 	dimensions []Dimensionality,
 ) (Plan, error) {
-	if len(req.Waveforms) == 0 {
-		return nil, fmt.Errorf(
-			"measurement request contains no waveforms",
-		)
-	}
-	req.Waveforms[0].Space.Space.Compile() // Necesary to compile the waveform once
-
 	return buildPlan(
 		req,
 		ports,
