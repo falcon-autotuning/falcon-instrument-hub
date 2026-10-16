@@ -23,7 +23,7 @@ local multimeter = require("multimeter")
 ---@param sampleRate integer Positive sampling rate in Hz for every getter.
 ---@param setVoltages number[] Source voltages in V, one per setter.
 ---@param setters InstrumentTarget[] Source channels to set, in voltage-array order.
-local function Measure_Set_Get(
+local function Measure_Get_Set(
    ctx,
    getters,
    numPoints,
@@ -71,4 +71,4 @@ local function Measure_Set_Get(
    -- No Lua result table is required. The handler must extract each stream from
    -- the recorded calls, consume its buffer, and construct the Falcon response.
 end
-return { main = Measure_Set_Get }
+return { main = Measure_Get_Set }
