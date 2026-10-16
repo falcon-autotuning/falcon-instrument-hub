@@ -63,7 +63,6 @@ func NewManager(
 		manager,
 		measurementScriptsPath,
 		dispatcher,
-		wiremap,
 		ports,
 	)
 	manager.settingCommandHandler = setting.NewSettingCommandHandler(

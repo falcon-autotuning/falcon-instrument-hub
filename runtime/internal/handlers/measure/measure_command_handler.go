@@ -8,10 +8,12 @@ import (
 
 	"github.com/nats-io/nats.go"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/communications/messages/measurementrequest"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/instrumentserver"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
@@ -38,80 +40,21 @@ func measurementResponseSubject(timestamp int64) string {
 	return MeasureResponseSubject + "." + strconv.FormatInt(timestamp, 10)
 }
 
-// Allows us to inject mocks instead of real FalconRequest
-type FalconRequest interface {
-	Close() error
-}
-
-var _ FalconRequest = (*interpreter.FalconMeasurementRequest)(nil)
-
-// Allows us to inject mocks instead of real FalconResponse
-type FalconResponse interface {
-	ToJSON() (string, error)
-	Close() error
-}
-
-var _ FalconResponse = (*interpreter.FalconMeasurementResponse)(nil)
-
-type FalconRequestFactory interface {
-	FromJSON(string) (FalconRequest, error)
-}
-
-type falconRequestFactory struct{}
-
-func (falconRequestFactory) FromJSON(
-	jsonStr string,
-) (FalconRequest, error) {
-	return interpreter.NewFalconMeasurementRequestFromJSON(
-		jsonStr,
-	)
-}
-
-var _ FalconRequestFactory = (*falconRequestFactory)(nil)
-
 type MeasurementRouter interface {
 	Handle(
-		FalconRequest,
-	) (FalconResponse, error)
+		interpreter.MeasurementRequest,
+	) (interpreter.MeasurementResponse, error)
 }
 
-type routerAdapter struct {
-	router *interpreter.Router
-}
-
-func (r *routerAdapter) Handle(
-	req FalconRequest,
-) (FalconResponse, error) {
-	falconReq, ok := req.(*interpreter.FalconMeasurementRequest)
-	if !ok {
-		return nil,
-			fmt.Errorf(
-				"expected *FalconMeasurementRequest, got %T",
-				req,
-			)
+type (
+	MeasurementDispatcher = interpreter.MeasurementRunner
+	BufferRegistrar       interface {
+		RegisterBuffer(
+			requestorID string,
+			bufferID string,
+		) error
 	}
-
-	return r.router.Handle(
-		falconReq,
-	)
-}
-
-var _ MeasurementRouter = (*routerAdapter)(nil)
-
-type MeasurementDispatcher interface {
-	RunAll(
-		requests []dispatcher.MeasurementRequest,
-	) []dispatcher.MeasurementResult
-}
-
-var _ MeasurementDispatcher = (*dispatcher.MeasurementDispatcher)(nil)
-
-type BufferRegistrar interface {
-	RegisterBuffer(
-		requestorID string,
-		bufferID string,
-	) error
-}
+)
 
 var _ BufferRegistrar = (*databuffer.DataBufferManager)(nil)
 
@@ -128,32 +71,26 @@ type MeasurementClient interface {
 
 // Handler handles MEASURE_COMMAND requests
 type Handler struct {
-	logger         *logging.Logger
-	nc             *nats.Conn
-	js             nats.JetStreamContext
-	subscription   *nats.Subscription
-	busyManager    BusyManager
-	wiremap        config.WireMap
-	ports          *config.ConnectedPorts
-	router         MeasurementRouter
-	requestFactory FalconRequestFactory
+	logger       *logging.Logger
+	nc           *nats.Conn
+	js           nats.JetStreamContext
+	subscription *nats.Subscription
+	busyManager  BusyManager
+	ports        *config.ConnectedPorts
+	router       MeasurementRouter
 }
 
 func newMeasureCommandHandler(
 	logger *logging.Logger,
 	busyManager BusyManager,
 	router MeasurementRouter,
-	requestFactory FalconRequestFactory,
-	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 ) *Handler {
 	return &Handler{
-		logger:         logger,
-		busyManager:    busyManager,
-		wiremap:        wireMap,
-		ports:          ports,
-		router:         router,
-		requestFactory: requestFactory,
+		logger:      logger,
+		busyManager: busyManager,
+		ports:       ports,
+		router:      router,
 	}
 }
 
@@ -163,7 +100,6 @@ func NewMeasureCommandHandler(
 	busyManager BusyManager,
 	scriptsPath string,
 	issClient MeasurementClient,
-	wireMap config.WireMap,
 	ports *config.ConnectedPorts,
 ) *Handler {
 	bufferManager := databuffer.NewDataBufferManager(
@@ -176,20 +112,15 @@ func NewMeasureCommandHandler(
 		scriptsPath,
 	)
 	// TODO: Make the router adaptively load scripts depending on what is supplied
-	router := &routerAdapter{
-		router: interpreter.NewRouter(
-			dispatcher,
-			wireMap,
-			ports,
-		),
-	}
+	router := interpreter.NewRouter(
+		dispatcher,
+		ports,
+	)
 
 	return newMeasureCommandHandler(
 		logger,
 		busyManager,
 		router,
-		falconRequestFactory{},
-		wireMap,
 		ports,
 	)
 }
@@ -316,7 +247,7 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 	h.busyManager.SetIsBusy(true)
 	defer h.busyManager.SetIsBusy(false)
 
-	falconReq, err := h.requestFactory.FromJSON(
+	req, err := measurementrequest.FromJSON(
 		cmd.Request,
 	)
 	if err != nil {
@@ -329,10 +260,20 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		)
 		return
 	}
-	defer falconReq.Close()
-
-	falconResp, err := h.router.Handle(
-		falconReq,
+	goReq, err := falconcore.MeasurementRequestFromFalcon(req)
+	if err != nil {
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			fmt.Sprintf(
+				"failed to convert measurement request to go type: %v",
+				err,
+			),
+		)
+		return
+	}
+	// TODO: lockdown writes to settings
+	resp, err := h.router.Handle(
+		goReq,
 	)
 	if err != nil {
 		h.logger.Error(
@@ -344,9 +285,20 @@ func (h *Handler) handleMessage(msg *nats.Msg) {
 		)
 		return
 	}
-	defer falconResp.Close()
+	// TODO: unlock writes to settings
+	falResp, err := resp.NewFalconMeasurementResponse()
+	if err != nil {
 
-	respJSON, err := falconResp.ToJSON()
+		h.logger.Error(
+			MeasureCommandHandlerName,
+			fmt.Sprintf(
+				"failed to convert measurement response to C type: %v",
+				err,
+			),
+		)
+		return
+	}
+	respJSON, err := falResp.ToJSON()
 	if err != nil {
 		h.logger.Error(
 			MeasureCommandHandlerName,

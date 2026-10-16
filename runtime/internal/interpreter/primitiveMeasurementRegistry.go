@@ -23,10 +23,9 @@ type (
 		Num   *int     // nil means "not provided"
 	}
 	PrimitiveMeasurementInput struct {
-		Setters   map[Target]Input
-		Getters   []Target
-		NumPoints int64
-		Choice    Dimensionality
+		Setters map[Target]Input
+		Getters []Target
+		Choice  Dimensionality
 	}
 	PrimitiveMeasurementOutput struct {
 		Setters map[Target]RawData
@@ -47,10 +46,12 @@ type PrimitiveMeasurement struct {
 	decoder PrimitiveDecoder
 }
 
-type internalRegistry map[Dimensionality]PrimitiveMeasurement
+type Executor interface {
+	Run(
+		input PrimitiveMeasurementInput,
+		// numberOfPoints gets allocated if needed and cached from a setting read request
+		numberOfPoints *int,
+	) (PrimitiveMeasurementOutput, error)
+}
 
-func AddDimensionality(measurement PrimitiveMeasurement) error
-
-func AvailableDimensions() ([]Dimensionality, error)
-
-func Run(input PrimitiveMeasurementInput) (PrimitiveMeasurementOutput, error)
+func BuildMeasurementRegistry(dims []Dimensionality, dispatcher MeasurementRunner) (Executor, error)

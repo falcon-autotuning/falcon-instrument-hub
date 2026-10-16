@@ -78,6 +78,24 @@ func (t *trackedStateUpdater) UpdatePort(
 
 var _ StateUpdater = (*trackedStateUpdater)(nil)
 
+type (
+	DispatchRequest = dispatcher.MeasurementRequest
+	DispatchResult  = dispatcher.MeasurementResult
+)
+
+type MeasurementRunner interface {
+	RunAll(
+		[]DispatchRequest,
+	) []DispatchResult
+}
+
+var _ MeasurementRunner = (*dispatcher.MeasurementDispatcher)(nil)
+
+type (
+	MeasurementRequest  = falconcore.MeasurementRequest
+	MeasurementResponse = falconcore.MeasurementResponse
+)
+
 // MeasurementHandler represents a single measurement workflow.
 //
 // A handler is responsible for:
@@ -101,18 +119,19 @@ type MeasurementHandler interface {
 
 	// CanHandle determines whether this handler can process the request.
 	CanHandle(
-		req *FalconMeasurementRequest,
+		req MeasurementRequest,
+		ports *config.ConnectedPorts,
+		scriptDir string,
 	) (bool, error)
 
 	// Handle executes the measurement workflow.
 	Handle(
-		req *FalconMeasurementRequest,
-		dispatcher *dispatcher.MeasurementDispatcher,
-		wiremap config.WireMap,
+		req MeasurementRequest,
+		dispatcher MeasurementRunner,
 		ports *config.ConnectedPorts,
 		tracker StateUpdater,
 		recorder MeasurementRecorder,
-	) (*FalconMeasurementResponse, error)
+	) (MeasurementResponse, error)
 }
 
 // Router dispatches Falcon measurement requests to the appropriate
@@ -126,12 +145,12 @@ type MeasurementHandler interface {
 //
 // Handlers are checked in registration order until one matches.
 type Router struct {
-	dispatcher *dispatcher.MeasurementDispatcher
+	dispatcher MeasurementRunner
 
 	handlers []MeasurementHandler
 
-	wiremap config.WireMap
-	ports   *config.ConnectedPorts
+	scriptDir string
+	ports     *config.ConnectedPorts
 }
 
 // NewRouter constructs a router using the supplied dispatcher.
@@ -156,23 +175,13 @@ type Router struct {
 //
 // and would be registered below.
 func NewRouter(
-	dispatcher *dispatcher.MeasurementDispatcher,
-	wiremap config.WireMap,
+	dispatcher MeasurementRunner,
 	ports *config.ConnectedPorts,
 ) *Router {
 	return &Router{
 		dispatcher: dispatcher,
-		wiremap:    wiremap,
 		ports:      ports,
-		handlers: []MeasurementHandler{
-			// The sweep handler declines fixed-voltage domains, which are
-			// handled by the DC set/get workflow below.
-			&measure1DBufferedHandler{},
-			&measureGetSetHandler{},
-			// The single-get buffer handler remains unregistered
-			// until its hardware sequence and request-selection
-			// rule are defined.
-		},
+		handlers:   []MeasurementHandler{},
 	}
 }
 
@@ -186,12 +195,12 @@ func NewRouter(
 //
 // Returns an error when no handler claims responsibility for the request.
 func (r *Router) Handle(
-	req *FalconMeasurementRequest,
-) (*FalconMeasurementResponse, error) {
+	req MeasurementRequest,
+) (MeasurementResponse, error) {
 	for _, handler := range r.handlers {
-		pass, err := handler.CanHandle(req)
+		pass, err := handler.CanHandle(req, r.ports, r.scriptDir)
 		if err != nil {
-			return nil, fmt.Errorf(
+			return MeasurementResponse{}, fmt.Errorf(
 				"error while evaluating handler %q: %w",
 				handler.Name(),
 				err,
@@ -204,12 +213,12 @@ func (r *Router) Handle(
 			}
 
 			if tracker.manager == nil {
-				return nil, fmt.Errorf(
+				return MeasurementResponse{}, fmt.Errorf(
 					"device state manager not initialized",
 				)
 			}
 			if _, err := measurementdb.Instance(); err != nil {
-				return nil, fmt.Errorf(
+				return MeasurementResponse{}, fmt.Errorf(
 					"measurement database not initialized: %w",
 					err,
 				)
@@ -220,23 +229,22 @@ func (r *Router) Handle(
 			resp, err := handler.Handle(
 				req,
 				r.dispatcher,
-				r.wiremap,
 				r.ports,
 				tracker,
 				recorder,
 			)
 			if err != nil {
-				return nil, err
+				return MeasurementResponse{}, err
 			}
 
 			if tracker.updates == 0 {
-				return nil, fmt.Errorf(
+				return MeasurementResponse{}, fmt.Errorf(
 					"handler %q completed without updating device state",
 					handler.Name(),
 				)
 			}
 			if recorder.Writes() == 0 {
-				return nil, fmt.Errorf(
+				return MeasurementResponse{}, fmt.Errorf(
 					"handler %q completed without writing measurement data",
 					handler.Name(),
 				)
@@ -245,7 +253,7 @@ func (r *Router) Handle(
 		}
 	}
 
-	return nil, fmt.Errorf(
+	return MeasurementResponse{}, fmt.Errorf(
 		"no measurement handler matched request",
 	)
 }

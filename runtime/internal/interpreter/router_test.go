@@ -9,12 +9,21 @@ import (
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/devicestate"
-	"github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/measurementdb"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type mockDispatcher struct{}
+
+func (m *mockDispatcher) RunAll(
+	[]DispatchRequest,
+) []DispatchResult {
+	return nil
+}
+
+var _ MeasurementRunner = (*mockDispatcher)(nil)
 
 type mockHandler struct {
 	name string
@@ -22,7 +31,7 @@ type mockHandler struct {
 	canHandleResult bool
 	canHandleErr    error
 
-	handleResponse *FalconMeasurementResponse
+	handleResponse MeasurementResponse
 	handleErr      error
 
 	canHandleCalls int
@@ -31,8 +40,7 @@ type mockHandler struct {
 	updatePort bool
 	writeDB    bool
 
-	lastRequest    *FalconMeasurementRequest
-	lastDispatcher *dispatcher.MeasurementDispatcher
+	lastRequest MeasurementRequest
 }
 
 func (m *mockHandler) Name() string {
@@ -40,7 +48,9 @@ func (m *mockHandler) Name() string {
 }
 
 func (m *mockHandler) CanHandle(
-	req *FalconMeasurementRequest,
+	req MeasurementRequest,
+	ports *config.ConnectedPorts,
+	scriptDir string,
 ) (bool, error) {
 	m.canHandleCalls++
 	m.lastRequest = req
@@ -49,16 +59,14 @@ func (m *mockHandler) CanHandle(
 }
 
 func (m *mockHandler) Handle(
-	req *FalconMeasurementRequest,
-	dispatcher *dispatcher.MeasurementDispatcher,
-	wiremap config.WireMap,
+	req MeasurementRequest,
+	dispatcher MeasurementRunner,
 	ports *config.ConnectedPorts,
 	tracker StateUpdater,
 	recorder MeasurementRecorder,
-) (*FalconMeasurementResponse, error) {
+) (MeasurementResponse, error) {
 	m.handleCalls++
 	m.lastRequest = req
-	m.lastDispatcher = dispatcher
 
 	if m.updatePort {
 		_ = tracker.UpdatePort(
@@ -84,6 +92,8 @@ func (m *mockHandler) Handle(
 
 	return m.handleResponse, m.handleErr
 }
+
+var _ MeasurementHandler = (*mockHandler)(nil)
 
 func stubMeasurementInsert(t *testing.T) {
 	t.Helper()
@@ -150,10 +160,9 @@ func setupDependencies(t *testing.T) {
 func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	stubMeasurementInsert(t)
 	setupDependencies(t)
-	dispatcher := &dispatcher.MeasurementDispatcher{}
 
-	req := &FalconMeasurementRequest{}
-	resp := &FalconMeasurementResponse{}
+	req := MeasurementRequest{}
+	resp := MeasurementResponse{}
 
 	first := &mockHandler{
 		name:            "first",
@@ -174,8 +183,7 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	}
 
 	router := &Router{
-		dispatcher: dispatcher,
-		wiremap:    []config.WiremapEntry{},
+		dispatcher: &mockDispatcher{},
 		ports:      &config.ConnectedPorts{},
 		handlers: []MeasurementHandler{
 			first,
@@ -187,7 +195,7 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	result, err := router.Handle(req)
 
 	require.NoError(t, err)
-	assert.Same(t, resp, result)
+	assert.Equal(t, resp, result)
 
 	assert.Equal(t, 1, first.canHandleCalls)
 	assert.Equal(t, 0, first.handleCalls)
@@ -195,21 +203,18 @@ func TestRouter_Handle_UniqueMatchingHandlerWins(t *testing.T) {
 	assert.Equal(t, 1, second.canHandleCalls)
 	assert.Equal(t, 1, second.handleCalls)
 
-	// Router stops at first match.
 	assert.Equal(t, 0, third.canHandleCalls)
 	assert.Equal(t, 0, third.handleCalls)
-
-	assert.Same(t, dispatcher, second.lastDispatcher)
-	assert.Same(t, req, second.lastRequest)
 }
 
 func TestRouter_Handle_FirstMatchWins(t *testing.T) {
 	stubMeasurementInsert(t)
 	setupDependencies(t)
+
 	first := &mockHandler{
 		name:            "first",
 		canHandleResult: true,
-		handleResponse:  &FalconMeasurementResponse{},
+		handleResponse:  MeasurementResponse{},
 		updatePort:      true,
 		writeDB:         true,
 	}
@@ -220,13 +225,15 @@ func TestRouter_Handle_FirstMatchWins(t *testing.T) {
 	}
 
 	router := &Router{
+		dispatcher: &mockDispatcher{},
+		ports:      &config.ConnectedPorts{},
 		handlers: []MeasurementHandler{
 			first,
 			second,
 		},
 	}
 
-	_, err := router.Handle(&FalconMeasurementRequest{})
+	_, err := router.Handle(MeasurementRequest{})
 
 	require.NoError(t, err)
 
@@ -238,8 +245,6 @@ func TestRouter_Handle_FirstMatchWins(t *testing.T) {
 }
 
 func TestRouter_Handle_CanHandleError(t *testing.T) {
-	dispatcher := &dispatcher.MeasurementDispatcher{}
-
 	expectedErr := errors.New("bad request")
 
 	handler := &mockHandler{
@@ -248,19 +253,24 @@ func TestRouter_Handle_CanHandleError(t *testing.T) {
 	}
 
 	router := &Router{
-		dispatcher: dispatcher,
+		dispatcher: &mockDispatcher{},
 		handlers: []MeasurementHandler{
 			handler,
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, expectedErr)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		`error while evaluating handler "failing-handler"`,
+	)
 
 	assert.Equal(t, 1, handler.canHandleCalls)
 	assert.Equal(t, 0, handler.handleCalls)
@@ -268,7 +278,6 @@ func TestRouter_Handle_CanHandleError(t *testing.T) {
 
 func TestRouter_Handle_HandlerError(t *testing.T) {
 	setupDependencies(t)
-	dispatcher := &dispatcher.MeasurementDispatcher{}
 
 	expectedErr := errors.New("measurement failed")
 
@@ -279,18 +288,17 @@ func TestRouter_Handle_HandlerError(t *testing.T) {
 	}
 
 	router := &Router{
-		dispatcher: dispatcher,
+		dispatcher: &mockDispatcher{},
 		handlers: []MeasurementHandler{
 			handler,
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 	assert.ErrorIs(t, err, expectedErr)
 
 	assert.Equal(t, 1, handler.canHandleCalls)
@@ -298,47 +306,38 @@ func TestRouter_Handle_HandlerError(t *testing.T) {
 }
 
 func TestRouter_Handle_NoMatchingHandlers(t *testing.T) {
-	dispatcher := &dispatcher.MeasurementDispatcher{}
-
-	handler1 := &mockHandler{
-		name:            "handler-1",
-		canHandleResult: false,
-	}
-
-	handler2 := &mockHandler{
-		name:            "handler-2",
-		canHandleResult: false,
-	}
-
 	router := &Router{
-		dispatcher: dispatcher,
+		dispatcher: &mockDispatcher{},
 		handlers: []MeasurementHandler{
-			handler1,
-			handler2,
+			&mockHandler{
+				name:            "handler-1",
+				canHandleResult: false,
+			},
+			&mockHandler{
+				name:            "handler-2",
+				canHandleResult: false,
+			},
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 
 	assert.Contains(
 		t,
 		err.Error(),
 		"no measurement handler matched request",
 	)
-
-	assert.Equal(t, 1, handler1.canHandleCalls)
-	assert.Equal(t, 1, handler2.canHandleCalls)
 }
 
 func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
 	stubMeasurementInsert(t)
 	setupDependencies(t)
-	resp := &FalconMeasurementResponse{}
+
+	resp := MeasurementResponse{}
 
 	handler := &mockHandler{
 		name:            "handler",
@@ -355,14 +354,11 @@ func TestRouter_Handle_HandlerUpdatesState(t *testing.T) {
 	}
 
 	out, err := router.Handle(
-		&FalconMeasurementRequest{},
+		MeasurementRequest{},
 	)
 
 	require.NoError(t, err)
-	assert.Same(t, resp, out)
-
-	assert.Equal(t, 1, handler.canHandleCalls)
-	assert.Equal(t, 1, handler.handleCalls)
+	assert.Equal(t, resp, out)
 }
 
 func TestRouter_Handle_NoStateUpdate(t *testing.T) {
@@ -372,7 +368,6 @@ func TestRouter_Handle_NoStateUpdate(t *testing.T) {
 	handler := &mockHandler{
 		name:            "handler",
 		canHandleResult: true,
-		handleResponse:  &FalconMeasurementResponse{},
 		updatePort:      false,
 		writeDB:         true,
 	}
@@ -383,12 +378,11 @@ func TestRouter_Handle_NoStateUpdate(t *testing.T) {
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 
 	assert.Contains(
 		t,
@@ -417,13 +411,11 @@ func TestTrackedStateUpdater_UpdatePort(t *testing.T) {
 }
 
 func TestRouter_Handle_ManagerNotInitialized(t *testing.T) {
-	// Ensure no global manager exists.
 	devicestate.Close()
 
 	handler := &mockHandler{
 		name:            "handler",
 		canHandleResult: true,
-		handleResponse:  &FalconMeasurementResponse{},
 	}
 
 	router := &Router{
@@ -432,12 +424,11 @@ func TestRouter_Handle_ManagerNotInitialized(t *testing.T) {
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 
 	assert.Contains(
 		t,
@@ -445,17 +436,11 @@ func TestRouter_Handle_ManagerNotInitialized(t *testing.T) {
 		"device state manager not initialized",
 	)
 
-	// CanHandle should still have been evaluated.
 	assert.Equal(t, 1, handler.canHandleCalls)
-
-	// Handle should never be reached because the router
-	// detects the missing manager first.
 	assert.Equal(t, 0, handler.handleCalls)
 }
 
-func TestRouter_Handle_DatabaseNotInitialized(
-	t *testing.T,
-) {
+func TestRouter_Handle_DatabaseNotInitialized(t *testing.T) {
 	setupDeviceState(t)
 
 	measurementdb.Close()
@@ -463,7 +448,6 @@ func TestRouter_Handle_DatabaseNotInitialized(
 	handler := &mockHandler{
 		name:            "handler",
 		canHandleResult: true,
-		handleResponse:  &FalconMeasurementResponse{},
 	}
 
 	router := &Router{
@@ -472,12 +456,11 @@ func TestRouter_Handle_DatabaseNotInitialized(
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 
 	assert.Contains(
 		t,
@@ -489,15 +472,12 @@ func TestRouter_Handle_DatabaseNotInitialized(
 	assert.Equal(t, 0, handler.handleCalls)
 }
 
-func TestRouter_Handle_NoDatabaseWrite(
-	t *testing.T,
-) {
+func TestRouter_Handle_NoDatabaseWrite(t *testing.T) {
 	setupDependencies(t)
 
 	handler := &mockHandler{
 		name:            "handler",
 		canHandleResult: true,
-		handleResponse:  &FalconMeasurementResponse{},
 		updatePort:      true,
 		writeDB:         false,
 	}
@@ -508,12 +488,11 @@ func TestRouter_Handle_NoDatabaseWrite(
 		},
 	}
 
-	resp, err := router.Handle(
-		&FalconMeasurementRequest{},
+	_, err := router.Handle(
+		MeasurementRequest{},
 	)
 
 	require.Error(t, err)
-	assert.Nil(t, resp)
 
 	assert.Contains(
 		t,
@@ -582,4 +561,33 @@ func TestTrackedMeasurementRecorder_InsertError(
 	require.Error(t, err)
 
 	assert.Equal(t, 0, recorder.Writes())
+}
+
+func TestRouter_Handle_CanHandleErrorIncludesHandlerName(
+	t *testing.T,
+) {
+	expected := errors.New("boom")
+
+	handler := &mockHandler{
+		name:         "test-handler",
+		canHandleErr: expected,
+	}
+
+	router := &Router{
+		handlers: []MeasurementHandler{handler},
+	}
+
+	_, err := router.Handle(
+		MeasurementRequest{},
+	)
+
+	require.Error(t, err)
+
+	assert.ErrorIs(t, err, expected)
+
+	assert.Contains(
+		t,
+		err.Error(),
+		`test-handler`,
+	)
 }

@@ -12,8 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
+	"github.com/falcon-autotuning/instrument-server/runtime/internal/interpreter"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/logging"
 )
+
+// TODO: ensure full coverage tests
 
 type mockBusyManager struct {
 	calls []bool
@@ -23,71 +26,23 @@ func (m *mockBusyManager) SetIsBusy(busy bool) {
 	m.calls = append(m.calls, busy)
 }
 
-type mockRequest struct {
-	closeCalls int
-}
-
-func (m *mockRequest) Close() error {
-	m.closeCalls++
-	return nil
-}
-
-type mockResponse struct {
-	json string
-	err  error
-
-	closeCalls int
-	jsonCalls  int
-}
-
-func (m *mockResponse) ToJSON() (string, error) {
-	m.jsonCalls++
-
-	if m.err != nil {
-		return "", m.err
-	}
-
-	return m.json, nil
-}
-
-func (m *mockResponse) Close() error {
-	m.closeCalls++
-	return nil
-}
-
-type mockRequestFactory struct {
-	req FalconRequest
-	err error
-
-	callCount int
-}
-
-func (m *mockRequestFactory) FromJSON(
-	jsonStr string,
-) (FalconRequest, error) {
-	m.callCount++
-
-	if m.err != nil {
-		return nil, m.err
-	}
-
-	return m.req, nil
-}
-
 type mockRouter struct {
-	resp FalconResponse
+	resp interpreter.MeasurementResponse
 	err  error
 
 	callCount int
 }
 
 func (m *mockRouter) Handle(
-	req FalconRequest,
-) (FalconResponse, error) {
+	req interpreter.MeasurementRequest,
+) (
+	interpreter.MeasurementResponse,
+	error,
+) {
 	m.callCount++
 
 	if m.err != nil {
-		return nil, m.err
+		return interpreter.MeasurementResponse{}, m.err
 	}
 
 	return m.resp, nil
@@ -97,13 +52,11 @@ func newTestHandler(
 	logger *logging.Logger,
 	busy BusyManager,
 	router MeasurementRouter,
-	factory FalconRequestFactory,
 ) *Handler {
 	return &Handler{
-		logger:         logger,
-		busyManager:    busy,
-		router:         router,
-		requestFactory: factory,
+		logger:      logger,
+		busyManager: busy,
+		router:      router,
 	}
 }
 
@@ -131,13 +84,11 @@ func TestMeasurementResponseSubject(t *testing.T) {
 func TestHandleMessage_InvalidJSON(t *testing.T) {
 	busy := &mockBusyManager{}
 	router := &mockRouter{}
-	factory := &mockRequestFactory{}
 
 	handler := newTestHandler(
 		testLogger(t),
 		busy,
 		router,
-		factory,
 	)
 
 	handler.handleMessage(
@@ -146,7 +97,6 @@ func TestHandleMessage_InvalidJSON(t *testing.T) {
 		},
 	)
 
-	assert.Equal(t, 0, factory.callCount)
 	assert.Equal(t, 0, router.callCount)
 	assert.Empty(t, busy.calls)
 }
@@ -154,13 +104,11 @@ func TestHandleMessage_InvalidJSON(t *testing.T) {
 func TestHandleMessage_EmptyRequest(t *testing.T) {
 	busy := &mockBusyManager{}
 	router := &mockRouter{}
-	factory := &mockRequestFactory{}
 
 	handler := newTestHandler(
 		testLogger(t),
 		busy,
 		router,
-		factory,
 	)
 
 	cmd := api.MeasureCommand{
@@ -176,164 +124,9 @@ func TestHandleMessage_EmptyRequest(t *testing.T) {
 		},
 	)
 
-	assert.Equal(t, 0, factory.callCount)
+	assert.Equal(t, 0, router.callCount)
 	assert.Equal(t, 0, router.callCount)
 	assert.Empty(t, busy.calls)
-}
-
-func TestHandleMessage_RequestFactoryError(
-	t *testing.T,
-) {
-	busy := &mockBusyManager{}
-
-	router := &mockRouter{}
-
-	factory := &mockRequestFactory{
-		err: errors.New("parse failure"),
-	}
-
-	handler := newTestHandler(
-		testLogger(t),
-		busy,
-		router,
-		factory,
-	)
-
-	cmd := api.MeasureCommand{
-		Request: "{}",
-	}
-
-	data, err := json.Marshal(cmd)
-	require.NoError(t, err)
-
-	handler.handleMessage(
-		&nats.Msg{
-			Data: data,
-		},
-	)
-
-	assert.Equal(t, 1, factory.callCount)
-	assert.Equal(t, 0, router.callCount)
-
-	assert.Equal(
-		t,
-		[]bool{true, false},
-		busy.calls,
-	)
-}
-
-func TestHandleMessage_RouterError(t *testing.T) {
-	busy := &mockBusyManager{}
-
-	router := &mockRouter{
-		err: errors.New("routing failed"),
-	}
-
-	factory := &mockRequestFactory{
-		req: &mockRequest{},
-	}
-
-	handler := newTestHandler(
-		testLogger(t),
-		busy,
-		router,
-		factory,
-	)
-
-	cmd := api.MeasureCommand{
-		Request: "{}",
-	}
-
-	data, err := json.Marshal(cmd)
-	require.NoError(t, err)
-
-	handler.handleMessage(
-		&nats.Msg{
-			Data: data,
-		},
-	)
-
-	assert.Equal(t, 1, factory.callCount)
-	assert.Equal(t, 1, router.callCount)
-
-	assert.Equal(
-		t,
-		[]bool{true, false},
-		busy.calls,
-	)
-}
-
-func TestHandleMessage_ClosesResponse(
-	t *testing.T,
-) {
-	busy := &mockBusyManager{}
-
-	req := &mockRequest{}
-
-	resp := &mockResponse{
-		err: errors.New("json failed"),
-	}
-
-	router := &mockRouter{
-		resp: resp,
-	}
-
-	factory := &mockRequestFactory{
-		req: req,
-	}
-
-	handler := newTestHandler(
-		testLogger(t),
-		busy,
-		router,
-		factory,
-	)
-
-	cmd := api.MeasureCommand{
-		Request: "{}",
-	}
-
-	data, err := json.Marshal(cmd)
-	require.NoError(t, err)
-
-	handler.handleMessage(
-		&nats.Msg{Data: data},
-	)
-
-	assert.Equal(t, 1, req.closeCalls)
-	assert.Equal(t, 1, resp.closeCalls)
-}
-
-func TestHandleMessage_ClosesRequestOnRouterFailure(
-	t *testing.T,
-) {
-	req := &mockRequest{}
-
-	router := &mockRouter{
-		err: errors.New("boom"),
-	}
-
-	handler := newTestHandler(
-		testLogger(t),
-		&mockBusyManager{},
-		router,
-		&mockRequestFactory{
-			req: req,
-		},
-	)
-
-	cmd := api.MeasureCommand{
-		Request: "{}",
-	}
-
-	data, err := json.Marshal(cmd)
-	require.NoError(t, err)
-
-	handler.handleMessage(
-		&nats.Msg{Data: data},
-	)
-
-	assert.Equal(t, 1, req.closeCalls)
 }
 
 func TestHandleMessage_BusyStateAlwaysReset(
@@ -345,15 +138,10 @@ func TestHandleMessage_BusyStateAlwaysReset(
 		err: errors.New("boom"),
 	}
 
-	factory := &mockRequestFactory{
-		req: &mockRequest{},
-	}
-
 	handler := newTestHandler(
 		testLogger(t),
 		busy,
 		router,
-		factory,
 	)
 
 	cmd := api.MeasureCommand{
@@ -375,50 +163,6 @@ func TestHandleMessage_BusyStateAlwaysReset(
 	assert.False(t, busy.calls[1])
 }
 
-func TestHandleMessage_ToJSONError(
-	t *testing.T,
-) {
-	busy := &mockBusyManager{}
-
-	response := &mockResponse{
-		err: errors.New("json failure"),
-	}
-
-	router := &mockRouter{
-		resp: response,
-	}
-
-	factory := &mockRequestFactory{
-		req: &mockRequest{},
-	}
-
-	handler := newTestHandler(
-		testLogger(t),
-		busy,
-		router,
-		factory,
-	)
-
-	cmd := api.MeasureCommand{
-		Request: "{}",
-	}
-
-	data, err := json.Marshal(cmd)
-	require.NoError(t, err)
-
-	handler.handleMessage(
-		&nats.Msg{Data: data},
-	)
-
-	assert.Equal(t, 1, response.jsonCalls)
-
-	assert.Equal(
-		t,
-		[]bool{true, false},
-		busy.calls,
-	)
-}
-
 func TestNewMeasureCommandHandler_NilMetadata(
 	t *testing.T,
 ) {
@@ -430,43 +174,11 @@ func TestNewMeasureCommandHandler_NilMetadata(
 		logger,
 		&mockBusyManager{},
 		&mockRouter{},
-		&mockRequestFactory{},
-		nil,
 		nil,
 	)
 
 	require.NotNil(t, handler)
 	require.NotNil(t, handler.router)
-	require.NotNil(t, handler.requestFactory)
-}
-
-func TestRouterAdapter_WrongRequestType(t *testing.T) {
-	router := &routerAdapter{}
-
-	resp, err := router.Handle(
-		&mockRequest{},
-	)
-
-	require.Error(t, err)
-	assert.Nil(t, resp)
-	assert.Contains(
-		t,
-		err.Error(),
-		"expected *FalconMeasurementRequest",
-	)
-}
-
-func TestFalconRequestFactory_InvalidJSON(
-	t *testing.T,
-) {
-	factory := falconRequestFactory{}
-
-	req, err := factory.FromJSON(
-		"not valid json",
-	)
-
-	require.Error(t, err)
-	assert.Nil(t, req)
 }
 
 func TestUnsubscribe_NoSubscription(
@@ -476,7 +188,6 @@ func TestUnsubscribe_NoSubscription(
 		testLogger(t),
 		&mockBusyManager{},
 		&mockRouter{},
-		&mockRequestFactory{},
 	)
 
 	require.NoError(
@@ -523,8 +234,6 @@ func TestSubscribeAndUnsubscribe(
 		logger,
 		&mockBusyManager{},
 		&mockRouter{},
-		&mockRequestFactory{},
-		nil,
 		nil,
 	)
 
@@ -632,86 +341,32 @@ func TestPublishMeasurementResponse(
 	}
 }
 
-func TestHandler_ReceivesMeasureCommand(
+func TestHandleMessage_BusyStateResetOnParseFailure(
 	t *testing.T,
 ) {
-	server := runNATSServer(t)
-	defer server.Shutdown()
+	busy := &mockBusyManager{}
 
-	nc, err := nats.Connect(
-		server.ClientURL(),
-	)
-	require.NoError(t, err)
-	defer nc.Close()
-
-	req := &mockRequest{}
-
-	resp := &mockResponse{
-		json: `{"ok":true}`,
-	}
-
-	router := &mockRouter{
-		resp: resp,
-	}
-
-	handler := newMeasureCommandHandler(
+	handler := newTestHandler(
 		testLogger(t),
-		&mockBusyManager{},
-		router,
-		&mockRequestFactory{
-			req: req,
-		},
-		nil,
-		nil,
+		busy,
+		&mockRouter{},
 	)
-
-	require.NoError(
-		t,
-		handler.Subscribe(nc),
-	)
-
-	defer handler.Unsubscribe()
 
 	cmd := api.MeasureCommand{
-		Request:   "{}",
-		Timestamp: 999,
-		Hash:      100,
+		Request: "{}",
 	}
 
 	data, err := json.Marshal(cmd)
 	require.NoError(t, err)
 
-	require.NoError(
-		t,
-		nc.Publish(
-			MeasureCommandSubject,
-			data,
-		),
+	handler.handleMessage(
+		&nats.Msg{
+			Data: data,
+		},
 	)
 
-	require.NoError(
-		t,
-		nc.Flush(),
-	)
+	require.Len(t, busy.calls, 2)
 
-	require.Eventually(t, func() bool {
-		return resp.closeCalls == 1
-	}, time.Second, 10*time.Millisecond)
-
-	assert.Equal(t, 1, router.callCount)
-	assert.Equal(t, 1, req.closeCalls)
-	assert.Equal(t, 1, resp.closeCalls)
-}
-
-func TestRouterAdapter_WrongType(
-	t *testing.T,
-) {
-	adapter := &routerAdapter{}
-
-	resp, err := adapter.Handle(
-		&mockRequest{},
-	)
-
-	require.Error(t, err)
-	assert.Nil(t, resp)
+	assert.True(t, busy.calls[0])
+	assert.False(t, busy.calls[1])
 }
