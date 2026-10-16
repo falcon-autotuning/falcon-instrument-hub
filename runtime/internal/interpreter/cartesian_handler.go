@@ -1,6 +1,9 @@
 package interpreter
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/settingrouter"
@@ -43,6 +46,26 @@ type DeviceStateReader interface {
 	)
 }
 
+type ScriptDefinition struct {
+	Name           string
+	Dimensionality Dimensionality
+}
+
+var scriptDefinitions = []ScriptDefinition{
+	{
+		Name:           "measure_get_set",
+		Dimensionality: Dim0,
+	},
+	{
+		Name:           "measure_1D_buffered",
+		Dimensionality: Dim1,
+	},
+	{
+		Name:           "measure_2D_buffered",
+		Dimensionality: Dim2,
+	},
+}
+
 func (h *CartesianMeasurementHandler) Handle(
 	req MeasurementRequest,
 	dispatcher MeasurementRunner,
@@ -51,7 +74,19 @@ func (h *CartesianMeasurementHandler) Handle(
 	recorder MeasurementRecorder,
 ) (MeasurementResponse, error) {
 	var availableDimensions []Dimensionality
-	// TODO: buildup the availableDimensions by checking script names
+	for _, script := range scriptDefinitions {
+		scriptPath := filepath.Join(
+			dispatcher.ScriptsPath(),
+			script.Name+".lua",
+		)
+
+		if _, err := os.Stat(scriptPath); err == nil {
+			availableDimensions = append(
+				availableDimensions,
+				script.Dimensionality,
+			)
+		}
+	}
 	var err error
 	var executor Executor
 	// executor, err = BuildMeasurementRegistry(availableDimensions, dispatcher)

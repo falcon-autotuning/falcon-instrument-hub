@@ -22,6 +22,7 @@ func (m *mockDispatcher) RunAll(
 ) []DispatchResult {
 	return nil
 }
+func (m *mockDispatcher) ScriptsPath() string { return "" }
 
 var _ MeasurementRunner = (*mockDispatcher)(nil)
 

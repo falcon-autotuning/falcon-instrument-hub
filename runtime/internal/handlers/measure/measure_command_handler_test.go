@@ -453,6 +453,9 @@ func (m *mockMeasurementRunner) RunAll(
 ) []interpreter.DispatchResult {
 	return nil
 }
+func (m *mockMeasurementRunner) ScriptsPath() string { return "" }
+
+var _ interpreter.MeasurementRunner = (*mockMeasurementRunner)(nil)
 
 type mockSettingsReader struct{}
 

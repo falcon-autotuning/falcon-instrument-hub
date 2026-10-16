@@ -90,6 +90,8 @@ type MeasurementRunner interface {
 	RunAll(
 		[]DispatchRequest,
 	) []DispatchResult
+
+	ScriptsPath() string
 }
 
 var _ MeasurementRunner = (*dispatcher.MeasurementDispatcher)(nil)
