@@ -138,9 +138,12 @@ func shapeFromSpace(
 		axes = append(axes, int(i))
 	}
 	arrays, err := space.CreateArray(axes)
+	if err != nil {
+		return nil, err
+	}
 	var shape Shape
-	for _, array := range arrays {
-		shape = append(shape, int64(len(array.Data)))
+	for axis, array := range arrays {
+		shape = append(shape, int64(array.Shape[axis]))
 	}
 	return shape, nil
 }
