@@ -229,7 +229,7 @@ func TestDecodePrimitiveZeroAndTwoDimensions(t *testing.T) {
 		},
 		zero,
 		NumberOfPoints{
-			getter: 1,
+			getter: 0, // Not queried: decode one sample without changing the count.
 		},
 	)
 	if err != nil || !reflect.DeepEqual(out.Getters[getter], RawData{7}) {
@@ -272,7 +272,7 @@ func TestDecodePrimitiveZeroAndTwoDimensions(t *testing.T) {
 	}
 }
 
-func TestDecodePrimitive_RejectsZeroPoints(
+func TestDecodePrimitive_RejectsNegativePoints(
 	t *testing.T,
 ) {
 	getter := Target{
@@ -294,7 +294,7 @@ func TestDecodePrimitive_RejectsZeroPoints(
 			},
 		},
 		NumberOfPoints{
-			getter: 0,
+			getter: -1,
 		},
 	)
 
@@ -302,7 +302,7 @@ func TestDecodePrimitive_RejectsZeroPoints(
 	assert.Contains(
 		t,
 		err.Error(),
-		"number of samples must be positive",
+		"number of samples cannot be negative",
 	)
 }
 

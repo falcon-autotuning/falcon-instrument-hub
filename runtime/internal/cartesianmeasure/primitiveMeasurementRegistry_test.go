@@ -210,7 +210,7 @@ func TestBuildMeasurementRegistry_DuplicateDimension(
 	)
 }
 
-func TestMeasurementRegistry_RejectsZeroPoints(
+func TestMeasurementRegistry_RejectsNegativePoints(
 	t *testing.T,
 ) {
 	target := Target{
@@ -255,7 +255,7 @@ func TestMeasurementRegistry_RejectsZeroPoints(
 			},
 		},
 		NumberOfPoints{
-			target: 0,
+			target: -1,
 		},
 	)
 
@@ -263,6 +263,6 @@ func TestMeasurementRegistry_RejectsZeroPoints(
 	assert.Contains(
 		t,
 		err.Error(),
-		"must be positive",
+		"cannot be negative",
 	)
 }

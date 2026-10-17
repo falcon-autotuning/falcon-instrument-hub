@@ -196,7 +196,7 @@ func encode1DBuffered(
 	if err != nil {
 		return nil, err
 	}
-	domains := make(instrumentserver.InstrumentDomainArray, len(targets))
+	domains := make(instrumentserver.InstrumentDomainArray, 0, len(targets))
 	for _, target := range targets {
 		setter := input.Setters[target]
 		stop := setter.Start
@@ -272,9 +272,9 @@ func decodePrimitive(
 	points NumberOfPoints,
 ) (PrimitiveMeasurementOutput, error) {
 	for _, target := range input.Getters {
-		if points[target] <= 0 {
+		if points[target] < 0 {
 			return PrimitiveMeasurementOutput{}, fmt.Errorf(
-				"number of samples must be positive",
+				"number of samples cannot be negative",
 			)
 		}
 	}

@@ -166,9 +166,9 @@ func (r *measurementRegistry) Run(
 		)
 	}
 	for _, target := range input.Getters {
-		if numberOfPoints[target] <= 0 {
+		if numberOfPoints[target] < 0 {
 			return PrimitiveMeasurementOutput{}, fmt.Errorf(
-				"number of points must be positive, got %d", numberOfPoints[target],
+				"number of points cannot be negative, got %d", numberOfPoints[target],
 			)
 		}
 	}
