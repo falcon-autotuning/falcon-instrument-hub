@@ -3,11 +3,16 @@ local source = require("source")
 
 local function Get_Many_Voltages(
    ctx,
-   getters -- assumes a 1:1 mapping of getters to voltages in the same order
+   getters
 )
 
    for _, getter in ipairs(getters) do
-      source:getVoltage(getter.id, getter.channel)
+      -- NOTE: use source command defined in source instrument's ISA
+      source:getDatapoint(
+         getter:get_instrument_name(),
+         getter:get_channel_group(),
+         getter:get_channel()
+      )
    end
 end
 

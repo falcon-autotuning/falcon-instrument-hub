@@ -201,7 +201,11 @@ func (h *CartesianMeasurementHandler) Handle(
 	}
 
 	if !onlyDim0 {
-		numberOfPoints, err = h.readNumberOfPoints(getters, getterPorts, ports)
+		numberOfPoints, err = h.readNumberOfPoints(
+			getters,
+			getterPorts,
+			ports,
+		)
 		if err != nil {
 			return MeasurementResponse{}, err
 		}

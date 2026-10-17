@@ -2,9 +2,34 @@
 -- Each setter/getter is a native InstrumentTarget resolved by the Go handler.
 local source = require("source")
 local multimeter = require("multimeter")
+local math_utils = require("math")
 
--- NOTE: ASSUMING single channel sweep with single setVoltageDomain.
+local function applyVector(setters, vec)
+  for k, setter in ipairs(setters) do
+   -- NOTE: use source command defined in source instrument's ISA
+   source:setVoltage(
+      setter:get_instrument_name(),
+      setter:get_channel_group(),
+      setter:get_channel(),
+      vec[k]
+    )
+  end
+end
 
+local function readGetters(getters)
+  local point = {}
+  for g, getter in ipairs(getters) do
+   -- NOTE: use multimeter command defined in multimeter instrument's ISA
+    point[g] = multimeter:getDatapoint(
+      getter:get_instrument_name(),
+      getter:get_channel_group(),
+      getter:get_channel()
+    )
+  end
+  return point
+end
+
+-- Generic 1D buffered measurement: set all setters to their end voltages, then
 local function Measure1DBuffered(
    ctx,
    setVoltageDomains,
@@ -20,26 +45,11 @@ local function Measure1DBuffered(
 
    end
 
-   for _, setter in ipairs(bufferedSetters) do
-      source:setVoltage(
-      setter.id,
-      setter.channel,
-      resolveEndVoltage(setVoltageDomains, setter))
-
+   local sweep = math_utils.build1DSweep(limits, nSteps)
+   for _, vec in ipairs(sweep) do
+      applyVector(setters, vec)
+      readGetters(getters)
    end
-
-   -- start, stop := setVoltageDomains, 1.0
-   -- steps := 5
-   -- for i := 0; i < steps; i++ {
-   --    v := start + float64(i)*(stop-start)/float64(steps-1)
-   --    fmt.Println(v) // 0, 0.25, 0.5, 0.75, 1
-   -- }
-
-   for _, getter in ipairs(getters) do
-      multimeter:measureStream(getter.id, getter.channel)
-   end
-
-   return ""
 end
 
 return { main = Measure1DBuffered }

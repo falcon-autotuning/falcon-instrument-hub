@@ -1,62 +1,65 @@
-local _tl_compat; if (tonumber((_VERSION or ''):match('[%d.]*$')) or 0) < 5.3 then local p, m = pcall(require, 'compat53.module'); if p then _tl_compat = m end end; local ipairs = _tl_compat and _tl_compat.ipairs or ipairs; local math = _tl_compat and _tl_compat.math or math
+-- 2D raster sweep:
+--   for each Y step: set the Y voltage vector,
+--     then sweep the full X voltage vector, reading every getter at each X point.
+local source = require("source")
+local multimeter = require("multimeter")
+local sweepMath = require("sweep_math")
 
-
-local function resolveEndVoltage(
-   domains,
-   target)
-
-   local domain = domains[target.id]
-   if domain == nil then
-      return 0.0
-   end
-   return domain.max
+local function applyVector(setters, vec)
+  for k, setter in ipairs(setters) do
+    -- NOTE: use source command defined in source instrument's ISA
+    source:setVoltage(
+      setter:get_instrument_name(),
+      setter:get_channel_group(),
+      setter:get_channel(),
+      vec[k]
+    )
+  end
 end
 
-local function Measure2DBuffered(
+local function readGetters(getters)
+  local point = {}
+  for g, getter in ipairs(getters) do
+    -- NOTE: use multimeter command defined in multimeter instrument's ISA
+      multimeter:getDatapoint(
+        getter:get_instrument_name(),
+        getter:get_channel_group(),
+        getter:get_channel()
+      )
+  end
+end
+
+-- xSetters / ySetters:  control elements swept along the X (fast) axis and
+--                       stepped along the Y (slow) axis. Keep them disjoint:
+--                       a setter in both lists is overwritten by the X sweep.
+-- setXVoltageDomains:   {[setter.id] = {min=, max=}} for the X setters
+-- setYVoltageDomains:   {[setter.id] = {min=, max=}} for the Y setters
+local function Measure2DSweep(
    ctx,
-   bufferedXSetters,
-   sampleRate,
-   bufferedGetters,
-   bufferedYSetters,
-   numXSteps,
-   setYVoltageDomains,
+   xSetters,
    setXVoltageDomains,
-   numPoints,
+   numXSteps,
+   ySetters,
+   setYVoltageDomains,
    numYSteps,
-   setters)
+   getters)
 
-   local bins = math.max(numPoints, numXSteps)
+  local xSweep, ySweep = sweepMath.buildRasterSweep(
+    xSetters, setXVoltageDomains, numXSteps,
+    ySetters, setYVoltageDomains, numYSteps)
 
-   for _, setter in ipairs(setters) do
-      Mock1Source1:setVoltage(setter.id, setter.channel, 0.0)
-   end
+  -- data[j][i][g] = reading of getter g at X step i, Y step j
+  for j, yVec in ipairs(ySweep) do
+    applyVector(ySetters, yVec)            -- increment the Y vector
 
-   for _ = 1, numYSteps do
-      for _, setter in ipairs(bufferedYSetters) do
-         Mock1Source1:setVoltage(
-         setter.id,
-         setter.channel,
-         resolveEndVoltage(setYVoltageDomains, setter))
-
-      end
-      for _, setter in ipairs(bufferedXSetters) do
-         Mock1Source1:setVoltage(
-         setter.id,
-         setter.channel,
-         resolveEndVoltage(setXVoltageDomains, setter))
-
-      end
-      for _, getter in ipairs(bufferedGetters) do
-         Mock5Meter1:setSampleRate(getter.id, getter.channel, sampleRate)
-         Mock5Meter1:setBins(getter.id, getter.channel, bins)
-      end
-
-      for _, getter in ipairs(bufferedGetters) do
-         Mock5Meter1:measureStream(getter.id, getter.channel)
-      end
-   end
-
-   return ""
+    -- OPTIONAL: utilize instrument's native sweep command to sweep the X vector in one shot, if supported.
+    -- Otherwise, sweep the X vector point-by-point, reading all getters at each X step.
+    local row = {}
+    for i, xVec in ipairs(xSweep) do       -- full X sweep, min -> max
+      applyVector(xSetters, xVec)
+      readGetters(getters)
+    end
+  end
 end
 
-return { main = Measure2DBuffered }
+return { main = Measure2DSweep }

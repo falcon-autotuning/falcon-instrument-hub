@@ -33,6 +33,7 @@ local function Measure_Get_Set(
    -- A target identifies where to send the command; the library selects the ISA
    -- command. Source and meter targets may refer to different instruments.
    for i, setter in ipairs(setters) do
+      -- NOTE: use source command defined in source instrument's ISA
       source:setVoltage(
          setter:get_instrument_name(),
          setter:get_channel_group(),
@@ -42,6 +43,8 @@ local function Measure_Get_Set(
    end
 
    for _, getter in ipairs(getters) do
+
+      -- NOTE: use multimeter command defined in multimeter instrument's ISA
       multimeter:setSampleRate(
          getter:get_instrument_name(),
          getter:get_channel_group(),

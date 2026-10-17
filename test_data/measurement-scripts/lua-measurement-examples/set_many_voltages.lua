@@ -1,19 +1,21 @@
 -- set many voltages on various instrument channels.
 local source = require("source")
 
-local function target_key(target)
-   return target.id .. ":" .. tostring(target.channel)
-end
-
 local function Set_Many_Voltages(
    ctx,
    setters,
-   setVoltages -- assumes a 1:1 mapping of setters to voltages in the same order
+   setVoltages
 )
 
    for idx, setter in ipairs(setters) do
-      local setVoltage = setVoltages[idx]
-      source:setVoltage(setter.id, setter.channel, setVoltage)
+
+      -- NOTE: use source command defined in source instrument's ISA
+      source:setVoltage(
+         setter:get_instrument_name(),
+         setter:get_channel_group(),
+         setter:get_channel(),
+         setVoltages[idx]
+      )
    end
 end
 
