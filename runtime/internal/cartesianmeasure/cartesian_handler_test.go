@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/config"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/falconcore"
@@ -112,15 +113,25 @@ type handlerTestRecorder struct {
 	insert measurementdb.InsertEntry
 	entry  measurementdb.DatabaseEntry
 	writes int
+	err    error
 }
 
 func (r *handlerTestRecorder) Insert(insert measurementdb.InsertEntry, entry measurementdb.DatabaseEntry) error {
 	r.insert, r.entry = insert, entry
+	if r.err != nil {
+		return r.err
+	}
 	r.writes++
 	return nil
 }
 
 func (r *handlerTestRecorder) Writes() int { return r.writes }
+
+type handlerStateUpdater func(falconcore.ConnectionName, falconcore.Quantity) error
+
+func (f handlerStateUpdater) UpdatePort(port falconcore.ConnectionName, value falconcore.Quantity) error {
+	return f(port, value)
+}
 
 func TestCartesianHandleEncodesSweepAndDecodesReadings(t *testing.T) {
 	scriptDir := t.TempDir()
@@ -443,4 +454,64 @@ func TestCartesianHandleRejectsWrongBufferLength(t *testing.T) {
 	assert.Equal(t, []string{"capture-number-of-samples"}, f.queries)
 	assert.Empty(t, response.Arrays)
 	assert.Zero(t, f.recorder.Writes())
+}
+
+func TestCartesianHandleUpdatesSourceVoltageState(t *testing.T) {
+	req, ports := valid1DSweepRequest(t), valid1DConnectedPorts()
+	ports.Knobs[0].Characteristic = instrumentcharacteristic.InstrumentCharacteristicSourceVoltage
+	ports.AllConnections[1] = ports.Knobs[0]
+	sourcePort := InstrumentPortFromConnectedPort(ports.Knobs[0])
+	req.Waveforms[0].Space.Axes[0][0].InstrumentPort = sourcePort
+	f := newHandlerTestFixture(t, "measure_1D_buffered", ports, 1)
+	f.runner.bufferConsumer["meter"] = []float64{3, 12}
+	f.runner.results = []DispatchResult{{ID: "measurement-1", Results: []instrumentserver.CallResult{
+		handlerTestReading(0, instrumentserver.DataBuffer("meter")),
+	}}}
+	voltage := falconcore.Quantity{Value: 0.75, Unit: falconcore.Volt}
+	settings := f.handler.settings
+	f.handler.settings = handlerSettingsReader(func(req falconcore.SettingRequest) (falconcore.SettingResponse, error) {
+		if req.Message != "capture-source-voltages" {
+			return settings.Handle(req)
+		}
+		require.Len(t, f.runner.requests, 1, "read voltages after acquisition")
+		assert.Equal(t, falconcore.Ports{sourcePort}, req.Getters)
+		return falconcore.SettingResponse{Getters: map[falconcore.InstrumentPort]falconcore.Quantity{
+			sourcePort: voltage,
+		}}, nil
+	})
+	updates := 0
+	tracker := handlerStateUpdater(func(port falconcore.ConnectionName, value falconcore.Quantity) error {
+		updates++
+		assert.Equal(t, falconcore.ConnectionName("P1"), port)
+		assert.Equal(t, voltage, value)
+		assert.Zero(t, f.recorder.Writes(), "update state before saving the measurement")
+		return nil
+	})
+
+	response, err := f.handler.Handle(req, f.runner, ports, tracker, f.recorder)
+	require.NoError(t, err)
+	assert.Equal(t, 1, updates)
+	assert.Equal(t, 1, f.recorder.Writes())
+	assert.Equal(t, "0.75 V", f.recorder.entry.Metadata["voltage.P1"])
+	require.Len(t, response.Arrays, 1)
+	assert.Equal(t, []float64{3, 12}, response.Arrays[0].Data)
+}
+
+func TestCartesianHandleDatabaseInsertFailure(t *testing.T) {
+	ports := valid1DConnectedPorts()
+	f := newHandlerTestFixture(t, "measure_1D_buffered", ports, 1)
+	f.runner.bufferConsumer["meter"] = []float64{3, 12}
+	f.runner.results = []DispatchResult{{ID: "measurement-1", Results: []instrumentserver.CallResult{
+		handlerTestReading(0, instrumentserver.DataBuffer("meter")),
+	}}}
+	failure := errors.New("database unavailable")
+	f.recorder.err = failure
+
+	response, err := f.handler.Handle(valid1DSweepRequest(t), f.runner, ports, nil, f.recorder)
+	require.ErrorIs(t, err, failure)
+	assert.Equal(t, MeasurementResponse{}, response)
+	assert.Zero(t, f.recorder.Writes())
+	require.Len(t, f.recorder.entry.Ranges, 1, "attempt to insert the decoded measurement")
+	assert.Equal(t, []float64{3, 12}, f.recorder.entry.Ranges[0].Data)
+	assert.Equal(t, []string{"measurement-1"}, f.runner.released)
 }
