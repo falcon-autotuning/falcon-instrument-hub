@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"slices"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrument"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentcharacteristic"
+	"github.com/invopop/jsonschema"
 )
 
 type Reducer string
@@ -31,6 +33,16 @@ func (r Reducer) Validate() error {
 			"unknown reducer %q",
 			r,
 		)
+	}
+}
+
+func (Reducer) JSONSchema() *jsonschema.Schema {
+	return &jsonschema.Schema{
+		Type: "string",
+		Enum: []any{
+			"min",
+			"max",
+		},
 	}
 }
 
@@ -145,7 +157,9 @@ func (c APIParseCharacteristic) Validate(
 	}
 }
 
-var validCharacteristicNames = map[string]instrumentcharacteristic.InstrumentCharacteristic{
+type CharacteristicIdentifier string
+
+var validCharacteristicNames = map[CharacteristicIdentifier]instrumentcharacteristic.InstrumentCharacteristic{
 	"sample_rate":     instrumentcharacteristic.InstrumentCharacteristicSampleRate,
 	"max_sample_rate": instrumentcharacteristic.InstrumentCharacteristicMaxSampleRate,
 	"min_sample_rate": instrumentcharacteristic.InstrumentCharacteristicMinSampleRate,
@@ -190,13 +204,40 @@ var validCharacteristicNames = map[string]instrumentcharacteristic.InstrumentCha
 }
 
 func ParseCharacteristic(
-	s string,
+	s CharacteristicIdentifier,
 ) (instrumentcharacteristic.InstrumentCharacteristic, error) {
 	v, ok := validCharacteristicNames[s]
 	if !ok {
 		return 0, fmt.Errorf("unknown characteristic %q", s)
 	}
 	return v, nil
+}
+
+func (CharacteristicIdentifier) JSONSchema() *jsonschema.Schema {
+	enum := make(
+		[]string,
+		0,
+		len(validCharacteristicNames),
+	)
+
+	for name := range validCharacteristicNames {
+		enum = append(
+			enum,
+			string(name),
+		)
+	}
+
+	slices.Sort(enum)
+
+	values := make([]any, len(enum))
+	for i, v := range enum {
+		values[i] = v
+	}
+
+	return &jsonschema.Schema{
+		Type: "string",
+		Enum: values,
+	}
 }
 
 type CharacteristicSet map[instrumentcharacteristic.InstrumentCharacteristic]struct{}
@@ -327,7 +368,7 @@ var ValidCharacteristics = map[instrument.Instrument]CharacteristicSet{
 }
 
 type InstrumentCharacteristic struct {
-	Identifier     string                                            `yaml:"identifier" json:"identifier"`
+	Identifier     CharacteristicIdentifier                          `yaml:"identifier" json:"identifier"`
 	Characteristic instrumentcharacteristic.InstrumentCharacteristic `yaml:"-" json:"-"`
 
 	ReadCommand  APIParseCharacteristic `yaml:"readCommand,omitempty" json:"readCommand"`
@@ -378,7 +419,9 @@ func (c *InstrumentCharacteristic) Validate(
 	return nil
 }
 
-var validInstrumentTypes = map[string]instrument.Instrument{
+type InstrumentType string
+
+var validInstrumentTypes = map[InstrumentType]instrument.Instrument{
 	"dc_voltage_source": instrument.DcVoltageSource,
 	"amnmeter":          instrument.Amnmeter,
 	"magnet":            instrument.Magnet,
@@ -395,7 +438,7 @@ var validInstrumentTypes = map[string]instrument.Instrument{
 	"discrete":          instrument.Discrete,
 }
 
-func ParseInstrumentType(s string) (instrument.Instrument, error) {
+func ParseInstrumentType(s InstrumentType) (instrument.Instrument, error) {
 	v, ok := validInstrumentTypes[s]
 	if !ok {
 		return 0, fmt.Errorf("unknown instrument type %q", s)
@@ -403,10 +446,30 @@ func ParseInstrumentType(s string) (instrument.Instrument, error) {
 	return v, nil
 }
 
+func (InstrumentType) JSONSchema() *jsonschema.Schema {
+	enum := make([]string, 0, len(validInstrumentTypes))
+
+	for name := range validInstrumentTypes {
+		enum = append(enum, string(name))
+	}
+
+	slices.Sort(enum)
+
+	values := make([]any, len(enum))
+	for i, v := range enum {
+		values[i] = v
+	}
+
+	return &jsonschema.Schema{
+		Type: "string",
+		Enum: values,
+	}
+}
+
 type InstrumentConfig struct {
 	ConfigPath         string                `yaml:"config" json:"config"`
 	PluginPath         string                `yaml:"plugin" json:"plugin"`
-	InstrumentTypeName string                `yaml:"type" json:"type"`
+	InstrumentTypeName InstrumentType        `yaml:"type" json:"type"`
 	InstrumentType     instrument.Instrument `yaml:"-" json:"-"`
 
 	Characteristics []InstrumentCharacteristic `yaml:"characteristics" json:"characteristics"`

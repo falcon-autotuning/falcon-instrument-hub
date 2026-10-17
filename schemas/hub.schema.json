@@ -12,11 +12,47 @@
           "type": "string"
         },
         "reducer": {
-          "type": "string"
+          "$ref": "#/$defs/Reducer"
         }
       },
       "additionalProperties": false,
       "type": "object"
+    },
+    "CharacteristicIdentifier": {
+      "type": "string",
+      "enum": [
+        "ac_amplitude",
+        "current_ramp_slope",
+        "magnet_strength",
+        "max_ac_amplitude",
+        "max_current_ramp_slope",
+        "max_magnet_strength",
+        "max_number_of_samples",
+        "max_sample_rate",
+        "max_sink_frequency",
+        "max_source_current",
+        "max_source_frequency",
+        "max_source_voltage",
+        "max_voltage_ramp_slope",
+        "min_ac_amplitude",
+        "min_current_ramp_slope",
+        "min_magnet_strength",
+        "min_number_of_samples",
+        "min_sample_rate",
+        "min_sink_frequency",
+        "min_source_current",
+        "min_source_frequency",
+        "min_source_voltage",
+        "min_voltage_ramp_slope",
+        "number_of_samples",
+        "sample_rate",
+        "sink_frequency",
+        "source_current",
+        "source_frequency",
+        "source_voltage",
+        "temperature",
+        "voltage_ramp_slope"
+      ]
     },
     "DatabaseConfig": {
       "properties": {
@@ -92,7 +128,7 @@
     "InstrumentCharacteristic": {
       "properties": {
         "identifier": {
-          "type": "string"
+          "$ref": "#/$defs/CharacteristicIdentifier"
         },
         "readCommand": {
           "$ref": "#/$defs/APIParseCharacteristic"
@@ -118,7 +154,7 @@
           "type": "string"
         },
         "type": {
-          "type": "string"
+          "$ref": "#/$defs/InstrumentType"
         },
         "characteristics": {
           "items": {
@@ -160,6 +196,25 @@
         "instruments"
       ]
     },
+    "InstrumentType": {
+      "type": "string",
+      "enum": [
+        "amnmeter",
+        "clock",
+        "current_source",
+        "dc_current_source",
+        "dc_voltage_source",
+        "discrete",
+        "fpga",
+        "hf_current_source",
+        "hf_voltage_source",
+        "lockin",
+        "magnet",
+        "thermometer",
+        "voltage_source",
+        "voltmeter"
+      ]
+    },
     "NatsConfig": {
       "properties": {
         "host": {
@@ -176,6 +231,13 @@
       "required": [
         "host",
         "port"
+      ]
+    },
+    "Reducer": {
+      "type": "string",
+      "enum": [
+        "min",
+        "max"
       ]
     },
     "VoltageState": {
