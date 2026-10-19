@@ -84,19 +84,26 @@ func InstrumentPortFromFalcon(i InstrumentPortReader) (InstrumentPort, error) {
 	if err != nil {
 		return out, err
 	}
-	conn, _ := i.PseudoName()
-	if conn != nil {
-		out.PseudoName, err = ConnectionFromFalcon(conn)
-		defer conn.Close()
-		if err != nil {
-			return out, err
-		}
-	}
-	out.Access, err = i.Access()
+	out.Scope, err = i.Scope()
 	if err != nil {
 		return out, err
 	}
-	out.Scope, err = i.Scope()
+	// Global ports such as ExecutionClock have no device connection.
+	// Reading their pseudo-name would raise a C-API error.
+	if out.Scope == scope.Local {
+		conn, err := i.PseudoName()
+		if err != nil {
+			return out, err
+		}
+		if conn != nil {
+			defer conn.Close()
+			out.PseudoName, err = ConnectionFromFalcon(conn)
+			if err != nil {
+				return out, err
+			}
+		}
+	}
+	out.Access, err = i.Access()
 	if err != nil {
 		return out, err
 	}
