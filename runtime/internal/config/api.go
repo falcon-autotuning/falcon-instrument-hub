@@ -53,7 +53,7 @@ type InstrumentAPI struct {
 // APIInstrument describes the instrument identity within an API file.
 type APIInstrument struct {
 	Vendor      string `yaml:"vendor"`
-	Model       int    `yaml:"model"`
+	Model       string `yaml:"model"`
 	Identifier  string `yaml:"identifier"`
 	Description string `yaml:"description"`
 }
