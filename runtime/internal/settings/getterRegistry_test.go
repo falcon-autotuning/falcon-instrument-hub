@@ -94,6 +94,52 @@ func TestDecodeSingleFloat_WrongUnit(
 	require.Error(t, err)
 }
 
+func TestDecodeSingleFloat_OptionalUnit(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		returned string
+		expected falconcore.Unit
+		want     falconcore.Unit
+		wantErr  bool
+	}{
+		{"infer volts", "V", falconcore.UnspecifiedUnit, falconcore.Volt, false},
+		{"infer unitless", "", falconcore.UnspecifiedUnit, falconcore.Dimensionless, false},
+		{"explicit unitless", "", falconcore.Dimensionless, falconcore.Dimensionless, false},
+		{"unitless rejects volts", "V", falconcore.Dimensionless, 0, true},
+		{"meters reject volts", "V", falconcore.Meter, 0, true},
+		{"unknown symbol rejected", "unknown", falconcore.UnspecifiedUnit, 0, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := decodeSingleFloat(measurementResult(tc.returned, 0.123), tc.expected)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, 0.123, q.Value)
+			assert.Equal(t, tc.want, q.Unit)
+		})
+	}
+}
+
+func TestDecodeSingleInt_OptionalUnit(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		returned string
+		want     falconcore.Unit
+	}{
+		{"infer hertz", "Hz", falconcore.Hertz},
+		{"infer unitless", "", falconcore.Dimensionless},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			q, err := decodeSingleInt(measurementResult(tc.returned, int64(42)), falconcore.UnspecifiedUnit)
+			require.NoError(t, err)
+			assert.Equal(t, 42.0, q.Value)
+			assert.Equal(t, tc.want, q.Unit)
+		})
+	}
+}
+
 func TestDecodeSingleFloat_WrongType(
 	t *testing.T,
 ) {

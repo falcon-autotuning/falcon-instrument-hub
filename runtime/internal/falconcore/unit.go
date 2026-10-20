@@ -8,6 +8,10 @@ import (
 
 type Unit int
 
+// UnspecifiedUnit is used when decoding a value without an expected unit.
+// It is not a physical unit and must not be serialized as a SymbolUnit.
+const UnspecifiedUnit Unit = -1
+
 const (
 	Meter Unit = iota
 	Kilogram

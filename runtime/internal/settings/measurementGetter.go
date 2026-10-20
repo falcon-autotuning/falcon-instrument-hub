@@ -151,8 +151,13 @@ func (g *MeasurementCharacteristicGetter) Get(
 			)
 	}
 
+	expectedUnit := resolvedPort.Unit
+	if resolvedPort.UnitUnspecified {
+		expectedUnit = falconcore.UnspecifiedUnit
+	}
+
 	return def.Decode(
 		results[0],
-		port.Unit,
+		expectedUnit,
 	)
 }

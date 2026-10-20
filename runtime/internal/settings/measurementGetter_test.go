@@ -37,6 +37,28 @@ func (m *mockRunner) RunAll(
 
 var _ settingrouter.MeasurementRunner = (*mockRunner)(nil)
 
+func TestGet_UnspecifiedCatalogUnit(t *testing.T) {
+	connected := testConnectedPort()
+	connected.Unit = falconcore.Dimensionless
+	connected.UnitUnspecified = true
+	port := testPort()
+	port.Unit = connected.Unit
+	runner := &mockRunner{
+		results: []dispatcher.MeasurementResult{measurementResult("V", 0.123)},
+	}
+
+	q, err := NewMeasurementCharacteristicGetter().Get(
+		port,
+		runner,
+		&config.ConnectedPorts{AllConnections: []config.ConnectedPort{connected}},
+		testMetadata(),
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0.123, q.Value)
+	assert.Equal(t, falconcore.Volt, q.Unit)
+}
+
 func testPort() falconcore.InstrumentPort {
 	return falconcore.InstrumentPort{
 		DefaultName:    "P1",

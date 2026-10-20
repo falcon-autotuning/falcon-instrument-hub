@@ -45,7 +45,7 @@ func decodeSingleFloat(
 				continue
 			}
 
-			if returnUnit != unit {
+			if unit != falconcore.UnspecifiedUnit && returnUnit != unit {
 				continue
 			}
 
@@ -54,13 +54,13 @@ func decodeSingleFloat(
 			case float64:
 				return falconcore.Quantity{
 					Value: value,
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case float32:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			}
@@ -69,7 +69,7 @@ func decodeSingleFloat(
 
 	return falconcore.Quantity{},
 		fmt.Errorf(
-			"no numeric value found with unit %v+",
+			"no numeric value found matching expected unit %v",
 			unit,
 		)
 }
@@ -97,7 +97,7 @@ func decodeSingleInt(
 				continue
 			}
 
-			if returnUnit != unit {
+			if unit != falconcore.UnspecifiedUnit && returnUnit != unit {
 				continue
 			}
 
@@ -106,61 +106,61 @@ func decodeSingleInt(
 			case int:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case int8:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case int16:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case int32:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case int64:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case uint:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case uint8:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case uint16:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case uint32:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 
 			case uint64:
 				return falconcore.Quantity{
 					Value: float64(value),
-					Unit:  unit,
+					Unit:  returnUnit,
 				}, nil
 			}
 		}
@@ -168,7 +168,7 @@ func decodeSingleInt(
 
 	return falconcore.Quantity{},
 		fmt.Errorf(
-			"no numeric value found with unit %v+",
+			"no numeric value found matching expected unit %v",
 			unit,
 		)
 }

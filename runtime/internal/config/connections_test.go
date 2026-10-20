@@ -1259,6 +1259,8 @@ api_ref: %s
 
 	assert.Equal(t, porttype.PortTypeSetting, timebase.Role)
 	assert.Equal(t, access.Readwrite, timebase.Access)
+	assert.False(t, timebase.UnitUnspecified)
+	assert.Equal(t, falconcore.Second, timebase.Unit)
 
 	trigger, ok := lib["Scope1.ext_trigger"]
 	require.True(t, ok)
@@ -1277,6 +1279,8 @@ api_ref: %s
 
 	assert.Equal(t, scope.Local, sampleRate1.Scope)
 	assert.Equal(t, access.Readwrite, sampleRate1.Access)
+	assert.True(t, sampleRate1.UnitUnspecified)
+	assert.Equal(t, falconcore.Dimensionless, sampleRate1.Unit)
 
 	sampleRate4, ok := lib["Scope1.characteristic.analog.4.sample_rate"]
 	require.True(t, ok)
