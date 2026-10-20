@@ -35,7 +35,7 @@ func TestCartesianCanHandle(t *testing.T) {
 			req.Getters[0].DefaultName = "missing"
 		}, false},
 		{"unknown setter", func(req *MeasurementRequest) {
-			req.Waveforms[0].Space.Axes[0][0].InstrumentPort.DefaultName = "missing"
+			req.Waveforms[0].Space.Axes[0][0].DefaultName = "missing"
 		}, false},
 	}
 
@@ -150,6 +150,7 @@ func TestCartesianHandleEncodesSweepAndDecodesReadings(t *testing.T) {
 	ports.Settings = append(ports.Settings, sampleSetting)
 	ports.AllConnections = append(ports.AllConnections, sampleSetting)
 	samplePort := InstrumentPortFromConnectedPort(sampleSetting)
+	settingPort := InstrumentPortFromConnectedPort(ports.Settings[0])
 
 	runner := &handlerTestRunner{
 		registryTestRunner: &registryTestRunner{
@@ -184,7 +185,8 @@ func TestCartesianHandleEncodesSweepAndDecodesReadings(t *testing.T) {
 			}, nil
 		case "capture-source-voltages":
 			require.Len(t, runner.requests, 1)
-			assert.Empty(t, req.Getters)
+			assert.NotEmpty(t, req.Getters)
+			assert.Equal(t, falconcore.Ports{settingPort}, req.Getters)
 		default:
 			t.Fatalf("unexpected settings query: %q", req.Message)
 		}
@@ -208,7 +210,7 @@ func TestCartesianHandleEncodesSweepAndDecodesReadings(t *testing.T) {
 	require.Len(t, response.Arrays, 1)
 	assert.Equal(t, []float64{3, 12}, response.Arrays[0].Data)
 	assert.Equal(t, []int{2}, response.Arrays[0].Shape)
-	assert.Equal(t, falconcore.ConnectionName("O1"), response.Arrays[0].Connection.Name)
+	assert.Equal(t, falconcore.ConnectionName("O1"), response.Arrays[0].Name)
 	assert.Equal(t, falconcore.Ampere, response.Arrays[0].Unit)
 	assert.Equal(t, 1, recorder.Writes())
 	assert.Equal(t, response.Arrays, recorder.entry.Ranges)
@@ -252,6 +254,7 @@ func newHandlerTestFixture(t *testing.T, script string, ports *config.ConnectedP
 	}
 	f.handler = NewCartesianMeasurementHandler(handlerSettingsReader(func(req falconcore.SettingRequest) (falconcore.SettingResponse, error) {
 		f.queries = append(f.queries, req.Message)
+		expected := sourceVoltagePorts(ports)
 		switch req.Message {
 		case "capture-number-of-samples":
 			require.NotEmpty(t, counts, "Dim0-only execution should not query sample counts")
@@ -262,7 +265,12 @@ func newHandlerTestFixture(t *testing.T, script string, ports *config.ConnectedP
 			}
 			return falconcore.SettingResponse{Getters: samples}, nil
 		case "capture-source-voltages":
-			assert.Empty(t, req.Getters)
+			if len(expected) > 0 {
+				assert.NotEmpty(t, req.Getters)
+				assert.Equal(t, falconcore.Ports(expected), req.Getters)
+			} else {
+				assert.Empty(t, req.Getters)
+			}
 		default:
 			t.Fatalf("unexpected settings query: %q", req.Message)
 		}
@@ -380,7 +388,7 @@ func TestCartesianHandleDifferentGetterSampleCounts(t *testing.T) {
 	require.Len(t, response.Arrays, 2)
 	arrays := make(map[falconcore.ConnectionName]falconcore.LabelledMeasuredArray)
 	for _, array := range response.Arrays {
-		arrays[array.Connection.Name] = array
+		arrays[array.Name] = array
 		assert.Equal(t, []int{2}, array.Shape)
 	}
 	assert.Equal(t, []float64{3, 12}, arrays["O1"].Data)
@@ -461,6 +469,7 @@ func TestCartesianHandleUpdatesSourceVoltageState(t *testing.T) {
 	ports.Knobs[0].Characteristic = instrumentcharacteristic.InstrumentCharacteristicSourceVoltage
 	ports.AllConnections[1] = ports.Knobs[0]
 	sourcePort := InstrumentPortFromConnectedPort(ports.Knobs[0])
+	settingPort := InstrumentPortFromConnectedPort(ports.Settings[0])
 	req.Waveforms[0].Space.Axes[0][0].InstrumentPort = sourcePort
 	f := newHandlerTestFixture(t, "measure_1D_buffered", ports, 1)
 	f.runner.bufferConsumer["meter"] = []float64{3, 12}
@@ -474,7 +483,8 @@ func TestCartesianHandleUpdatesSourceVoltageState(t *testing.T) {
 			return settings.Handle(req)
 		}
 		require.Len(t, f.runner.requests, 1, "read voltages after acquisition")
-		assert.Equal(t, falconcore.Ports{sourcePort}, req.Getters)
+		assert.NotEqual(t, falconcore.Ports{sourcePort}, req.Getters)
+		assert.Equal(t, falconcore.Ports{settingPort}, req.Getters)
 		return falconcore.SettingResponse{Getters: map[falconcore.InstrumentPort]falconcore.Quantity{
 			sourcePort: voltage,
 		}}, nil

@@ -137,7 +137,7 @@ func TestSourceVoltagePorts_FiltersCorrectly(t *testing.T) {
 			Scope:          scope.Global,
 			Characteristic: instrumentcharacteristic.
 				InstrumentCharacteristicSourceVoltage,
-			Role: porttype.PortTypeKnob,
+			Role: porttype.PortTypeSetting,
 		},
 		Handle: falconcore.Connection{
 			Name: "P1",
@@ -165,9 +165,16 @@ func TestSourceVoltagePorts_FiltersCorrectly(t *testing.T) {
 	}
 
 	ports := &config.ConnectedPorts{
-		Knobs: []config.ConnectedPort{
+		AllConnections: []config.ConnectedPort{
 			source,
 			notSource,
+		},
+		Knobs: []config.ConnectedPort{},
+		Meters: []config.ConnectedPort{
+			notSource,
+		},
+		Settings: []config.ConnectedPort{
+			source,
 		},
 	}
 
@@ -201,7 +208,7 @@ func TestCartesianMeasurementHandler_ReadSourceVoltages(t *testing.T) {
 	}
 
 	ports := &config.ConnectedPorts{
-		Knobs: []config.ConnectedPort{
+		Settings: []config.ConnectedPort{
 			{
 				PortName: "gate1",
 				PortEntry: config.PortEntry{
