@@ -16,8 +16,8 @@ import (
 
 const (
 	handlerName                = "DEVICE_STATE_HANDLER"
-	deviceStateRequestSubject  = "INSTRUMENTHUB.DEVICE_STATE_REQUEST"
-	deviceStateResponseSubject = "FALCON.DEVICE_STATE_RESPONSE"
+	deviceStateRequestSubject  = "INSTRUMENTHUB.STATE_REQUEST"
+	deviceStateResponseSubject = "FALCON.STATE_RESPONSE"
 )
 
 // Handler handles INSTRUMENTHUB.DEVICE_STATE_REQUEST messages.
