@@ -404,16 +404,41 @@ func valid1DConnectedPorts() *config.ConnectedPorts {
 		},
 	}
 
+	settings := config.ConnectedPort{
+		PortEntry: config.PortEntry{
+			InstrumentName: "DAC1",
+			ChannelGroup:   "analog",
+			Channel:        1,
+			InstrumentType: instrument.VoltageSource,
+			Role:           porttype.PortTypeSetting,
+			Access:         access.Readwrite,
+			Scope:          scope.Local,
+			Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceVoltage,
+			Unit:           falconcore.Volt,
+			Description:    "test characteristic",
+		},
+		DeviceName: "P1",
+		PortName:   "other-again-long-name",
+		Handle: falconcore.Connection{
+			Name: "P1",
+			Type: falconcore.PlungerGate,
+		},
+	}
+
 	return &config.ConnectedPorts{
 		AllConnections: []config.ConnectedPort{
 			meter,
 			knob,
+			settings,
 		},
 		Meters: []config.ConnectedPort{
 			meter,
 		},
 		Knobs: []config.ConnectedPort{
 			knob,
+		},
+		Settings: []config.ConnectedPort{
+			settings,
 		},
 	}
 }
