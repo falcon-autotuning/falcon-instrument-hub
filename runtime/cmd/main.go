@@ -264,6 +264,8 @@ func BuildInstrumentMetadata(
 			instrument.ConfigFile.Name,
 		)] = settingrouter.InstrumentMetadata{
 			Characteristics: instrument.Characteristics,
+			ConfigFile:      instrument.ConfigFile,
+			API:             instrument.API,
 		}
 	}
 

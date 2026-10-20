@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -216,9 +217,13 @@ func (d *scriptDispatcher) ScriptPath(
 		)
 	}
 
+	if !strings.HasSuffix(scriptName, ".lua") {
+		scriptName += ".lua"
+	}
+
 	path := filepath.Join(
 		d.scriptsPath,
-		scriptName+".lua",
+		scriptName,
 	)
 
 	info, err := os.Stat(path)
