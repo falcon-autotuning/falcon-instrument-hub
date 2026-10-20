@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/access"
 	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/instrumentport"
 	falconports "github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/ports"
+	"github.com/falcon-autotuning/falcon-core-libs/go/falcon-core/instrument-interfaces/names/scope"
 	"github.com/nats-io/nats.go"
 
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/api"
@@ -188,8 +190,10 @@ func serializePortsToCerealJSON(connectedPorts []config.ConnectedPort) (string, 
 		var h *instrumentport.Handle
 		if cp.IsKnob() {
 			h, err = instrumentport.NewKnob(string(cp.PortName), cp.InstrumentName, realconn, cp.InstrumentType, unit, cp.Description)
-		} else {
+		} else if cp.IsMeter() {
 			h, err = instrumentport.NewMeter(string(cp.PortName), cp.InstrumentName, realconn, cp.InstrumentType, unit, cp.Description)
+		} else {
+			h, err = instrumentport.NewSetting(string(cp.PortName), cp.InstrumentName, scope.Scope(cp.Scope), access.Access(cp.Access), cp.Characteristic, realconn, cp.InstrumentType, unit, cp.Description)
 		}
 		if err != nil {
 			return "", fmt.Errorf("failed to create instrument port for %s: %w", cp.PortName, err)
