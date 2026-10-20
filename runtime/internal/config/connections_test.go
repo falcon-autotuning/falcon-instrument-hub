@@ -1451,3 +1451,237 @@ io_config:
 		port.Unit,
 	)
 }
+
+func TestGetUnitMatchingCharacteristic_BaseCharacteristic(t *testing.T) {
+	unit, err := getUnitMatchingCharacteristic(
+		InstrumentCharacteristic{
+			Identifier:     "source_voltage",
+			Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceVoltage,
+		},
+		&InstrumentAPI{},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, falconcore.Volt, unit)
+}
+
+func TestGetUnitMatchingCharacteristic_MaxCharacteristic(t *testing.T) {
+	unit, err := getUnitMatchingCharacteristic(
+		InstrumentCharacteristic{
+			Identifier: "max_source_voltage",
+			Characteristic: instrumentcharacteristic.
+				InstrumentCharacteristicMaxSourceVoltage,
+			ReadCommand: APIParseCharacteristic{
+				ParameterName: "source_voltage",
+				Reducer:       ReducerMax,
+			},
+		},
+		&InstrumentAPI{
+			IO: []IoType{
+				{
+					Name: "source_voltage",
+					Unit: "V",
+					Max:  "10",
+				},
+			},
+		},
+	)
+
+	require.NoError(t, err)
+	assert.Equal(t, falconcore.Volt, unit)
+}
+
+func TestGetUnitMatchingCharacteristic_CurrentRampSlopeUnsupported(
+	t *testing.T,
+) {
+	_, err := getUnitMatchingCharacteristic(
+		InstrumentCharacteristic{
+			Identifier: "current_ramp_slope",
+			Characteristic: instrumentcharacteristic.
+				InstrumentCharacteristicCurrentRampSlope,
+		},
+		&InstrumentAPI{},
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not currently supported")
+}
+
+func TestGetUnitMatchingCharacteristic_UnknownParameter(
+	t *testing.T,
+) {
+	_, err := getUnitMatchingCharacteristic(
+		InstrumentCharacteristic{
+			Identifier: "max_source_voltage",
+			Characteristic: instrumentcharacteristic.
+				InstrumentCharacteristicMaxSourceVoltage,
+			ReadCommand: APIParseCharacteristic{
+				ParameterName: "missing",
+			},
+		},
+		&InstrumentAPI{},
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to find API parameter")
+}
+
+func TestBuildPortLibrary_CharacteristicUnitFromParameter(
+	t *testing.T,
+) {
+	tmpDir := t.TempDir()
+
+	apiPath := filepath.Join(tmpDir, "api.yaml")
+	cfgPath := filepath.Join(tmpDir, "instrument.yaml")
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			apiPath,
+			[]byte(`
+api_version: 1.0.0
+
+instrument:
+  vendor: Mock
+  model: 1
+  identifier: Mock1
+
+protocol:
+  type: VISA
+
+io:
+  - name: source_voltage
+    role: setting
+    unit: mV
+    max: "1000"
+`),
+			0o600,
+		),
+	)
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			cfgPath,
+			[]byte(fmt.Sprintf(`
+name: Source1
+api_ref: %s
+`, filepath.Base(apiPath))),
+			0o600,
+		),
+	)
+
+	lib, err := BuildPortLibrary(
+		[]InstrumentConfig{
+			{
+				ConfigPath:     cfgPath,
+				InstrumentType: instrument.DcVoltageSource,
+				Characteristics: []InstrumentCharacteristic{
+					{
+						Identifier: "max_source_voltage",
+						Characteristic: instrumentcharacteristic.
+							InstrumentCharacteristicMaxSourceVoltage,
+						ReadCommand: APIParseCharacteristic{
+							ParameterName: "source_voltage",
+							Reducer:       ReducerMax,
+						},
+					},
+				},
+			},
+		},
+	)
+
+	require.NoError(t, err)
+
+	port, ok := lib["Source1.characteristic.max_source_voltage"]
+	require.True(t, ok)
+
+	assert.Equal(
+		t,
+		instrumentcharacteristic.InstrumentCharacteristicMaxSourceVoltage,
+		port.Characteristic,
+	)
+
+	assert.Equal(
+		t,
+		falconcore.Millivolt,
+		port.Unit,
+	)
+
+	assert.Equal(
+		t,
+		porttype.PortTypeSetting,
+		port.Role,
+	)
+
+	assert.Equal(
+		t,
+		scope.Global,
+		port.Scope,
+	)
+}
+
+func TestBuildPortLibrary_CharacteristicUnitMissingParameter(
+	t *testing.T,
+) {
+	tmpDir := t.TempDir()
+
+	apiPath := filepath.Join(tmpDir, "api.yaml")
+	cfgPath := filepath.Join(tmpDir, "instrument.yaml")
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			apiPath,
+			[]byte(`
+api_version: 1.0.0
+
+instrument:
+  vendor: Mock
+  model: 1
+  identifier: Mock1
+
+protocol:
+  type: VISA
+
+io: []
+`),
+			0o600,
+		),
+	)
+
+	require.NoError(
+		t,
+		os.WriteFile(
+			cfgPath,
+			[]byte(fmt.Sprintf(`
+name: Source1
+api_ref: %s
+`, filepath.Base(apiPath))),
+			0o600,
+		),
+	)
+
+	_, err := BuildPortLibrary(
+		[]InstrumentConfig{
+			{
+				ConfigPath:     cfgPath,
+				InstrumentType: instrument.DcVoltageSource,
+				Characteristics: []InstrumentCharacteristic{
+					{
+						Identifier: "max_source_voltage",
+						Characteristic: instrumentcharacteristic.
+							InstrumentCharacteristicMaxSourceVoltage,
+						ReadCommand: APIParseCharacteristic{
+							ParameterName: "missing",
+							Reducer:       ReducerMax,
+						},
+					},
+				},
+			},
+		},
+	)
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unable to find API parameter")
+}

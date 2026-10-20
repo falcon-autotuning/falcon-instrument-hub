@@ -353,6 +353,75 @@ func findChannelGroup(
 	)
 }
 
+var characteristicTypes = map[instrumentcharacteristic.InstrumentCharacteristic]falconcore.Unit{
+	instrumentcharacteristic.InstrumentCharacteristicSampleRate:       falconcore.Hertz,
+	instrumentcharacteristic.InstrumentCharacteristicSourceVoltage:    falconcore.Volt,
+	instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope: falconcore.VoltsPerSecond,
+	instrumentcharacteristic.InstrumentCharacteristicSourceCurrent:    falconcore.Ampere,
+	// instrumentcharacteristic.InstrumentCharacteristicCurrentRampSlope: falconcore.AmperesPerSec,  NOTE: We don't currently support this unit
+	instrumentcharacteristic.InstrumentCharacteristicSourceFrequency: falconcore.Hertz,
+	instrumentcharacteristic.InstrumentCharacteristicSinkFrequency:   falconcore.Hertz,
+	instrumentcharacteristic.InstrumentCharacteristicAcAmplitude:     falconcore.Volt,
+	instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples: falconcore.Dimensionless,
+	instrumentcharacteristic.InstrumentCharacteristicTemperature:     falconcore.Kelvin,
+	instrumentcharacteristic.InstrumentCharacteristicMagnetStrength:  falconcore.Tesla,
+}
+
+func getUnitMatchingCharacteristic(
+	char InstrumentCharacteristic,
+	api *InstrumentAPI,
+) (falconcore.Unit, error) {
+	// Directly supported base characteristics.
+	if unit, ok := characteristicTypes[char.Characteristic]; ok {
+		return unit, nil
+	}
+
+	// Current ramp slope is intentionally unsupported.
+	switch char.Characteristic {
+	case instrumentcharacteristic.InstrumentCharacteristicCurrentRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMaxCurrentRampSlope,
+		instrumentcharacteristic.InstrumentCharacteristicMinCurrentRampSlope:
+		return falconcore.Dimensionless, fmt.Errorf(
+			"characteristic %q uses current ramp slope units which are not currently supported",
+			char.Identifier,
+		)
+	}
+
+	// For min/max characteristics, derive the unit from the backing API parameter.
+	parameterName := char.ReadCommand.ParameterName
+	if parameterName == "" {
+		parameterName = char.WriteCommand.ParameterName
+	}
+
+	if parameterName == "" {
+		return falconcore.Dimensionless, fmt.Errorf(
+			"characteristic %q does not reference an API parameter",
+			char.Identifier,
+		)
+	}
+
+	param, ok := findParameter(api, parameterName)
+	if !ok {
+		return falconcore.Dimensionless, fmt.Errorf(
+			"unable to find API parameter %q for characteristic %q",
+			parameterName,
+			char.Identifier,
+		)
+	}
+
+	unit, err := falconcore.SymbolToUnit(param.Unit)
+	if err != nil {
+		return falconcore.Dimensionless, fmt.Errorf(
+			"parameter %q unit %q: %w",
+			parameterName,
+			param.Unit,
+			err,
+		)
+	}
+
+	return unit, nil
+}
+
 // BuildPortLibrary expands each channel-group IO definition in the parsed
 // instrument APIs into one PortEntry per channel.
 func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
@@ -481,6 +550,16 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 			portAccess := characteristicAccess(
 				characteristic,
 			)
+			// Begin defining the parts to build up characteristic ports
+			instrumentName := config.Name
+			instrumentType := instrument.InstrumentType
+			role := porttype.PortTypeSetting
+			access := portAccess
+			characteristicType := characteristic.Characteristic
+			unit, err := getUnitMatchingCharacteristic(characteristic, api)
+			if err != nil {
+				return nil, err
+			}
 
 			if scopeType == scope.Global {
 				name := PortName(fmt.Sprintf(
@@ -493,12 +572,13 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 					library,
 					name,
 					PortEntry{
-						InstrumentName: config.Name,
-						InstrumentType: instrument.InstrumentType,
-						Role:           porttype.PortTypeSetting,
-						Access:         portAccess,
+						InstrumentName: instrumentName,
+						InstrumentType: instrumentType,
+						Role:           role,
+						Access:         access,
 						Scope:          scope.Global,
-						Characteristic: characteristic.Characteristic,
+						Characteristic: characteristicType,
+						Unit:           unit,
 					},
 				)
 				if err != nil {
@@ -530,14 +610,15 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 					library,
 					name,
 					PortEntry{
-						InstrumentName: config.Name,
-						InstrumentType: instrument.InstrumentType,
+						InstrumentName: instrumentName,
+						InstrumentType: instrumentType,
 						ChannelGroup:   channelGroup,
 						Channel:        channel,
-						Role:           porttype.PortTypeSetting,
+						Role:           role,
 						Access:         portAccess,
 						Scope:          scope.Local,
-						Characteristic: characteristic.Characteristic,
+						Characteristic: characteristicType,
+						Unit:           unit,
 					},
 				)
 				if err != nil {
