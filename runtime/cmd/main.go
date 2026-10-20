@@ -140,9 +140,10 @@ func InitializeRuntimeEnvironment(cfg *config.HubConfig) error {
 		cfg.RuntimePaths.DataCache = cfg.Database.LocalCache
 	} else {
 		cfg.RuntimePaths.DataCache = path.Join(cfg.WorkingDirectory, DataCacheDir)
-	}
-	if err := os.MkdirAll(cfg.RuntimePaths.DataCache, 0755); err != nil {
-		return fmt.Errorf("failed to create datacache directory: %w", err)
+
+		if err := os.MkdirAll(cfg.RuntimePaths.DataCache, 0755); err != nil {
+			return fmt.Errorf("failed to create datacache directory: %w", err)
+		}
 	}
 	log.Printf(
 		"checked %s, %s, and %s directories",

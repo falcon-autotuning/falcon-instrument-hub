@@ -66,6 +66,14 @@ func Open(
 		return nil, err
 	}
 
+	if info, err := os.Stat(absCatalog); err == nil && info.IsDir() {
+		absCatalog = filepath.Join(absCatalog, "measurement.db")
+	}
+
+	if err := os.MkdirAll(filepath.Dir(absCatalog), 0755); err != nil {
+		return nil, err
+	}
+
 	db, err := sql.Open("sqlite3", absCatalog)
 	if err != nil {
 		return nil, err

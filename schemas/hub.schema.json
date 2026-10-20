@@ -57,13 +57,16 @@
     "DatabaseConfig": {
       "properties": {
         "local-database": {
-          "type": "string"
+          "type": "string",
+          "description": "This is the root of the HDF5 measurement database"
         },
         "local-cache": {
-          "type": "string"
+          "type": "string",
+          "description": "If not empty this is the absolute path to teh database"
         },
         "owner": {
-          "type": "string"
+          "type": "string",
+          "description": "This is the name of the user working with falcon to take measurements"
         }
       },
       "additionalProperties": false,
