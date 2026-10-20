@@ -176,73 +176,73 @@ func decodeSingleInt(
 var getterCharacteristicDefinitions = map[instrumentcharacteristic.InstrumentCharacteristic]CharacteristicDefinition{
 	instrumentcharacteristic.InstrumentCharacteristicSampleRate: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSampleRate,
-		Script:         "get_sample_rate.lua",
+		Script:         "get_sample_rate",
 		Decode:         decodeSingleFloat,
 	},
 
 	instrumentcharacteristic.InstrumentCharacteristicSourceVoltage: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceVoltage,
-		Script:         "get_source_voltage.lua",
+		Script:         "get_source_voltage",
 		Decode:         decodeSingleFloat,
 	},
 
 	instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicVoltageRampSlope,
-		Script:         "get_slope.lua",
+		Script:         "get_slope",
 		Decode:         decodeSingleFloat,
 	},
 
 	instrumentcharacteristic.InstrumentCharacteristicSourceCurrent: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceCurrent,
-		Script:         "get_source_current.lua",
+		Script:         "get_source_current",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicCurrentRampSlope: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicCurrentRampSlope,
-		Script:         "get_current_ramp_slope.lua",
+		Script:         "get_current_ramp_slope",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicSourceFrequency: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSourceFrequency,
-		Script:         "get_source_frequency.lua",
+		Script:         "get_source_frequency",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicSinkFrequency: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicSinkFrequency,
-		Script:         "get_sink_frequency.lua",
+		Script:         "get_sink_frequency",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicAcAmplitude: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicAcAmplitude,
-		Script:         "get_ac_amplitude.lua",
+		Script:         "get_ac_amplitude",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicTemperature: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicTemperature,
-		Script:         "get_temperature.lua",
+		Script:         "get_temperature",
 		Decode:         decodeSingleFloat,
 	},
 
 	// NOTE: Script not fully implemented yet
 	instrumentcharacteristic.InstrumentCharacteristicMagnetStrength: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicMagnetStrength,
-		Script:         "get_magnet_strength.lua",
+		Script:         "get_magnet_strength",
 		Decode:         decodeSingleFloat,
 	},
 
 	instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples: {
 		Characteristic: instrumentcharacteristic.InstrumentCharacteristicNumberOfSamples,
-		Script:         "get_number_of_samples.lua",
+		Script:         "get_number_of_samples",
 		Decode:         decodeSingleInt,
 	},
 }
