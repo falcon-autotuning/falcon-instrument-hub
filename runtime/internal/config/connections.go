@@ -24,10 +24,7 @@ type PortEntry struct {
 	Scope          scope.Scope
 	Characteristic instrumentcharacteristic.InstrumentCharacteristic
 	Unit           falconcore.Unit
-	// UnitUnspecified distinguishes absent unit metadata from a declared unit.
-	// Unit is a dimensionless placeholder for serialization when this is true.
-	UnitUnspecified bool
-	Description     string
+	Description    string
 }
 
 // IsKnob reports whether this port is an output (controllable by falcon).
@@ -496,14 +493,12 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 					library,
 					name,
 					PortEntry{
-						InstrumentName:  config.Name,
-						InstrumentType:  instrument.InstrumentType,
-						Role:            porttype.PortTypeSetting,
-						Access:          portAccess,
-						Scope:           scope.Global,
-						Characteristic:  characteristic.Characteristic,
-						Unit:            falconcore.Dimensionless,
-						UnitUnspecified: true,
+						InstrumentName: config.Name,
+						InstrumentType: instrument.InstrumentType,
+						Role:           porttype.PortTypeSetting,
+						Access:         portAccess,
+						Scope:          scope.Global,
+						Characteristic: characteristic.Characteristic,
 					},
 				)
 				if err != nil {
@@ -535,16 +530,14 @@ func BuildPortLibrary(instruments []InstrumentConfig) (PortLibrary, error) {
 					library,
 					name,
 					PortEntry{
-						InstrumentName:  config.Name,
-						InstrumentType:  instrument.InstrumentType,
-						ChannelGroup:    channelGroup,
-						Channel:         channel,
-						Role:            porttype.PortTypeSetting,
-						Access:          portAccess,
-						Scope:           scope.Local,
-						Characteristic:  characteristic.Characteristic,
-						Unit:            falconcore.Dimensionless,
-						UnitUnspecified: true,
+						InstrumentName: config.Name,
+						InstrumentType: instrument.InstrumentType,
+						ChannelGroup:   channelGroup,
+						Channel:        channel,
+						Role:           porttype.PortTypeSetting,
+						Access:         portAccess,
+						Scope:          scope.Local,
+						Characteristic: characteristic.Characteristic,
 					},
 				)
 				if err != nil {
