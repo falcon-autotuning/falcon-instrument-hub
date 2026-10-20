@@ -575,10 +575,12 @@ func (s *InstrumentServerConfig) Validate() error {
 }
 
 type DatabaseConfig struct {
+	// This is the root of the HDF5 measurement database
 	LocalDatabase string `yaml:"local-database" json:"local-database"`
-	LocalCache    string `yaml:"local-cache" json:"local-cache"`
-	OwnerName     string `yaml:"owner" json:"owner"`
-	CatalogFile   string `yaml:"catalog-file" json:"catalog-file"`
+	// This is the full path to the LocalCache which is a DQL database built on the hdf5
+	LocalCache string `yaml:"local-cache" json:"local-cache"`
+	// This is the name of the user working with falcon to take measurements
+	OwnerName string `yaml:"owner" json:"owner"`
 }
 
 func (d DatabaseConfig) Validate() error {
