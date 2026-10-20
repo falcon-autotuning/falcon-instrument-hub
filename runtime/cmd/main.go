@@ -539,7 +539,7 @@ func NewRunHub(
 		}
 
 		if err := measurementdb.Startup(
-			cfg.RuntimePaths.DataCache,
+			cfg.Database.CatalogFile,
 			cfg.RuntimePaths.Data,
 			cfg.Database.OwnerName,
 		); err != nil {
