@@ -8,6 +8,7 @@ import (
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/databuffer"
 	dispatcherpkg "github.com/falcon-autotuning/instrument-server/runtime/internal/dispatcher"
 	deviceconfighandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/device_config"
+	devicestatehandlers "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/devicestate"
 	measure "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/measure"
 	setting "github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/setting"
 	"github.com/falcon-autotuning/instrument-server/runtime/internal/handlers/settingguard"
@@ -33,6 +34,7 @@ type Manager struct {
 	logger                *logging.Logger
 	nc                    *nats.Conn
 	deviceConfigHandler   *deviceconfighandlers.Handler
+	deviceStateHandler    *devicestatehandlers.Handler
 	measureCommandHandler *measure.Handler
 	settingCommandHandler *setting.Handler
 	statusHandler         *StatusHandler
@@ -60,7 +62,8 @@ func NewManager(
 			logger,
 			ports,
 		),
-		statusHandler: NewStatusHandler(logger),
+		statusHandler:      NewStatusHandler(logger),
+		deviceStateHandler: devicestatehandlers.NewHandler(logger),
 	}
 	// NOTE: This settingguard is used to block writes when measurements are occuring.
 	// This is to allow measurements to query settings without fear of overwriting
@@ -202,6 +205,11 @@ func (m *Manager) getHandlerOperations(includeStatus bool) []handlerOperation {
 			name:    "device config handler",
 			startOp: func() error { return m.deviceConfigHandler.Subscribe(m.nc) },
 			stopOp:  func() error { return m.deviceConfigHandler.Unsubscribe() },
+		},
+		{
+			name:    "device state handler",
+			startOp: func() error { return m.deviceStateHandler.Subscribe(m.nc) },
+			stopOp:  func() error { return m.deviceStateHandler.Unsubscribe() },
 		},
 		{
 			name:    "measure command handler",

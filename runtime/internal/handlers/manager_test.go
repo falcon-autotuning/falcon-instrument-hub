@@ -23,6 +23,7 @@ func TestManagerOperations(t *testing.T) {
 
 		expected := []string{
 			"device config handler",
+			"device state handler",
 			"measure command handler",
 			"port request handler",
 			"setting command handler",
