@@ -37,15 +37,15 @@ func sourceVoltagePorts(
 ) []falconcore.InstrumentPort {
 	var out []falconcore.InstrumentPort
 
-	for _, knob := range ports.Knobs {
-		if knob.Characteristic ==
+	for _, setting := range ports.Settings {
+		if setting.Characteristic ==
 			instrumentcharacteristic.
 				InstrumentCharacteristicSourceVoltage {
 
 			out = append(
 				out,
 				InstrumentPortFromConnectedPort(
-					knob,
+					setting,
 				),
 			)
 		}

@@ -227,7 +227,11 @@ func (h *CartesianMeasurementHandler) Handle(
 		return MeasurementResponse{}, err
 	}
 	for port, value := range voltages {
-		tracker.UpdatePort(port.PseudoName.Name, value)
+		if err := tracker.UpdatePort(port.PseudoName.Name, value); err != nil {
+			return MeasurementResponse{}, fmt.Errorf(
+				"update device state for %q: %w", port.PseudoName.Name, err,
+			)
+		}
 	}
 
 	for target, rawdata := range output.Getters {
