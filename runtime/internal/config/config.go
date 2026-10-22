@@ -578,7 +578,6 @@ type DatabaseConfig struct {
 	LocalDatabase string `yaml:"local-database" json:"local-database"`
 	LocalCache    string `yaml:"local-cache" json:"local-cache"`
 	OwnerName     string `yaml:"owner" json:"owner"`
-	CatalogFile   string `yaml:"catalog-file" json:"catalog-file"`
 }
 
 func (d DatabaseConfig) Validate() error {
