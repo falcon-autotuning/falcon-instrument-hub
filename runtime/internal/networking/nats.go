@@ -85,6 +85,8 @@ func startEmbeddedNATS(host string, port int) (*server.Server, *nats.Conn, strin
 		Port:      port,
 		JetStream: true,
 		StoreDir:  storeDir,
+		// Let the hub handle signals and drain database writes before exiting.
+		NoSigs: true,
 	}
 
 	// Start the server
