@@ -67,7 +67,7 @@ func Open(
 	}
 
 	if info, err := os.Stat(absCatalog); err == nil && info.IsDir() {
-		absCatalog = filepath.Join(absCatalog, "measurements.db")
+		absCatalog = filepath.Join(absCatalog, "measurement.db")
 	}
 
 	db, err := sql.Open("sqlite3", absCatalog)
